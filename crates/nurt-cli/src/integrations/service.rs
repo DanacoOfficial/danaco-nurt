@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-cli::integrations::service
-// Responsibility:   The `service` subcommand: the background service of the journal and the.
+// Responsibility:   The `service` subcommand: the background service of the journal and the schedules.
 // Dependencies:     nurt_contracts, nurt_core, nurt_service, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

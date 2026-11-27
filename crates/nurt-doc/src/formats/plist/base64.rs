@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::plist::base64
-// Responsibility:   Base64 of `data` elements in XML property lists (RFC 4648, standard.
+// Responsibility:   Base64 of `data` elements in XML property lists (RFC 4648, standard alphabet with padding).
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::write
-// Responsibility:   `write`: text, bytes or records written to one file, or a batch of files.
+// Responsibility:   `write`: text, bytes or records written to one file, or a batch of files written in one transaction.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

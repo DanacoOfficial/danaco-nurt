@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests::exchange
-// Responsibility:   Exchange of control requests between a requester and the process that.
+// Responsibility:   Exchange of control requests between a requester and the process that supervises a job.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

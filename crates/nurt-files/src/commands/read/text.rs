@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::read::text
-// Responsibility:   Text content of files for `read`: loading and decoding, `content`.
+// Responsibility:   Text content of files for `read`.
 // Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

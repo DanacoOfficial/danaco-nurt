@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::changes
-// Responsibility:   Files changed between two trees, with detection of renamed and copied.
+// Responsibility:   Files changed between two trees, with detection of renamed and copied files.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin
-// Responsibility:   Native administration commands: accounts, groups, mounts, kernel.
+// Responsibility:   Native administration commands: accounts, groups, mounts, kernel parameters and modules, power and disks.
 // Dependencies:     inverse, nurt_contracts, stage, tool
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

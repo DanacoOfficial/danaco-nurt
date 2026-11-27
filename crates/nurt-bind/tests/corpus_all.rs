@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/corpus_all.rs
-// Responsibility:   Every correction corpus of `tests/d1/correction` run through the full.
+// Responsibility:   Every correction corpus of `tests/d1/correction` run through the full pipeline, with the measures of each corpus directory.
 // Dependencies:     corpus_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

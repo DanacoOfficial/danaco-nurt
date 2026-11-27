@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syntax::lex::cursor
-// Responsibility:   Line and column of a byte offset; both start at 1 and columns count.
+// Responsibility:   Line and column of a byte offset; both start at 1 and columns count Unicode scalar values.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

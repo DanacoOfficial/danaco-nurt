@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::fetch::tests
-// Responsibility:   Repository with three commits on `main`, a branch `topic` one commit.
+// Responsibility:   Repository with three commits on `main`, a branch `topic` one commit behind, a branch `gone` and an annotated tag `v1` on the first commit.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

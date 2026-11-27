@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::edit::diff
-// Responsibility:   Largest number of inserted and deleted lines for which the line.
+// Responsibility:   Largest number of inserted and deleted lines for which the line alignment is computed; beyond it the changed region becomes one edit.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

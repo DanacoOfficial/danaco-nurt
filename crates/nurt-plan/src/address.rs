@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-plan::address
-// Responsibility:   Network addresses written as literals: URLs and the `user@host:path`.
+// Responsibility:   Network addresses written as literals: URLs and the `user@host:path` form of SSH remotes.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

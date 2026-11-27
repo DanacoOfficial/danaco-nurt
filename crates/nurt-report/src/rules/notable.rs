@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-report::rules::notable
-// Responsibility:   Notable effects derived from the changes of an operation, and their merge.
+// Responsibility:   Notable effects derived from the changes of an operation, and their merge with the codes emitted by commands.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

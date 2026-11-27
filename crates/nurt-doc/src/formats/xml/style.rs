@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml::style
-// Responsibility:   Layout conventions of a document, used for new content: line ending.
+// Responsibility:   Layout conventions of a document, used for new content: line ending, indentation unit, attribute quote and line-oriented layout.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

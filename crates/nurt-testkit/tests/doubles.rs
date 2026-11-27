@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-testkit/tests/doubles.rs
-// Responsibility:   Tests of the restoring journal, of names and special entries of the.
+// Responsibility:   Tests of the restoring journal, of names and special entries of the virtual file system and of the host styles.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

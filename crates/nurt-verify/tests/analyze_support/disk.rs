@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_support/disk.rs
-// Responsibility:   Read-only file system over the real directory tree, for the change.
+// Responsibility:   Read-only file system over the real directory tree, for the change detection of the process layer.
 // Dependencies:     nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

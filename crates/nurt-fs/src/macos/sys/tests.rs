@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::macos::sys::tests
-// Responsibility:   ACL text with one deny entry for the `everyone` group (gid 12), whose.
+// Responsibility:   ACL text with one deny entry for the `everyone` group (gid 12), whose UUID is fixed on every macOS installation.
 // Dependencies:     nurt_contracts, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

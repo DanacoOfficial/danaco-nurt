@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt/tests/contract.rs
-// Responsibility:   Envelopes of the client agree with the contract types of.
+// Responsibility:   Envelopes of the client agree with the contract types of `nurt-request/1` and `nurt-response/1`.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

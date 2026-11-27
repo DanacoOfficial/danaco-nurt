@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::finish
-// Responsibility:   Conclusion of a stopped merge by a commit, shared by `git.merge` with.
+// Responsibility:   Conclusion of a stopped merge by a commit, shared by `git.merge` with `action: continue` and by `git.commit`.
 // Dependencies:     gix_hash, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

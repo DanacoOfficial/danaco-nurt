@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-types::env
-// Responsibility:   Environment of the evaluator: time, randomness, local time rules and.
+// Responsibility:   Environment of the evaluator: time, randomness, local time rules and named results.
 // Dependencies:     jiff, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

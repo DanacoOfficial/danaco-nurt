@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::time
-// Responsibility:   Fixed clock of a scenario, shared by the `git` program and the Nurt.
+// Responsibility:   Fixed clock of a scenario, shared by the `git` program and the Nurt command.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

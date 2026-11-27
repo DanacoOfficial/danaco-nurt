@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::json::tests
-// Responsibility:   Applies an operation and checks that the result parses in the dialect.
+// Responsibility:   Applies an operation and checks that the result parses in the dialect and reads the same with the reference parser.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-contracts::bound::flow
-// Responsibility:   Bound control constructs: conditions, loops, `steps`, functions and.
+// Responsibility:   Bound control constructs: conditions, loops, `steps`, functions and script parameters.
 // Dependencies:     schemars, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

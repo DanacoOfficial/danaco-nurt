@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::plist::layout
-// Responsibility:   Line and indentation facts of text property lists, used to place new.
+// Responsibility:   Line and indentation facts of text property lists, used to place new entries and to remove entries together with their line.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

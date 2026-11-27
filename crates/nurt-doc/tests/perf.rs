@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/perf.rs
-// Responsibility:   Wall-clock limits of reading: a rejected entity expansion attack must fail.
+// Responsibility:   Wall-clock limits of reading: a rejected entity expansion attack must fail within [`ATTACK_DEADLINE`].
 // Dependencies:     nurt_contracts, u08_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

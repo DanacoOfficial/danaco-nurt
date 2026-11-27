@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syslog/tests/unified_mapping.rs
-// Responsibility:   Levels, predicates and the mapping of unified log entries and log archive.
+// Responsibility:   Levels, predicates and the mapping of unified log entries and log archive records to log events.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

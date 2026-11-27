@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-report::lines
-// Responsibility:   Lines of rendered text with optional styles, aligned tables and width.
+// Responsibility:   Lines of rendered text with optional styles, aligned tables and width fitting.
 // Dependencies:     unicode_width
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

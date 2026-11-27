@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::ini::support
-// Responsibility:   Text, key tree and error helpers shared by the INI, properties, env and.
+// Responsibility:   Text, key tree and error helpers shared by the INI, properties, env and TOML formats.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

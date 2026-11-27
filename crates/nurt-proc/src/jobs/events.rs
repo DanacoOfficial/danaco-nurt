@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::events
-// Responsibility:   Events of launched programs: `job.started`, `job.output`.
+// Responsibility:   Events of launched programs: `job.started`, `job.output`, `job.progress` and `job.finished`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

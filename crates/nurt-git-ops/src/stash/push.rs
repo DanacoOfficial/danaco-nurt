@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::stash::push
-// Responsibility:   `git.stash action: push`: the stash commits and the reset of the saved.
+// Responsibility:   `git.stash action: push`: the stash commits and the reset of the saved paths.
 // Dependencies:     gix, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

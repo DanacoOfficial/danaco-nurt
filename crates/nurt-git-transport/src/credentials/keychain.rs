@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::credentials::keychain
-// Responsibility:   Internet passwords of the macOS keychain, as stored by.
+// Responsibility:   Internet passwords of the macOS keychain, as stored by `git-credential-osxkeychain`: server, account, path, port and protocol.
 // Dependencies:     security_framework
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

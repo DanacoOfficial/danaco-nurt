@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/cbor_decode.rs
-// Responsibility:   Decoding of CBOR: the JSON data model, the rejected items, the nesting.
+// Responsibility:   Decoding of CBOR: the JSON data model, the rejected items, the nesting limit, length headers and the strict decoders.
 // Dependencies:     hash_support, nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

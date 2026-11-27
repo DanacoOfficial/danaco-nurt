@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u06_yaml_advanced.rs
-// Responsibility:   Sequences, anchors and aliases, merge keys, documents, comments, tags and.
+// Responsibility:   Sequences, anchors and aliases, merge keys, documents, comments, tags and explicit keys of YAML documents.
 // Dependencies:     indexmap, nurt_contracts, u06_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

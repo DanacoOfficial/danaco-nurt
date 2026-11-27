@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_errors.rs
-// Responsibility:   Errors of the variant A parser: code, position, problem and ready.
+// Responsibility:   Errors of the variant A parser: code, position, problem and ready corrections.
 // Dependencies:     nurt_contracts, parse_a_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

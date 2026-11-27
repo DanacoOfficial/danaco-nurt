@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sys/tests/registry_windows.rs
-// Responsibility:   Tests of the `registry:` provider on the registry of a running Windows.
+// Responsibility:   Tests of the `registry:` provider on the registry of a running Windows system.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

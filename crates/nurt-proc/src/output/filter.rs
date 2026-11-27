@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::filter
-// Responsibility:   Line cleaning, output patterns, error lines and collapsing of repeated.
+// Responsibility:   Line cleaning, output patterns, error lines and collapsing of repeated lines.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

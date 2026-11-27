@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/stages_pipeline.rs
-// Responsibility:   Pipelines of record stages run by the executor over a counting test.
+// Responsibility:   Pipelines of record stages run by the executor over a counting test source: results and the number of records read from the source.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

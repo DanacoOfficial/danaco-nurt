@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/test_stages.rs
-// Responsibility:   The test commands through the public stage list, with the test program.
+// Responsibility:   The test commands through the public stage list, with the test program standing in for a framework (`go`) and for a custom runner (`tap`).
 // Dependencies:     analyze_support, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

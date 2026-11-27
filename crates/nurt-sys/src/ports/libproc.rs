@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::ports::libproc
-// Responsibility:   Decoder of `struct socket_fdinfo` returned by.
+// Responsibility:   Decoder of `struct socket_fdinfo` returned by `proc_pidfdinfo(PROC_PIDFDSOCKETINFO)` on macOS.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/error_edge.rs
-// Responsibility:   Stages, positions, candidates and the builder methods of the error.
+// Responsibility:   Stages, positions, candidates and the builder methods of the error structure, and the status of the C interface.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

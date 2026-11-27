@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syntax::parse::flow
-// Responsibility:   Parsers of the control constructs: `when`, `each`, `repeat`, `while`.
+// Responsibility:   Parsers of the control constructs: `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define` and `params`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

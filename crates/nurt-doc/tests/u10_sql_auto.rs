@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_sql_auto.rs
-// Responsibility:   `sql` without refusals: a statement that changes anything opens the.
+// Responsibility:   The `sql` stage without refusals: changing statements open the database for writing, journal its files first and are undone by `undo`.
 // Dependencies:     nurt_contracts, u10_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

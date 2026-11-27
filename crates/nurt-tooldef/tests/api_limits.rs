@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-tooldef/tests/api_limits.rs
-// Responsibility:   Rendered definitions against the limits of tool-calling APIs: names.
+// Responsibility:   Rendered definitions against the limits of tool-calling APIs: names, nesting, the keywords each platform rejects, and the types of the values.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

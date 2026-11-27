@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-archive/tests/sevenz_safety.rs
-// Responsibility:   Containment and decompression limits for 7z archives: members that.
+// Responsibility:   Containment and decompression limits for 7z archives.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

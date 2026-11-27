@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::host::versions::macho
-// Responsibility:   Versions of macOS programs: application bundles and the embedded.
+// Responsibility:   Versions of macOS programs: application bundles and the embedded `Info.plist` of Mach-O files.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

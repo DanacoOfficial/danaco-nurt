@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/abi_arguments.rs
-// Responsibility:   Invalid arguments of the exported functions: null pointers, text that is.
+// Responsibility:   Invalid arguments of the exported functions.
 // Dependencies:     serde_json, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

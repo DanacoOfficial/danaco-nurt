@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt
-// Responsibility:   Rust interface of Danaco Nurt, a command shell and language where every.
+// Responsibility:   Rust interface of Danaco Nurt, a command shell and language where every change can be undone.
 // Dependencies:     nurt_cli
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/stage_first.rs
-// Responsibility:   A sample implementation of `first` runs on an in-memory record stream with.
+// Responsibility:   A sample implementation of `first` runs on an in-memory record stream with an execution context composed of test doubles.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

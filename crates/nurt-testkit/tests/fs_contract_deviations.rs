@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-testkit/tests/fs_contract_deviations.rs
-// Responsibility:   The conformance checks against a file system that deviates from the.
+// Responsibility:   The conformance checks against a file system that deviates from the contract at one chosen call.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

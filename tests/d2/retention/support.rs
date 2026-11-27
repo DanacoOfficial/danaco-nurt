@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/retention/support.rs
-// Responsibility:   Settings and operations shared by the retention scenarios, and the checks.
+// Responsibility:   Settings and operations shared by the retention scenarios, and the checks that end every scenario.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

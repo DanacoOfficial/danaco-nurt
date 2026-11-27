@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-plan::text
-// Responsibility:   Program text of bound pipelines, used for the calls proposed in.
+// Responsibility:   Program text of bound pipelines, used for the calls proposed in `next_steps`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

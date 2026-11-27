@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           tools/ci/prepare-test-volumes.sh
-# Responsibility:   Prepares the file-backed volumes that the ignored volume tests of the.
+# Responsibility:   Prepares the file-backed volumes that the ignored volume tests of the repository mount.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

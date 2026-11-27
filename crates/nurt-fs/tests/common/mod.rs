@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-fs/tests/common/mod.rs
-// Responsibility:   Fixtures shared by the Windows back end tests: temporary directories.
+// Responsibility:   Fixtures shared by the Windows back end tests.
 // Dependencies:     nurt_contracts, tempfile, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

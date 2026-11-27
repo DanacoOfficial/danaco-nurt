@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-archive::decompress
-// Responsibility:   Whole-stream decompression, detection of the algorithm and the names of.
+// Responsibility:   Whole-stream decompression, detection of the algorithm and the names of decompressed files.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_sql_read.rs
-// Responsibility:   Reading SQLite databases with `sql` and the checks that keep a read from.
+// Responsibility:   Reading SQLite databases with `sql` and the checks that keep a read from changing files.
 // Dependencies:     nurt_contracts, rusqlite, u10_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

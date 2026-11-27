@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::repo::config
-// Responsibility:   Configuration of a repository without the configuration discovery of the.
+// Responsibility:   Configuration of a repository without the configuration discovery of the `git` installation.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

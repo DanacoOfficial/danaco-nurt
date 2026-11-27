@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::awk
-// Responsibility:   Interpreter of the `awk` subset that has a translation: an optional.
+// Responsibility:   Interpreter of the `awk` subset that has a translation.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

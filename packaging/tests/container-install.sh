@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           packaging/tests/container-install.sh
-# Responsibility:   Installs the packages of a directory in the running system and checks the.
+# Responsibility:   Installs the packages of a directory in the running system and checks the result.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::changes
-// Responsibility:   Path-level decisions shared by the planners: what happens to each index.
+// Responsibility:   Path-level decisions shared by the planners.
 // Dependencies:     bstr, gix, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

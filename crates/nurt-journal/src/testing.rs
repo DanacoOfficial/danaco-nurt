@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::testing
-// Responsibility:   Setup of the recovery measurement of `tests/perf.rs`; it serves only the.
+// Responsibility:   Setup of the recovery measurement of `tests/perf.rs`; it serves only the performance tests and is not part of the interface of the crate.
 // Dependencies:     nurt_contracts, nurt_fs
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

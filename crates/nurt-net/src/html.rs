@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::html
-// Responsibility:   Conversion of HTML, Markdown and plain text documents to blocks of text.
+// Responsibility:   Conversion of HTML, Markdown and plain text documents to blocks of text, and selection of parts of them.
 // Dependencies:     blocks, charset, markdown
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

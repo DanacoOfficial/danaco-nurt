@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/run_file.rs
-// Responsibility:   `nurt run <file>.nurt` runs a program file with parameters; any other.
+// Responsibility:   `nurt run <file>.nurt` runs a program file with parameters; any other `nurt run …` is the program of the command `run`.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

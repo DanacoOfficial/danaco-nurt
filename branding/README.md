@@ -2,11 +2,11 @@
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 <!-- -->
-<!-- Module:           branding.readme -->
+<!-- Module:           branding/README.md -->
 <!-- Responsibility:   Inventory of the branding folder and the rules of use of the Danaco Nurt identity. -->
 <!-- Dependencies:     IDENTITY.md and the files of this folder. -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          production identity 1.0.0, release 0.1.1 -->
+<!-- Version:          0.1.1, 2026-11-27 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Danaco Nurt identity
 

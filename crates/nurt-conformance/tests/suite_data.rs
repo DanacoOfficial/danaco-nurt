@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-conformance/tests/suite_data.rs
-// Responsibility:   Checks of the case files of the `conformance/` directory: every error code.
+// Responsibility:   Checks of the case files of the `conformance/` directory.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

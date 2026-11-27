@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-catalog/tests/stages.rs
-// Responsibility:   Tests of the implementation registry: registration and resolution by the.
+// Responsibility:   Tests of the implementation registry: registration and resolution by the pair of a command and an input record kind.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

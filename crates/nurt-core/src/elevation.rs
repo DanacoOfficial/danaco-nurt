@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-core::elevation
-// Responsibility:   Privilege elevation: the choice of backends and the errors of an elevation.
+// Responsibility:   Privilege elevation: the choice of backends and the errors of an elevation that did not happen.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_proc, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/policy_invariants.rs
-// Responsibility:   Correction invariants checked on surface and bound trees, and a property.
+// Responsibility:   Correction invariants checked on surface and bound trees, and a property test of path literals.
 // Dependencies:     nurt_contracts, proptest, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

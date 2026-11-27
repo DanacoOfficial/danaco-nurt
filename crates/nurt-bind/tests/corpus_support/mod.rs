@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/corpus_support/mod.rs
-// Responsibility:   Runner of the correction corpora through the full pipeline: reading with.
+// Responsibility:   Runner of the correction corpora through the full pipeline: reading with lexical correction, binding with correction, the invariants and the policy.
 // Dependencies:     nurt_contracts, nurt_correct, nurt_syntax, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::tables
-// Responsibility:   Correction tables built into the executable and their revision.
+// Responsibility:   Correction tables built into the executable and their revision `corr_rev`.
 // Dependencies:     sha2, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests::records
-// Responsibility:   Job identifiers, record times, expiry of finished jobs and the output.
+// Responsibility:   Job identifiers, record times, expiry of finished jobs and the output events of a running job.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

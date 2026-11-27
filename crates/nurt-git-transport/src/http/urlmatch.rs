@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::http::urlmatch
-// Responsibility:   Matching of configuration subsections such as `http.<url>.*` and.
+// Responsibility:   Matching of configuration subsections such as `http.<url>.*` and `credential.<url>.*` against a remote address, with the rules of `git`.
 // Dependencies:     bstr
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

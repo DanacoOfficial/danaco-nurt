@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-cli::complete
-// Responsibility:   Vocabulary of the interactive session: completion and highlighting of a.
+// Responsibility:   Vocabulary of the interactive session: completion and highlighting of a program line.
 // Dependencies:     nurt_core, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

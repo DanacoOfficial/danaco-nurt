@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::compound
-// Responsibility:   Structure of compound shell commands: `if`, `for`, `while`, `until`.
+// Responsibility:   Structure of compound shell commands: `if`, `for`, `while`, `until`, `case`, function definitions and groups, with their bodies.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

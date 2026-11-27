@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-space::heartbeat
-// Responsibility:   Heartbeat of the space service (`service.hb`) and liveness of the service.
+// Responsibility:   Heartbeat of the space service (`service.hb`) and liveness of the service as seen by callers.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_journal, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

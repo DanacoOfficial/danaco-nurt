@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::jobs::process::tests
-// Responsibility:   Tests of `stop`, `suspend` and `resume` on process records, with child.
+// Responsibility:   Tests of `stop`, `suspend` and `resume` on process records, with child processes of the test program.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

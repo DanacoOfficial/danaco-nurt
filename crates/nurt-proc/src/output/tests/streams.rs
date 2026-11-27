@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::tests::streams
-// Responsibility:   Output of real processes: the `proc_fixture` program writes, the tests.
+// Responsibility:   Output of real processes: the `proc_fixture` program writes, the tests pass its pipes to the spool as process control does.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

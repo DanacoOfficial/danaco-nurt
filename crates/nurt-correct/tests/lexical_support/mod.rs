@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/lexical_support/mod.rs
-// Responsibility:   Helpers shared by the lexical correction tests: a command catalog read.
+// Responsibility:   Helpers shared by the lexical correction tests: a command catalog read from the repository and the cases of the lexical correction corpus.
 // Dependencies:     nurt_contracts, serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

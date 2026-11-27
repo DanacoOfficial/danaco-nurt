@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/procedure.rs
-// Responsibility:   Coverage procedure of one table row, run by a stand-in command that drives.
+// Responsibility:   Coverage procedure of one table row, run by a stand-in command that drives the transaction as the command of the row does.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

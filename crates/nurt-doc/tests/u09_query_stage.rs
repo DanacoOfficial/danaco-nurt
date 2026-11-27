@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u09_query_stage.rs
-// Responsibility:   Tests of the `query` stage: the descriptor and the static check, response.
+// Responsibility:   Tests of the `query` stage.
 // Dependencies:     nurt_contracts, nurt_testkit, u09_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

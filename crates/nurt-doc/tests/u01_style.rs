@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u01_style.rs
-// Responsibility:   Detection of indentation, line endings, separators, quotes, trailing.
+// Responsibility:   Detection of indentation, line endings, separators, quotes, trailing commas and alignment.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

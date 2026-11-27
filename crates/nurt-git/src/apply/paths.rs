@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::paths
-// Responsibility:   Restoration of selected paths of the index or the working tree from the.
+// Responsibility:   Restoration of selected paths of the index or the working tree from the index or a tree, as `git restore` does in its default no-overlay mode.
 // Dependencies:     bstr, gix, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

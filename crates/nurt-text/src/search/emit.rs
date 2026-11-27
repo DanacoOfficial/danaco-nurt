@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-text::search::emit
-// Responsibility:   Delivery of hits to the sink of the caller, with `max_per_file` and the.
+// Responsibility:   Delivery of hits to the sink of the caller, with `max_per_file` and the counters of a search.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::pull::settings
-// Responsibility:   Remote, refspecs and integration strategy of a pull, resolved from the.
+// Responsibility:   Remote, refspecs and integration strategy of a pull, resolved from the parameters and the repository configuration as `git pull` 2.53 does.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

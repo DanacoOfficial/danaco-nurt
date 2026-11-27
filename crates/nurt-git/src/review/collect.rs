@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::review::collect
-// Responsibility:   Changed files of a review: the two sides of the scope or the range, the.
+// Responsibility:   Changed files of a review: the two sides of the scope or the range, the untracked files, and the canonical hunks of each text file.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::pull::native
-// Responsibility:   Transfer and rebase engines of a pull built on the fetch and rebase.
+// Responsibility:   Transfer and rebase engines of a pull built on the fetch and rebase planners of the crate family.
 // Dependencies:     bstr, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

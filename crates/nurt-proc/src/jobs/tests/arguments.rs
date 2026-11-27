@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests::arguments
-// Responsibility:   Arguments and static checks of the job commands, and the values the.
+// Responsibility:   Arguments and static checks of the job commands, and the values the commands pass on to output capture and to the running process.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

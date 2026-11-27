@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/fuzz/fuzz_targets/parse.rs
-// Responsibility:   Fuzz target of the parsers: program text in every variant, parsed.
+// Responsibility:   Fuzz target of the parsers.
 // Dependencies:     libfuzzer_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

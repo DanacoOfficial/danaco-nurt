@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/engine_api.rs
-// Responsibility:   Public interface of the engine: envelope rules and defaults, sessions.
+// Responsibility:   Public interface of the engine.
 // Dependencies:     nurt_contracts, nurt_sys, nurt_testkit, serde_json, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

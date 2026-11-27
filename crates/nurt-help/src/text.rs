@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-help::text
-// Responsibility:   Fixed texts of the help and of the description layers, in English and.
+// Responsibility:   Fixed texts of the help and of the description layers, in English and Polish.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

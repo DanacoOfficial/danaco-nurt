@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-ffi::e2e
-// Responsibility:   Engine over a virtual file system for the pipeline tests of the.
+// Responsibility:   Engine over a virtual file system for the pipeline tests of the interfaces.
 // Dependencies:     nurt_contracts, nurt_core, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

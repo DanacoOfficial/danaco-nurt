@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u12_patterns.rs
-// Responsibility:   Corpus of structural patterns: every case names a language, a pattern.
+// Responsibility:   Corpus of structural patterns: every case names a language, a pattern, a source text and the text of every expected match in source order.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

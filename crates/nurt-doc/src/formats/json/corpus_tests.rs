@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::json::corpus_tests
-// Responsibility:   Conformance and edit runs over the JSON and JSONC corpus in.
+// Responsibility:   Conformance and edit runs over the JSON and JSONC corpus in `tests/d5/corpus` and the JSON Test Suite in `tests/d5/third_party/json/jsontestsuite`.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

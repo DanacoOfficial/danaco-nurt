@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::rebase
-// Responsibility:   The `git.rebase` command: replaying the commits of the current branch.
+// Responsibility:   The `git.rebase` command: replaying the commits of the current branch onto another revision with the `merge` back end of Git.
 // Dependencies:     command, stage
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

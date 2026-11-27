@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_support/mod.rs
-// Responsibility:   Fixtures of the `sql` tests: an execution context, bound arguments.
+// Responsibility:   Fixtures of the `sql` tests.
 // Dependencies:     nurt_contracts, rusqlite
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/network_catalog.rs
-// Responsibility:   `http.download` and the `network.*` commands against the catalog: the.
+// Responsibility:   `http.download` and the `network.*` commands against the catalog: the parameters of the catalog entries and the static check of each stage.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

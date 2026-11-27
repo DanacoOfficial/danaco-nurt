@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/exec.rs
-// Responsibility:   Execution of plans with mock commands on a virtual file system and a.
+// Responsibility:   Execution of plans with mock commands on a virtual file system and a recording journal; `assert`, `verify` and `count` are the record stages of the crate.
 // Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::push::http_tests
-// Responsibility:   Pushes over smart HTTP to the in-process `receive-pack` service behind a.
+// Responsibility:   Pushes over smart HTTP to the in-process `receive-pack` service behind a loopback server, and the stage interface of the command.
 // Dependencies:     nurt_contracts, nurt_git, nurt_git_transport
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

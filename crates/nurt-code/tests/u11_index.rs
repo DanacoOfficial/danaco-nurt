@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_index.rs
-// Responsibility:   Tests of the symbol index: refresh by size and modification time.
+// Responsibility:   Tests of the symbol index.
 // Dependencies:     nurt_contracts, nurt_testkit, u11_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

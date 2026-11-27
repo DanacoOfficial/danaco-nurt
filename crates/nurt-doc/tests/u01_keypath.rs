@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u01_keypath.rs
-// Responsibility:   Key path vectors of `tests/d5/data/u01/keypath.toml` and the round trip.
+// Responsibility:   Key path vectors of `tests/d5/data/u01/keypath.toml` and the round trip of the canonical printer.
 // Dependencies:     KeyPathErrorKind, nurt_contracts, proptest, serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-catalog::error
-// Responsibility:   Error for a catalog that failed loading or a registration that failed.
+// Responsibility:   Error for a catalog that failed loading or a registration that failed validation; every problem is listed in the `issues` detail.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

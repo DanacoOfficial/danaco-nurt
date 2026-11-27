@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::cim::invoke
-// Responsibility:   Calls of CIM methods: the parameters `invoke` and `arguments` of.
+// Responsibility:   Calls of CIM methods: the parameters `invoke` and `arguments` of `windows.cim`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

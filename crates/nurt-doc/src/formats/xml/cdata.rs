@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml::cdata
-// Responsibility:   Character data: decoding of references, escaping of new values and.
+// Responsibility:   Character data: decoding of references, escaping of new values and replacement of text and CDATA nodes.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

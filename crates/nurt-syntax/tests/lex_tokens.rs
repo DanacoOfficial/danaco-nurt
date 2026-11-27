@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/lex_tokens.rs
-// Responsibility:   Tokens of the lexical table, line breaks, comments, positions and.
+// Responsibility:   Tokens of the lexical table, line breaks, comments, positions and checkpoints.
 // Dependencies:     TokenKind, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

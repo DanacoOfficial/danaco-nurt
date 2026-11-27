@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-testkit/tests/fs_contract.rs
-// Responsibility:   The conformance checks of the file system interface on the virtual file.
+// Responsibility:   The conformance checks of the file system interface on the virtual file system, with and without optional volume features.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

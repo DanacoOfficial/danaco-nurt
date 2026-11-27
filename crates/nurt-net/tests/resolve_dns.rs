@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/resolve_dns.rs
-// Responsibility:   Tests of `network.resolve` against a DNS server on the loopback.
+// Responsibility:   Tests of `network.resolve` against a DNS server on the loopback interface.
 // Dependencies:     exec_ctx, hickory_resolver, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

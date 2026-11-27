@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::tool
-// Responsibility:   Tool executors: shell processes for bash and PowerShell, and `nurt.
+// Responsibility:   Tool executors: shell processes for bash and PowerShell, and `nurt serve` for Danaco Nurt.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

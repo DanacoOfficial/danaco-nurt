@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::volumes::anchor
-// Responsibility:   Selection of the journal anchor directory and creation of the journal.
+// Responsibility:   Selection of the journal anchor directory and creation of the journal directory with its markers and format files.
 // Dependencies:     nurt_contracts, nurt_testkit, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

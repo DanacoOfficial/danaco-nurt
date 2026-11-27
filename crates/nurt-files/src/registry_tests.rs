@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::registry_tests
-// Responsibility:   Tests of the `registry:` paths in the file commands, on a registry in.
+// Responsibility:   Tests of the `registry:` paths in the file commands, on a registry in memory.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/value_types.rs
-// Responsibility:   Units, instants, ranges, regular expressions, bytes, values and the.
+// Responsibility:   Units, instants, ranges, regular expressions, bytes, values and the conversion between dynamic and typed records.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

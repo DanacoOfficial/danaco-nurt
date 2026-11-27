@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syntax::lex::error
-// Responsibility:   Lexical error: `E_LEXICAL` for an invalid token, `E_ESCAPE` for an.
+// Responsibility:   Lexical error: `E_LEXICAL` for an invalid token, `E_ESCAPE` for an invalid escape sequence in a text.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_support/mod.rs
-// Responsibility:   Execution context, test project and tool programs for the tests of the.
+// Responsibility:   Execution context, test project and tool programs for the tests of the analysis commands.
 // Dependencies:     nurt_contracts, nurt_testkit, services
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

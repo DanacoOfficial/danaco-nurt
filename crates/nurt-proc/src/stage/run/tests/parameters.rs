@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::run::tests::parameters
-// Responsibility:   Parameters of `run`: defaults of the configuration, the values passed to.
+// Responsibility:   Parameters of `run`: defaults of the configuration, the values passed to the run host and the rejection of values the stage cannot use.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

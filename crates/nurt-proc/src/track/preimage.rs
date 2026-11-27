@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::preimage
-// Responsibility:   Keeping the previous content of files before a run: declared targets of.
+// Responsibility:   Keeping the previous content of files before a run.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

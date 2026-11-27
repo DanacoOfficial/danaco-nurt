@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::end_to_end
-// Responsibility:   Complete series without network: 20 tasks under the bash condition and.
+// Responsibility:   Complete series without network.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

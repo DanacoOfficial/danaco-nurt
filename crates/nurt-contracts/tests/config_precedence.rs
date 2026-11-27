@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/config_precedence.rs
-// Responsibility:   Precedence of the seven configuration levels, project trust and the.
+// Responsibility:   Precedence of the seven configuration levels, project trust and the environment layer.
 // Dependencies:     ConfigLevel, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

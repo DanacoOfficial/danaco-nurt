@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::fetch::remote
-// Responsibility:   Resolution of the remote of a fetch: its address, refspecs, tag mode and.
+// Responsibility:   Resolution of the remote of a fetch: its address, refspecs, tag mode and pruning, from the request and the `remote.<name>.*` configuration.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

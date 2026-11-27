@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/read_binary_golden.rs
-// Responsibility:   Examples of the reference page of `read` for PDF documents, images.
+// Responsibility:   Examples of the reference page of `read` for PDF documents, images, hexadecimal dumps and compressed files, run on a virtual file system.
 // Dependencies:     nurt_archive, nurt_contracts, nurt_testkit, read_binary_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

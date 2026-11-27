@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::tests::views
-// Responsibility:   Stream selection, filters, head and tail, summary and decoding of.
+// Responsibility:   Stream selection, filters, head and tail, summary and decoding of responses.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/harness/mod.rs
-// Responsibility:   Harness shared by the journal test suites: a fixture that binds the journal.
+// Responsibility:   Harness shared by the journal test suites.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

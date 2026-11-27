@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/lexical_regressions.rs
-// Responsibility:   Inputs that once made the front part of correction run without end. Each.
+// Responsibility:   Inputs that once made the front part of correction run without end.
 // Dependencies:     lexical_support, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

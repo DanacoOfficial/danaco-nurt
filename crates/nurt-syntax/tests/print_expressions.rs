@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/print_expressions.rs
-// Responsibility:   Parentheses, argument boundaries, line layout and trees outside the.
+// Responsibility:   Parentheses, argument boundaries, line layout and trees outside the parser image.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

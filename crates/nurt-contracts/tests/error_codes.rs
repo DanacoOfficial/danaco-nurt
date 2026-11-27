@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/error_codes.rs
-// Responsibility:   The list of error codes is the same in the code, in the specification of.
+// Responsibility:   The list of error codes is the same in the code, in the specification and in every published schema.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::sql::split
-// Responsibility:   Statement boundaries and kinds of a query, read by the shared lexer of.
+// Responsibility:   Statement boundaries and kinds of a query, read by the shared lexer of the contracts.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

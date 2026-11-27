@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/ast_contract.rs
-// Responsibility:   Conformance tests of the syntax tree contracts `nurt-ast/1` and.
+// Responsibility:   Conformance tests of the syntax tree contracts `nurt-ast/1` and `nurt-bound/1`: golden files, schemas, JSON and CBOR round trips and `ast_hash`.
 // Dependencies:     serde, serde_json, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

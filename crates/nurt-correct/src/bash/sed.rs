@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::sed
-// Responsibility:   Interpreter of `sed` scripts: one substitution `s/A/B/flags` in place.
+// Responsibility:   Interpreter of `sed` scripts: one substitution `s/A/B/flags` in place, and line addresses with `p` (with `-n`) or `d` (in place).
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

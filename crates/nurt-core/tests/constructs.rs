@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/constructs.rs
-// Responsibility:   Control constructs run end to end: the language front end, the planner.
+// Responsibility:   Control constructs run end to end: the language front end, the planner, the executor, the journal and `undo`, over a real directory.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

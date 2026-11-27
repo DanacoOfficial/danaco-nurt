@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/retention/precedence.rs
-// Responsibility:   Precedence of the retention settings over the seven configuration levels.
+// Responsibility:   Precedence of the retention settings over the seven configuration levels, for the step, age and size limits.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

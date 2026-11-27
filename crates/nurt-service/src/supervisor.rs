@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::supervisor
-// Responsibility:   Supervision of one hosted module: start on a dedicated thread, health.
+// Responsibility:   Supervision of one hosted module: start on a dedicated thread, health polling, restart with a growing delay and a restart rate limit.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

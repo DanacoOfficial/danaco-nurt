@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::linux::fs
-// Responsibility:   The Linux back end type and its implementation of the file system.
+// Responsibility:   The Linux back end type and its implementation of the file system interface.
 // Dependencies:     nurt_contracts, rustix, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

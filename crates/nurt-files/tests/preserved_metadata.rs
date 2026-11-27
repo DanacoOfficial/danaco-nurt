@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/preserved_metadata.rs
-// Responsibility:   `copy` with the default `preserve: true` and `move` keep the times and the.
+// Responsibility:   `copy` with the default `preserve: true` and `move` keep the times and the permission bits of the files they place, also from one volume to another.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::http::testserver
-// Responsibility:   Minimal HTTP/1.1 server on the loopback interface for tests of the.
+// Responsibility:   Minimal HTTP/1.1 server on the loopback interface for tests of the backend: every connection is answered by a handler and then closed.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

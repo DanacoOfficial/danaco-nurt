@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::tests
-// Responsibility:   Unit tests of the working tree update engine on repositories built in.
+// Responsibility:   Unit tests of the working tree update engine on repositories built in temporary directories with `gix`.
 // Dependencies:     bstr, gix, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

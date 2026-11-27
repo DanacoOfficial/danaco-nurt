@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/config_levels.rs
-// Responsibility:   Precedence of the seven configuration levels, trust of project files.
+// Responsibility:   Precedence of the seven configuration levels, trust of project files, protection floors and validation, through the configuration loader of the engine.
 // Dependencies:     nurt_contracts, nurt_testkit, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

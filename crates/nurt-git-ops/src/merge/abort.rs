@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::abort
-// Responsibility:   Restoration of the state before a stopped merge, with the rules of.
+// Responsibility:   Restoration of the state before a stopped merge, with the rules of `git reset --merge` that `git merge --abort` uses.
 // Dependencies:     bstr, gix_hash, gix_index, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

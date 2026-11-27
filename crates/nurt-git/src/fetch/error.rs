@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::fetch::error
-// Responsibility:   Errors of a transfer: network failures, authentication, interruption and.
+// Responsibility:   Errors of a transfer: network failures, authentication, interruption and protocol failures, with every address stripped of its credentials.
 // Dependencies:     nurt_contracts, nurt_git_transport
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-langserver/tests/lsp_support/mod.rs
-// Responsibility:   Client side of in-memory language server sessions and a matcher for.
+// Responsibility:   Client side of in-memory language server sessions and a matcher for expected protocol messages.
 // Dependencies:     lsp_server, nurt_bind, nurt_contracts, nurt_help, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

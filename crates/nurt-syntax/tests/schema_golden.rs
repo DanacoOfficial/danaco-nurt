@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/schema_golden.rs
-// Responsibility:   Golden trees and negative cases against the published schemas and the.
+// Responsibility:   Golden trees and negative cases against the published schemas and the decoders of the crate.
 // Dependencies:     hash_support, nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

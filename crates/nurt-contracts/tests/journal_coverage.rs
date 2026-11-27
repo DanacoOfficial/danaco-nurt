@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/journal_coverage.rs
-// Responsibility:   Checks of the journal coverage table `tables/journal-coverage.toml`: the.
+// Responsibility:   Checks of the journal coverage table `tables/journal-coverage.toml`.
 // Dependencies:     serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

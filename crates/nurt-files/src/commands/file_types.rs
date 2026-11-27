@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::file_types
-// Responsibility:   File types of the `file_type` parameter of `find` and `search` and of the.
+// Responsibility:   File types of the `file_type` parameter of `find` and `search` and of the `exclude_file_type` parameter of `search`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

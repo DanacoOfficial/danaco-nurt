@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/print_variants.rs
-// Responsibility:   Printing of the reference tasks in variants B and C and naming of.
+// Responsibility:   Printing of the reference tasks in variants B and C and naming of positional arguments.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

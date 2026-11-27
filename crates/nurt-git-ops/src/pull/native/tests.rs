@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::pull::native::tests
-// Responsibility:   Tests of the fetch and rebase adapters against repositories in temporary.
+// Responsibility:   Tests of the fetch and rebase adapters against repositories in temporary directories; the remote of the fetch is a second local repository.
 // Dependencies:     gix, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

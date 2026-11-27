@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::notebook
-// Responsibility:   Commands of the group `notebook`: cells of Jupyter notebooks in.
+// Responsibility:   Commands of the group `notebook`: cells of Jupyter notebooks in nbformat 4.
 // Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

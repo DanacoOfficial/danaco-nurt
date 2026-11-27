@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-report/tests/rules_paths.rs
-// Responsibility:   Classification of system directories, home configuration and project.
+// Responsibility:   Classification of system directories, home configuration and project roots on Linux, macOS and Windows.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

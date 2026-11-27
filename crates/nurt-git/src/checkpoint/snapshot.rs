@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::checkpoint::snapshot
-// Responsibility:   State of the working tree as `git add -A` would record it in a temporary.
+// Responsibility:   State of the working tree as `git add -A` would record it in a temporary index.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

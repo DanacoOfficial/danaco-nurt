@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::convert
-// Responsibility:   `convert`: explicit change of the encoding, the line endings or the byte.
+// Responsibility:   `convert`: explicit change of the encoding, the line endings or the byte order mark of text files.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-archive/tests/sevenz_roundtrip.rs
-// Responsibility:   7z archives through `create`, `list`, `plan` and `stream`: content.
+// Responsibility:   7z archives through `create`, `list`, `plan` and `stream`.
 // Dependencies:     nurt_contracts, sevenz_rust2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::linux::meta
-// Responsibility:   Metadata of entries: `statx`, extended attributes, inode flags and the.
+// Responsibility:   Metadata of entries: `statx`, extended attributes, inode flags and the transfer of complete metadata to another entry.
 // Dependencies:     nurt_contracts, rustix, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

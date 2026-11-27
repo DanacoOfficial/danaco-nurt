@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::testing
-// Responsibility:   Journal on in-memory volumes, execution contexts and catalog signatures.
+// Responsibility:   Journal on in-memory volumes, execution contexts and catalog signatures for the tests of the journal stages.
 // Dependencies:     nurt_contracts, nurt_fs
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

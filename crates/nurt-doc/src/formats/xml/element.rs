@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml::element
-// Responsibility:   Elements: value model, reading by key and edits of elements and their.
+// Responsibility:   Elements: value model, reading by key and edits of elements and their content.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

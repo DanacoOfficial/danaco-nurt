@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::journal
-// Responsibility:   Recording of detected changes in the operation journal and their change.
+// Responsibility:   Recording of detected changes in the operation journal and their change records.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

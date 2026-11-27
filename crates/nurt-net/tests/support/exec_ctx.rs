@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/support/exec_ctx.rs
-// Responsibility:   Execution context for tests of `nurt-net` commands: the real monotonic.
+// Responsibility:   Execution context for tests of `nurt-net` commands: the real monotonic clock, a fixed host description and helpers for arguments and output.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

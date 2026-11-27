@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::powershell::syntax
-// Responsibility:   Statement structure of PowerShell text: statements, pipelines, commands.
+// Responsibility:   Statement structure of PowerShell text: statements, pipelines, commands with raw arguments and values.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

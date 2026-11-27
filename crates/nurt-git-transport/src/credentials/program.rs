@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::credentials::program
-// Responsibility:   Credential helpers run as programs of the user through the process host.
+// Responsibility:   Credential helpers run as programs of the user through the process host of the console, with the credential protocol of `git`.
 // Dependencies:     gix_credentials, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -16,9 +16,6 @@ style CODE_OF_CONDUCT.md
 # The pull request template is copied into the description of every pull
 # request and is kept free of comments.
 producer-header .github/PULL_REQUEST_TEMPLATE.md
-producer-header .editorconfig
-producer-header .gitattributes
-producer-header .gitignore
 
 # License files of third-party data sets (for example below bench/) are kept
 # verbatim, without the producer header.
@@ -158,14 +155,41 @@ private-address tests/d5/differential/*
 private-address tests/d5/third_party/*
 
 # Test inputs, generated scenario recipes and ignore files are consumed byte for byte and carry no header.
-producer-header *.gitattributes
-producer-header *.gitignore
+producer-header tests/d5/*.gitattributes
+producer-header tests/*.gitignore
 producer-header conformance/correction/generated/*
 producer-header crates/nurt-git-difftest/scenarios/*
 producer-header crates/nurt-syslog/fuzz/*
 producer-header tests/d1/migrate/*
 producer-header tests/d5/.gitattributes
 producer-header tests/d5/code/*
+
+# Files in which a comment is impossible or would damage the content; each entry
+# is justified by one word.
+# marker
+producer-header bindings/python/src/nurt/py.typed
+# license
+producer-header crates/nurt-pdf-extract/LICENSE-MIT
+# key
+producer-header packaging/release/*.pem
+# key
+producer-header packaging/release/*.asc
+# machine-readable
+producer-header packaging/deb/copyright
+# json
+producer-header packaging/scoop/nurt.json.in
+# json
+producer-header docs/site/site.webmanifest
+# solution
+producer-header bindings/dotnet/Danaco.Nurt.sln
+# linker
+producer-header crates/nurt-ffi/nurt.symbols
+# data
+producer-header crates/nurt-pdf-extract/src/glyphlist-extended.txt
+# data
+producer-header crates/nurt-proc/src/output/error_patterns.txt
+# data
+producer-header tools/ci/hygiene-allow.txt
 
 # Identifiers and data of third parties that coincide with the words of the check.
 promotional-word crates/nurt-code/src/profile/manifests.rs

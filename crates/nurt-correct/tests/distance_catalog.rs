@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/distance_catalog.rs
-// Responsibility:   Distance checks on the command catalog: pairs of close names, parameters.
+// Responsibility:   Distance checks on the command catalog.
 // Dependencies:     toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

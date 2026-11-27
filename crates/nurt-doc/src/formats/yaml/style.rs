@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::yaml::style
-// Responsibility:   Layout of new block content: indentation step, placement of lists under.
+// Responsibility:   Layout of new block content: indentation step, placement of lists under keys, line break, and the columns where new content of a node starts.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

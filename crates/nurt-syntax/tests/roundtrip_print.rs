@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/roundtrip_print.rs
-// Responsibility:   Printing and parsing are inverse: for every generated tree `T`.
+// Responsibility:   Printing and parsing are inverse.
 // Dependencies:     nurt_contracts, proptest, roundtrip_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

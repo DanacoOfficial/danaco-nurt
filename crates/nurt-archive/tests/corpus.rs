@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-archive/tests/corpus.rs
-// Responsibility:   Archives generated in the test: every supported format and compression.
+// Responsibility:   Archives generated in the test: every supported format and compression, Unicode names, links and members crafted to escape the destination.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-notebook/tests/hostile.rs
-// Responsibility:   Notebooks from untrusted sources: malformed and truncated text, wrong.
+// Responsibility:   Notebooks from untrusted sources: malformed and truncated text, wrong types, unknown members that must survive an edit, and addressing at the boundaries.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

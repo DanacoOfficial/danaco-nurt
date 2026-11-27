@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::values
-// Responsibility:   Correction of names in typed places: commands, parameters, enumeration.
+// Responsibility:   Correction of names in typed places.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

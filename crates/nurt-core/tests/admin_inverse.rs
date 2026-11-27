@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/admin_inverse.rs
-// Responsibility:   The programs that undo firewall, network, clock and CIM changes are.
+// Responsibility:   The programs that undo firewall, network, clock and CIM changes are valid programs: they parse and bind against the catalog on the system they are made for.
 // Dependencies:     nurt_bind, nurt_contracts, nurt_syntax, nurt_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

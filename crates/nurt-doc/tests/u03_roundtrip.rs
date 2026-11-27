@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u03_roundtrip.rs
-// Responsibility:   Edits of TOML, INI, property and environment documents checked by the.
+// Responsibility:   Edits of TOML, INI, property and environment documents checked by the harness.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

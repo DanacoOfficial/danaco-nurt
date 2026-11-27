@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           packaging/release/zig-ar.sh
-# Responsibility:   Archiver of the cross-built Linux targets: runs "zig ar". The executable of zig.
+# Responsibility:   Archiver of the cross-built Linux targets: runs "zig ar".
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

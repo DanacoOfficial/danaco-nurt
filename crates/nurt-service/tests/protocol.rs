@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-service/tests/protocol.rs
-// Responsibility:   Service host over its control channel: protocol, heartbeat, instance.
+// Responsibility:   Service host over its control channel.
 // Dependencies:     nurt_contracts, nurt_sched, serde_json, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/fuzz/fuzz_targets/correct.rs
-// Responsibility:   Fuzz target of the front part of correction: any program text, read in.
+// Responsibility:   Fuzz target of the front part of correction.
 // Dependencies:     libfuzzer_sys, nurt_contracts, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::diff
-// Responsibility:   `diff`: line differences of files, directory trees and contents as `hunk`.
+// Responsibility:   `diff`: line differences of files, directory trees and contents as `hunk` records.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

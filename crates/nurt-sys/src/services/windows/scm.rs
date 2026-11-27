@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::services::windows::scm
-// Responsibility:   Rules of the service control manager that do not depend on the Win32.
+// Responsibility:   Rules of the service control manager that do not depend on the Win32 interface.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

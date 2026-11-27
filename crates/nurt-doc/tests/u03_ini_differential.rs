@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u03_ini_differential.rs
-// Responsibility:   Differential tests of the INI and property readers: Git configuration.
+// Responsibility:   Differential tests of the INI and property readers.
 // Dependencies:     ini, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

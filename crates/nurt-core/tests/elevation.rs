@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/elevation.rs
-// Responsibility:   Privilege elevation through the engine: the choice of the backend, the.
+// Responsibility:   Privilege elevation through the engine.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

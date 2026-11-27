@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/catalog_coverage.rs
-// Responsibility:   Every command of the catalog binds with sample values of its required.
+// Responsibility:   Every command of the catalog binds with sample values of its required parameters, and every parameter is accepted by a form of its command.
 // Dependencies:     bind_support, nurt_contracts, nurt_correct
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::common
-// Responsibility:   Building blocks shared by the stages of the file, content, archive and.
+// Responsibility:   Building blocks shared by the stages of the file, content, archive and notebook commands.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::archive
-// Responsibility:   Stages of the archive commands: `archive.list`, `archive.extract` and.
+// Responsibility:   Stages of the archive commands: `archive.list`, `archive.extract` and `archive.create`.
 // Dependencies:     globset, nurt_archive, nurt_contracts, nurt_testkit, serde_json, unicode_normalization
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

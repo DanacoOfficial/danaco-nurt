@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/attributes_golden.rs
-// Responsibility:   Examples of `docs/commands/attributes.md`, run on the virtual file.
+// Responsibility:   Examples of `docs/commands/attributes.md`, run on the virtual file system, and the transaction rules of the command.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

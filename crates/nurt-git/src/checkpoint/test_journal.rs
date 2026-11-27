@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::checkpoint::test_journal
-// Responsibility:   Repositories and a checked journal for the tests of the checkpoint and.
+// Responsibility:   Repositories and a checked journal for the tests of the checkpoint and working tree commands.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

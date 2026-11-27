@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/hash_support/mod.rs
-// Responsibility:   Helpers shared by the golden-file tests of the tree codecs and the tree.
+// Responsibility:   Helpers shared by the golden-file tests of the tree codecs and the tree hash.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

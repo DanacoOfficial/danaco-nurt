@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-service/tests/support/mod.rs
-// Responsibility:   Test doubles for the service host: a virtual clock, mock modules and an.
+// Responsibility:   Test doubles for the service host: a virtual clock, mock modules and an independent client that applies the liveness rule of the journal.
 // Dependencies:     nurt_contracts, serde_json, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

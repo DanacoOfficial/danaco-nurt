@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-cli::app
-// Responsibility:   Entry of the command line: input and output streams, engine source and.
+// Responsibility:   Entry of the command line: input and output streams, engine source and the dispatcher of invocations.
 // Dependencies:     nurt_contracts, nurt_core
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

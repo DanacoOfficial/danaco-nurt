@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/lex_literals.rs
-// Responsibility:   Literal tokens and their decoders: integers, numbers, sizes, durations.
+// Responsibility:   Literal tokens and their decoders: integers, numbers, sizes, durations, texts, raw texts and regular expressions.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

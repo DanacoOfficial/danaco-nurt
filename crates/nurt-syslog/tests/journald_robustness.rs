@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syslog/tests/journald_robustness.rs
-// Responsibility:   Damaged journal files: every defect ends in events and notices, never in.
+// Responsibility:   Damaged journal files: every defect ends in events and notices, never in a panic or an endless loop.
 // Dependencies:     journal_writer, nurt_contracts, proptest
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

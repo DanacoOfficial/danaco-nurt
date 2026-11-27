@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/json_kinds.rs
-// Responsibility:   The JSON reader recognises exactly the node kinds that `nurt-contracts`.
+// Responsibility:   The JSON reader recognises exactly the node kinds that `nurt-contracts` declares, so that a newer-version error never blames a known kind.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

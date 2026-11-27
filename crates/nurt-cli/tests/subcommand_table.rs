@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/subcommand_table.rs
-// Responsibility:   The table of subcommands, the dispatcher, the usage text and the.
+// Responsibility:   The table of subcommands, the dispatcher, the usage text and the documentation list the same subcommands.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

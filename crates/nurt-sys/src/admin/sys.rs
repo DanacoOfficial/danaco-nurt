@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::sys
-// Responsibility:   The system seen by the administration commands: programs that read and.
+// Responsibility:   The system seen by the administration commands: programs that read and change it, files that describe it, the clock and the operating system.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

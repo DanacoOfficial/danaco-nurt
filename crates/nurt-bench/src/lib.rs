@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench
-// Responsibility:   Runner, statistical analysis and data set tools of the Danaco Nurt.
+// Responsibility:   Runner, statistical analysis and data set tools of the Danaco Nurt benchmark.
 // Dependencies:     condition, error
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

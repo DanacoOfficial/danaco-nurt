@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::elevation
-// Responsibility:   Elevation backends: the programs that run `nurt elevated-exec` with the.
+// Responsibility:   Elevation backends: the programs that run `nurt elevated-exec` with the rights of the administrator.
 // Dependencies:     windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

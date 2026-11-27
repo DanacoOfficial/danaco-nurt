@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::volumes
-// Responsibility:   Journal directories of volumes: eligibility, anchor selection and the.
+// Responsibility:   Journal directories of volumes: eligibility, anchor selection and the registry of the account.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::tests::bounds
-// Responsibility:   Bounds of change detection: entry cap, time budget, time limit of the run.
+// Responsibility:   Bounds of change detection: entry cap, time budget, time limit of the run, file system root, other volumes and cancellation.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

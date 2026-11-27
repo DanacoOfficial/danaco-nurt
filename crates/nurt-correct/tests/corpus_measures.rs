@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/corpus_measures.rs
-// Responsibility:   Measures of the correction corpora at the front part of correction: how.
+// Responsibility:   Measures of the correction corpora at the front part of correction.
 // Dependencies:     lexical_support, nurt_contracts, nurt_syntax, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

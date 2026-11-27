@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-plan/tests/schema.rs
-// Responsibility:   Generation of the `nurt-check/1` schema from the result types and the.
+// Responsibility:   Generation of the `nurt-check/1` schema from the result types and the validation of check results of the golden bound trees against it.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

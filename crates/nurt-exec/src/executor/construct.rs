@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-exec::executor::construct
-// Responsibility:   Execution of the control constructs: conditions, loops, `steps` and.
+// Responsibility:   Execution of the control constructs: conditions, loops, `steps` and functions.
 // Dependencies:     nurt_contracts, nurt_plan, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::journal
-// Responsibility:   Recording journal: mutation transactions on the real file system that keep.
+// Responsibility:   Recording journal of mutation transactions on the real file system, which detects writes outside a transaction.
 // Dependencies:     nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

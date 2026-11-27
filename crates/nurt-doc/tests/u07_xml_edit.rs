@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u07_xml_edit.rs
-// Responsibility:   Edits of XML documents: text and CDATA, attributes, empty elements, new.
+// Responsibility:   Edits of XML documents: text and CDATA, attributes, empty elements, new and removed elements, namespaces and changes of the value type.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

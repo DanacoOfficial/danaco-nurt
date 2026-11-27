@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u08_xml_encoding.rs
-// Responsibility:   Declared encodings of XML documents: detection, decoding, encoding back.
+// Responsibility:   Declared encodings of XML documents.
 // Dependencies:     nurt_contracts, u08_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

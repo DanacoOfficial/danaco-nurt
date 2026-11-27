@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/roundtrip_json.rs
-// Responsibility:   Round trip of the golden trees through the JSON codec, the canonical.
+// Responsibility:   Round trip of the golden trees through the JSON codec, the canonical encoding behind `ast_hash` and the decoding errors.
 // Dependencies:     nurt_contracts, serde_json, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

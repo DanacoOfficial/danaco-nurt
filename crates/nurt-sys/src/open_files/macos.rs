@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::open_files::macos
-// Responsibility:   Holders of files on macOS, from the process information interface of.
+// Responsibility:   Holders of files on macOS, from the process information interface of the kernel.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

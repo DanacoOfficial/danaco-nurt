@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::runner
-// Responsibility:   Execution of tasks: one run per task and seed, each in its own.
+// Responsibility:   Execution of tasks: one run per task and seed, each in its own temporary directory, recorded as a run log.
 // Dependencies:     sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

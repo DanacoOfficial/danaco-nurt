@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::processes::procargs
-// Responsibility:   Decoder of the argument area returned by `sysctl(KERN_PROCARGS2)` on.
+// Responsibility:   Decoder of the argument area returned by `sysctl(KERN_PROCARGS2)` on macOS.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

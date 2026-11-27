@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::install::test_bus
-// Responsibility:   Peer-to-peer D-Bus server with the systemd and login1 objects used by the.
+// Responsibility:   Peer-to-peer D-Bus server with the systemd and login1 objects used by the installer, for tests without a system bus.
 // Dependencies:     zbus
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

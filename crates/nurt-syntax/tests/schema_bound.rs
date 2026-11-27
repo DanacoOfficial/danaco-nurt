@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/schema_bound.rs
-// Responsibility:   Bound golden trees of `tests/d1/golden/bound/<variant>/` against the.
+// Responsibility:   Bound golden trees of `tests/d1/golden/bound/<variant>/` against the published schema `nurt-bound/1` and the invariants of `validate_bound`.
 // Dependencies:     hash_support, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

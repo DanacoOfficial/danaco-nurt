@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/notebook_golden.rs
-// Responsibility:   The examples of the `notebook.*` pages of the command documentation, run.
+// Responsibility:   The examples of the `notebook.*` pages of the command documentation, run on the virtual file system.
 // Dependencies:     notebook_support, nurt_contracts, nurt_notebook, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -1,3 +1,14 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/homebrew/nurt.rb.in
+# Responsibility:   Template of the Homebrew formula of Danaco Nurt in the tap.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 class Nurt < Formula
   desc "@DESCRIPTION@"
   homepage "https://nurt.danaco-group.pl"
@@ -38,3 +49,7 @@ class Nurt < Formula
     assert_match(/\Anurt \d/, shell_output("#{bin}/nurt version"))
   end
 end
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

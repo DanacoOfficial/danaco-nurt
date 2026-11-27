@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-migrate/tests/migrate/golden.rs
-// Responsibility:   Mixed scripts compared byte for byte with the expected program file and.
+// Responsibility:   Mixed scripts compared byte for byte with the expected program file and reports.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

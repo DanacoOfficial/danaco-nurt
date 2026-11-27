@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-migrate::translate
-// Responsibility:   Interface between the migration and the translation of the bash and.
+// Responsibility:   Interface between the migration and the translation of the bash and PowerShell habit tables.
 // Dependencies:     nurt_bind, nurt_contracts, nurt_correct, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/catalog_schema.rs
-// Responsibility:   Tests that the published schema of catalog files equals the schema.
+// Responsibility:   Tests that the published schema of catalog files equals the schema generated from the Rust types.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::pull::stage
-// Responsibility:   The `git.pull` stage: checks in the plan step, transfer and integration.
+// Responsibility:   The `git.pull` stage: checks in the plan step, transfer and integration in one transaction in the apply step.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

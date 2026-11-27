@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::tests::operations
-// Responsibility:   Journal operation of the kept previous content and of the detected.
+// Responsibility:   Journal operation of the kept previous content and of the detected changes.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

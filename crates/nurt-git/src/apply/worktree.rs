@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::worktree
-// Responsibility:   Observation of the working tree: entry kinds, expected states, the.
+// Responsibility:   Observation of the working tree: entry kinds, expected states, the up-to-date check of tracked files and the classification of untracked files.
 // Dependencies:     bstr, gix_index, nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

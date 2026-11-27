@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::classify
-// Responsibility:   Classification of command lines by their effect outside the file system.
+// Responsibility:   Classification of command lines by their effect outside the file system and by the way the started program behaves.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

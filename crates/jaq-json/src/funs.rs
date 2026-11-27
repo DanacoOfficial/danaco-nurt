@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           jaq-json::funs
-// Responsibility:   Return 0 for null, the absolute value for numbers, and.
+// Responsibility:   Return 0 for null, the absolute value for numbers, and the length for strings, arrays, and objects.
 // Dependencies:     bstr, bytes, jaq_core, jaq_std
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

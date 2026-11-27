@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/schema_tool.rs
-// Responsibility:   `nurt schema tool` against its documentation: the page of the tool.
+// Responsibility:   `nurt schema tool` against its documentation: the page of the tool definition for integrators and the reference of the command line.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

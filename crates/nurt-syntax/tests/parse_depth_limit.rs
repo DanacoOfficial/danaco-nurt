@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_depth_limit.rs
-// Responsibility:   The depth limit of the parser and of the surface decoders agree: a program.
+// Responsibility:   The depth limit of the parser and of the surface decoders agree: a program the parser accepts always encodes to a document the decoders accept.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

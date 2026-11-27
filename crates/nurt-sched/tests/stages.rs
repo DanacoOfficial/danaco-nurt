@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sched/tests/stages.rs
-// Responsibility:   The `schedule.*` commands without a running service: definitions written.
+// Responsibility:   The `schedule.*` commands without a running service: definitions written through the journal transaction, listings, history, undo and errors.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

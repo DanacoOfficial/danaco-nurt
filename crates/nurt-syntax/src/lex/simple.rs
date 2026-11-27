@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syntax::lex::simple
-// Responsibility:   Tokens of fixed form recognized by longest match: operators, punctuation.
+// Responsibility:   Tokens of fixed form recognized by longest match: operators, punctuation, words and the foreign operators of other shells.
 // Dependencies:     logos
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/edit_golden.rs
-// Responsibility:   Examples of the page of `edit` and the behaviour of `edit` on the virtual.
+// Responsibility:   Examples of the page of `edit` and the behaviour of `edit` on the virtual file system.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

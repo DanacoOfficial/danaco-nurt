@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::http::backend
-// Responsibility:   Implementation of the HTTP interface of `gix-transport` on `ureq` with.
+// Responsibility:   Implementation of the HTTP interface of `gix-transport` on `ureq` with `rustls`.
 // Dependencies:     gix_transport, gix_utils
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

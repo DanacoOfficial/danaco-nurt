@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_perf.rs
-// Responsibility:   Timing of the variant A parser on the golden programs. Run in release.
+// Responsibility:   Timing of the variant A parser on the golden programs.
 // Dependencies:     parse_a_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

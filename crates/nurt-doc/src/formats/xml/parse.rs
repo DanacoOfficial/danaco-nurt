@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml::parse
-// Responsibility:   Construction of an [`XmlTree`] from the events of the `quick-xml`.
+// Responsibility:   Construction of an [`XmlTree`] from the events of the `quick-xml` reader.
 // Dependencies:     nurt_contracts, quick_xml
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

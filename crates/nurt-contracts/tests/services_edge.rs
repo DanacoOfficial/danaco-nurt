@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/services_edge.rs
-// Responsibility:   Boundaries of the shared services: identifiers, byte ranges, the registry.
+// Responsibility:   Boundaries of the shared services: identifiers, byte ranges, the registry and the serialized names of the data types.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u05_yaml_suite.rs
-// Responsibility:   YAML Test Suite: every valid stream is read with the documents and.
+// Responsibility:   YAML Test Suite: every valid stream is read with the documents and values the suite expects, every invalid stream is rejected.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

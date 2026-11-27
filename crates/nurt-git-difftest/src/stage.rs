@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::stage
-// Responsibility:   Execution of a command through its stage implementation, the way the.
+// Responsibility:   Execution of a command through its stage implementation, the way the executor runs it.
 // Dependencies:     nurt_contracts, nurt_git, nurt_git_ops
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-code::profile::manifests
-// Responsibility:   Build and test commands, entry points and manifests read from project.
+// Responsibility:   Build and test commands, entry points and manifests read from project files.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::send_pack::pkt
-// Responsibility:   Packet line framing shared by the send-pack client and the in-process.
+// Responsibility:   Packet line framing shared by the send-pack client and the in-process receive-pack service.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

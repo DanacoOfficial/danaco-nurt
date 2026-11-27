@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_commands.rs
-// Responsibility:   Tests of the `code.symbols` and `code.outline` stages on a project in.
+// Responsibility:   Tests of the `code.symbols` and `code.outline` stages on a project in the virtual file system, with the listing double and a scripted semantic provider.
 // Dependencies:     nurt_contracts, nurt_testkit, u11_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

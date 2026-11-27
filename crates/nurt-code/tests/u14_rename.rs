@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u14_rename.rs
-// Responsibility:   Tests of `code.rename`: plan, one transaction, undo, stale plans.
+// Responsibility:   Tests of `code.rename`: plan, one transaction, undo, stale plans, alarms and the syntax fallback.
 // Dependencies:     nurt_contracts, u14_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

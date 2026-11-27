@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/lex_golden.rs
-// Responsibility:   Golden programs: every program lexes without error, literal spans match.
+// Responsibility:   Golden programs: every program lexes without error, literal spans match the expected trees, and three programs have their full token stream checked.
 // Dependencies:     TokenKind, nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

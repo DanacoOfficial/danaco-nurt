@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::send_pack::testing
-// Responsibility:   Test support: repositories built without the `git` program, a recording.
+// Responsibility:   Test support: repositories built without the `git` program, a recording journal transaction and a process host for hooks.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

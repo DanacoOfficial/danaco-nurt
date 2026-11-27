@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::ping::windows
-// Responsibility:   Echo requests on Windows through the ICMP helper functions.
+// Responsibility:   Echo requests on Windows through the ICMP helper functions `IcmpSendEcho` (IPv4) and `Icmp6SendEcho2` (IPv6), which need no privilege.
 // Dependencies:     nurt_contracts, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

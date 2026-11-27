@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::ports::macos
-// Responsibility:   Sockets of macOS, read per process with `proc_pidinfo(PROC_PIDLISTFDS)`.
+// Responsibility:   Sockets of macOS, read per process with `proc_pidinfo(PROC_PIDLISTFDS)` and `proc_pidfdinfo(PROC_PIDFDSOCKETINFO)`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

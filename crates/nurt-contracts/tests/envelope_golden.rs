@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/envelope_golden.rs
-// Responsibility:   Golden envelopes: requests in `spec/golden/request/` and responses in.
+// Responsibility:   Golden envelopes: requests in `spec/golden/request/` and responses in `spec/golden/request/response/`.
 // Dependencies:     serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

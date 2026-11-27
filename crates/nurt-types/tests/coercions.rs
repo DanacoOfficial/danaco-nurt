@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-types/tests/coercions.rs
-// Responsibility:   Implicit conversions of texts to typed values and text functions on.
+// Responsibility:   Implicit conversions of texts to typed values and text functions on multi-byte characters.
 // Dependencies:     jiff, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

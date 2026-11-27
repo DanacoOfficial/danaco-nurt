@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::replace
-// Responsibility:   The `replace` command: replacement of text in files, in input lines or.
+// Responsibility:   The `replace` command: replacement of text in files, in input lines or content, and of input matches.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

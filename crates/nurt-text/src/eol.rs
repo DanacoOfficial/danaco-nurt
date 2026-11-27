@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-text::eol
-// Responsibility:   Line terminators: detection, conversion, per-line preservation and.
+// Responsibility:   Line terminators: detection, conversion, per-line preservation and positions.
 // Dependencies:     memchr, nurt_contracts, similar
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

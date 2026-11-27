@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-plan/tests/common/mod.rs
-// Responsibility:   Builders of bound programs, the golden files and a fixed host shared by.
+// Responsibility:   Builders of bound programs, the golden files and a fixed host shared by the integration tests.
 // Dependencies:     nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

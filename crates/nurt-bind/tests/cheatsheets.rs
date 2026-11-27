@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/cheatsheets.rs
-// Responsibility:   The cheat sheets "Nurt for bash users" and "Nurt for PowerShell users".
+// Responsibility:   The cheat sheets for bash and PowerShell users, checked against the correction pipeline that `nurt <program>` runs.
 // Dependencies:     bind_support, nurt_contracts, nurt_correct, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

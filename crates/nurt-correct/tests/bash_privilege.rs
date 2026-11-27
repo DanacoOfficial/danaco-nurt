@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/bash_privilege.rs
-// Responsibility:   Translation of `sudo`, `doas`, `run0` and `su`: the program that follows is.
+// Responsibility:   Translation of `sudo`, `doas`, `run0` and `su`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

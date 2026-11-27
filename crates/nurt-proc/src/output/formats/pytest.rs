@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::formats::pytest
-// Responsibility:   Output of `pytest`: the lines `FAILED file::test - message` and.
+// Responsibility:   Output of `pytest`: the failure lines of the short summary, the traceback lines, the detail lines and the closing line.
 // Dependencies:     nurt_contracts, regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

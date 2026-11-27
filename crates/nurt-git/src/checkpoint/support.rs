@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::checkpoint::support
-// Responsibility:   Repository access, identity, content filters, trees and journaled writes.
+// Responsibility:   Repository access, identity, content filters, trees and journaled writes shared by the checkpoint and working tree commands.
 // Dependencies:     gix, nurt_contracts, nurt_testkit, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

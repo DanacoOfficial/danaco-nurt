@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_golden.rs
-// Responsibility:   Golden surface trees of the specification: the reference tasks, the.
+// Responsibility:   Golden surface trees of the specification: the reference tasks, the examples and the extra programs, compared with their spans and their `ast_hash`.
 // Dependencies:     parse_a_support, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::credentials::config
-// Responsibility:   Credential settings of one remote address: `credential.helper`.
+// Responsibility:   Credential settings of one remote address.
 // Dependencies:     nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

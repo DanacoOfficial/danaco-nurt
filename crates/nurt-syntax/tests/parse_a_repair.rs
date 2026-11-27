@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_repair.rs
-// Responsibility:   Tolerant parsing: the order of repairs, alternatives, the limits per.
+// Responsibility:   Tolerant parsing: the order of repairs, alternatives, the limits per statement and the information given to a repair policy.
 // Dependencies:     nurt_contracts, parse_a_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

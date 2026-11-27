@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::powershell::convert
-// Responsibility:   Conversion of PowerShell literals: paths, wildcard patterns, numbers and.
+// Responsibility:   Conversion of PowerShell literals: paths, wildcard patterns, numbers and durations.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::cursor
-// Responsibility:   Read positions in spool files, output cursors and reading of complete.
+// Responsibility:   Read positions in spool files, output cursors and reading of complete lines from a position.
 // Dependencies:     nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

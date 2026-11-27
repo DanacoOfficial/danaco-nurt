@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::reset::worktree
-// Responsibility:   Reading the working tree: comparison with index entries, the form in.
+// Responsibility:   Reading the working tree: comparison with index entries, the form in which files are stored and the list of untracked files.
 // Dependencies:     gix, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::taxonomy
-// Responsibility:   Built-in taxonomy of program categories, mappings of system.
+// Responsibility:   Built-in taxonomy of program categories, mappings of system classifications and the table of synonyms.
 // Dependencies:     serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

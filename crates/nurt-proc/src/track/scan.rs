@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::scan
-// Responsibility:   Scan of the watched directories: one entry per path with the state that.
+// Responsibility:   Scan of the watched directories.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

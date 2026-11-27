@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::tests::budget
-// Responsibility:   The byte budget of a response, the cutting of long lines, the short.
+// Responsibility:   The byte budget of a response, the cutting of long lines, the short result of a success and the errors of known tools.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

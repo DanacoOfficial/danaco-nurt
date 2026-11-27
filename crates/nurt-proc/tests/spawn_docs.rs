@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-proc/tests/spawn_docs.rs
-// Responsibility:   The page `docs/commands/run.md` agrees with the catalog and has the.
+// Responsibility:   The page `docs/commands/run.md` agrees with the catalog and has the sections and examples of a command page.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

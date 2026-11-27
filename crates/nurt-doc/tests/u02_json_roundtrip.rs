@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u02_json_roundtrip.rs
-// Responsibility:   Round-trip harness runs over the JSON and JSONC corpus and the JSON Test.
+// Responsibility:   Round-trip harness runs over the JSON and JSONC corpus and the JSON Test Suite, and a change of a document written and undone through the in-memory journal.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

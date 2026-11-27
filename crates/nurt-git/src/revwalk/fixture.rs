@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::fixture
-// Responsibility:   Repositories with exact histories for tests, written object by object.
+// Responsibility:   Repositories with exact histories for tests, written object by object without an external program, and an execution context of test doubles.
 // Dependencies:     gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u01_edit.rs
-// Responsibility:   Byte edits, offset maps, line diffs and the scope, meaning and identity.
+// Responsibility:   Byte edits, offset maps, line diffs and the scope, meaning and identity guards.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_examples.rs
-// Responsibility:   Programs that the correction produces for typical mistakes: the executed.
+// Responsibility:   Programs that the correction produces for typical mistakes: the executed forms, the ranked candidates and the ready corrections all parse strictly.
 // Dependencies:     parse_a_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

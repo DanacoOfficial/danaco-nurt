@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::catalog::fields
-// Responsibility:   Typed extraction of the members of a catalog object, with every violation.
+// Responsibility:   Typed extraction of the members of a catalog object, with every violation recorded under the path of the member.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

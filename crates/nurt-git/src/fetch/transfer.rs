@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::fetch::transfer
-// Responsibility:   The network part of a fetch: connection, handshake, listing of the remote.
+// Responsibility:   The network part of a fetch: connection, handshake, listing of the remote references, negotiation and the write of the received pack.
 // Dependencies:     bstr, gix, nurt_contracts, nurt_git_transport
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

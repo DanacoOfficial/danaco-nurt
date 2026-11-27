@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::bind
-// Responsibility:   Binding of scenario parameters to the signatures of `catalog/git.toml`.
+// Responsibility:   Binding of scenario parameters to the signatures of `catalog/git.toml`, and the host seen by the Nurt command.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

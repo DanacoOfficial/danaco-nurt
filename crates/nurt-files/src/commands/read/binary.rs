@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::read::binary
-// Responsibility:   Content of `read` that is not text: pages of PDF documents, images.
+// Responsibility:   Content of `read` that is not text: pages of PDF documents, images, hexadecimal dumps and compressed files read after decompression.
 // Dependencies:     image, nurt_archive, nurt_contracts, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

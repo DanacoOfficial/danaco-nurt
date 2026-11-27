@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::validate
-// Responsibility:   Syntax validation of changed text: the `validate` parameter of `write`.
+// Responsibility:   Syntax validation of changed text: the `validate` parameter of `write`, `replace`, `insert`, `edit` and `patch`.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

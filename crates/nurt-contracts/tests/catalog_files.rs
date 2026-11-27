@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/catalog_files.rs
-// Responsibility:   Tests of the catalog files in `catalog/`: every file parses, is consistent.
+// Responsibility:   Tests of the catalog files in `catalog/`: every file parses, is consistent, agrees with the index and validates against the published schema.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

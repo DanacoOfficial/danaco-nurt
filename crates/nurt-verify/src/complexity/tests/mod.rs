@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::complexity::tests
-// Responsibility:   Complexity findings on function metrics whose values were counted with the.
+// Responsibility:   Complexity findings on function metrics whose values were counted with the reference tool for each language.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

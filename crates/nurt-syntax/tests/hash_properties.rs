@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/hash_properties.rs
-// Responsibility:   Properties of `ast_hash` on the golden trees and the number formatting of.
+// Responsibility:   Properties of `ast_hash` on the golden trees and the number formatting of the JSON Canonicalization Scheme (RFC 8785) used by the hash.
 // Dependencies:     hash_support, nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

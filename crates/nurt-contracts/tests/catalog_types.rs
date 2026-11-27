@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/catalog_types.rs
-// Responsibility:   Tests of the type expression parser, input and output kinds and default.
+// Responsibility:   Tests of the type expression parser, input and output kinds and default values of the command catalog.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

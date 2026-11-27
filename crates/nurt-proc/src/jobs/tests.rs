@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests
-// Responsibility:   Tests of the job table, the run cycle, the supervisor and the job.
+// Responsibility:   Tests of the job table, the run cycle, the supervisor and the job commands, with test doubles of process control, output capture and change detection.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::read
-// Responsibility:   Reading of file content: PDF documents, images, hexadecimal dumps and.
+// Responsibility:   Reading of file content: PDF documents, images, hexadecimal dumps and compressed files.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

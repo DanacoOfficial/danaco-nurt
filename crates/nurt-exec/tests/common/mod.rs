@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/common/mod.rs
-// Responsibility:   Shared fixtures of the end-to-end tests: a registry with commands of the.
+// Responsibility:   Shared fixtures of the end-to-end tests: a registry with commands of the mock extension, a virtual world and builders of plans.
 // Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

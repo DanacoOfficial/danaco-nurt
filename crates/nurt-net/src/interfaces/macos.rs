@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::interfaces::macos
-// Responsibility:   Interfaces on macOS: `getifaddrs` for addresses, link-layer addresses.
+// Responsibility:   Interfaces on macOS: `getifaddrs` for addresses, link-layer addresses, MTU and interface type; the routing table read with `sysctl` for the default gateway.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/stages_catalog.rs
-// Responsibility:   Agreement of the record stages with the command catalog: names.
+// Responsibility:   Agreement of the record stages with the command catalog: names, parameters, types, defaults and accepted record kinds.
 // Dependencies:     nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

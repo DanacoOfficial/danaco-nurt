@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-git-difftest/tests/runner.rs
-// Responsibility:   Checks of the test runner with the `git` program: the corpus, the.
+// Responsibility:   Checks of the test runner with the `git` program.
 // Dependencies:     nurt_contracts, russh
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

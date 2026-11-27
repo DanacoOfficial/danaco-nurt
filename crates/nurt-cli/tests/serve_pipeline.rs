@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/serve_pipeline.rs
-// Responsibility:   Pipelines `find |> filter |> count` and `find |> remove` through the.
+// Responsibility:   Pipelines `find |> filter |> count` and `find |> remove` through the protocol server, on an engine over a virtual file system.
 // Dependencies:     nurt_ffi, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

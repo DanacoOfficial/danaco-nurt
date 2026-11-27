@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sched/tests/module_host.rs
-// Responsibility:   The schedule module under a test host: start and stop, control requests.
+// Responsibility:   The schedule module under a test host: start and stop, control requests, remote action kinds, busy runs, stopped runs and undo of a removal.
 // Dependencies:     nurt_contracts, serde_json, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

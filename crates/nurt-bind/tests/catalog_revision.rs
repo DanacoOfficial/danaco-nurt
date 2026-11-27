@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/catalog_revision.rs
-// Responsibility:   The revision recorded in a bound tree and the revision reported by the.
+// Responsibility:   The revision recorded in a bound tree and the revision reported by the command registry follow one definition.
 // Dependencies:     nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

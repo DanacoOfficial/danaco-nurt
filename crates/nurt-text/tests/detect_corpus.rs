@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-text/tests/detect_corpus.rs
-// Responsibility:   Detection accuracy on a corpus of Polish and Western European texts in.
+// Responsibility:   Detection accuracy on a corpus of Polish and Western European texts in every supported encoding and on binary content.
 // Dependencies:     oem_cp
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

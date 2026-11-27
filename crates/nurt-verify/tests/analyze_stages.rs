@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_stages.rs
-// Responsibility:   The analysis commands through the public stage list, with the test.
+// Responsibility:   The analysis commands through the public stage list, with the test program standing in for the analyzers and formatters.
 // Dependencies:     analyze_support, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

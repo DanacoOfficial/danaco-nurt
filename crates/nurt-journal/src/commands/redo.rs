@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::redo
-// Responsibility:   Stage of the `redo` command: applies again the changes reversed by an.
+// Responsibility:   Stage of the `redo` command: applies again the changes reversed by an undo entry, as a new journal entry.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

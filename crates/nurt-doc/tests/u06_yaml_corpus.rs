@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u06_yaml_corpus.rs
-// Responsibility:   Corpus tests of YAML sequences, anchors, merge keys, documents, comments.
+// Responsibility:   Corpus tests of YAML sequences, anchors, merge keys, documents, comments and tags.
 // Dependencies:     nurt_contracts, serde_json, u06_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

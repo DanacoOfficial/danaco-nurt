@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::model
-// Responsibility:   Models: configuration, a provider-neutral conversation and the adapters.
+// Responsibility:   Models: configuration, a provider-neutral conversation and the adapters of the providers.
 // Dependencies:     serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

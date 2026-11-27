@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::ports::windows
-// Responsibility:   Sockets of Windows, read with `GetExtendedTcpTable` and.
+// Responsibility:   Sockets of Windows, read with `GetExtendedTcpTable` and `GetExtendedUdpTable` for IPv4 and IPv6.
 // Dependencies:     nurt_contracts, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

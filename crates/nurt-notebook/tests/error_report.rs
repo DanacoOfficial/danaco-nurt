@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-notebook/tests/error_report.rs
-// Responsibility:   Conversion of notebook errors to language errors, messages of the.
+// Responsibility:   Conversion of notebook errors to language errors, messages of the variants and the addressing types.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

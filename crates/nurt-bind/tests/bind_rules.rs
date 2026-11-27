@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/bind_rules.rs
-// Responsibility:   Binding rules: signature order and defaults, casts, expansion of source.
+// Responsibility:   Binding rules: signature order and defaults, casts, expansion of source forms, phases and the rule of one effect, and the errors of stage `1`.
 // Dependencies:     bind_support, nurt_contracts, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

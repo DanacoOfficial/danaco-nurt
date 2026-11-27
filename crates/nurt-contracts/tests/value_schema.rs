@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/value_schema.rs
-// Responsibility:   The published schema `nurt-value/1` equals the schema generated from the.
+// Responsibility:   The published schema `nurt-value/1` equals the schema generated from the Rust types.
 // Dependencies:     schemars, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

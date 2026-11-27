@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::install
-// Responsibility:   Installation and removal of the service with the service manager of the.
+// Responsibility:   Installation and removal of the service with the service manager of the operating system.
 // Dependencies:     detect, nurt_contracts, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

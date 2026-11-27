@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/replace_golden.rs
-// Responsibility:   Examples of the page of `replace` and the behaviour of `replace` on.
+// Responsibility:   Examples of the page of `replace` and the behaviour of `replace` on the virtual file system.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

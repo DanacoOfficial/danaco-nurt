@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-contracts::kinds
-// Responsibility:   Classification enumerations shared by the catalog, the syntax trees and the.
+// Responsibility:   Classification enumerations shared by the catalog, the syntax trees and the report.
 // Dependencies:     schemars, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

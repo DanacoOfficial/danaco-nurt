@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-report/tests/assemble_builder.rs
-// Responsibility:   Assembly of reports: targets, summary, operation number, listing.
+// Responsibility:   Assembly of reports: targets, summary, operation number, listing, notable effects and irreversibility.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

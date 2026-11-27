@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u14_rename_syntax.rs
-// Responsibility:   `code.rename` without a language server: whole identifiers in code are.
+// Responsibility:   `code.rename` without a language server.
 // Dependencies:     nurt_contracts, u14_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

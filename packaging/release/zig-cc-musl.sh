@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           packaging/release/zig-cc-musl.sh
-# Responsibility:   C compiler of the musl target x86_64-unknown-linux-musl: runs "zig cc" and drops.
+# Responsibility:   C compiler of the musl target x86_64-unknown-linux-musl: runs "zig cc" and drops the option --target=<triple> of the cc crate.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

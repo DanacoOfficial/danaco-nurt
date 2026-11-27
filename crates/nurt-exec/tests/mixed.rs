@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/mixed.rs
-// Responsibility:   Execution of pipelines over streams of mixed record kinds, early stop of.
+// Responsibility:   Execution of pipelines over streams of mixed record kinds, early stop of sources and the records read before a failed stage.
 // Dependencies:     common, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

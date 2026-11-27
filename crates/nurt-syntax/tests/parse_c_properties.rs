@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_c_properties.rs
-// Responsibility:   Properties of the variant C parser over arbitrary input: it never panics.
+// Responsibility:   Properties of the variant C parser over arbitrary input: it never panics, and every tree it accepts names every stage argument.
 // Dependencies:     nurt_contracts, proptest
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

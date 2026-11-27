@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/envelope_edge.rs
-// Responsibility:   Boundaries of the request envelope and the response: path and duration.
+// Responsibility:   Boundaries of the request envelope and the response: path and duration notation, option rules, error messages and the form of the JSON documents.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

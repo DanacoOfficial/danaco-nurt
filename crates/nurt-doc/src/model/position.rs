@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::model::position
-// Responsibility:   Offsets of line starts in a text, for converting byte offsets to lines and.
+// Responsibility:   Offsets of line starts in a text, for converting byte offsets to lines and columns.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

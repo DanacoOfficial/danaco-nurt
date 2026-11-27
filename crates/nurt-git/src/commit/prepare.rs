@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::commit::prepare
-// Responsibility:   Planning of a commit: the content selected for the tree, the parents, the.
+// Responsibility:   Planning of a commit: the content selected for the tree, the parents, the identities, the message settings and the checks that run before any change.
 // Dependencies:     bstr, gix, gix_ref, nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

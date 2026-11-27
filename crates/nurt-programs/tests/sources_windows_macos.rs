@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/sources_windows_macos.rs
-// Responsibility:   Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications.
+// Responsibility:   Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications and macOS application bundles, read from synthetic trees below a temporary root.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

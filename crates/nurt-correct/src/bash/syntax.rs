@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::syntax
-// Responsibility:   Structure of shell commands: lists, and-or chains, pipelines and simple.
+// Responsibility:   Structure of shell commands: lists, and-or chains, pipelines and simple commands with redirections.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
