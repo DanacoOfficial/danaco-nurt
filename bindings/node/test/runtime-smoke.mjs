@@ -14,7 +14,7 @@
 // server. Exits with status 0 on success.
 //
 //   bun test/runtime-smoke.mjs
-//   deno run --allow-read --allow-env --allow-run test/runtime-smoke.mjs
+//   deno run --allow-read --allow-env --allow-run --allow-sys=uid,gid test/runtime-smoke.mjs
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

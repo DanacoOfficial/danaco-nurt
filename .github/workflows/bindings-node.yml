@@ -94,7 +94,7 @@ jobs:
           deno-version: v2.x
       - if: matrix.runtime == 'deno'
         name: Smoke test in Deno
-        run: deno run --allow-read --allow-env --allow-run test/runtime-smoke.mjs
+        run: deno run --allow-read --allow-env --allow-run --allow-sys=uid,gid test/runtime-smoke.mjs
 
   conformance:
     runs-on: ubuntu-latest
