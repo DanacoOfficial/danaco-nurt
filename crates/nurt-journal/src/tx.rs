@@ -190,6 +190,8 @@ struct Target {
     created: bool,
     copied_on_move: bool,
     observed: bool,
+    /// Restored by a rollback to a savepoint: the entry does not record it.
+    restored: bool,
     /// The previous content is kept in the manifest.
     inline: bool,
 }
@@ -271,8 +273,9 @@ pub(crate) struct Tx<'a> {
     unsynced: Unsynced,
     /// Whether `preserve` is allowed after the first change.
     incremental: bool,
-    /// Number of targets declared when the savepoint was set.
-    savepoint: Option<usize>,
+    /// Numbers of targets declared when each open savepoint was set, the
+    /// innermost last.
+    savepoints: Vec<usize>,
 }
 
 /// Changes of a transaction whose flush is deferred to one flush of all of
@@ -510,7 +513,7 @@ impl<'a> Tx<'a> {
             inline_admission: Vec::new(),
             unsynced: Unsynced::default(),
             incremental: false,
-            savepoint: None,
+            savepoints: Vec::new(),
         }
     }
 
@@ -539,11 +542,11 @@ impl<'a> Tx<'a> {
         if self.phase == Phase::Halted {
             return error;
         }
-        if let Some(mark) = self.savepoint {
+        if let Some(mark) = self.savepoints.last().copied() {
             return match self.restore_from(mark) {
                 Ok(failed) if failed.is_empty() => error,
                 Ok(failed) => {
-                    self.savepoint = None;
+                    self.savepoints.clear();
                     self.phase = Phase::Failed;
                     rollback_failed(&failed, error)
                 }
@@ -1157,6 +1160,7 @@ impl Tx<'_> {
             created: false,
             copied_on_move: false,
             observed: false,
+            restored: false,
             inline: false,
         };
         if let TargetAction::Rename { to, replace } = &spec.action {
@@ -2661,7 +2665,14 @@ impl Tx<'_> {
                 Ok(()) => {}
                 Err(_) => failed.push(self.targets[position].spec.path.clone()),
             }
+            // A target restored once is not restored again by a later rollback,
+            // and the committed entry does not list it.
             self.targets[position].changed = false;
+            self.targets[position].restored = true;
+            if let Some(dest) = self.targets[position].dest.as_mut() {
+                dest.created = false;
+                dest.moved = false;
+            }
         }
         Ok(failed)
     }
@@ -2960,7 +2971,9 @@ impl Tx<'_> {
             .targets
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            .filter(|(_, t)| {
+                t.restored || (t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            })
             .map(|(position, _)| position)
             .collect();
         for position in &dropped {
@@ -3261,15 +3274,15 @@ impl MutationTx for Tx<'_> {
     }
 
     fn savepoint(&mut self) {
-        self.savepoint = Some(self.targets.len());
+        self.savepoints.push(self.targets.len());
     }
 
     fn release_savepoint(&mut self) {
-        self.savepoint = None;
+        self.savepoints.pop();
     }
 
     fn rollback_to_savepoint(&mut self) -> Result<()> {
-        let Some(mark) = self.savepoint.take() else {
+        let Some(mark) = self.savepoints.pop() else {
             return Ok(());
         };
         match self.restore_from(mark) {

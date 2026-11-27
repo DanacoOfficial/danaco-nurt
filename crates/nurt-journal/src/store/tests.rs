@@ -437,6 +437,114 @@ fn an_incremental_transaction_interrupted_at_each_point_is_rolled_back_by_recove
     }
 }
 
+/// Writes `content` to `target` in the open transaction.
+fn put(tx: &mut dyn nurt_contracts::journal::MutationTx, target: &AbsPath, content: &[u8]) {
+    apply_ops(tx, vec![FileOp::write(target.clone(), content.to_vec())]).unwrap();
+}
+
+#[test]
+fn savepoints_nest_and_each_rollback_restores_only_its_own_changes() {
+    let env = Env::new(&json!({}));
+    let a = env.seed(NOTES, b"a0");
+    let b = env.seed(OTHER_FILE, b"b0");
+    let c = env.seed("/home/user/docs/third.txt", b"c0");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    put(tx.as_mut(), &a, b"a1");
+    tx.savepoint();
+    put(tx.as_mut(), &b, b"b1");
+    tx.savepoint();
+    put(tx.as_mut(), &c, b"c1");
+    tx.rollback_to_savepoint().unwrap();
+    assert_eq!(env.read(&c), b"c0");
+    assert_eq!(env.read(&b), b"b1");
+    tx.rollback_to_savepoint().unwrap();
+    assert_eq!(env.read(&b), b"b0");
+    assert_eq!(env.read(&a), b"a1");
+    let handle = tx.commit().unwrap();
+    assert_eq!(handle.op, Some(OpId(1)));
+    journal.undo(&undo_last()).unwrap();
+    assert_eq!(env.read(&a), b"a0");
+    assert_eq!(env.read(&b), b"b0");
+    assert_eq!(env.read(&c), b"c0");
+}
+
+#[test]
+fn releasing_an_inner_savepoint_keeps_the_outer_one() {
+    let env = Env::new(&json!({}));
+    let a = env.seed(NOTES, b"a0");
+    let b = env.seed(OTHER_FILE, b"b0");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    tx.savepoint();
+    put(tx.as_mut(), &a, b"a1");
+    tx.savepoint();
+    put(tx.as_mut(), &b, b"b1");
+    tx.release_savepoint();
+    tx.rollback_to_savepoint().unwrap();
+    assert_eq!(env.read(&a), b"a0");
+    assert_eq!(env.read(&b), b"b0");
+}
+
+#[test]
+fn a_rolled_back_rename_is_not_restored_twice() {
+    let env = Env::new(&json!({}));
+    let a = env.seed(NOTES, b"a0");
+    let b = env.seed(OTHER_FILE, b"b0");
+    let moved = path("/home/user/docs/moved.txt");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    put(tx.as_mut(), &a, b"a1");
+    tx.savepoint();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::rename(b.clone(), moved.clone(), false)],
+    )
+    .unwrap();
+    assert!(env.exists(&moved));
+    tx.rollback_to_savepoint().unwrap();
+    assert_eq!(env.read(&b), b"b0");
+    assert!(!env.exists(&moved));
+    // A later rollback of the whole transaction does not touch it again.
+    let report = tx
+        .rollback(nurt_contracts::journal::RollbackReason::TargetFailed)
+        .unwrap();
+    assert!(report.failed.is_empty(), "{:?}", report.failed);
+    assert_eq!(env.read(&a), b"a0");
+    assert_eq!(env.read(&b), b"b0");
+}
+
+#[test]
+fn a_committed_entry_with_a_rolled_back_rename_undoes_cleanly() {
+    let env = Env::new(&json!({}));
+    let a = env.seed(NOTES, b"a0");
+    let b = env.seed(OTHER_FILE, b"b0");
+    let moved = path("/home/user/docs/moved.txt");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    put(tx.as_mut(), &a, b"a1");
+    tx.savepoint();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::rename(b.clone(), moved.clone(), false)],
+    )
+    .unwrap();
+    tx.rollback_to_savepoint().unwrap();
+    tx.commit().unwrap();
+    journal.undo(&undo_last()).unwrap();
+    assert_eq!(env.read(&a), b"a0");
+    assert_eq!(env.read(&b), b"b0");
+    assert!(!env.exists(&moved));
+}
+
 #[test]
 fn write_is_listed_undone_and_redone() {
     let env = Env::new(&json!({}));
