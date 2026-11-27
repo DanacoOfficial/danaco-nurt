@@ -19,6 +19,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -115,11 +117,39 @@ pub(crate) fn save(
         handle.write_all(&bytes)?;
         handle.sync_all()
     });
-    let renamed = written.and_then(|()| fs::rename(&temporary, file));
+    let renamed = written.and_then(|()| rename_over(&temporary, file));
     if renamed.is_err() {
         let _ = fs::remove_file(&temporary);
     }
     renamed
+}
+
+/// Attempts of a rename that Windows refuses for a moment.
+const RENAME_ATTEMPTS: u32 = 50;
+
+/// Pause between two attempts of such a rename.
+const RENAME_PAUSE: Duration = Duration::from_millis(10);
+
+/// Renames `from` over `to`.
+///
+/// Windows refuses a rename with "access denied" for a short time while
+/// another process replaces the same file; the rename is then repeated, so
+/// that concurrent refreshes keep the rule "the last rename wins".
+fn rename_over(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut attempt = 1;
+    loop {
+        match fs::rename(from, to) {
+            Err(error)
+                if cfg!(windows)
+                    && error.kind() == std::io::ErrorKind::PermissionDenied
+                    && attempt < RENAME_ATTEMPTS =>
+            {
+                attempt += 1;
+                thread::park_timeout(RENAME_PAUSE);
+            }
+            result => return result,
+        }
+    }
 }
 
 #[cfg(test)]

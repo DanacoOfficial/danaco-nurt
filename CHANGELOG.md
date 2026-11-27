@@ -79,6 +79,9 @@ their own version numbers, described in the specification.
   - a cancelled `sql` change stops also when the cancellation comes between
     two statements of its transaction; before, such a cancellation was lost and
     a statement without end kept running.
+  - concurrent refreshes of one symbol index on Windows keep the rule "the
+    last rename wins"; before, a refresh could fail to store the index while
+    another process replaced the same file.
 
 ### Changed
 
