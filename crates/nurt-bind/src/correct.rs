@@ -340,8 +340,33 @@ impl<'a> Binder<'a> {
             self.catalog
                 .commands()
                 .iter()
-                .map(|command| NameEntry::name(command.name.clone(), NameKind::Command)),
+                .map(|command| NameEntry::name(command.name.clone(), NameKind::Command))
+                .chain(
+                    self.functions
+                        .iter()
+                        .map(|function| NameEntry::name(function.name.clone(), NameKind::Command)),
+                ),
         );
+        let nearest = nearest_first(
+            tie,
+            expected(&stage.name, &index, NameKind::Command, EXPECTED_LIMIT),
+        );
+        let function = nearest
+            .first()
+            .is_some_and(|name| self.functions.iter().any(|function| &function.name == name));
+        if function {
+            return Err(BindError::new(
+                ErrorCode::UnknownName,
+                format!(
+                    "unknown function `{}`; define it with `define` before the call",
+                    stage.name
+                ),
+            )
+            .at(stage.span)
+            .found(stage.name.clone())
+            .expected(&nearest)
+            .help("syntax"));
+        }
         Err(BindError::new(
             ErrorCode::UnknownCommand,
             format!(
@@ -351,10 +376,7 @@ impl<'a> Binder<'a> {
         )
         .at(stage.span)
         .found(stage.name.clone())
-        .expected(&nearest_first(
-            tie,
-            expected(&stage.name, &index, NameKind::Command, EXPECTED_LIMIT),
-        ))
+        .expected(&nearest)
         .help("commands"))
     }
 

@@ -65,8 +65,20 @@ pub(crate) struct Binder<'a> {
     pub(crate) catalog: &'a Catalog,
     pub(crate) context: &'a BindContext,
     document: &'a AstDocument,
-    lets: Vec<(String, Flow)>,
+    pub(crate) lets: Vec<(String, Flow)>,
     location: Option<Location>,
+    /// Names read without `@` in the constructs in scope: loop variables.
+    pub(crate) vars: Vec<String>,
+    /// Functions defined so far.
+    pub(crate) functions: Vec<crate::flow::Function>,
+    /// Number of loops around the statement being bound.
+    pub(crate) loops: usize,
+    /// Number of blocks around the statement being bound.
+    pub(crate) nesting: usize,
+    /// Whether the body of a function is bound: no name of the caller is visible.
+    pub(crate) isolated: bool,
+    /// Whether a reading pipeline in parentheses is a value.
+    pub(crate) allow_sub: bool,
     /// Correction of names and literals; absent for a binding without
     /// correction.
     pub(crate) corrector: Option<&'a Corrector<'a>>,
@@ -111,18 +123,7 @@ fn run(
     corrector: Option<&Corrector<'_>>,
 ) -> Result<(BoundDocument, Vec<Applied>), BindError> {
     check_version(&document.nurt)?;
-    let mut binder = Binder {
-        catalog,
-        context,
-        document,
-        lets: Vec::new(),
-        location: None,
-        corrector,
-        strict: 0,
-        applied: Vec::new(),
-        fields: None,
-        field_types: FieldTypes::new(),
-    };
+    let mut binder = Binder::with_corrector(catalog, context, document, corrector);
     let statements = binder.statements()?;
     let bound = BoundDocument::new(
         catalog.revision(),
@@ -149,6 +150,42 @@ fn check_version(version: &str) -> Result<(), BindError> {
 }
 
 impl<'a> Binder<'a> {
+    /// A binder without corrections over a document that holds no program,
+    /// for binding single values.
+    pub(crate) fn bare(
+        catalog: &'a Catalog,
+        context: &'a BindContext,
+        document: &'a AstDocument,
+    ) -> Self {
+        Self::with_corrector(catalog, context, document, None)
+    }
+
+    fn with_corrector(
+        catalog: &'a Catalog,
+        context: &'a BindContext,
+        document: &'a AstDocument,
+        corrector: Option<&'a Corrector<'a>>,
+    ) -> Self {
+        Self {
+            catalog,
+            context,
+            document,
+            lets: Vec::new(),
+            location: None,
+            vars: Vec::new(),
+            functions: Vec::new(),
+            loops: 0,
+            nesting: 0,
+            isolated: false,
+            allow_sub: false,
+            corrector,
+            strict: 0,
+            applied: Vec::new(),
+            fields: None,
+            field_types: FieldTypes::new(),
+        }
+    }
+
     fn statements(&mut self) -> Result<Vec<BoundStatement>, BindError> {
         let document = self.document;
         if document.program.statements.is_empty() {
@@ -167,15 +204,21 @@ impl<'a> Binder<'a> {
         Ok(bound)
     }
 
-    fn statement(
+    pub(crate) fn statement(
         &mut self,
         index: usize,
         statement: &Statement,
     ) -> Result<BoundStatement, BindError> {
         match statement {
             Statement::Let(binding) => {
-                let (value, flow) =
-                    self.pipeline(&binding.value, Mode::Let(&binding.name), Some(index))?;
+                // In a block a `let` may hold a change: `steps` passes its result
+                // to the later steps.
+                let mode = if self.nesting > 0 {
+                    Mode::Statement
+                } else {
+                    Mode::Let(&binding.name)
+                };
+                let (value, flow) = self.pipeline(&binding.value, mode, Some(index))?;
                 self.lets.push((binding.name.clone(), flow));
                 Ok(BoundStatement::Let(BoundLet {
                     name: binding.name.clone(),
@@ -186,7 +229,7 @@ impl<'a> Binder<'a> {
             Statement::Pipeline(pipeline) => self
                 .pipeline(pipeline, Mode::Statement, Some(index))
                 .map(|(pipeline, _)| BoundStatement::Pipeline(pipeline)),
-            _ => Err(unsupported("statement")),
+            other => self.construct(index, other),
         }
     }
 
@@ -201,9 +244,28 @@ impl<'a> Binder<'a> {
             Mode::Let(name) => Some(name),
             Mode::Statement | Mode::Sub => None,
         };
+        let rewritten;
+        let pipeline = if self.vars.is_empty() {
+            pipeline
+        } else {
+            let mut copy = pipeline.clone();
+            crate::flow::rewrite_pipeline(&mut copy, &self.vars);
+            rewritten = copy;
+            &rewritten
+        };
         let mut walk = Walk::new(pipeline, let_name);
         let mut stages = Vec::new();
         let (head, mut flow) = match &pipeline.head {
+            Head::Stage(stage)
+                if self.catalog.command(&stage.name).is_none()
+                    && self.functions.iter().any(|known| known.name == stage.name) =>
+            {
+                let call = match self.call(stage) {
+                    Some(call) => call?,
+                    None => return Err(internal("a known function was not found")),
+                };
+                (BoundHead::Call(call), Flow::any())
+            }
             Head::Ref(reference) => {
                 let (name, flow) = self.resolve_let(reference)?;
                 (
@@ -291,10 +353,7 @@ impl<'a> Binder<'a> {
             .find(|(known, _)| known == name)
             .map(|(_, flow)| flow.clone())
             .or_else(|| {
-                self.context
-                    .lets
-                    .iter()
-                    .any(|known| known == name)
+                (!self.isolated && self.context.lets.iter().any(|known| known == name))
                     .then(Flow::any)
             })
     }

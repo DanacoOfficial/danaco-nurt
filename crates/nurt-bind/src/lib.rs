@@ -27,7 +27,9 @@ mod correct;
 mod error;
 mod facade;
 mod fields;
+mod flow;
 mod literal;
+mod params;
 mod path;
 mod phase;
 mod signature;
@@ -39,6 +41,7 @@ pub use catalog::{Catalog, CatalogError, INDEX_FILE, REVISION_PREFIX};
 pub use context::{BindContext, UNCORRECTED_REV, host_os};
 pub use error::BindError;
 pub use facade::{Outcome, bind_with_correction, offer_candidates};
+pub use params::{ParamDescription, bind_params, describe_params};
 
 /// Binds a surface tree to the catalog.
 ///

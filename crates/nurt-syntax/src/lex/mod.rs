@@ -237,11 +237,11 @@ impl<'a> Lexer<'a> {
     /// block of statements: line breaks inside it end statements instead of
     /// being skipped. Call it before reading the token after the brace.
     pub fn mark_block(&mut self) {
-        if let Some(open) = self.blocks.last_mut() {
-            if !*open {
-                *open = true;
-                self.depth = self.depth.saturating_sub(1);
-            }
+        if let Some(open) = self.blocks.last_mut()
+            && !*open
+        {
+            *open = true;
+            self.depth = self.depth.saturating_sub(1);
         }
     }
 
@@ -421,9 +421,8 @@ impl<'a> Lexer<'a> {
                 self.depth = self.depth.saturating_sub(1);
             }
             TokenKind::RBrace => {
-                if !self.blocks.pop().unwrap_or(false) {
-                    self.depth = self.depth.saturating_sub(1);
-                }
+                let block = self.blocks.pop().unwrap_or(false);
+                self.depth = self.depth.saturating_sub(u32::from(!block));
             }
             _ => {}
         }
