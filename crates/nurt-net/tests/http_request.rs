@@ -1319,7 +1319,8 @@ fn tf_29_binary_body_is_saved_not_decoded() {
     let error = harness.fail(&[("url", url.clone()), ("as", text("text"))]);
     assert_eq!(error.code(), ErrorCode::Binary);
     let target = harness.state.path().join("x.png");
-    let target_text = target.to_str().unwrap().to_owned();
+    // The language form of the path, as the response names it.
+    let target_text = target.to_str().unwrap().replace('\\', "/");
     let mut tx = FileTx::default();
     let applied = harness
         .apply(
@@ -1594,7 +1595,8 @@ fn request_save_via_mutation_tx() {
     let harness = Harness::new();
     let target = harness.state.path().join("page.txt");
     std::fs::write(&target, "old").unwrap();
-    let target_text = target.to_str().unwrap().to_owned();
+    // The language form of the path, as the response names it.
+    let target_text = target.to_str().unwrap().replace('\\', "/");
     let values = [
         ("url", text(&server.url("/page"))),
         ("save", Value::Path(target_text.clone())),

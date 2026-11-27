@@ -16,7 +16,7 @@ mod u10_support;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::value::{Fields, Value};
 use u10_support::{
-    RecordingTx, args, args_map, cells, count, ctx, database, failure, read, text, write,
+    RecordingTx, args, args_map, cells, count, ctx, database, failure, literal_text, read, write,
 };
 
 /// One table with two rows.
@@ -130,7 +130,7 @@ fn fix_for_a_read_that_changes_repeats_the_map() {
         error.fix,
         [format!(
             "sql \"{}\" \"delete from items where id = :id\" params: {{\"id\": 7}} write: true",
-            text(&db)
+            literal_text(&db)
         )]
     );
 }

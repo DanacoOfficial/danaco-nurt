@@ -315,7 +315,10 @@ mod tests {
         .unwrap();
         let plist = dir
             .path()
-            .join("home/Library/LaunchAgents/nurt.service.plist");
+            .join("home")
+            .join("Library")
+            .join("LaunchAgents")
+            .join("nurt.service.plist");
         assert_eq!(report.files, std::slice::from_ref(&plist));
         assert!(report.notes.is_empty());
         let calls = host.calls();

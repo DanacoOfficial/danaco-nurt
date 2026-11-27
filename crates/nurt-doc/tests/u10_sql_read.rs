@@ -24,7 +24,7 @@ use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 use u10_support::{
     CtxOptions, RecordingTx, SHORT_BUSY, args, cells, code, context, count, ctx, database, failure,
-    read, row, text, write,
+    literal_text, read, row, text, write,
 };
 
 /// One table with a column of every storage class.
@@ -183,7 +183,7 @@ fn refuses_changing_statement_without_write_and_offers_fix() {
         error.fix,
         [format!(
             "sql \"{}\" \"select 1; delete from users where id = ?\" params: [7] write: true",
-            text(&db)
+            literal_text(&db)
         )]
     );
     assert_eq!(fs::read(&db).unwrap(), before);

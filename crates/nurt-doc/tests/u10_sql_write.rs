@@ -166,8 +166,10 @@ fn undo_restores_database_bytes() {
 fn undo_restores_wal_side_files() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS_WAL);
-    let reader = Connection::open(&db).unwrap();
+    let mut reader = Some(Connection::open(&db).unwrap());
     let _: i64 = reader
+        .as_ref()
+        .unwrap()
         .query_row("select count(*) from users", [], |row| row.get(0))
         .unwrap();
     let files = database_files(&db);
@@ -185,6 +187,11 @@ fn undo_restores_wal_side_files() {
     );
     write(&call, &ctx(), &mut tx).unwrap();
     assert_ne!(contents(&files)[0], before[0]);
+    if cfg!(windows) {
+        // Windows refuses to overwrite a file that an open connection maps
+        // (ERROR_USER_MAPPED_FILE), so the reader closes before the restore.
+        reader.take();
+    }
     tx.undo();
     assert_eq!(contents(&files), before);
     drop(reader);

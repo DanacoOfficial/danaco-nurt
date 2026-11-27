@@ -173,7 +173,15 @@ fn command_for_bun_selects_report_filter_bail_and_coverage() {
             "--coverage-dir=/s/cov",
         ])
     );
-    assert_eq!(planned.coverage_file.as_deref(), Some("/s/cov/lcov.info"));
+    // The file is joined to the coverage directory with the separator of
+    // the system.
+    assert_eq!(
+        planned
+            .coverage_file
+            .as_deref()
+            .map(|path| path.replace('\\', "/")),
+        Some("/s/cov/lcov.info".to_owned())
+    );
 }
 
 #[test]

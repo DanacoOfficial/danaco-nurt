@@ -676,7 +676,8 @@ mod tests {
         module.start().unwrap();
         let recorded = events_of(&events);
         assert_eq!(recorded[0], "recover down");
-        assert!(recorded[1].starts_with("calibrate /home "));
+        let calibrate = format!("calibrate {} ", nurt_testkit::paths::abs("/home"));
+        assert!(recorded[1].starts_with(&calibrate));
         assert!(recorded[1].ends_with("/calibration.tmp"));
         assert_eq!(recorded.len(), 3);
         assert_eq!(world.caller_view(), ServiceLiveness::Alive);
@@ -971,7 +972,7 @@ mod tests {
             .iter()
             .map(|volume| volume.mount.to_string())
             .collect();
-        assert_eq!(mounts, ["/home", "/mnt/data"]);
+        assert_eq!(mounts, ["/home", "/mnt/data"].map(nurt_testkit::paths::abs));
         assert_eq!(link.eligibility(&volumes[0]), Eligibility::Eligible);
         let mut memory = volumes[0].clone();
         memory.fs_type = "tmpfs".to_owned();

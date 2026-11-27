@@ -627,11 +627,7 @@ pub(crate) mod testing {
                     state.nodes.insert(new, node);
                 }
             }
-            state.log.push(format!(
-                "rename {} {}",
-                from.as_path().display(),
-                to.as_path().display()
-            ));
+            state.log.push(format!("rename {} {}", from, to));
             Ok(())
         }
 
@@ -673,9 +669,7 @@ pub(crate) mod testing {
                 Some(node) => {
                     state.nodes.remove(path.as_path());
                     self.release(&mut state, node.size);
-                    state
-                        .log
-                        .push(format!("remove_file {}", path.as_path().display()));
+                    state.log.push(format!("remove_file {}", path));
                     drop(state);
                     self.charge_file();
                     Ok(())
@@ -722,9 +716,7 @@ pub(crate) mod testing {
                 }
             }
             state.tree_parallelism.push(parallelism);
-            state
-                .log
-                .push(format!("remove_tree {}", path.as_path().display()));
+            state.log.push(format!("remove_tree {}", path));
             drop(state);
             for _ in 0..removed.files {
                 self.charge_file();
@@ -784,9 +776,7 @@ pub(crate) mod testing {
         }
 
         fn sync_dir(&self, _scope: &TxScope, dir: &AbsPath) -> FsResult<()> {
-            self.state()
-                .log
-                .push(format!("sync_dir {}", dir.as_path().display()));
+            self.state().log.push(format!("sync_dir {}", dir));
             Ok(())
         }
 

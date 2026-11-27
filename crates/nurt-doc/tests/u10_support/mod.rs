@@ -140,6 +140,12 @@ pub(crate) fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// `path` inside a text literal of the language, with `\\` escaped as the
+/// fixes of `sql` write it.
+pub(crate) fn literal_text(path: &Path) -> String {
+    text(path).replace('\\', "\\\\")
+}
+
 /// Bound arguments of one call.
 pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) -> BoundArgs {
     let defaulted = params.is_empty();

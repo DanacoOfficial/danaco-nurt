@@ -924,6 +924,7 @@ mod tests {
     use super::*;
     use nurt_contracts::services::{ByteRange, TextPosition, TextSpan};
     use nurt_testkit::ctx::TestContext;
+    use nurt_testkit::paths::abs;
 
     fn key(text: &str) -> KeyPath {
         KeyPath::parse(text).unwrap()
@@ -947,12 +948,18 @@ mod tests {
     fn paths_of_one_file_share_a_group_key() {
         let test = TestContext::new();
         let ctx = test.ctx();
-        assert_eq!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/./a.json"));
         assert_eq!(
-            group_key(&ctx, "/d/a.json"),
-            group_key(&ctx, "/d/x/../a.json")
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/./a.json"))
         );
-        assert_ne!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/b.json"));
+        assert_eq!(
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/x/../a.json"))
+        );
+        assert_ne!(
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/b.json"))
+        );
         assert_eq!(
             group_key(&ctx, "rel/a.json"),
             FileKey::Path(PathBuf::from("rel/a.json"))
@@ -969,14 +976,15 @@ mod tests {
             .unwrap();
         fs.write_file(&AbsPath::for_test("/d/b.json"), b"{}")
             .unwrap();
-        fs.symlink("/d/a.json", &AbsPath::for_test("/d/link.json"))
+        fs.symlink(abs("/d/a.json"), &AbsPath::for_test("/d/link.json"))
             .unwrap();
-        fs.symlink("/d", &AbsPath::for_test("/dir-link")).unwrap();
-        let direct = group_key(&ctx, "/d/a.json");
+        fs.symlink(abs("/d"), &AbsPath::for_test("/dir-link"))
+            .unwrap();
+        let direct = group_key(&ctx, &abs("/d/a.json"));
         assert!(matches!(direct, FileKey::Identity(_)));
-        assert_eq!(direct, group_key(&ctx, "/d/link.json"));
-        assert_eq!(direct, group_key(&ctx, "/dir-link/a.json"));
-        assert_ne!(direct, group_key(&ctx, "/d/b.json"));
+        assert_eq!(direct, group_key(&ctx, &abs("/d/link.json")));
+        assert_eq!(direct, group_key(&ctx, &abs("/dir-link/a.json")));
+        assert_ne!(direct, group_key(&ctx, &abs("/d/b.json")));
     }
 
     #[test]

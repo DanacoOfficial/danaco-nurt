@@ -918,7 +918,10 @@ fn macapp_info_plist_localized() {
     let data = load(&source, &env);
     let viewer = program(&data, "Viewer");
     assert_eq!(viewer.kind, EntryKind::App);
-    assert_eq!(viewer.path.as_deref(), Some("/Applications/Viewer.app"));
+    assert_eq!(
+        viewer.path.as_deref().map(|path| path.replace('\\', "/")),
+        Some("/Applications/Viewer.app".to_owned())
+    );
     assert_eq!(viewer.app_id.as_deref(), Some("org.example.Viewer"));
     assert_eq!(viewer.version.as_deref(), Some("2.4"));
     assert_eq!(viewer.executable.as_deref(), Some("Viewer"));
@@ -989,8 +992,11 @@ fn macapp_binary_plist_and_nested_bundles() {
     assert_eq!(console.version.as_deref(), Some("1.1"));
     assert_eq!(console.app_name.as_ref().unwrap().text, "Console");
     assert_eq!(
-        program(&data, "Tool").path.as_deref(),
-        Some("/Applications/Suite/Tool.app")
+        program(&data, "Tool")
+            .path
+            .as_deref()
+            .map(|path| path.replace('\\', "/")),
+        Some("/Applications/Suite/Tool.app".to_owned())
     );
     assert_eq!(data.programs.len(), 2);
     assert_eq!(data.warnings.len(), 1);

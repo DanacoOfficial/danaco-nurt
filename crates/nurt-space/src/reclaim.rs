@@ -822,13 +822,7 @@ mod tests {
             .expect("remove_file");
         let synced = log
             .iter()
-            .position(|line| {
-                *line
-                    == format!(
-                        "sync_dir {}",
-                        blob(op, 1).as_path().parent().expect("parent").display()
-                    )
-            })
+            .position(|line| *line == format!("sync_dir {}", blob(op, 1).parent().expect("parent")))
             .expect("sync_dir of the block directory");
         assert!(removed < synced);
         assert!(catalog.pending().is_empty());

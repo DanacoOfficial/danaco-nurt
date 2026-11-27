@@ -136,7 +136,8 @@ fn edits_every_corpus_document_inside_the_target_span() {
         let Some(text) = decode(&bytes) else { continue };
         let Ok(document) = JsonDocument::parse(text, *dialect) else {
             assert!(
-                path.to_string_lossy().contains("/i_"),
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().starts_with("i_")),
                 "{} does not parse",
                 path.display()
             );

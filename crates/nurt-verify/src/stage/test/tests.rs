@@ -479,7 +479,12 @@ fn run_with_a_command_and_a_named_framework_runs_the_command_unchanged() {
 #[test]
 fn run_prefers_the_program_installed_in_the_project() {
     let project = tempfile::tempdir().unwrap();
-    let local = write(project.path(), "node_modules/.bin/jest", "");
+    write(project.path(), "node_modules/.bin/jest", "");
+    let local = project
+        .path()
+        .join("node_modules")
+        .join(".bin")
+        .join("jest");
     let preview = preview_of(project.path(), &[("framework", text("jest"))]);
     assert_eq!(command_of(&preview)[0], local.to_string_lossy());
 }

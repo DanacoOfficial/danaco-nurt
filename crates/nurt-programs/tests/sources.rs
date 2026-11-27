@@ -317,7 +317,12 @@ fn dpkg_package_summary_reaches_the_card_of_its_command() {
     assert_eq!(card.summary.text, "GNU compression utilities");
     assert_eq!(card.version.as_deref(), Some("1.12-1"));
     assert_eq!(card.package.as_ref().unwrap().name, "gzip");
-    assert_eq!(card.path.as_deref(), Some("/usr/bin/gzip"));
+    // The source models a Linux system; on another system the joined path
+    // has the separator of that system.
+    assert_eq!(
+        card.path.as_deref().map(|path| path.replace('\\', "/")),
+        Some("/usr/bin/gzip".to_owned())
+    );
     assert!(card.installed);
 }
 
@@ -948,7 +953,9 @@ fn relative_xdg_directories_are_ignored() {
         PathBuf::from("/home/user/.local/share/applications")
     );
     assert!(dirs.contains(&PathBuf::from("/opt/share/applications")));
-    assert!(dirs.iter().all(|dir| dir.is_absolute()), "{dirs:?}");
+    // Rooted paths of the modelled Linux system; on Windows such a path has
+    // no drive and is not absolute.
+    assert!(dirs.iter().all(|dir| dir.has_root()), "{dirs:?}");
     assert_eq!(
         nurt_programs::index::default_cache_dir(&env),
         Some(PathBuf::from("/home/user/.cache/nurt/programs"))

@@ -86,7 +86,10 @@ fn sample(name: &str) -> Vec<(&'static str, Value)> {
         )],
         "body" => vec![("method", text("post")), ("body", text("payload"))],
         "json" => vec![("method", text("post")), ("json", Value::Int(1))],
-        "save" => vec![("save", Value::Path("/srv/page.html".to_owned()))],
+        "save" => vec![(
+            "save",
+            Value::Path(nurt_testkit::paths::abs("/srv/page.html")),
+        )],
         "as" => vec![("as", text("markdown"))],
         "extract" => vec![("extract", text("links"))],
         "table" => vec![("extract", text("tables")), ("table", Value::Int(2))],
