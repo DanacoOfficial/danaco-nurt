@@ -76,7 +76,7 @@ jobs:
           persist-credentials: false
       - name: actionlint
         run: |
-          docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
+          docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
 
   commits:
     name: Commit messages and sign-off
