@@ -50,6 +50,7 @@ internal sealed class ScriptedServer : IDisposable
     private readonly Stream _output;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly ConcurrentDictionary<long, TaskCompletionSource<bool>> _sleeping = new();
+    private readonly ConcurrentDictionary<long, bool> _cancelRequested = new();
     private int _cancelled;
     private int _inflight;
     private int _maxInflightObserved;
@@ -151,9 +152,11 @@ internal sealed class ScriptedServer : IDisposable
             case "cancel":
                 long target = parameters!["request_id"]!.GetValue<long>();
                 Interlocked.Increment(ref _cancelled);
+                _cancelRequested[target] = true;
                 bool running = _sleeping.TryRemove(target, out TaskCompletionSource<bool>? sleeper);
                 if (running)
                 {
+                    _cancelRequested.TryRemove(target, out _);
                     sleeper!.TrySetResult(true);
                 }
 
@@ -257,6 +260,11 @@ internal sealed class ScriptedServer : IDisposable
             case "sleep":
                 var wake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _sleeping[id] = wake;
+                if (_cancelRequested.TryRemove(id, out _))
+                {
+                    wake.TrySetResult(true);
+                }
+
                 await wake.Task.ConfigureAwait(false);
                 JsonObject cancelled = Report("failed", "sleep");
                 cancelled["error"] = new JsonObject { ["code"] = "E_CANCELLED", ["message"] = "cancelled" };
