@@ -5,11 +5,11 @@
 
 use std::fs;
 use std::io::Read;
-use std::path::Path as FsPath;
+use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use nurt_contracts::error::{Error, Result};
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::Row;
 use nurt_contracts::value::{Fields, Path, Record, Value};
 use rusqlite::config::DbConfig;
@@ -18,7 +18,8 @@ use rusqlite::{Batch, Connection, OpenFlags, Statement};
 
 use super::error::{self, Site};
 use super::guard::Policy;
-use super::{SqlParams, SqlRequest, convert, split};
+use super::split::StatementKind;
+use super::{SqlParams, SqlRequest, convert, split, target};
 
 /// First bytes of every SQLite database file.
 const HEADER: &[u8] = b"SQLite format 3\0";
@@ -68,7 +69,7 @@ impl Database {
     /// [`Policy`] installed.
     pub(super) fn open(request: &SqlRequest) -> Result<Self> {
         let access = if request.write {
-            OpenFlags::SQLITE_OPEN_READ_WRITE
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
         } else {
             OpenFlags::SQLITE_OPEN_READ_ONLY
         };
@@ -99,7 +100,6 @@ impl Database {
     /// statements and the parameter values. Used before a read, where no
     /// statement can change the schema seen by the next one.
     pub(super) fn validate(&self, request: &SqlRequest) -> Result<()> {
-        let _scope = self.policy.statements();
         let mut binder = Binder::new(&request.params);
         let mut batch = Batch::new(&self.connection, &request.query);
         let mut number = 0;
@@ -117,7 +117,6 @@ impl Database {
         request: &SqlRequest,
         sink: &mut dyn FnMut(Record) -> Result<()>,
     ) -> Result<Summary> {
-        let _scope = self.policy.statements();
         let start = self.connection.total_changes();
         let multiple = split::statement_count(&request.query) > 1;
         let mut binder = Binder::new(&request.params);
@@ -128,20 +127,250 @@ impl Database {
             number += 1;
             admit(&statement, number, request)?;
             summary.wrote |= !statement.readonly();
-            for (offset, (value, label)) in
-                binder.values(&statement, number)?.into_iter().enumerate()
-            {
-                let converted = convert::to_sqlite(value, &label)?;
-                statement
-                    .raw_bind_parameter(offset + 1, converted)
-                    .map_err(|e| self.fail(&e, request, number))?;
-            }
+            self.bind(&mut binder, &mut statement, number, request)?;
             let table = multiple.then(|| number.to_string());
             self.emit_rows(&mut statement, number, request, table, sink)?;
         }
         binder.finish()?;
         summary.changes = self.connection.total_changes().saturating_sub(start);
         Ok(summary)
+    }
+
+    /// Binds the next values of `binder` to `statement`.
+    fn bind<'v>(
+        &self,
+        binder: &mut Binder<'v>,
+        statement: &mut Statement<'_>,
+        number: usize,
+        request: &SqlRequest,
+    ) -> Result<()> {
+        for (offset, (value, label)) in binder.values(statement, number)?.into_iter().enumerate() {
+            let converted = convert::to_sqlite(value, &label)?;
+            statement
+                .raw_bind_parameter(offset + 1, converted)
+                .map_err(|e| self.fail(&e, request, number))?;
+        }
+        Ok(())
+    }
+
+    /// Runs the statements of a change.
+    ///
+    /// Statements run in one transaction, except those SQLite refuses inside
+    /// one: `ATTACH` and the pragmas run in their place with the transaction
+    /// committed before them, `DETACH` and `VACUUM` run after the other
+    /// statements. `BEGIN`, `COMMIT` and `END` are merged with the
+    /// transaction of the call, and `ROLLBACK` ends the call with
+    /// `E_ROLLED_BACK`. The write-ahead logs of every database are
+    /// checkpointed at the end.
+    pub(super) fn run_write(
+        &self,
+        request: &SqlRequest,
+        files: &mut dyn Files,
+        sink: &mut dyn FnMut(Record) -> Result<()>,
+    ) -> Result<Summary> {
+        let mut script = Script {
+            open: false,
+            deferred: Vec::new(),
+            known: self
+                .schemas(request)?
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect(),
+        };
+        let result = self.run_script(request, files, &mut script, sink);
+        if result.is_err() && script.open {
+            // A failed ROLLBACK leaves the files to the journal, which
+            // restores them when the executor rolls the operation back.
+            let _ = self.connection.execute_batch("ROLLBACK");
+        }
+        result
+    }
+
+    fn run_script<'c>(
+        &'c self,
+        request: &SqlRequest,
+        files: &mut dyn Files,
+        script: &mut Script<'c>,
+        sink: &mut dyn FnMut(Record) -> Result<()>,
+    ) -> Result<Summary> {
+        let start = self.connection.total_changes();
+        let kinds = split::statement_kinds(&request.query);
+        let multiple = kinds.len() > 1;
+        let mut binder = Binder::new(&request.params);
+        let mut batch = Batch::new(&self.connection, &request.query);
+        let mut summary = Summary::default();
+        let mut number = 0;
+        while let Some(mut statement) = self.next_statement(&mut batch, request, number + 1)? {
+            number += 1;
+            let kind = kinds
+                .get(number - 1)
+                .copied()
+                .unwrap_or(StatementKind::Change);
+            self.bind(&mut binder, &mut statement, number, request)?;
+            let table = multiple.then(|| number.to_string());
+            match kind {
+                StatementKind::Begin | StatementKind::Commit => {}
+                StatementKind::Rollback => return Err(self.rolled_back(script, number)),
+                StatementKind::Attach => {
+                    self.attach(statement, number, request, files, script)?;
+                }
+                StatementKind::Detach | StatementKind::Vacuum => {
+                    summary.wrote |= kind == StatementKind::Vacuum;
+                    script.deferred.push((number, kind, statement));
+                }
+                StatementKind::Pragma => {
+                    self.commit(script, request)?;
+                    summary.wrote = true;
+                    self.emit_rows(&mut statement, number, request, table, sink)?;
+                }
+                _ => {
+                    self.begin(script, request)?;
+                    summary.wrote |= !statement.readonly();
+                    self.emit_rows(&mut statement, number, request, table, sink)?;
+                }
+            }
+        }
+        binder.finish()?;
+        self.commit(script, request)?;
+        for (number, kind, mut statement) in std::mem::take(&mut script.deferred) {
+            if kind == StatementKind::Vacuum {
+                self.declare_vacuum(&statement, number, files)?;
+            }
+            self.emit_rows(&mut statement, number, request, None, sink)?;
+        }
+        self.checkpoint_all(request)?;
+        summary.changes = self.connection.total_changes().saturating_sub(start);
+        Ok(summary)
+    }
+
+    fn begin(&self, script: &mut Script<'_>, request: &SqlRequest) -> Result<()> {
+        if !script.open {
+            self.connection
+                .execute_batch("BEGIN IMMEDIATE")
+                .map_err(|e| error::from_sqlite(&e, request, Site::Transaction))?;
+            script.open = true;
+        }
+        Ok(())
+    }
+
+    fn commit(&self, script: &mut Script<'_>, request: &SqlRequest) -> Result<()> {
+        if script.open {
+            self.connection
+                .execute_batch("COMMIT")
+                .map_err(|e| error::from_sqlite(&e, request, Site::Transaction))?;
+            script.open = false;
+        }
+        Ok(())
+    }
+
+    fn rolled_back(&self, script: &mut Script<'_>, number: usize) -> Error {
+        if script.open {
+            let _ = self.connection.execute_batch("ROLLBACK");
+            script.open = false;
+        }
+        Error::new(
+            ErrorCode::RolledBack,
+            format!("statement {number} is ROLLBACK: the call is rolled back and changes nothing"),
+        )
+        .with_problem("rolled_back")
+        .with_detail("statement", serde_json::json!(number))
+    }
+
+    /// Runs `ATTACH` outside the transaction, after the pending `DETACH`
+    /// statements, and declares the attached file to the journal before the
+    /// statements that change it.
+    fn attach<'c>(
+        &self,
+        mut statement: Statement<'c>,
+        number: usize,
+        request: &SqlRequest,
+        files: &mut dyn Files,
+        script: &mut Script<'c>,
+    ) -> Result<()> {
+        self.commit(script, request)?;
+        let (detaches, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut script.deferred)
+            .into_iter()
+            .partition(|(_, kind, _)| *kind == StatementKind::Detach);
+        script.deferred = rest;
+        for (position, _, mut detach) in detaches {
+            self.emit_rows(&mut detach, position, request, None, &mut |_| Ok(()))?;
+        }
+        if let Some(file) = statement
+            .expanded_sql()
+            .as_deref()
+            .and_then(target::attached_file)
+        {
+            declare_file(files, &file)?;
+        }
+        self.emit_rows(&mut statement, number, request, None, &mut |_| Ok(()))?;
+        let attached = self.schemas(request)?;
+        for (name, file) in &attached {
+            if !script.known.contains(name) {
+                declare_file(files, file)?;
+            }
+        }
+        script.known = attached.into_iter().map(|(name, _)| name).collect();
+        Ok(())
+    }
+
+    /// Declares the file a `VACUUM INTO` creates, or notes that it is not
+    /// known.
+    fn declare_vacuum(
+        &self,
+        statement: &Statement<'_>,
+        number: usize,
+        files: &mut dyn Files,
+    ) -> Result<()> {
+        let Some(sql) = statement.expanded_sql() else {
+            return Ok(());
+        };
+        match target::vacuum_target(&sql) {
+            Some(file) => declare_file(files, &file),
+            None => {
+                if sql.to_ascii_uppercase().contains("INTO") {
+                    files.untracked(
+                        number,
+                        "VACUUM INTO writes a file that is not given as a text literal or parameter",
+                    );
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Name and file of every database of the connection.
+    fn schemas(&self, request: &SqlRequest) -> Result<Vec<(String, String)>> {
+        let failed = |e: rusqlite::Error| error::from_sqlite(&e, request, Site::Transaction);
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA database_list")
+            .map_err(failed)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                ))
+            })
+            .map_err(failed)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(failed)
+    }
+
+    /// Moves the write-ahead log of every database into its file.
+    fn checkpoint_all(&self, request: &SqlRequest) -> Result<()> {
+        for (name, _) in self.schemas(request)? {
+            if name == "temp" {
+                continue;
+            }
+            let sql = format!(
+                "PRAGMA \"{}\".wal_checkpoint(TRUNCATE)",
+                name.replace('"', "\"\"")
+            );
+            self.connection
+                .query_row(&sql, [], |_| Ok(()))
+                .map_err(|e| error::from_sqlite(&e, request, Site::Transaction))?;
+        }
+        Ok(())
     }
 
     fn next_statement<'c>(
@@ -193,12 +422,68 @@ impl Database {
     }
 }
 
+/// Allows the SQL function `load_extension` on a connection opened for a
+/// change; a read-only connection refuses it.
+#[allow(
+    unsafe_code,
+    reason = "rusqlite marks enabling extension loading unsafe; only the SQL function is enabled"
+)]
+fn enable_extensions(connection: &Connection) -> rusqlite::Result<()> {
+    // SAFETY: the call switches on the SQL function `load_extension` of this
+    // connection; the effects of a loaded library are the responsibility of
+    // the caller of `sql`, who asked for the change, and the report marks
+    // them as unknown and irreversible.
+    unsafe { connection.load_extension_enable() }
+}
+
+/// Declares to the journal the database file that `file` names, unless it
+/// is the memory or a temporary database, or an URI SQLite resolves itself.
+fn declare_file(files: &mut dyn Files, file: &str) -> Result<()> {
+    if file.is_empty() || file == ":memory:" || file.starts_with("file:") {
+        return Ok(());
+    }
+    files.watch(PathBuf::from(file), file)
+}
+
+/// The files that a change touches besides the database of the call; the
+/// journal preserves each of them before the statements change it.
+pub(super) trait Files {
+    /// Declares the database file `file` and its `-wal`, `-shm` and
+    /// `-journal` files; a file declared before is ignored.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the errors of the journal when it cannot preserve the
+    /// files.
+    fn watch(&mut self, file: PathBuf, label: &str) -> Result<()>;
+
+    /// Notes an effect on files that are not known before the statement
+    /// runs; the effect cannot be undone.
+    fn untracked(&mut self, number: usize, what: &str);
+}
+
+/// State of the statements of one change.
+struct Script<'c> {
+    /// A transaction is open.
+    open: bool,
+    /// `DETACH` and `VACUUM` statements that run after the others.
+    deferred: Vec<(usize, StatementKind, Statement<'c>)>,
+    /// Names of the databases attached to the connection.
+    known: Vec<String>,
+}
+
 fn configure(connection: &Connection, request: &SqlRequest) -> rusqlite::Result<()> {
     connection.busy_timeout(request.busy_timeout)?;
     connection.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
     connection.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
-    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_ENABLE_ATTACH_CREATE, false)?;
-    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_ENABLE_ATTACH_WRITE, false)?;
+    connection.set_db_config(
+        DbConfig::SQLITE_DBCONFIG_ENABLE_ATTACH_CREATE,
+        request.write,
+    )?;
+    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_ENABLE_ATTACH_WRITE, request.write)?;
+    if request.write {
+        enable_extensions(connection)?;
+    }
     if !request.write {
         connection.pragma_update(None, "query_only", true)?;
     }

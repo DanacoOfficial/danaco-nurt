@@ -2249,6 +2249,24 @@
           ],
           "description": "Kind of a link."
         },
+        "major": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Major device number of a device node."
+        },
+        "minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Minor device number of a device node."
+        },
         "links": {
           "type": [
             "integer",
@@ -2528,8 +2546,18 @@
         },
         {
           "type": "string",
+          "const": "fifo",
+          "description": "Named pipe (FIFO)."
+        },
+        {
+          "type": "string",
+          "const": "device",
+          "description": "Character or block device node; `major` and `minor` hold its numbers."
+        },
+        {
+          "type": "string",
           "const": "other",
-          "description": "Device, socket, FIFO or another special object."
+          "description": "Socket or another special object."
         }
       ],
       "description": "Type of a file system entry or of an archive member."

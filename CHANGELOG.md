@@ -13,6 +13,28 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+### Added
+
+- `create` makes named pipes and device nodes on Linux and macOS: `type: fifo
+  mode: "0660"` and `type: device kind: char|block major: <int> minor: <int>`
+  (a device node needs `privilege: elevated`). On Windows both fail with
+  `E_OS_ONLY`. Both are journaled as created files, and `undo` removes them.
+  `info` and `list` report the types `fifo` and `device`; a device node has
+  the fields `major` and `minor`.
+
+### Changed
+
+- `sql` has no refusals. A statement that changes anything opens the database
+  for writing and journals the file and its `-wal`, `-shm` and `-journal` files
+  first; `write` is optional, and `write: false` keeps the call read-only.
+  `BEGIN`, `COMMIT` and `END` merge with the transaction of the call,
+  `ROLLBACK` ends it with `E_ROLLED_BACK`, `ATTACH` and `DETACH` are allowed
+  with every attached file journaled before the first change, `VACUUM INTO` is
+  journaled as a created file, `VACUUM` runs after the other statements,
+  `load_extension` is allowed (its effects are reported as unknown and
+  irreversible) and the pragmas `temp_store_directory` and
+  `data_store_directory` are allowed.
+
 ## [0.1.1] - 2026-11-27
 
 ### Security

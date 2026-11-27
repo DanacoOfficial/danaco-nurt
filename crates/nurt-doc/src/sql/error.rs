@@ -189,12 +189,6 @@ pub(super) fn denied(denial: &Denial, number: usize) -> Error {
                 "statement {number} calls load_extension, which loads code into the process; remove the call"
             ),
         ),
-        Denial::Transaction(keyword) => (
-            "transaction",
-            format!(
-                "statement {number} uses {keyword}; with `write: true` all statements run in one transaction, so use SAVEPOINT for nested transactions"
-            ),
-        ),
     };
     Error::new(ErrorCode::Sql, message)
         .with_problem(problem)
@@ -386,7 +380,6 @@ mod tests {
             (denied(&Denial::Extension, 1), "extension"),
             (denied(&Denial::Attach("ATTACH"), 1), "attach"),
             (denied(&Denial::Pragma("p".to_owned()), 1), "pragma"),
-            (denied(&Denial::Transaction("BEGIN"), 1), "transaction"),
             (missing_params(1, 0), "parameter_count"),
             (extra_params(1, 2), "parameter_count"),
         ];

@@ -1,7 +1,7 @@
 ---
 command: sql
 group: documents
-summary: Run SQL statements on an SQLite database file, read-only unless write is set.
+summary: Run SQL statements on an SQLite database file; a statement that changes anything makes the call a change.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
@@ -22,28 +22,42 @@ sql <path> <query> [name: value]...
 and produces one `row` record per result row. Statements run in order;
 statements without result columns produce no records.
 
-Without `write: true` the database is opened read-only and the connection is
-set to `query_only`. A statement that changes the database fails with
-`E_SQL`, and the error carries the same call with `write: true` as `fix`.
-Every statement is prepared and checked before the first row is produced.
+A call whose statements only read (`SELECT`, `VALUES`, `EXPLAIN`, a `WITH`
+without `INSERT`, `UPDATE` or `DELETE`, a pragma that only reads) opens the
+database read-only and sets the connection to `query_only`. A call with a
+statement that changes anything opens the database for writing and is an
+effect; no refusal asks for `write: true`. The statements that make a call a
+change are every other statement, a pragma that sets a value or acts, and a
+call of `load_extension`. A query that is not a literal text is a change.
+`write: true` stays as an optional explicit form. `write: false` keeps the
+call read-only: a statement that changes the database then fails with
+`E_SQL` (`problem`: `write_required`), and the error carries the same call
+without `write: false` as `fix`. Every statement of a read is prepared and
+checked before the first row is produced.
 
-With `write: true` all statements run in one `BEGIN IMMEDIATE` transaction.
-The transaction is committed when every statement succeeds and rolled back
-when one fails; nothing is changed then. After the commit the write-ahead
-log is checkpointed into the database file with `TRUNCATE`, so the database
-file holds the new state. Statements that control the transaction (`BEGIN`,
-`COMMIT`, `END`, `ROLLBACK` without `TO`) are refused; `SAVEPOINT`,
-`RELEASE` and `ROLLBACK TO` are allowed. `VACUUM` cannot run inside the
-transaction and fails with `E_SQL`.
+A change journals the database file and its `-wal`, `-shm` and `-journal`
+files before the first statement runs. The statements run in one
+`BEGIN IMMEDIATE` transaction. The transaction is committed when every
+statement succeeds and rolled back when one fails; nothing is changed then.
+After the commit the write-ahead log of every database is checkpointed into
+its file with `TRUNCATE`, so the files hold the new state.
 
-Every connection is limited to the database file and its journal files.
-`ATTACH`, `DETACH` and the pragmas `temp_store_directory` and
-`data_store_directory` are refused (`problem`: `attach`, `pragma`), a call of
-`load_extension` is refused (`problem`: `extension`), and the connection runs
-in the defensive mode of SQLite with untrusted schema. `VACUUM INTO` is
-refused because it attaches a second database file. Without `write: true` it
-fails with the problem `write_required` like every statement that is not
-read-only, and the target file is not created.
+| Statement | Rule |
+|---|---|
+| `BEGIN`, `COMMIT`, `END` | merged with the transaction of the call; they change nothing |
+| `ROLLBACK` | rolls the call back and ends it with `E_ROLLED_BACK`; the database and the journal stay as before |
+| `SAVEPOINT`, `RELEASE`, `ROLLBACK TO` | run inside the transaction |
+| `ATTACH` | allowed; runs outside the transaction (the transaction is committed before it and opened again for the next change). The file is journaled before the first statement that changes it; a file that does not exist is created and `undo` removes it. The path is the one SQLite resolves: absolute, or relative to the working directory of the process |
+| `DETACH` | allowed; runs after the other statements, or before the next `ATTACH` |
+| `VACUUM`, `VACUUM schema` | run outside the transaction automatically, after the other statements; the database file is journaled first |
+| `VACUUM INTO` | allowed; the new file is journaled as created when it is a text literal or a parameter, so `undo` removes it; any other expression makes the call irreversible for that file (`external_effect`) |
+| pragmas that set a value or act | run outside the transaction, in their place, so `journal_mode`, `foreign_keys` and `temp_store_directory` work; `temp_store_directory` and `data_store_directory` are allowed |
+| `load_extension` | allowed; the report marks the call with `external_effect`, because the effects of the extension are unknown and cannot be undone |
+
+The connection runs in the defensive mode of SQLite with untrusted schema.
+A call with `write: false` refuses `ATTACH`, `DETACH`, the directory pragmas
+(`problem`: `attach`, `pragma`) and `load_extension` (`problem`:
+`extension`).
 
 `path` must name an existing file. An empty file is an empty database, as in
 SQLite. A file that does not start with the SQLite header, such as an
@@ -93,7 +107,7 @@ reader does; the database file itself is not changed.
 | `path` | `path` | required | SQLite database file. |
 | `query` | `text` | required | SQL statements. |
 | `params` | `list<any> \| map<any>` | `[]` | Values bound to the placeholders of the statements: a list for positional placeholders, a map from names to values for named placeholders. |
-| `write` | `bool` | `false` | Allow statements that change the database. |
+| `write` | `bool` | none | Optional: a statement that changes the database opens it for writing without it. write: false keeps the call read-only. |
 
 ## Input and output
 
@@ -111,16 +125,16 @@ rows, or a cancelled execution, interrupts the running statement.
 | Property | Value |
 |---|---|
 | Category | `change` |
-| Effect | `read` |
-| Reversibility | `read` |
+| Effect | `local` |
+| Reversibility | `reversible_if_preserved` |
 | Implementation | `builtin` |
-| Reversibility conditions | With write set to true the database file is copied before the change; without space for the copy the change is irreversible. |
+| Reversibility conditions | A call that changes the database copies the database file and its journal files first, and undo restores them; the files of ATTACH and VACUUM INTO are preserved or removed the same way. Without space for the copy, and for the effects of load_extension, the change is irreversible. |
 
 | Action | Effect | Reversibility | Note |
 |---|---|---|---|
-| `write` | `local` | `reversible_if_preserved` | Applies when write is true. |
+| `write` | `local` | `reversible_if_preserved` | Applies when write is true, and without write when a statement changes anything. |
 
-With `write: true` the operation journal preserves the database file and the
+With a change the operation journal preserves the database file and the
 files `-wal`, `-shm` and `-journal` next to it before the first statement
 runs. `undo` restores the database and these files to their previous bytes
 and removes journal files created by the change. Without space for the copy
@@ -136,7 +150,7 @@ seconds by default) and then fails with `E_IN_USE`.
 Create a table in an empty database file and return the inserted row:
 
 ```nurt example
-sql "/home/user/app.db" "create table users(id integer primary key, name text); insert into users(name) values (?) returning id, name" params: ["ada"] write: true
+sql "/home/user/app.db" "create table users(id integer primary key, name text); insert into users(name) values (?) returning id, name" params: ["ada"]
 ```
 
 ```json fs-before
@@ -185,7 +199,8 @@ sql "/home/user/app.db" "select ?2 - ?1 as span, upper(?3) as label" params: [5,
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_SQL` | a statement cannot be prepared or executed, changes the database without `write: true`, is refused (`problem`: `attach`, `extension`, `pragma`, `transaction`), holds no statement (`problem`: `empty_query`), or `params` does not match the statements (`problem`: `parameter_count`, `parameter_name`, `parameter_type`, `parameter_range`); the problem `write_required` marks a statement that changes the database without `write: true`, `VACUUM INTO` included; `details` holds `statement` and `sqlite_code` | correct the statement, add `write: true`, or pass one value per parameter or one entry per named placeholder |
+| `E_SQL` | a statement cannot be prepared or executed, changes the database with `write: false`, is refused with `write: false` (`problem`: `attach`, `extension`, `pragma`), holds no statement (`problem`: `empty_query`), or `params` does not match the statements (`problem`: `parameter_count`, `parameter_name`, `parameter_type`, `parameter_range`); the problem `write_required` marks a statement that changes the database with `write: false`, `VACUUM INTO` included; `details` holds `statement` and `sqlite_code` | correct the statement, remove `write: false`, or pass one value per parameter or one entry per named placeholder |
+| `E_ROLLED_BACK` | a statement `ROLLBACK` ended the call; `details.statement` holds its number and nothing was changed | remove the `ROLLBACK` statement to keep the changes |
 | `E_MISSING_PARAM` | `path` or `query` is not given | pass both |
 | `E_TYPE` | `path`, `query`, `params` or `write` has another type | pass `params` as a list or a map |
 | `E_DOC_PARSE` | the file is not an SQLite database, is encrypted or damaged; `details.format` is `sqlite`, `details.sqlite_code` holds the SQLite code when SQLite reported it | pass an SQLite database file |

@@ -57,7 +57,7 @@ expect = { report = { status = "ok", kind = "sql", records = { type = "row", mat
 [[case]]
 id = "exec/documents/sql/write-without-flag"
 kind = "exec"
-summary = "sql that changes data without write true fails with E_SQL and changes nothing."
+summary = "sql that changes data without write opens the database for writing and changes it."
 fs_before = { entries = [] }
 
 [[case.step]]
@@ -65,7 +65,58 @@ program = 'sql "app.db" "create table t(x)" write: true'
 
 [[case.step]]
 program = 'sql "app.db" "insert into t values (1)"'
+expect = { report = { status = "ok", kind = "sql", changes = [{ rows_changed = 1 }] } }
+
+[[case.step]]
+program = 'sql "app.db" "select x from t"'
+expect = { report = { status = "ok", kind = "sql", records = { type = "row", matched = 1 } } }
+
+[[case]]
+id = "exec/documents/sql/write-false-stays-read-only"
+kind = "exec"
+summary = "sql with write false keeps the call read-only: a changing statement fails with E_SQL and changes nothing."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'sql "app.db" "create table t(x)" write: true'
+
+[[case.step]]
+program = 'sql "app.db" "insert into t values (1)" write: false'
 expect = { report = { status = "failed", error = { code = "E_SQL" } } }
+
+[[case]]
+id = "exec/documents/sql/rollback-statement"
+kind = "exec"
+summary = "A ROLLBACK statement ends the call with E_ROLLED_BACK and changes nothing."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'sql "app.db" "create table t(x)" write: true'
+
+[[case.step]]
+program = 'sql "app.db" "insert into t values (1); rollback"'
+expect = { report = { status = "failed", error = { code = "E_ROLLED_BACK" } } }
+
+[[case.step]]
+program = 'sql "app.db" "select x from t"'
+expect = { report = { status = "ok", kind = "sql", records = { type = "row", matched = 0 } } }
+
+[[case]]
+id = "exec/documents/sql/transaction-statements"
+kind = "exec"
+summary = "BEGIN and COMMIT merge with the transaction of the call."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'sql "app.db" "create table t(x)" write: true'
+
+[[case.step]]
+program = 'sql "app.db" "begin; insert into t values (1); insert into t values (2); commit"'
+expect = { report = { status = "ok", kind = "sql" } }
+
+[[case.step]]
+program = 'sql "app.db" "select x from t"'
+expect = { report = { status = "ok", kind = "sql", records = { type = "row", matched = 2 } } }
 
 [[case]]
 id = "exec/documents/sql/named-params"

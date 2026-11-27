@@ -4,12 +4,14 @@
 //! Changes of a database through the operation journal.
 //!
 //! The order is fixed: the database file and its journal files are
-//! preserved, the statements run in one `BEGIN IMMEDIATE` transaction, the
-//! transaction is committed, the write-ahead log is checkpointed into the
-//! database file with `TRUNCATE`, the connection is closed and the new state
-//! of the files is reported to the journal. A failure before the commit
-//! rolls the SQLite transaction back and reports nothing, so the executor
-//! rolls the journal transaction back and no entry remains.
+//! preserved, the statements run (see [`Database::run_write`]), every
+//! write-ahead log is checkpointed into its database file with `TRUNCATE`,
+//! the connection is closed and the new state of the files is reported to
+//! the journal. A database that the statements attach, and the file that
+//! `VACUUM INTO` creates, are declared to the journal before the statement
+//! that changes them. A failure rolls the SQLite transaction back and reports
+//! nothing, so the executor rolls the journal transaction back and the files
+//! return to their state before the call.
 
 use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,9 +26,12 @@ use nurt_contracts::value::{Record, Size};
 use rusqlite::InterruptHandle;
 
 use super::SqlRequest;
-use super::error::{self, Site};
-use super::journal::DatabaseFiles;
-use super::session::{self, Database, Summary};
+use std::path::PathBuf;
+
+use nurt_contracts::report::Irreversible;
+
+use super::journal::{DatabaseFiles, FileState};
+use super::session::{self, Database, Files, Summary};
 
 /// Longest wait of the cancellation watcher before it checks the deadline.
 const WATCH_INTERVAL: Duration = Duration::from_millis(20);
@@ -59,35 +64,127 @@ pub(crate) fn write(
     ctx: &ExecCtx,
 ) -> Result<WriteOutcome> {
     session::check_file(request)?;
-    let files = DatabaseFiles::locate(request)?;
-    let before = files.snapshot();
-    let preserved = tx.preserve(&files.specs(&before))?;
-    let irreversible = files.irreversible(&preserved);
-    let mut rows = Vec::new();
-    let summary = execute(request, ctx, &mut rows)?;
-    let after = files.snapshot();
-    let changes = files.changes(&before, &after, summary.wrote);
-    if !changes.is_empty() {
-        tx.observe_external(&changes)?;
+    let mut journal = Journaled::new(tx, request);
+    journal.declare(DatabaseFiles::locate(request)?)?;
+    if request.extension() {
+        journal.untracked(
+            0,
+            "the statements call load_extension, whose effects are unknown",
+        );
     }
+    let mut rows = Vec::new();
+    let summary = execute(request, ctx, &mut journal, &mut rows)?;
+    let (size_before, size_after) = journal.finish(summary.wrote)?;
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
-    change.size_before = before.first().map(|state| Size::from_bytes(state.len()));
-    change.size_after = after.first().map(|state| Size::from_bytes(state.len()));
+    change.size_before = size_before.map(Size::from_bytes);
+    change.size_after = size_after.map(Size::from_bytes);
     change.rows_changed = Some(summary.changes);
     Ok(WriteOutcome {
         rows,
         change,
-        irreversible,
+        irreversible: journal.irreversible,
     })
 }
 
-fn execute(request: &SqlRequest, ctx: &ExecCtx, rows: &mut Vec<Record>) -> Result<Summary> {
+/// Declarations of the database files of one change and their states before
+/// it.
+struct Journaled<'a> {
+    tx: &'a mut dyn MutationTx,
+    request: &'a SqlRequest,
+    sets: Vec<Watched>,
+    /// Index of the next declared target.
+    next: u32,
+    irreversible: Vec<IrreversibleEntry>,
+}
+
+/// One database with its side files, declared to the journal.
+struct Watched {
+    files: DatabaseFiles,
+    before: Vec<FileState>,
+    /// Index of the database file among the targets of the transaction.
+    base: u32,
+}
+
+impl<'a> Journaled<'a> {
+    fn new(tx: &'a mut dyn MutationTx, request: &'a SqlRequest) -> Self {
+        Self {
+            tx,
+            request,
+            sets: Vec::new(),
+            next: 0,
+            irreversible: Vec::new(),
+        }
+    }
+
+    /// Preserves the files of a database that the journal does not know yet.
+    fn declare(&mut self, files: DatabaseFiles) -> Result<()> {
+        if self.sets.iter().any(|set| set.files.same_database(&files)) {
+            return Ok(());
+        }
+        let before = files.snapshot();
+        let preserved = self.tx.preserve(&files.specs(&before))?;
+        self.irreversible.extend(files.irreversible(&preserved));
+        let base = self.next;
+        self.next += u32::try_from(before.len()).unwrap_or(u32::MAX);
+        self.sets.push(Watched {
+            files,
+            before,
+            base,
+        });
+        Ok(())
+    }
+
+    /// Reports the changes of every declared file to the journal and
+    /// returns the size of the database of the call before and after.
+    fn finish(&mut self, wrote: bool) -> Result<(Option<u64>, Option<u64>)> {
+        let mut changes = Vec::new();
+        let mut sizes = (None, None);
+        for (position, set) in self.sets.iter().enumerate() {
+            let after = set.files.snapshot();
+            changes.extend(set.files.changes(&set.before, &after, wrote, set.base));
+            if position == 0 {
+                sizes = (
+                    set.before.first().map(FileState::len),
+                    after.first().map(FileState::len),
+                );
+            }
+        }
+        if !changes.is_empty() {
+            self.tx.observe_external(&changes)?;
+        }
+        Ok(sizes)
+    }
+}
+
+impl Files for Journaled<'_> {
+    fn watch(&mut self, file: PathBuf, label: &str) -> Result<()> {
+        let files = DatabaseFiles::at(&file, label, self.request)?;
+        self.declare(files)
+    }
+
+    fn untracked(&mut self, number: usize, what: &str) {
+        let mut entry = IrreversibleEntry::new(Irreversible::ExternalEffect);
+        entry.detail = Some(if number == 0 {
+            what.to_owned()
+        } else {
+            format!("statement {number}: {what}")
+        });
+        self.irreversible.push(entry);
+    }
+}
+
+fn execute(
+    request: &SqlRequest,
+    ctx: &ExecCtx,
+    files: &mut dyn Files,
+    rows: &mut Vec<Record>,
+) -> Result<Summary> {
     let database = Database::open(request)?;
     let interrupt = database.connection().get_interrupt_handle();
     let finished = AtomicBool::new(false);
     let result = thread::scope(|scope| {
         scope.spawn(|| watch(ctx, &interrupt, &finished));
-        let result = transaction(&database, request, ctx, rows);
+        let result = statements(&database, request, ctx, files, rows);
         finished.store(true, Ordering::Release);
         result
     });
@@ -112,17 +209,13 @@ fn watch(ctx: &ExecCtx, interrupt: &InterruptHandle, finished: &AtomicBool) {
     }
 }
 
-fn transaction(
+fn statements(
     database: &Database,
     request: &SqlRequest,
     ctx: &ExecCtx,
+    files: &mut dyn Files,
     rows: &mut Vec<Record>,
 ) -> Result<Summary> {
-    let site = Site::Transaction;
-    let connection = database.connection();
-    connection
-        .execute_batch("BEGIN IMMEDIATE")
-        .map_err(|e| error::from_sqlite(&e, request, site))?;
     let max = ctx.limits().max_records;
     let mut sink = |record: Record| {
         if u64::try_from(rows.len()).unwrap_or(u64::MAX) >= max {
@@ -136,20 +229,5 @@ fn transaction(
         rows.push(record);
         Ok(())
     };
-    let summary = match database.run(request, &mut sink) {
-        Ok(summary) => summary,
-        Err(error) => {
-            // A failed ROLLBACK leaves the files to the journal, which
-            // restores them when the executor rolls the operation back.
-            let _ = connection.execute_batch("ROLLBACK");
-            return Err(error);
-        }
-    };
-    connection
-        .execute_batch("COMMIT")
-        .map_err(|e| error::from_sqlite(&e, request, site))?;
-    connection
-        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
-        .map_err(|e| error::from_sqlite(&e, request, site))?;
-    Ok(summary)
+    database.run_write(request, files, &mut sink)
 }

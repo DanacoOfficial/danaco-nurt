@@ -215,16 +215,6 @@ fn change_without_space_for_copy_is_marked_irreversible() {
 }
 
 #[test]
-fn refuses_transaction_control_statements() {
-    let dir = tempfile::tempdir().unwrap();
-    let db = database(dir.path(), "app.db", USERS);
-    let call = args(&db, "begin; delete from users; commit", Vec::new(), true);
-    let error = failure(write(&call, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("transaction"));
-    assert_eq!(count(&db, "select count(*) from users"), 1);
-}
-
-#[test]
 fn allows_savepoints_inside_the_change() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);

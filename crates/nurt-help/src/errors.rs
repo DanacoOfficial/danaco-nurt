@@ -170,8 +170,8 @@ pub const NOTES: &[ErrorNote] = &[
     ),
     note(
         ErrorCode::Sql,
-        "an SQL statement cannot be prepared or executed, or changes data without write: true",
-        "fix the statement or give write: true",
+        "an SQL statement cannot be prepared or executed, or changes data with write: false",
+        "fix the statement or remove write: false",
     ),
     note(
         ErrorCode::Arg,

@@ -19,6 +19,7 @@ mod journal;
 mod read;
 mod session;
 mod split;
+mod target;
 mod write;
 
 use std::path::PathBuf;
@@ -52,8 +53,16 @@ pub(crate) struct SqlRequest {
     pub(crate) query: String,
     /// Values bound to the parameters of the statements.
     pub(crate) params: SqlParams,
-    /// Statements may change the database.
+    /// The database is opened for writing: `write: true`, or no `write` and a
+    /// statement that changes something.
     pub(crate) write: bool,
     /// Longest wait for a lock held by another connection.
     pub(crate) busy_timeout: Duration,
+}
+
+impl SqlRequest {
+    /// `true` when a statement calls `load_extension`.
+    pub(crate) fn extension(&self) -> bool {
+        split::statement_kinds(&self.query).contains(&split::StatementKind::Extension)
+    }
 }

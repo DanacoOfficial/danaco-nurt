@@ -160,6 +160,19 @@ pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) ->
         .with("write", ArgValue::Value(Value::Bool(write)), !write)
 }
 
+/// Bound arguments of one call without `write`: the statements decide.
+pub(crate) fn args_auto(path: &Path, query: &str, params: Vec<Value>) -> BoundArgs {
+    let defaulted = params.is_empty();
+    BoundArgs::new("sql")
+        .with("path", ArgValue::Value(Value::Path(text(path))), false)
+        .with(
+            "query",
+            ArgValue::Value(Value::Text(query.to_owned())),
+            false,
+        )
+        .with("params", ArgValue::Value(Value::List(params)), defaulted)
+}
+
 /// Bound arguments of one call with a map of named parameters.
 pub(crate) fn args_map(path: &Path, query: &str, params: Fields, write: bool) -> BoundArgs {
     BoundArgs::new("sql")

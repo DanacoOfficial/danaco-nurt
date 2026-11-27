@@ -309,7 +309,7 @@ id
 Update rows of a database file and show the number of rows that changed.
 
 ```nurt example
-sql "/home/user/app/data.db" "update users set active = 0 where last_seen < ?" params: ["2025-01-01"] write: true
+sql "/home/user/app/data.db" "update users set active = 0 where last_seen < ?" params: ["2025-01-01"]
 ```
 
 ```text expected

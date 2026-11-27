@@ -15,6 +15,7 @@ use nurt_contracts::bound::{BoundArg, BoundExpr, BoundStage, Phase};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::{Category, EffectKind};
 use nurt_contracts::spec::{IoSpec, ParamSpec, StageSpec};
+use nurt_contracts::sql_text::changes_database;
 
 use crate::binder::print_pipeline;
 use crate::error::BindError;
@@ -51,10 +52,46 @@ enum Progress {
 /// of an enumeration parameter, or a parameter that is written with a value
 /// other than `null` and `false`.
 pub(crate) fn effect_of(spec: &StageSpec, args: &[BoundArg], input: &IoSpec) -> EffectKind {
+    if spec.name == SQL {
+        return sql_effect(spec, args);
+    }
     spec.effects
         .iter()
         .find(|action| applies(&action.action, args, input))
         .map_or(spec.effect, |action| action.effect)
+}
+
+/// Name of the command whose effect depends on its statements.
+const SQL: &str = "sql";
+
+/// Effect of `sql`. An explicit `write: true` makes the call a change and
+/// `write: false` a read; without `write`, the call is a change when its
+/// query is not a literal or holds a statement that may change a database,
+/// a connection, a transaction or a file.
+fn sql_effect(spec: &StageSpec, args: &[BoundArg]) -> EffectKind {
+    let changing = spec
+        .effects
+        .iter()
+        .find(|action| action.action == "write")
+        .map_or(spec.effect, |action| action.effect);
+    let explicit = args
+        .iter()
+        .find(|arg| arg.name == "write" && !arg.default)
+        .map(|arg| &arg.value);
+    match explicit {
+        Some(BoundExpr::Bool { v: false }) => EffectKind::Read,
+        Some(BoundExpr::Null) | None => {
+            match args
+                .iter()
+                .find(|arg| arg.name == "query")
+                .map(|arg| &arg.value)
+            {
+                Some(BoundExpr::Text { v }) if !changes_database(v) => EffectKind::Read,
+                _ => changing,
+            }
+        }
+        Some(_) => changing,
+    }
 }
 
 fn applies(action: &str, args: &[BoundArg], input: &IoSpec) -> bool {
@@ -463,5 +500,82 @@ mod tests {
         let mut sleep = spec(EffectKind::Read);
         sleep.waits = true;
         assert!(waits_of(&sleep, &[]));
+    }
+
+    fn sql_spec() -> StageSpec {
+        let mut command = spec(EffectKind::Local);
+        command.name = "sql".to_owned();
+        command.effects.push(action("write", EffectKind::Local));
+        command
+    }
+
+    fn query(text: &str) -> BoundArg {
+        BoundArg::given("query", BoundExpr::Text { v: text.to_owned() })
+    }
+
+    #[test]
+    fn sql_is_a_read_when_its_statements_only_read() {
+        let command = sql_spec();
+        for text in [
+            "select 1",
+            "select * from t; pragma user_version",
+            "with a as (select 1) select * from a",
+        ] {
+            assert_eq!(
+                effect_of(&command, &[query(text)], &IoSpec::None),
+                EffectKind::Read,
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn sql_is_a_change_when_a_statement_changes_something() {
+        let command = sql_spec();
+        for text in [
+            "insert into t values (1)",
+            "select 1; delete from t",
+            "begin; select 1; commit",
+            "attach 'a.db' as a",
+            "vacuum",
+            "pragma journal_mode = wal",
+            "select load_extension('x')",
+        ] {
+            assert_eq!(
+                effect_of(&command, &[query(text)], &IoSpec::None),
+                EffectKind::Local,
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn sql_with_a_query_that_is_not_a_literal_is_a_change() {
+        let command = sql_spec();
+        let computed = [BoundArg::given(
+            "query",
+            BoundExpr::Path {
+                v: "/a.sql".to_owned(),
+            },
+        )];
+        assert_eq!(
+            effect_of(&command, &computed, &IoSpec::None),
+            EffectKind::Local
+        );
+    }
+
+    #[test]
+    fn an_explicit_write_decides_the_effect_of_sql() {
+        let command = sql_spec();
+        let on = [
+            query("select 1"),
+            BoundArg::given("write", BoundExpr::Bool { v: true }),
+        ];
+        let off = [
+            query("delete from t"),
+            BoundArg::given("write", BoundExpr::Bool { v: false }),
+        ];
+        assert_eq!(effect_of(&command, &on, &IoSpec::None), EffectKind::Local);
+        assert_eq!(effect_of(&command, &off, &IoSpec::None), EffectKind::Read);
     }
 }

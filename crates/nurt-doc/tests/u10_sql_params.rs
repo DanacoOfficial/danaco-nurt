@@ -136,12 +136,11 @@ fn fix_for_a_read_that_changes_repeats_the_map() {
 }
 
 #[test]
-fn refuses_transaction_control_in_a_change_but_allows_savepoints() {
+fn merges_transaction_control_and_allows_savepoints_in_a_change() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", ITEMS);
-    let refused = args(&db, "commit", Vec::new(), true);
-    let error = failure(write(&refused, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("transaction"));
+    let merged = args(&db, "commit", Vec::new(), true);
+    write(&merged, &ctx(), &mut RecordingTx::new()).unwrap();
     let nested = args(
         &db,
         "savepoint s; delete from items; rollback to s; release s; delete from items where id = 1",
@@ -153,10 +152,15 @@ fn refuses_transaction_control_in_a_change_but_allows_savepoints() {
 }
 
 #[test]
-fn refuses_extension_calls_in_a_change() {
+fn runs_extension_calls_in_a_change() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", ITEMS);
     let call = args(&db, "select load_extension('x')", Vec::new(), true);
     let error = failure(write(&call, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("extension"));
+    assert_ne!(error.problem.as_deref(), Some("extension"));
+    assert!(
+        !error.message.contains("not authorized"),
+        "{}",
+        error.message
+    );
 }

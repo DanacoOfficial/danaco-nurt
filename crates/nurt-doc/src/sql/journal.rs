@@ -56,15 +56,32 @@ impl DatabaseFiles {
     /// the link points to.
     pub(super) fn locate(request: &SqlRequest) -> Result<Self> {
         let database = resolve(&request.path).map_err(|e| error::file_error(&e, request))?;
+        Self::around(database, &request.display)
+    }
+
+    /// The database file `file`, which may not exist yet, with its side
+    /// files; a relative path is resolved like SQLite resolves it, from the
+    /// working directory of the process.
+    pub(super) fn at(file: &Path, label: &str, request: &SqlRequest) -> Result<Self> {
+        let database = resolve_new(file).map_err(|e| error::file_error(&e, request))?;
+        Self::around(database, label)
+    }
+
+    fn around(database: PathBuf, label: &str) -> Result<Self> {
         let mut paths = vec![AbsPath::new(database.clone())?];
-        let mut labels = vec![request.display.clone()];
+        let mut labels = vec![label.to_owned()];
         for suffix in SIDE_SUFFIXES {
             let mut name = OsString::from(database.as_os_str());
             name.push(suffix);
             paths.push(AbsPath::new(PathBuf::from(name))?);
-            labels.push(format!("{}{suffix}", request.display));
+            labels.push(format!("{label}{suffix}"));
         }
         Ok(Self { paths, labels })
+    }
+
+    /// `true` when both name the same database file.
+    pub(super) fn same_database(&self, other: &Self) -> bool {
+        self.paths.first() == other.paths.first()
     }
 
     /// Current state of every file, in declaration order.
@@ -111,14 +128,15 @@ impl DatabaseFiles {
         before: &[FileState],
         after: &[FileState],
         wrote: bool,
+        base: u32,
     ) -> Vec<ExternalChange> {
-        (0_u32..)
+        (base..)
             .zip(self.paths.iter().zip(before.iter().zip(after)))
             .filter_map(|(index, (path, (old, new)))| {
                 let kind = match (old.exists, new.exists) {
                     (false, true) => ExternalChangeKind::Created,
                     (true, false) => ExternalChangeKind::Deleted,
-                    (true, true) if old != new || (index == 0 && wrote) => {
+                    (true, true) if old != new || (index == base && wrote) => {
                         ExternalChangeKind::Modified
                     }
                     _ => return None,
@@ -146,6 +164,20 @@ fn state(path: &Path) -> FileState {
             modified: metadata.modified().ok(),
         },
     )
+}
+
+/// Absolute form of a path whose last component may not exist.
+fn resolve_new(path: &Path) -> std::io::Result<PathBuf> {
+    match resolve(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let absolute = std::path::absolute(path)?;
+            match (absolute.parent(), absolute.file_name()) {
+                (Some(parent), Some(name)) => Ok(resolve(parent)?.join(name)),
+                _ => Err(error),
+            }
+        }
+        other => other,
+    }
 }
 
 fn resolve(path: &Path) -> std::io::Result<PathBuf> {
@@ -193,7 +225,7 @@ mod tests {
         let before = [present(4096), absent(), present(10), present(5)];
         let after = [present(4096), present(8), present(10), absent()];
         let kinds: Vec<_> = files()
-            .changes(&before, &after, true)
+            .changes(&before, &after, true, 0)
             .into_iter()
             .map(|change| (change.declared, change.kind))
             .collect();
@@ -210,7 +242,7 @@ mod tests {
     #[test]
     fn reports_nothing_without_changes() {
         let before = [present(4096), absent(), absent(), absent()];
-        assert!(files().changes(&before, &before, false).is_empty());
+        assert!(files().changes(&before, &before, false, 0).is_empty());
     }
 
     #[test]
