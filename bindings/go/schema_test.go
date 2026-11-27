@@ -110,6 +110,7 @@ func TestRequestTypesMatchSchema(t *testing.T) {
 	opts := s.Defs["options"].Properties
 	expectSame(t, "verbosity", []string{string(VerbosityQuiet), string(VerbosityNormal), string(VerbosityDetailed)}, opts["verbosity"].Enum)
 	expectSame(t, "diff", []string{string(DiffNone), string(DiffStat), string(DiffUnified)}, opts["diff"].Enum)
+	expectSame(t, "privilege", []string{string(PrivilegeAccount), string(PrivilegeElevated), string(PrivilegeAuto)}, opts["privilege"].Enum)
 	expectSame(t, "response", jsonNames(Response{}), keys(s.Defs["response"].Properties))
 	expectSame(t, "rendered", jsonNames(Rendered{}), keys(s.Defs["rendered"].Properties))
 	expectSame(t, "rendered format", []string{string(FormatText), string(FormatMarkdown), string(FormatCompact)}, s.Defs["rendered"].Properties["format"].Enum)
