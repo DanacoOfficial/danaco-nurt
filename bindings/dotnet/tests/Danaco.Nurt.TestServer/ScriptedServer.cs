@@ -201,7 +201,7 @@ internal sealed class ScriptedServer : IDisposable
 
                 break;
             case "catalog":
-                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?["what"]?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "history":
                 await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?.DeepClone() }).ConfigureAwait(false);

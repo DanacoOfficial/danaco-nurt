@@ -199,13 +199,25 @@ class ServeProcessTest(unittest.TestCase):
         cls.executable = support.implementation_executable()
 
     def open(self) -> Nurt:
+        state = tempfile.mkdtemp(prefix="nurt-state-")
+        self.addCleanup(shutil.rmtree, state, True)
+        previous = os.environ.get("NURT_STATE_DIR")
+        os.environ["NURT_STATE_DIR"] = state
+        self.addCleanup(self.restore_state, previous)
         nurt = Nurt(backend="process", executable=self.executable)
         self.addCleanup(nurt.close)
         return nurt
 
+    @staticmethod
+    def restore_state(previous: Optional[str]) -> None:
+        if previous is None:
+            os.environ.pop("NURT_STATE_DIR", None)
+        else:
+            os.environ["NURT_STATE_DIR"] = previous
+
     def test_info_describes_the_engine(self) -> None:
         info = self.open().info()
-        self.assertEqual(info["formats"]["ast"], "1.0")
+        self.assertEqual(info["formats"]["ast"], "1.1")
         self.assertIsInstance(info["version"], str)
 
     def test_catalog_lists_the_command_groups(self) -> None:
@@ -253,11 +265,90 @@ class ServeProcessTest(unittest.TestCase):
             except NurtLanguageError as error:
                 self.assertTrue(error.code.startswith("E_"))
 
+    def test_describe_returns_the_text_of_the_description(self) -> None:
+        text = self.open().describe()
+        self.assertIsInstance(text, str)
+        self.assertFalse(text.startswith("{"))
+        self.assertIn("PROGRAM", text)
+
     def test_parse_check_and_correct_return_results(self) -> None:
         nurt = self.open()
         self.assertIsInstance(nurt.parse('find "."').ok, bool)
         self.assertIsInstance(nurt.check('find "."').ok, bool)
         self.assertIsInstance(nurt.correct('fnd "."').corrections, list)
+
+    def listing(self, files: int) -> str:
+        directory = Path(tempfile.mkdtemp(prefix="nurt-engine-"))
+        self.addCleanup(shutil.rmtree, directory, True)
+        for index in range(files):
+            (directory / f"file-{index}.txt").write_text("text\n")
+        return f'list "{directory.as_posix()}"'
+
+    def test_catalog_selections(self) -> None:
+        nurt = self.open()
+        self.assertEqual(nurt.catalog()["format"], "nurt-catalog-result/1")
+        self.assertTrue(nurt.catalog({"group": "core"})["commands"])
+        self.assertEqual(nurt.catalog({"command": "list"})["command"]["name"], "list")
+
+    def test_unknown_subjects_are_language_errors(self) -> None:
+        nurt = self.open()
+        with self.assertRaises(NurtLanguageError) as described:
+            nurt.describe(name="no-such-command")
+        self.assertEqual(described.exception.code, "E_UNKNOWN_NAME")
+        with self.assertRaises(NurtLanguageError):
+            nurt.help("no-such-topic")
+
+    def test_describe_and_help_return_the_text(self) -> None:
+        nurt = self.open()
+        self.assertIn("PROGRAM", nurt.describe())
+        self.assertTrue(nurt.help().startswith("GROUP"))
+        self.assertTrue(nurt.help("list"))
+
+    def test_a_shortened_result_continues_with_next(self) -> None:
+        nurt = self.open()
+        response = nurt.run(self.listing(5), limit=2)
+        self.assertTrue(response.ok)
+        self.assertEqual(response.report["continuation"]["remaining"], 3)
+        following = nurt.run("next")
+        self.assertTrue(following.ok)
+        self.assertEqual(following.report["kind"], "next")
+        self.assertTrue(nurt.page(response.next_cursor or "").ok)
+
+    def test_a_language_error_of_a_program_is_a_response(self) -> None:
+        response = self.open().run('lst "/tmp"')
+        self.assertFalse(response.ok)
+        self.assertEqual((response.error or {}).get("code"), "E_UNKNOWN_COMMAND")
+
+    def test_parse_print_check_and_correct_on_the_engine(self) -> None:
+        nurt = self.open()
+        parsed = nurt.parse('list "/tmp"')
+        self.assertTrue(parsed.ok)
+        self.assertEqual((parsed.ast or {}).get("nurt"), "1.1")
+        self.assertTrue(nurt.print(parsed.ast).startswith("list"))
+        broken = nurt.parse("list (")
+        self.assertFalse(broken.ok)
+        self.assertEqual((broken.error or {}).get("code"), "E_SYNTAX")
+        checked = nurt.check('list "/tmp"')
+        self.assertTrue(checked.ok)
+        self.assertIsNone(checked.error)
+        self.assertEqual(nurt.correct('list "/tmp"').program, 'list "/tmp"')
+
+    def test_history_and_space_forms(self) -> None:
+        nurt = self.open()
+        for query in (None, '{"limit": 3}', {"limit": 3}):
+            self.assertIsInstance(nurt.history(query)["operations"], list)
+        self.assertIsInstance(nurt.space()["volumes"], list)
+
+    def test_privilege_and_as_user_options(self) -> None:
+        nurt = self.open()
+        program = self.listing(1)
+        for privilege in ("account", "auto"):
+            self.assertTrue(nurt.run(program, privilege=privilege).ok)
+        response = nurt.run(program, as_user="root")
+        if response.ok:
+            self.assertEqual(response.report.get("as_user"), "root")
+        else:
+            self.assertTrue((response.error or {}).get("code", "").startswith("E_"))
 
     def test_threads_share_one_process(self) -> None:
         nurt = self.open()

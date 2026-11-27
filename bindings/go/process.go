@@ -321,11 +321,41 @@ func (b *processBackend) callInto(ctx context.Context, method string, params any
 }
 
 func (b *processBackend) callText(ctx context.Context, method string, params any) (string, error) {
-	var res textResult
-	if err := b.callInto(ctx, method, params, &res); err != nil {
+	raw, err := b.callQuery(ctx, method, params)
+	if err != nil {
 		return "", err
 	}
+	var res textResult
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return "", newError(StatusInternal, "invalid "+method+" result from nurt: "+err.Error(), err)
+	}
 	return res.Text, nil
+}
+
+// Calls a method that has no response of its own to carry a language error:
+// the engine answers such an error with a failure response, which becomes the
+// error of the call. An unknown value of an argument is StatusArg, any other
+// language error is a *LanguageError.
+func (b *processBackend) callQuery(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	raw, err := b.call(ctx, method, params)
+	if err != nil {
+		return nil, err
+	}
+	var failure struct {
+		Report struct {
+			Status ReportStatus   `json:"status"`
+			Error  *LanguageError `json:"error"`
+		} `json:"report"`
+	}
+	if json.Unmarshal(raw, &failure) != nil || failure.Report.Status != ReportFailed || failure.Report.Error == nil {
+		return raw, nil
+	}
+	if failure.Report.Error.Code == "E_UNKNOWN_VALUE" {
+		e := newError(StatusArg, failure.Report.Error.Code+": "+failure.Report.Error.Message, nil)
+		e.Detail = failure.Report.Error.Raw
+		return nil, e
+	}
+	return nil, failure.Report.Error
 }
 
 func (b *processBackend) run(ctx context.Context, env envelope) (json.RawMessage, error) {
@@ -378,7 +408,44 @@ func (b *processBackend) print(ctx context.Context, ast json.RawMessage, v Varia
 }
 
 func (b *processBackend) correct(ctx context.Context, program string, v Variant) (json.RawMessage, error) {
-	return b.call(ctx, "correct", programParams{Program: program, Variant: v})
+	raw, err := b.call(ctx, "correct", programParams{Program: program, Variant: v})
+	if err != nil {
+		return nil, err
+	}
+	return withCorrectedProgram(raw, program), nil
+}
+
+// The engine answers correct with the corrected tree, the corrections and,
+// when a correction was applied, the canonical text as "ran". The result gets
+// the member "program" with the corrected text; a program that needed no
+// correction is its own corrected text. A language error has no tree and stays
+// as it is.
+func withCorrectedProgram(raw json.RawMessage, program string) json.RawMessage {
+	var members map[string]json.RawMessage
+	if json.Unmarshal(raw, &members) != nil {
+		return raw
+	}
+	if _, ok := members["program"]; ok {
+		return raw
+	}
+	if _, ok := members["ast"]; !ok {
+		return raw
+	}
+	text := program
+	var ran string
+	if json.Unmarshal(members["ran"], &ran) == nil && ran != "" {
+		text = ran
+	}
+	encoded, err := json.Marshal(text)
+	if err != nil {
+		return raw
+	}
+	members["program"] = encoded
+	out, err := json.Marshal(members)
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 func (b *processBackend) page(ctx context.Context, cursor string, limit int) (json.RawMessage, error) {
@@ -390,15 +457,31 @@ func (b *processBackend) describe(ctx context.Context, q DescribeQuery) (string,
 	if subject == "" {
 		subject = q.Layer
 	}
-	var res describeResult
-	if err := b.callInto(ctx, "describe", describeParams{Subject: subject, Language: q.Language}, &res); err != nil {
+	raw, err := b.callQuery(ctx, "describe", describeParams{Subject: subject, Language: q.Language})
+	if err != nil {
 		return "", err
 	}
-	var text string
-	if json.Unmarshal(res.Description, &text) == nil {
-		return text, nil
+	var res describeResult
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return "", newError(StatusInternal, "invalid describe result from nurt: "+err.Error(), err)
 	}
-	return string(res.Description), nil
+	return descriptionText(res.Description), nil
+}
+
+// The engine answers describe with {"description": {"text": ...}}; the text
+// of the description itself is accepted as well.
+func descriptionText(description json.RawMessage) string {
+	var text string
+	if json.Unmarshal(description, &text) == nil {
+		return text
+	}
+	var object struct {
+		Text *string `json:"text"`
+	}
+	if json.Unmarshal(description, &object) == nil && object.Text != nil {
+		return *object.Text
+	}
+	return string(description)
 }
 
 func (b *processBackend) help(ctx context.Context, topic string) (string, error) {
@@ -406,11 +489,11 @@ func (b *processBackend) help(ctx context.Context, topic string) (string, error)
 }
 
 func (b *processBackend) catalog(ctx context.Context, what json.RawMessage) (json.RawMessage, error) {
-	return b.call(ctx, "catalog", objectOrEmpty(what))
+	return b.call(ctx, "catalog", catalogParams(what))
 }
 
 func (b *processBackend) schema(ctx context.Context, which string) (json.RawMessage, error) {
-	return b.call(ctx, "schema", schemaParams{Name: which})
+	return b.callQuery(ctx, "schema", schemaParams{Name: which})
 }
 
 func (b *processBackend) history(ctx context.Context, query json.RawMessage) (json.RawMessage, error) {
@@ -438,6 +521,21 @@ func (b *processBackend) space(ctx context.Context, volume string) (json.RawMess
 
 func (b *processBackend) info(ctx context.Context) (json.RawMessage, error) {
 	return b.call(ctx, "info", struct{}{})
+}
+
+// The parameters of catalog are {"what": selection}, where the selection
+// names a group or a command; an absent selection is an empty object.
+func catalogParams(what json.RawMessage) json.RawMessage {
+	if len(what) == 0 || string(what) == "null" {
+		return json.RawMessage("{}")
+	}
+	wrapped, err := json.Marshal(struct {
+		What json.RawMessage `json:"what"`
+	}{What: what})
+	if err != nil {
+		return json.RawMessage("{}")
+	}
+	return wrapped
 }
 
 // JSON-RPC parameters must be structured, so an absent selector is sent as

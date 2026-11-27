@@ -280,7 +280,7 @@ class ProcessClientTest {
             assertEquals("help:{}", client.help());
             assertEquals("help:{\"topic\":\"lists\"}", client.help("lists"));
             assertEquals(Map.of(), client.catalog().get("params"));
-            assertEquals(Map.of("group", "git"), client.catalog(Map.of("group", "git")).get("params"));
+            assertEquals(Map.of("what", Map.of("group", "git")), client.catalog(Map.of("group", "git")).get("params"));
             assertEquals(Map.of("name", "report"), client.schema("report").get("params"));
             assertEquals(Map.of(), client.history().get("params"));
             assertEquals(Map.of("limit", 3L), client.history(Map.of("limit", 3L)).get("params"));

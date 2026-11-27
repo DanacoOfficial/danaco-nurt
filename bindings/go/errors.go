@@ -105,8 +105,11 @@ func contextError(err error) *Error {
 
 // LanguageError is an error of the Danaco Nurt language: a syntax, binding,
 // assertion, stale target, ambiguity or journal error reported in the effect
-// report with a stable E_* code. It is returned as an error only when the
-// request sets FailOnLanguageError.
+// report with a stable E_* code. It is returned as an error when the
+// request sets FailOnLanguageError, and by the queries that have no response
+// to carry it (Describe, Help and Print) when the process backend reports one;
+// an unknown value of an argument of such a query is an *Error with
+// StatusArg.
 type LanguageError struct {
 	// Code is the stable error code, for example "E_SYNTAX".
 	Code string `json:"code"`

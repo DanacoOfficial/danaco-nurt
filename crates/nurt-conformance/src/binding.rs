@@ -360,6 +360,9 @@ impl BindingExpect {
                 members.entry(name).or_insert(default);
             }
         }
+        if call == "describe" {
+            engine_description(&mut raw);
+        }
         if view == View::Object && self.outcome == Outcome::LanguageError {
             pointer::insert(
                 &mut raw,
@@ -385,11 +388,21 @@ impl BindingExpect {
 fn required_members(call: &str) -> Vec<(&'static str, Value)> {
     match call {
         "parse" | "check" => vec![(member::DIAGNOSTICS, json!([]))],
-        "describe" => vec![("description", json!(""))],
         "history" => vec![("operations", json!([]))],
         "space" => vec![("volumes", json!([]))],
         _ => Vec::new(),
     }
+}
+
+/// Gives the result of `describe` the shape of the engine: the text is the
+/// member `text` of the object `description`, as in
+/// `{"description": {"text": "..."}}`, not a member of the result itself.
+fn engine_description(raw: &mut Value) {
+    let Some(members) = raw.as_object_mut() else {
+        return;
+    };
+    let text = members.remove(member::TEXT).unwrap_or_else(|| json!(""));
+    members.insert("description".to_owned(), json!({member::TEXT: text}));
 }
 
 /// Value of a member that an expectation requires without naming a value:
@@ -535,6 +548,18 @@ mod tests {
         assert_eq!(
             text.answer("print", View::Text),
             Answer::Result(json!({"text": "count\n"}))
+        );
+        let described: BindingExpect =
+            serde_json::from_value(json!({"outcome": "ok", "fields": {"/value": "Danaco Nurt"}}))
+                .unwrap();
+        assert_eq!(
+            described.answer("describe", View::Text),
+            Answer::Result(json!({"description": {"text": "Danaco Nurt"}}))
+        );
+        let undescribed: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
+        assert_eq!(
+            undescribed.answer("describe", View::Text),
+            Answer::Result(json!({"description": {"text": ""}}))
         );
         let empty: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
         assert_eq!(
