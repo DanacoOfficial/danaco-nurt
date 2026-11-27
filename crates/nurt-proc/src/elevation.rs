@@ -278,14 +278,68 @@ pub fn is_administrator() -> bool {
     imp::is_administrator()
 }
 
-/// Finds the program of `backend` in the directories of `path`.
+/// Directories of the system searched first for the program of a backend, so
+/// that a program placed in a directory of the account never takes the
+/// request.
+pub const SYSTEM_PROGRAM_DIRS: [&str; 5] =
+    ["/usr/bin", "/bin", "/usr/local/bin", "/usr/sbin", "/sbin"];
+
+/// Value of `PATH` of an elevated process and of a backend.
+pub const FIXED_PATH: &str = "/usr/sbin:/usr/bin:/sbin:/bin";
+
+/// Finds the program of `backend`: in the directories of `path` when it is
+/// given, else in the system directories and last in the `PATH` of the
+/// process.
 #[must_use]
 pub fn locate(backend: Backend, path: Option<&std::ffi::OsStr>) -> Option<PathBuf> {
     let name = backend.program()?;
-    match path {
-        Some(path) => which::which_in(name, Some(path), std::env::current_dir().ok()?).ok(),
-        None => which::which(name).ok(),
+    if let Some(path) = path {
+        return which::which_in(name, Some(path), std::env::current_dir().ok()?).ok();
     }
+    SYSTEM_PROGRAM_DIRS
+        .iter()
+        .map(|dir| Path::new(dir).join(name))
+        .find(|candidate| candidate.is_file())
+        .or_else(|| which::which(name).ok())
+}
+
+/// The environment that a backend receives: a fixed `PATH`, the language
+/// settings and the terminal type. Nothing else of the environment of the
+/// account reaches the elevated process.
+#[must_use]
+pub fn backend_environment<I>(vars: I) -> Vec<(String, String)>
+where
+    I: IntoIterator<Item = (String, String)>,
+{
+    let mut kept: Vec<(String, String)> = vec![("PATH".to_owned(), FIXED_PATH.to_owned())];
+    for (name, value) in vars {
+        let allowed = name == "LANG" || name == "TERM" || name.starts_with("LC_");
+        if allowed && !value.contains('\0') {
+            kept.push((name, value));
+        }
+    }
+    kept
+}
+
+/// Replaces the environment of this process by the one of an elevated
+/// process: the variables of [`backend_environment`] and, on Unix, `HOME`,
+/// `USER` and `LOGNAME` of the account database for the effective user. The
+/// variables `NURT_*`, `XDG_*` and every other variable of the caller are
+/// removed, so that the configuration and the state of the elevated process
+/// never come from the caller.
+pub fn reset_environment() {
+    let kept = backend_environment(std::env::vars());
+    let names: Vec<std::ffi::OsString> = std::env::vars_os().map(|(name, _)| name).collect();
+    for name in names {
+        // SAFETY: called at the start of `elevated-exec` before any thread
+        // reads the environment.
+        unsafe { std::env::remove_var(name) };
+    }
+    for (name, value) in kept {
+        // SAFETY: as above.
+        unsafe { std::env::set_var(name, value) };
+    }
+    imp::set_account_variables();
 }
 
 /// Runs `executable elevated-exec` through `backend` with `request` on its
@@ -315,6 +369,8 @@ pub fn run_backend(
         .ok_or(Refusal::Failed("no program".to_owned()))?;
     let mut command = Command::new(&line[0]);
     command
+        .env_clear()
+        .envs(backend_environment(std::env::vars()))
         .args(&line[1..])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -377,11 +433,25 @@ mod imp {
     pub(super) fn is_administrator() -> bool {
         rustix::process::geteuid().is_root()
     }
+
+    pub(super) fn set_account_variables() {
+        let Ok(Some(user)) = nix::unistd::User::from_uid(nix::unistd::geteuid()) else {
+            return;
+        };
+        // SAFETY: called before any thread reads the environment.
+        unsafe {
+            std::env::set_var("HOME", &user.dir);
+            std::env::set_var("USER", &user.name);
+            std::env::set_var("LOGNAME", &user.name);
+        }
+    }
 }
 
 #[cfg(windows)]
 mod imp {
     use std::ffi::c_void;
+
+    pub(super) fn set_account_variables() {}
     use std::mem;
     use std::ptr;
 
@@ -532,6 +602,24 @@ mod tests {
             classify_failure(Backend::Sudo, ""),
             Refusal::Failed(_)
         ));
+    }
+
+    #[test]
+    fn backend_environment_keeps_only_the_allowed_variables() {
+        let vars = [
+            ("NURT_CONFIG", "/home/a/nurt.toml"),
+            ("XDG_CONFIG_HOME", "/home/a/.config"),
+            ("HOME", "/home/a"),
+            ("PATH", "/home/a/bin"),
+            ("LANG", "pl_PL.UTF-8"),
+            ("LC_ALL", "C"),
+            ("TERM", "xterm"),
+        ]
+        .map(|(name, value)| (name.to_owned(), value.to_owned()));
+        let kept = backend_environment(vars);
+        let names: Vec<&str> = kept.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["PATH", "LANG", "LC_ALL", "TERM"]);
+        assert_eq!(kept[0].1, FIXED_PATH);
     }
 
     #[test]

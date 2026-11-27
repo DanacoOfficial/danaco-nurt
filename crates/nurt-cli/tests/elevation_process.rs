@@ -373,3 +373,45 @@ fn service_start_and_stop_with_privilege_elevated_are_undone() {
     assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
     assert!(active());
 }
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs root and systemd"]
+fn service_enable_with_privilege_elevated_is_undone_to_the_previous_start_type() {
+    if !has_program("systemctl") || !running_as_root() || !Path::new("/run/systemd/system").exists()
+    {
+        return;
+    }
+    let unit = "nurt-test-priv-enable";
+    let file = format!("/etc/systemd/system/{unit}.service");
+    let _guard = UnitGuard {
+        unit,
+        file: file.clone(),
+    };
+    std::fs::write(
+        &file,
+        "[Unit]\nDescription=nurt test unit\n[Service]\nExecStart=/bin/sleep 3600\n[Install]\nWantedBy=multi-user.target\n",
+    )
+    .unwrap();
+    assert!(shell("systemctl daemon-reload"));
+    assert!(shell(&format!("systemctl disable {unit} > /dev/null 2>&1")));
+    let enabled = |expected: &str| {
+        let output = Command::new("systemctl")
+            .args(["is-enabled", unit])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout).trim() == expected
+    };
+    assert!(enabled("disabled"));
+    let home = tempfile::tempdir().unwrap();
+    let changed = run_json(
+        home.path(),
+        &format!("services name: \"{unit}.service\" |> enable privilege: elevated"),
+    );
+    assert_eq!(changed.report.status, ReportStatus::Ok, "{changed:?}");
+    assert!(enabled("enabled"));
+    let op = changed.report.op.expect("an entry number");
+    let undone = run_json(home.path(), &format!("undo {op}"));
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(enabled("disabled"));
+}

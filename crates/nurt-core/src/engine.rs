@@ -640,6 +640,15 @@ impl Engine {
                 .transpose()?,
             None => None,
         };
+        let journal = match (journal, state.as_ref()) {
+            (Some(journal), Some(state)) => {
+                Some(Arc::new(crate::elevated_journal::ElevatedJournal::new(
+                    journal,
+                    ReferenceLog::in_state(state.root()),
+                )) as Arc<dyn JournalStore>)
+            }
+            (journal, _) => journal,
+        };
         let references = state
             .as_ref()
             .map(|state| ReferenceLog::in_state(state.root()));
@@ -1096,7 +1105,9 @@ impl Engine {
         };
         let compiled = match request.input() {
             Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
-            Ok(RequestInput::Accept(reference)) => self.accept(reference, &prepared),
+            Ok(RequestInput::Accept(reference)) => {
+                early.unwrap_or_else(|| self.accept(reference, &prepared))
+            }
             Ok(RequestInput::Program { text, variant }) => {
                 early.unwrap_or_else(|| self.compile(text, variant, &prepared))
             }
@@ -1372,7 +1383,7 @@ impl Engine {
             })
     }
 
-    fn accept(&self, reference: &str, prepared: &Prepared) -> Result<Compiled, Error> {
+    pub(crate) fn accept(&self, reference: &str, prepared: &Prepared) -> Result<Compiled, Error> {
         let candidate =
             self.inner
                 .candidates

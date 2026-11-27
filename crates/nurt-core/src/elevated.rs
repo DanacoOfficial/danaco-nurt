@@ -14,14 +14,13 @@ use std::time::Duration;
 use nurt_contracts::bound::{BoundDocument, BoundExpr, BoundHead, BoundStatement};
 use nurt_contracts::envelope::{Privilege, Request, RequestInput, Response};
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::journal::{HistoryQuery, OpId};
 use nurt_contracts::report::{Correction, Report, ReportStatus};
 use nurt_contracts::stage::{CancelToken, EventSink};
 use nurt_proc::elevation::{Backend, Refusal, System, run_backend};
 
 use crate::elevation::{
-    ElevatedReference, Mark, REASON_AUTO, REASON_REFERENCE, as_user_unsupported, backends_of,
-    disabled_error, refused_error, system_of, system_state_dir,
+    ELEVATED_OP_BASE, ElevatedReference, Mark, REASON_AUTO, REASON_REFERENCE, as_user_unsupported,
+    backends_of, disabled_error, refused_error, system_of, system_state_dir,
 };
 use crate::engine::{Engine, Prepared, failed_report, input_kind, respond_with};
 use crate::frontend::Compiled;
@@ -55,14 +54,13 @@ impl Engine {
             return self.execute_local(request, cancel, events, None, None);
         };
         let early = early.or_else(|| self.compile_early(request, &prepared));
-        if let Some(forced) = self.with_stage_call(request, &prepared, early.as_ref()) {
-            return self.route_early(&forced, cancel, events, early);
+        match self.with_stage_call(request, &prepared, early.as_ref()) {
+            Ok(Some(forced)) => return self.route_early(&forced, cancel, events, early),
+            Ok(None) => {}
+            Err(error) => return refusal(request, &prepared, error),
         }
         let privilege = prepared.options.effective_privilege();
-        let pages = matches!(
-            request.input(),
-            Ok(RequestInput::Cursor(_) | RequestInput::Accept(_))
-        );
+        let pages = matches!(request.input(), Ok(RequestInput::Cursor(_)));
         if privilege == Privilege::Account || pages {
             return self.execute_local(request, cancel, events, None, early);
         }
@@ -71,7 +69,7 @@ impl Engine {
         }
         if privilege == Privilege::Auto {
             let first = self.execute_local(request, cancel, events.clone(), None, early.clone());
-            if !denied(&first.report) {
+            if !denied(&first) {
                 return first;
             }
             return match self.run_elevated(
@@ -104,6 +102,7 @@ impl Engine {
                 Some(self.compile(text, variant, prepared))
             }
             Ok(RequestInput::Ast(document)) => Some(self.bind(document, prepared)),
+            Ok(RequestInput::Accept(reference)) => Some(self.accept(reference, prepared)),
             _ => None,
         }
     }
@@ -199,7 +198,7 @@ impl Engine {
                 continue;
             }
             if payload.is_none() {
-                match self.elevated_payload(request, prepared) {
+                match self.elevated_payload(request, prepared, early.as_ref()) {
                     Some(built) => payload = Some(built),
                     None => return Ok(self.execute_local(request, cancel, events, None, early)),
                 }
@@ -233,6 +232,9 @@ impl Engine {
                             response.report.ran.clone_from(ran);
                         }
                         self.remember(&response.report, &mark);
+                        if let Some(op) = response.report.op {
+                            response.report.op = Some(ELEVATED_OP_BASE + op);
+                        }
                         if response.reports.is_empty() {
                             response = respond_with(&response.report, &prepared.options);
                         }
@@ -257,6 +259,7 @@ impl Engine {
         &self,
         request: &Request,
         prepared: &Prepared,
+        early: Option<&Early>,
     ) -> Option<(Vec<u8>, Vec<Correction>, Option<String>)> {
         let (mut elevated, corrections, ran) = match request.input().ok()? {
             RequestInput::Program { text, variant } => {
@@ -268,6 +271,15 @@ impl Engine {
                 )
             }
             RequestInput::Ast(document) => (Request::ast(document.clone()), Vec::new(), None),
+            RequestInput::Accept(_) => {
+                let text = early?.as_ref().ok()?.ran.clone()?;
+                let corrected = self.correct(&text, None).ok()?;
+                (
+                    Request::ast(corrected.ast),
+                    corrected.corrections,
+                    corrected.ran,
+                )
+            }
             _ => return None,
         };
         elevated.options = prepared.options.clone();
@@ -291,7 +303,10 @@ impl Engine {
             as_user: mark.as_user.clone(),
             kind: report.kind.clone(),
             time_ms: i64::try_from(self.now().unix_nanos() / 1_000_000).unwrap_or(0),
-            journal: self.system_state_dir().to_string_lossy().into_owned(),
+            journal: match &mark.as_user {
+                Some(user) => format!("account:{user}"),
+                None => self.system_state_dir().to_string_lossy().into_owned(),
+            },
         };
         let _ = log.append(&reference);
     }
@@ -302,16 +317,7 @@ impl Engine {
     pub(crate) fn elevated_entry_of(&self, bound: &BoundDocument) -> Option<ElevatedReference> {
         let log = self.inner.references.as_ref()?;
         let id = undo_id(bound)?;
-        let reference = log.find(id)?;
-        let local = self.history(&HistoryQuery {
-            id: Some(OpId(id)),
-            ..HistoryQuery::default()
-        });
-        match local {
-            Ok(records) if records.is_empty() => Some(reference),
-            Err(_) => Some(reference),
-            Ok(_) => None,
-        }
+        log.find(id.checked_sub(ELEVATED_OP_BASE)?)
     }
 
     /// The request that carries the call parameters written on the stages of
@@ -322,9 +328,11 @@ impl Engine {
         request: &Request,
         prepared: &Prepared,
         early: Option<&Early>,
-    ) -> Option<Request> {
-        let compiled = early?.as_ref().ok()?;
-        let (privilege, as_user) = stage_call(&compiled.bound);
+    ) -> Result<Option<Request>, Error> {
+        let Some(Ok(compiled)) = early else {
+            return Ok(None);
+        };
+        let (privilege, as_user) = stage_call(&compiled.bound)?;
         let mut options = prepared.options.clone();
         if let Some(privilege) = privilege {
             options.privilege = Some(privilege);
@@ -335,12 +343,12 @@ impl Engine {
         if options.privilege == prepared.options.privilege
             && options.as_user == prepared.options.as_user
         {
-            return None;
+            return Ok(None);
         }
         let mut forced = request.clone();
         forced.options.privilege = options.privilege;
         forced.options.as_user = options.as_user;
-        Some(forced)
+        Ok(Some(forced))
     }
 
     /// Runs the `undo` of an elevated entry through the backends.
@@ -355,6 +363,8 @@ impl Engine {
         if !prepared.config.config().privilege.allowed {
             return refusal(request, prepared, disabled_error());
         }
+        let inner = Request::program(format!("undo {}", reference.op))
+            .with_options(request.options.clone());
         let mut options = prepared.options.clone();
         options.privilege = Some(Privilege::Elevated);
         options.as_user.clone_from(&reference.as_user);
@@ -366,7 +376,7 @@ impl Engine {
             elevation: None,
         };
         match self.run_elevated(
-            request,
+            &inner,
             &forced,
             Some(REASON_REFERENCE),
             cancel,
@@ -381,9 +391,8 @@ impl Engine {
 
 /// The call parameters written on the stages of a program: the first
 /// `privilege` and the first `as_user`.
-fn stage_call(bound: &BoundDocument) -> (Option<Privilege>, Option<String>) {
-    let mut privilege = None;
-    let mut as_user = None;
+fn stage_call(bound: &BoundDocument) -> Result<(Option<Privilege>, Option<String>), Error> {
+    let mut found: Vec<(Option<Privilege>, Option<String>)> = Vec::new();
     for statement in &bound.program.statements {
         let BoundStatement::Pipeline(pipeline) = statement else {
             continue;
@@ -392,6 +401,8 @@ fn stage_call(bound: &BoundDocument) -> (Option<Privilege>, Option<String>) {
             BoundHead::Stage(stage) => Some(stage),
             _ => None,
         };
+        let mut privilege = None;
+        let mut as_user = None;
         for stage in head.into_iter().chain(pipeline.stages.iter()) {
             if privilege.is_none() {
                 privilege = stage
@@ -402,14 +413,28 @@ fn stage_call(bound: &BoundDocument) -> (Option<Privilege>, Option<String>) {
                 as_user = stage.call_parameter("as_user").map(str::to_owned);
             }
         }
+        found.push((privilege, as_user));
     }
-    (privilege, as_user)
+    if found.windows(2).any(|pair| pair[0] != pair[1]) {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            "the pipelines of the program give different `privilege` or `as_user`; one call has one set of rights",
+        )
+        .with_next_step("give the same `privilege` and `as_user` on every pipeline, or run the pipelines as separate calls"));
+    }
+    Ok(found.into_iter().next().unwrap_or((None, None)))
 }
 
 /// Whether a report ended with a denial that left no change behind.
-fn denied(report: &Report) -> bool {
+fn denied(response: &Response) -> bool {
+    let report = &response.report;
     report.status == ReportStatus::Failed
         && report.op.is_none()
+        && report.changes.is_empty()
+        && response
+            .reports
+            .iter()
+            .all(|each| each.op.is_none() && each.changes.is_empty())
         && report.error.as_ref().is_some_and(|error| {
             matches!(error.code(), ErrorCode::Permission | ErrorCode::Privilege)
         })
@@ -445,4 +470,43 @@ pub(crate) fn undo_id(bound: &BoundDocument) -> Option<u64> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nurt_contracts::record::{Change, ChangeAction};
+
+    fn denied_response() -> Response {
+        let mut report = Report::new(ReportStatus::Failed, "write");
+        report.error = Some(Error::new(ErrorCode::Permission, "denied"));
+        Response::new(report)
+    }
+
+    #[test]
+    fn a_denial_without_a_change_may_be_repeated() {
+        assert!(denied(&denied_response()));
+    }
+
+    #[test]
+    fn a_denial_after_a_change_is_never_repeated() {
+        let mut response = denied_response();
+        response
+            .report
+            .changes
+            .push(Change::new("/srv/a", ChangeAction::Modify));
+        assert!(!denied(&response));
+        let mut other = denied_response();
+        let mut second = Report::new(ReportStatus::Failed, "write");
+        second.op = Some(3);
+        other.reports.push(second);
+        assert!(!denied(&other));
+    }
+
+    #[test]
+    fn a_denial_with_an_entry_is_never_repeated() {
+        let mut response = denied_response();
+        response.report.op = Some(2);
+        assert!(!denied(&response));
+    }
 }

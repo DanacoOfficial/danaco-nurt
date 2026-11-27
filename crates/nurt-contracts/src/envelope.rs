@@ -400,6 +400,16 @@ impl RequestOptions {
         if self.as_user.as_deref() == Some("") {
             return Err(EnvelopeError::EmptyField { field: "as_user" });
         }
+        if let Some(user) = self.as_user.as_deref()
+            && (user.starts_with(['-', '#'])
+                || user
+                    .chars()
+                    .any(|c| c.is_control() || c == '=' || c.is_whitespace()))
+        {
+            return Err(EnvelopeError::InvalidAccount {
+                account: user.to_owned(),
+            });
+        }
         if self.session.as_deref() == Some("") {
             return Err(EnvelopeError::EmptyField { field: "session" });
         }
@@ -723,6 +733,12 @@ pub enum EnvelopeError {
         /// Value given.
         timeout: String,
     },
+    /// `as_user` is not the name of an account: it starts with `-` or `#`, or
+    /// holds a control character, a blank or `=`.
+    InvalidAccount {
+        /// Value given.
+        account: String,
+    },
     /// A response renders text in the format `json`.
     RenderedJson,
     /// The report of a response breaks a rule of the report format.
@@ -755,6 +771,10 @@ impl fmt::Display for EnvelopeError {
             Self::InvalidTimeout { timeout } => write!(
                 f,
                 "`timeout` must be a duration such as `30s` or `1h30m`; given `{timeout}`"
+            ),
+            Self::InvalidAccount { account } => write!(
+                f,
+                "`as_user` must be the name of an account; given `{account}`"
             ),
             Self::RenderedJson => f.write_str("the format `json` is not rendered as text"),
             Self::Report(violation) => write!(f, "invalid report: {violation}"),

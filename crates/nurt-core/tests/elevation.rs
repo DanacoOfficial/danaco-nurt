@@ -140,6 +140,18 @@ fn root_stage() -> serde_json::Value {
     })
 }
 
+/// Two pipelines of one program that give different `privilege`.
+fn two_pipelines() -> BoundDocument {
+    serde_json::from_value(json!({
+        "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+        "program": {"statements": [
+            {"t": "pipeline", "head": with_call(find_stage(), "privilege", "elevated"), "stages": []},
+            {"t": "pipeline", "head": find_stage(), "stages": []}
+        ]}
+    }))
+    .unwrap()
+}
+
 fn undo_stage(id: i64) -> serde_json::Value {
     json!({
         "t": "stage", "name": "undo", "effect": "local", "phase": "source",
@@ -151,6 +163,11 @@ fn programs() -> Programs {
     Programs::default()
         .with("find /data", program(find_stage(), Vec::new()))
         .with("undo 7", program(undo_stage(7), Vec::new()))
+        .with(
+            "undo 1000000007",
+            program(undo_stage(1_000_000_007), Vec::new()),
+        )
+        .with("two pipelines", two_pipelines())
         .with("deny", program(deny_stage(), Vec::new()))
         .with("needs-root", program(root_stage(), Vec::new()))
         .with(
@@ -518,6 +535,17 @@ fn a_privilege_error_of_a_stage_names_elevation_and_the_backends() {
 }
 
 #[test]
+fn different_rights_on_two_pipelines_are_refused() {
+    let setup = setup(TestHost::linux(), true, None, "");
+    let mut with_script = options(None, None);
+    with_script.script = Some(true);
+    let response = call(&setup, "two pipelines", with_script);
+    let error = error_of(&response);
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert!(!error.next_steps.is_empty());
+}
+
+#[test]
 fn account_privilege_keeps_the_denial() {
     let setup = setup(TestHost::linux(), false, None, "");
     let response = call(&setup, "deny", options(None, None));
@@ -688,7 +716,15 @@ mod fake_programs {
             "find /data",
             options(Some(Privilege::Elevated), None),
         );
-        assert_eq!(response.report.op, Some(7));
+        assert_eq!(response.report.op, Some(1_000_000_007));
+        let history = setup
+            .engine
+            .history(&nurt_contracts::journal::HistoryQuery::default())
+            .unwrap();
+        assert!(
+            history.iter().any(|record| record.id == 1_000_000_007),
+            "{history:?}"
+        );
         let references = setup.engine.elevated_references();
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].op, 7);
@@ -696,7 +732,12 @@ mod fake_programs {
         assert_eq!(references[0].journal, "/var/lib/nurt");
         assert!(setup.state.join("elevated-operations.jsonl").is_file());
 
-        let undone = call(&setup, "undo 7", options(None, None));
+        let own = call(&setup, "undo 7", options(None, None));
+        assert!(
+            !own.report.elevated,
+            "the number 7 is an entry of the account"
+        );
+        let undone = call(&setup, "undo 1000000007", options(None, None));
         assert!(undone.report.elevated);
         assert_eq!(
             undone.report.elevation_reason.as_deref(),

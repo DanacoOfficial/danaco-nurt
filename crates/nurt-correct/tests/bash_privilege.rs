@@ -148,3 +148,31 @@ fn the_error_of_the_translated_command_is_kept() {
     let error = live("sudo for f in /srv/*; do rm $f; done").expect_err("loops stay rejected");
     assert_eq!(error.code(), ErrorCode::Uncorrectable);
 }
+
+#[test]
+fn options_that_change_the_run_are_not_dropped() {
+    for line in [
+        "sudo -E rm /srv/x",
+        "sudo -b rm /srv/x",
+        "sudo --preserve-env rm /srv/x",
+    ] {
+        let error = live(line).expect_err(line);
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("elevated_option"),
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn an_account_that_is_not_a_literal_is_not_guessed() {
+    for line in ["sudo -u $USER rm /srv/x", "sudo -u $(whoami) rm /srv/x"] {
+        let error = live(line).expect_err(line);
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("elevated_option"),
+            "{line}"
+        );
+    }
+}

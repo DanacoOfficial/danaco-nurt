@@ -86,7 +86,11 @@ pub struct SystemEngine;
 
 impl EngineSource for SystemEngine {
     fn open(&self) -> Result<Engine, EngineError> {
-        Engine::open(EngineConfig::system().with_frontend(integrations::frontend()))
+        let config = EngineConfig::system().with_frontend(integrations::frontend());
+        if nurt_core::elevation::is_administrator() {
+            return self.open_elevated();
+        }
+        Engine::open(config)
     }
 
     fn open_elevated(&self) -> Result<Engine, EngineError> {

@@ -357,12 +357,7 @@ impl<'a> Binder<'a> {
                 rest = &rest[1..];
             } else if matches!(
                 word.as_str(),
-                "-n" | "--non-interactive"
-                    | "-H"
-                    | "-E"
-                    | "--preserve-env"
-                    | "-k"
-                    | "--no-ask-password"
+                "-n" | "--non-interactive" | "-H" | "-k" | "--no-ask-password"
             ) {
                 rest = &rest[1..];
             } else {

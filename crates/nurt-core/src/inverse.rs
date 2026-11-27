@@ -34,6 +34,25 @@ use serde::{Deserialize, Serialize};
 use crate::elevated::undo_id;
 use crate::engine::{Engine, Prepared};
 
+/// Whether the package manager `manager` still offers `version` of
+/// `package`; true only when the manager was asked and said so.
+fn repository_offers(manager: &str, package: &str, version: &str) -> bool {
+    let (program, args): (&str, Vec<&str>) = match manager {
+        "apt" => ("apt-cache", vec!["madison", package]),
+        "dnf" => ("dnf", vec!["-q", "list", "--showduplicates", package]),
+        _ => return false,
+    };
+    std::process::Command::new(program)
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .is_ok_and(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .any(|line| line.split_whitespace().any(|word| word == version))
+        })
+}
+
 /// File of the inverse operations in the state directory.
 pub const INVERSE_FILE: &str = "inverse-operations.jsonl";
 
@@ -114,6 +133,14 @@ fn service_program(name: &str, command: &str) -> Option<String> {
 /// change without entry give [`Derived::None`].
 #[must_use]
 pub fn derive(report: &Report) -> Derived {
+    derive_with(report, &|_, _, _| true)
+}
+
+/// Like [`derive`], asking `offers(manager, package, version)` whether the
+/// repository still offers a version that an inverse program must install;
+/// a version that it does not offer makes the entry irreversible.
+#[must_use]
+pub fn derive_with(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -> Derived {
     if report.op.is_none()
         || report.status != ReportStatus::Ok
         || report.next_cursor.is_some()
@@ -122,14 +149,14 @@ pub fn derive(report: &Report) -> Derived {
         return Derived::None;
     }
     match report.kind.as_str() {
-        "package.install" | "package.remove" | "package.upgrade" => derive_packages(report),
+        "package.install" | "package.remove" | "package.upgrade" => derive_packages(report, offers),
         "start" | "stop" | "enable" | "disable" => derive_services(report),
         "restart" => Derived::Irreversible("a restart has no inverse".to_owned()),
         _ => Derived::None,
     }
 }
 
-fn derive_packages(report: &Report) -> Derived {
+fn derive_packages(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -> Derived {
     let manager = manager_of(report);
     let mut programs = Vec::new();
     for change in &report.changes {
@@ -138,6 +165,20 @@ fn derive_packages(report: &Report) -> Derived {
         };
         let before = change.before.as_deref();
         let after = change.after.as_deref();
+        let reinstalled = match (report.kind.as_str(), before, after) {
+            ("package.install" | "package.upgrade", Some(was), Some(now)) if was != now => {
+                Some(was)
+            }
+            ("package.remove", Some(was), None) => Some(was),
+            _ => None,
+        };
+        if let Some(version) = reinstalled
+            && !offers(manager.as_deref().unwrap_or(""), name, version)
+        {
+            return Derived::Irreversible(format!(
+                "the repository no longer offers version {version} of `{name}`"
+            ));
+        }
         let program = match (report.kind.as_str(), before, after) {
             ("package.install", None, Some(_)) => {
                 package_program("package.remove", name, None, manager.as_deref())
@@ -252,7 +293,7 @@ impl Engine {
         let (Some(log), Some(op)) = (&self.inner.inverses, report.op) else {
             return;
         };
-        let Derived::Programs(programs) = derive(report) else {
+        let Derived::Programs(programs) = derive_with(report, &repository_offers) else {
             return;
         };
         let entry = InverseOperation {
@@ -348,6 +389,24 @@ mod tests {
         assert_eq!(
             programs(derive(&report)),
             ["package.remove [\"jq\"] manager: apt"]
+        );
+    }
+
+    #[test]
+    fn a_version_that_the_repository_no_longer_offers_is_irreversible() {
+        let mut report = report("package.remove", &[("package:jq", Some("1.7"), None)]);
+        let mut marker = IrreversibleEntry::new(Irreversible::PackageChanged);
+        marker.detail = Some("apt".to_owned());
+        report.irreversible.push(marker);
+        assert!(matches!(
+            derive_with(&report, &|_, _, _| false),
+            Derived::Irreversible(_)
+        ));
+        assert_eq!(
+            programs(derive_with(&report, &|manager, name, version| {
+                manager == "apt" && name == "jq" && version == "1.7"
+            })),
+            ["package.install [\"jq\"] version: \"1.7\" manager: apt"]
         );
     }
 

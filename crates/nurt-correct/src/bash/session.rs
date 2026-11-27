@@ -33,11 +33,7 @@ const ELEVATION_PLAIN_FLAGS: &[&str] = &[
     "--non-interactive",
     "-H",
     "--set-home",
-    "-E",
-    "--preserve-env",
     "-k",
-    "-b",
-    "--background",
     "--no-ask-password",
 ];
 
@@ -773,11 +769,10 @@ impl<'a> Session<'a> {
                 let Some((name, rest)) = tail.split_first() else {
                     return Err(self.elevated_option(first.span, flag));
                 };
-                user = Some(
-                    name.value
-                        .literal()
-                        .unwrap_or_else(|| name.value.raw.clone()),
-                );
+                let Some(literal) = name.value.literal() else {
+                    return Err(self.elevated_option(name.span, flag));
+                };
+                user = Some(literal);
                 inner = rest;
             } else if ELEVATION_PLAIN_FLAGS.contains(&flag) {
                 inner = tail;

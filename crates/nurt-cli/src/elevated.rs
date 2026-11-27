@@ -49,6 +49,7 @@ pub(crate) fn run(io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
             "elevated-exec runs only with the identity of the administrator",
         );
     }
+    nurt_core::elevation::reset_environment();
     let engine = match source.open_elevated() {
         Ok(engine) => engine,
         Err(error) => return refuse(io, exit::FAILURE, &error.to_string()),

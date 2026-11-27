@@ -298,11 +298,15 @@ directory: the number of the entry, the backend, `as_user`, the kind of the
 operation, the time and the directory of the system journal. A line is one JSON
 object.
 
-`undo` with an entry number that has a reference and no entry of the account
-with that number runs through the same backends, with the same access rule, and
-reports `elevation_reason: system_journal_entry`; without a backend it ends
-with `E_PRIVILEGE` and `next_steps`. An entry of the account with the same
-number takes precedence: undo the elevated entry with `privilege: elevated`.
+The account sees the entry with the number 1 000 000 000 plus the number of
+the system entry (`ELEVATED_OP_BASE`); the numbers of the account stay below
+it, so the two journals never collide. `history` and `journal.status` of the
+account list such entries (`kind` of the operation, a summary that names the
+backend). `undo` with a number above 1 000 000 000 runs `undo` of the system
+entry through the same backends, with the same access rule, and reports
+`elevation_reason: system_journal_entry`; without a backend it ends with
+`E_PRIVILEGE` and `next_steps`. A process that is itself the administrator
+(backend `self`) uses the system journal as its own journal.
 
 Operations outside the file system are undone by inverse operations:
 

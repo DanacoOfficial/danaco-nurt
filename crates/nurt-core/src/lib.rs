@@ -20,6 +20,7 @@ pub mod candidates;
 pub mod config;
 pub mod cursor;
 mod elevated;
+mod elevated_journal;
 pub mod elevation;
 pub mod engine;
 pub mod error;

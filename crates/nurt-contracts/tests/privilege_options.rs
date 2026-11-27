@@ -127,3 +127,20 @@ fn a_project_file_cannot_set_privilege_keys() {
         );
     }
 }
+
+#[test]
+fn an_account_name_that_looks_like_an_option_is_rejected() {
+    for name in ["-root", "#0", "a b", "a=b", "a\nb"] {
+        let options = RequestOptions {
+            as_user: Some(name.to_owned()),
+            ..RequestOptions::default()
+        };
+        assert!(
+            matches!(
+                options.validate(),
+                Err(EnvelopeError::InvalidAccount { .. })
+            ),
+            "{name:?}"
+        );
+    }
+}

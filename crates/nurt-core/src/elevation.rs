@@ -23,7 +23,7 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::Report;
 use nurt_proc::elevation::{Backend, Refusal, System, default_backends, parse_backends};
 pub use nurt_proc::elevation::{
-    ELEVATED_EXEC, EXIT_BAD_REQUEST, EXIT_NOT_ADMINISTRATOR, is_administrator,
+    ELEVATED_EXEC, EXIT_BAD_REQUEST, EXIT_NOT_ADMINISTRATOR, is_administrator, reset_environment,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -31,6 +31,11 @@ use serde_json::json;
 /// File of the references to elevated journal entries in the state directory
 /// of the account.
 pub const REFERENCE_FILE: &str = "elevated-operations.jsonl";
+
+/// Number added to the number of an entry of the system journal to give the
+/// number under which the account sees it; the numbers of the account stay
+/// below it.
+pub const ELEVATED_OP_BASE: u64 = 1_000_000_000;
 
 /// Reason recorded when `auto` repeated a stage with elevated rights.
 pub const REASON_AUTO: &str = "permission_denied";

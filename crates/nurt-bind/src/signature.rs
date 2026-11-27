@@ -713,7 +713,6 @@ fn list_element(ty: &ParamType) -> &ParamType {
         .unwrap_or(ty)
 }
 
-/// Joins the arguments written for a parameter into one named argument.
 /// Takes the call parameters `privilege` and `as_user` out of a stage.
 ///
 /// The parameters apply to the whole call, like the options of the request,
@@ -780,6 +779,7 @@ fn call_value_error(spec: &StageSpec, name: &str, arg: &Arg, expected: &str) -> 
     .help(spec.name.clone())
 }
 
+/// Joins the arguments written for a parameter into one named argument.
 fn named_arg(name: &str, given: &Written<'_>) -> Arg {
     let first = given.args.first().and_then(|(_, arg)| arg.span);
     let last = given.args.last().and_then(|(_, arg)| arg.span);
