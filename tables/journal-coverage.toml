@@ -1514,9 +1514,11 @@ exception = "The service manager changes its configuration itself."
 [[row]]
 command = "windows.cim"
 group = "admin"
-changes = "Nothing; queries do not invoke methods."
-preserve = []
-coverage = "no_effect"
+changes = "Nothing for a query; the effect of a method called with `invoke`."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A method call changes the state of the system outside the file system; a method with a documented opposite is undone by that method."
 
 # Group package.
 
@@ -1933,6 +1935,80 @@ changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
+# Group admin: firewall, network and clock commands.
+
+[[row]]
+command = "firewall.allow"
+group = "admin"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The rule is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "firewall.deny"
+group = "admin"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The rule is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "firewall.remove"
+group = "admin"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The removed rules are recorded in the entry and added again by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.route_add"
+group = "admin"
+changes = "Routes of the routing table."
+preserve = ["value"]
+coverage = "full"
+note = "The route is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.route_remove"
+group = "admin"
+changes = "Routes of the routing table."
+preserve = ["value"]
+coverage = "full"
+note = "The removed routes are recorded in the entry and added again by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.dns_set"
+group = "admin"
+changes = "Name servers and search domains of an interface."
+preserve = ["value"]
+coverage = "full"
+note = "The previous servers and domains are recorded in the entry and set again by the inverse command; a changed `/etc/resolv.conf` is also a file target of the journal."
+
+[[row]]
+command = "clock.timezone_set"
+group = "admin"
+changes = "Time zone of the system."
+preserve = ["value"]
+coverage = "full"
+note = "The previous time zone is recorded in the entry and set again by the inverse command."
+
+[[row]]
+command = "clock.ntp"
+group = "admin"
+changes = "State of network time synchronization."
+preserve = ["value"]
+coverage = "full"
+note = "The previous state is recorded in the entry and set again by the inverse command."
+
+[[row]]
+command = "clock.set"
+group = "admin"
+changes = "Time of the system clock."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The previous reading of the clock cannot be restored."
 # Administration commands of accounts, groups, mounts, kernel, power and disks.
 
 [[row]]

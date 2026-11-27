@@ -5953,6 +5953,7 @@ dependencies = [
  "nurt-contracts",
  "nurt-programs",
  "nurt-syslog",
+ "nurt-testkit",
  "nurt-types",
  "plist",
  "proptest",

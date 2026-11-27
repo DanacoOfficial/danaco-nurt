@@ -360,6 +360,13 @@ Operations outside the file system are undone by inverse operations:
 | `start`, `stop` (services) | previous state | the opposite command |
 | `enable`, `disable` | previous start type | the opposite command with the recorded start type |
 | `restart`, `stop` of a process, `run` | none | irreversible; the report states `irreversible` before the change |
+| `firewall.allow`, `firewall.deny` | target `firewall:<rule>`, `absent` to `present` | `firewall.remove` of the rule, in the backend and table that were used |
+| `firewall.remove` | target `firewall:<rule>`, `present` to `absent`, one change per removed rule | `firewall.allow` or `firewall.deny` of every removed rule |
+| `network.route_add`, `network.route_remove` | target `route:<destination>` with `via=<gateway> dev=<interface> metric=<n>` | the opposite command with the recorded route |
+| `network.dns_set` | target `dns:<interface>` with `servers=<list>;search=<list>` | `network.dns_set` with the previous servers and domains; `/etc/resolv.conf` is a file target restored by the journal |
+| `clock.timezone_set`, `clock.ntp` | targets `clock:timezone` and `clock:ntp` | the same command with the previous value |
+| `clock.set` | target `clock:time` | irreversible; the report keeps the marker `external_effect` and its `detail` gives the reason |
+| `windows.cim` with `invoke` | target `cim:<class>.<method>` with the namespace and the condition | the documented opposite method on the same instances; otherwise irreversible |
 | `accounts.create` | absent before | `accounts.remove` with `keep_home: true` |
 | `accounts.modify` | shell, home, groups, comment and lock state before and after | `accounts.modify` with the recorded values of the fields that changed |
 | `accounts.remove` | the whole state of the account; the home directory goes through the journal | `accounts.create` with the recorded identifier, shell, home, groups and comment, and `accounts.modify` for a locked account; the journal restores the home directory |

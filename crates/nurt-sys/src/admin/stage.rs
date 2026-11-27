@@ -36,7 +36,7 @@ pub struct AdminCommand {
 
 /// The stages of the administration commands, in catalog order.
 #[must_use]
-pub fn stages() -> Vec<Arc<dyn StageImpl>> {
+pub(super) fn stages() -> Vec<Arc<dyn StageImpl>> {
     COMMANDS
         .iter()
         .map(|command| Arc::new(AdminCommand { command }) as Arc<dyn StageImpl>)

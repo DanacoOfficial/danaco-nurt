@@ -30,6 +30,7 @@ use nurt_contracts::bound::BoundDocument;
 use nurt_contracts::envelope::{Request, Response};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry, Report, ReportStatus};
 use nurt_contracts::stage::{CancelToken, EventSink};
+use nurt_sys::admin::undo as admin;
 use serde::{Deserialize, Serialize};
 
 use crate::elevated::entry_id;
@@ -176,6 +177,7 @@ pub fn derive_with(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -
         "package.install" | "package.remove" | "package.upgrade" => derive_packages(report, offers),
         "start" | "stop" | "enable" | "disable" => derive_services(report),
         "restart" => Derived::Irreversible("a restart has no inverse".to_owned()),
+        kind if admin::handles(kind) => derive_admin(report),
         _ => derive_administration(report),
     }
 }
@@ -199,6 +201,26 @@ fn derive_administration(report: &Report) -> Derived {
         Some(nurt_sys::admin::Inverse::Programs(programs)) => Derived::Programs(programs),
         Some(nurt_sys::admin::Inverse::Irreversible(reason)) => Derived::Irreversible(reason),
     }
+}
+
+/// Inverse of a firewall, network, clock or CIM command, derived by
+/// `nurt-sys` from the recorded states.
+fn derive_admin(report: &Report) -> Derived {
+    match admin::derive(&report.kind, &report.changes, &report.irreversible) {
+        Some(admin::Undo::Programs(programs)) if !programs.is_empty() => {
+            Derived::Programs(programs)
+        }
+        Some(admin::Undo::Irreversible(reason)) => Derived::Irreversible(reason),
+        _ => Derived::None,
+    }
+}
+
+/// Whether `marker` is dropped from the report when the inverse is kept.
+fn is_inverse_marker(marker: &IrreversibleEntry) -> bool {
+    matches!(
+        marker.reason,
+        Irreversible::PackageChanged | Irreversible::ServiceChanged
+    ) || admin::is_marker(marker)
 }
 
 fn derive_packages(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -> Derived {
@@ -352,10 +374,7 @@ impl Engine {
             } => (programs, irreversible),
             Derived::Irreversible(reason) => {
                 for marker in &mut report.irreversible {
-                    if matches!(
-                        marker.reason,
-                        Irreversible::PackageChanged | Irreversible::ServiceChanged
-                    ) {
+                    if is_inverse_marker(marker) {
                         marker.detail = Some(reason.clone());
                     }
                 }
@@ -371,12 +390,9 @@ impl Engine {
             elevated: report.elevated,
         };
         if log.append(&entry).is_ok() {
-            report.irreversible.retain(|entry| {
-                !matches!(
-                    entry.reason,
-                    Irreversible::PackageChanged | Irreversible::ServiceChanged
-                )
-            });
+            report
+                .irreversible
+                .retain(|entry| !is_inverse_marker(entry));
             for reason in lost {
                 let mut marker = IrreversibleEntry::new(Irreversible::PackageChanged);
                 marker.detail = Some(reason);
@@ -456,6 +472,39 @@ mod tests {
             Derived::Programs(programs) => programs,
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn a_firewall_rule_is_undone_by_removing_it() {
+        let mut report = report(
+            "firewall.allow",
+            &[(
+                "firewall:allow tcp 22 in any -",
+                Some("absent"),
+                Some("present"),
+            )],
+        );
+        let mut marker = IrreversibleEntry::new(Irreversible::ExternalEffect);
+        marker.detail = Some("admin:firewall:nftables:nurt".to_owned());
+        assert!(is_inverse_marker(&marker));
+        report.irreversible.push(marker);
+        assert_eq!(
+            programs(derive(&report)),
+            [
+                "firewall.remove \"22\" protocol: tcp direction: inbound action: allow backend: nftables table: \"nurt\""
+            ]
+        );
+    }
+
+    #[test]
+    fn setting_the_clock_stays_irreversible_and_other_effects_are_left_alone() {
+        let report_of = |kind: &str, path: &str| report(kind, &[(path, None, Some("x"))]);
+        assert!(matches!(
+            derive(&report_of("clock.set", "clock:time")),
+            Derived::Irreversible(_)
+        ));
+        let plain = IrreversibleEntry::new(Irreversible::ExternalEffect);
+        assert!(!is_inverse_marker(&plain));
     }
 
     #[test]

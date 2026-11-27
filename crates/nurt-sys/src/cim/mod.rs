@@ -16,15 +16,17 @@
 mod convert;
 #[cfg(any(windows, test))]
 mod datetime;
+mod invoke;
 mod wql;
 
 #[cfg(windows)]
 mod com;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::journal::MutationTx;
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, StageDescriptor, StageImpl, StageInput,
-    StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, ReadStage,
+    StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::Value;
 
@@ -213,11 +215,81 @@ impl StageImpl for WindowsCim {
 
     fn check(&self, args: &BoundArgs, _ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
         query_from_args(args)?;
+        invoke::invocation_from_args(args)?;
         Ok(StaticInfo::default())
     }
 
     fn as_read(&self) -> Option<&dyn ReadStage> {
         Some(self)
+    }
+
+    fn as_effect(&self) -> Option<&dyn EffectStage> {
+        Some(self)
+    }
+}
+
+#[cfg(windows)]
+fn matched_instances(query: &CimQuery, ctx: &ExecCtx) -> Result<Option<u64>> {
+    if query.condition.is_none() {
+        return Ok(None);
+    }
+    let (take, max) = read_budget(ctx);
+    let objects = com::query(query, ctx, take, max)?;
+    Ok(Some(u64::try_from(objects.len()).unwrap_or(u64::MAX)))
+}
+
+#[cfg(not(windows))]
+fn matched_instances(_query: &CimQuery, _ctx: &ExecCtx) -> Result<Option<u64>> {
+    Err(os_only())
+}
+
+#[cfg(windows)]
+fn call_method(
+    query: &CimQuery,
+    invocation: &invoke::Invocation,
+    ctx: &ExecCtx,
+) -> Result<Vec<invoke::Called>> {
+    com::invoke(query, invocation, ctx)
+}
+
+#[cfg(not(windows))]
+fn call_method(
+    _query: &CimQuery,
+    _invocation: &invoke::Invocation,
+    _ctx: &ExecCtx,
+) -> Result<Vec<invoke::Called>> {
+    Err(os_only())
+}
+
+impl EffectStage for WindowsCim {
+    fn plan<'a>(
+        &'a self,
+        args: &'a BoundArgs,
+        _input: StageInput<'a>,
+        ctx: &'a ExecCtx,
+    ) -> Result<EffectPlan> {
+        let query = query_from_args(args)?;
+        let invocation = invoke::invocation_from_args(args)?.ok_or_else(|| {
+            Error::new(
+                ErrorCode::MissingParam,
+                "`windows.cim` changes the system only with `invoke`",
+            )
+        })?;
+        let matched = matched_instances(&query, ctx)?;
+        Ok(invoke::plan(&query, &invocation, matched).with_state((query, invocation)))
+    }
+
+    fn apply<'a>(
+        &'a self,
+        _args: &'a BoundArgs,
+        mut plan: EffectPlan,
+        tx: &mut dyn MutationTx,
+        ctx: &'a ExecCtx,
+    ) -> Result<EffectOutcome<'a>> {
+        let (query, invocation) = plan
+            .take_state::<(CimQuery, invoke::Invocation)>()
+            .ok_or_else(|| Error::new(ErrorCode::StageFailed, "the CIM call has no plan"))?;
+        invoke::apply(&query, &invocation, tx, ctx, call_method)
     }
 }
 
@@ -229,6 +301,12 @@ impl ReadStage for WindowsCim {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let query = query_from_args(args)?;
+        if invoke::invocation_from_args(args)?.is_some() {
+            return Err(Error::new(
+                ErrorCode::Arg,
+                "`windows.cim` with `invoke` runs as the effect of the program",
+            ));
+        }
         let records = run(&query, ctx)?;
         Ok(StageOutput::records(
             nurt_contracts::stage::RecordStream::from_records(records),
@@ -355,7 +433,14 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            [PARAM_CLASS, PARAM_WHERE, PARAM_NAMESPACE, PARAM_PROPERTIES]
+            [
+                PARAM_CLASS,
+                PARAM_WHERE,
+                PARAM_NAMESPACE,
+                PARAM_PROPERTIES,
+                invoke::PARAM_INVOKE,
+                invoke::PARAM_ARGUMENTS
+            ]
         );
         let entry = frozen_entry();
         let params = entry["param"].as_array().unwrap();
@@ -377,6 +462,13 @@ mod tests {
         let descriptor = WindowsCim::new().descriptor();
         assert!(descriptor.source);
         assert_eq!(descriptor.input, InputKinds::None);
+    }
+
+    #[test]
+    fn catalog_declares_the_effect_of_invoke() {
+        let spec = frozen_spec();
+        assert_eq!(spec.effects.len(), 1);
+        assert_eq!(spec.effects[0].action, invoke::PARAM_INVOKE);
     }
 
     #[test]
@@ -554,5 +646,83 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::NotFound);
         let namespace = args("Win32_Bios").with(PARAM_NAMESPACE, text("root/nurtmissing"), false);
         assert_eq!(objects(&namespace).unwrap_err().code(), ErrorCode::NotFound);
+    }
+
+    #[cfg(windows)]
+    fn call(args: &BoundArgs) -> Result<Vec<nurt_contracts::value::Record>> {
+        let ctx = ctx();
+        let plan = WindowsCim.plan(args, StageInput::none(), &ctx)?;
+        let mut tx = crate::admin::testing::RecordingTx::default();
+        let outcome = WindowsCim.apply(args, plan, &mut tx, &ctx)?;
+        assert_eq!(tx.markers.len(), 1);
+        assert_eq!(outcome.changes.len(), 1);
+        match outcome.output.data {
+            nurt_contracts::stage::StageData::Records(stream) => stream.collect::<Result<Vec<_>>>(),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires Windows Management Instrumentation"]
+    fn it_cim_invoke_create_process_returns_zero() {
+        let mut fields = nurt_contracts::value::Fields::new();
+        fields.insert(
+            "CommandLine".to_owned(),
+            Value::Text(String::from("cmd.exe /c exit 0")),
+        );
+        let request = args("Win32_Process")
+            .with(invoke::PARAM_INVOKE, text("Create"), false)
+            .with(
+                invoke::PARAM_ARGUMENTS,
+                ArgValue::Value(Value::Map(fields)),
+                false,
+            );
+        let records = call(&request).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].get("return_value"), Some(&Value::Int(0)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires Windows Management Instrumentation"]
+    fn it_cim_invoke_interrogate_service_on_instances() {
+        let request = args("Win32_Service")
+            .with(PARAM_WHERE, text("Name = 'Winmgmt'"), false)
+            .with(invoke::PARAM_INVOKE, text("InterrogateService"), false);
+        let records = call(&request).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].get("return_value"), Some(&Value::Int(0)));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn invoke_is_planned_only_on_windows() {
+        let request = args("Win32_Service")
+            .with(PARAM_WHERE, text("Name = 'Spooler'"), false)
+            .with(invoke::PARAM_INVOKE, text("StopService"), false);
+        let error = WindowsCim
+            .plan(&request, StageInput::none(), &ctx())
+            .err()
+            .unwrap();
+        assert_eq!(error.code(), ErrorCode::OsOnly);
+    }
+
+    #[test]
+    fn invoke_without_a_condition_or_with_arguments_alone_is_checked() {
+        let host = host();
+        let config = Config::default();
+        let spec = frozen_spec();
+        let check = CheckCtx::new(&spec, host.as_ref(), &config);
+        let bad = args("Win32_Process").with(invoke::PARAM_INVOKE, text("Bad Name"), false);
+        assert_eq!(
+            WindowsCim.check(&bad, &check).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
+        let good = args("Win32_Process").with(invoke::PARAM_INVOKE, text("Create"), false);
+        assert!(WindowsCim.check(&good, &check).is_ok());
+        let context = ctx();
+        let read = WindowsCim.execute(&good, StageInput::none(), &context);
+        assert_eq!(read.err().unwrap().code(), ErrorCode::Arg);
     }
 }

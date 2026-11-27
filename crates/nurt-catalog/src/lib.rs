@@ -23,7 +23,7 @@
 //! let registry = Registry::load_embedded()?;
 //! let remove = registry.command("remove").expect("remove is a core command");
 //! assert_eq!(remove.effect, EffectKind::Local);
-//! assert_eq!(registry.commands().count(), 167);
+//! assert_eq!(registry.commands().count(), 177);
 //! # Ok::<(), nurt_contracts::error::Error>(())
 //! ```
 

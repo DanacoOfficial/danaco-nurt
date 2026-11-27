@@ -12,6 +12,14 @@
 //! | kernel | `sysctl.set`, `modules.load`, `modules.unload` | the previous value; load and unload undo each other |
 //! | power | `power.restart`, `power.shutdown`, `power.cancel` | a scheduled restart or shutdown is undone by `power.cancel`; an immediate one is irreversible |
 //! | disks | `disks.partition`, `disks.format` | irreversible; the preview lists the data that is lost |
+//! | firewall | `firewall.rules`, `firewall.allow`, `firewall.deny`, `firewall.remove` | the opposite rule change in the same backend |
+//! | network | `network.route_add`, `network.route_remove`, `network.dns_set` | the opposite route command, the previous DNS state |
+//! | clock | `clock.timezone_set`, `clock.set`, `clock.ntp` | the previous value; `clock.set` is irreversible |
+//!
+//! The first six groups keep their states as JSON documents ([`inverse`]);
+//! the firewall, network and clock commands record `state` changes of the
+//! targets `firewall:<rule>`, `route:<destination>`, `dns:<interface>`,
+//! `clock:timezone` and `clock:ntp`, and [`undo`] derives their inverses.
 //!
 //! Every command reads the state it changes, plans the programs that change
 //! it, and reports the state before and after as the `before` and `after` of
@@ -26,6 +34,15 @@
 //! `privilege: elevated` in the elevated process, and a program that fails for
 //! lack of rights ends the command with `E_PERMISSION`, which `privilege: auto`
 //! repeats once elevated.
+
+pub mod clock;
+pub(crate) mod effects;
+pub mod firewall;
+pub mod network;
+#[cfg(test)]
+pub(crate) mod testing;
+mod tool;
+pub mod undo;
 
 mod accounts;
 mod args;
@@ -43,7 +60,19 @@ mod tests;
 mod testsys;
 
 pub use inverse::{Inverse, inverse};
-pub use stage::{AdminCommand, stages};
+pub use stage::AdminCommand;
+pub use tool::{Call, Output, System, Tool};
+
+/// Every stage of the administration commands, in catalog order: accounts,
+/// groups, mounts, kernel, power and disks, then firewall, network and clock.
+#[must_use]
+pub fn stages() -> Vec<std::sync::Arc<dyn nurt_contracts::stage::StageImpl>> {
+    let mut stages = stage::stages();
+    stages.extend(firewall::stages());
+    stages.extend(network::stages());
+    stages.extend(clock::stages());
+    stages
+}
 
 use nurt_contracts::journal::FileOp;
 

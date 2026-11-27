@@ -4,7 +4,7 @@
 
 format = "nurt-catalog/1"
 group = "admin"
-summary = "System services, the registry provider and CIM."
+summary = "System services, the registry provider, CIM, the firewall, routes, DNS and the clock."
 
 [[command]]
 name = "services"
@@ -95,14 +95,18 @@ external = { kind = "system_program", programs = ["launchctl"], note = "On macOS
 
 [[command]]
 name = "windows.cim"
-category = "source"
+category = "change"
 reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["cim_object"]
-summary = "Query CIM instances through WMI on Windows."
+output = ["cim_object", "effect"]
+summary = "Query CIM instances through WMI on Windows, or call a method of the selected instances with invoke."
 os = ["windows"]
+reversibility_note = "A query only reads. A call with invoke is irreversible unless the method has a documented opposite (StartService and StopService, Enable and Disable, Pause and Resume), which undo calls on the same instances."
+effects = [
+  { action = "invoke", effect = "external", reversibility = "irreversible", note = "Applies when invoke is given." },
+]
 
 [[command.param]]
 name = "class"
@@ -127,6 +131,383 @@ name = "properties"
 type = "list<text>"
 summary = "Properties to return; all when omitted."
 
+[[command.param]]
+name = "invoke"
+type = "text"
+summary = "Method to call on every selected instance, or on the class when where is omitted (static methods such as Win32_Process.Create)."
+
+[[command.param]]
+name = "arguments"
+type = "map<any>"
+summary = "Input parameters of the method by name: text, int or bool values."
+
+# Firewall, routes, DNS and the clock.
+
+[[command]]
+name = "firewall.rules"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["any"]
+summary = "List the rules of the firewall with their action, protocol, port, source, direction and zone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+summary = "Only rules for this port or range."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+values = ["tcp", "udp"]
+summary = "Only rules of this protocol."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.allow"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Allow traffic on a port."
+reversibility_note = "`undo` removes the rule that was added; a rule that already exists is left alone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.deny"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Drop traffic on a port."
+reversibility_note = "`undo` removes the rule that was added; a rule that already exists is left alone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.remove"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove the firewall rules that match a port, protocol, source, direction and zone."
+reversibility_note = "`undo` adds the rules that were removed."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command.param]]
+name = "action"
+type = "enum(any|allow|deny)"
+default = "any"
+values = ["any", "allow", "deny"]
+summary = "Remove only rules with this action; both when any."
+
+[[command]]
+name = "network.route_add"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Add a route to the routing table."
+reversibility_note = "`undo` removes the route; a route that already exists is left alone."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "destination"
+type = "text"
+position = 1
+required = true
+summary = "Network in CIDR form, a host address or default."
+
+[[command.param]]
+name = "gateway"
+type = "text"
+summary = "Next hop. Required unless interface is given."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface of the route."
+
+[[command.param]]
+name = "metric"
+type = "int"
+summary = "Metric of the route."
+
+[[command]]
+name = "network.route_remove"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove the routes that match a destination, next hop, interface and metric."
+reversibility_note = "`undo` adds the routes that were removed."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "destination"
+type = "text"
+position = 1
+required = true
+summary = "Network in CIDR form, a host address or default."
+
+[[command.param]]
+name = "gateway"
+type = "text"
+summary = "Next hop. Only routes through this next hop."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface of the route."
+
+[[command.param]]
+name = "metric"
+type = "int"
+summary = "Metric of the route."
+
+[[command]]
+name = "network.dns_set"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the DNS servers and search domains of an interface; an empty list of servers returns to automatic servers."
+reversibility_note = "`undo` sets the previous servers and domains; changes of /etc/resolv.conf are restored by the journal."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "servers"
+type = "list<text>"
+position = 1
+required = true
+summary = "IP addresses of the name servers, in order; an empty list means automatic."
+
+[[command.param]]
+name = "search"
+type = "list<text>"
+summary = "Search domains; unchanged when omitted."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface or network service; the interface of the default route when omitted on Linux."
+
+[[command]]
+name = "clock.timezone_set"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the time zone of the system."
+reversibility_note = "`undo` sets the previous time zone."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "zone"
+type = "text"
+position = 1
+required = true
+summary = "Name of the time zone, for example Europe/Warsaw; on Windows the identifier such as W. Europe Standard Time."
+
+[[command]]
+name = "clock.set"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the date and time of the clock."
+reversibility_note = "The previous reading of the clock cannot be restored."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "time"
+type = "instant"
+position = 1
+required = true
+summary = "New time; an instant in UTC."
+
+[[command]]
+name = "clock.ntp"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Switch network time synchronisation on or off."
+reversibility_note = "`undo` restores the previous state."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "state"
+type = "enum(on|off)"
+position = 1
+required = true
+values = ["on", "off"]
+summary = "Synchronise the clock with network time or not."
 [[command]]
 name = "accounts.create"
 category = "change"

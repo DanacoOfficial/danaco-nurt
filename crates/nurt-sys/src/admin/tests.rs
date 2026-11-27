@@ -1144,7 +1144,7 @@ fn texts_that_cannot_be_written_in_a_program_make_the_undo_irreversible() {
 
 #[test]
 fn every_command_has_a_stage_and_a_plan() {
-    let stages = super::stages();
+    let stages = super::stage::stages();
     assert_eq!(stages.len(), super::COMMANDS.len());
     for (stage, command) in stages.iter().zip(super::COMMANDS) {
         let descriptor = stage.descriptor();

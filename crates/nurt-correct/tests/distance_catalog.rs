@@ -108,9 +108,9 @@ fn command_entries(commands: &[Command]) -> Vec<NameEntry> {
 }
 
 #[test]
-fn commands_have_one_pair_at_distance_one_and_twenty_seven_at_two() {
+fn commands_have_one_pair_at_distance_one_and_twenty_nine_at_two() {
     let commands = catalog();
-    assert_eq!(commands.len(), 149);
+    assert_eq!(commands.len(), 177);
     let pairs = close_pairs(&command_entries(&commands), 2);
     let at = |distance| -> Vec<String> {
         pairs
@@ -119,7 +119,7 @@ fn commands_have_one_pair_at_distance_one_and_twenty_seven_at_two() {
             .map(|pair| format!("{}-{}", pair.a, pair.b))
             .collect()
     };
-    assert_eq!(at(1), ["last-list"]);
+    assert_eq!(at(1), ["count-mount", "last-list"]);
     assert_eq!(
         at(2),
         [
@@ -137,6 +137,8 @@ fn commands_have_one_pair_at_distance_one_and_twenty_seven_at_two() {
             "host-sort",
             "info-undo",
             "jobs-logs",
+            "modules.load-modules.unload",
+            "mount-unmount",
             "move-remove",
             "next-set",
             "notebook.copy-notebook.ops",
@@ -157,8 +159,8 @@ fn commands_have_one_pair_at_distance_one_and_twenty_seven_at_two() {
 #[test]
 fn command_names_conflict_only_in_the_documented_exception() {
     let entries = command_entries(&catalog());
-    assert_eq!(check_names(&entries, &[]).len(), 1);
-    assert!(check_names(&entries, &[("list", "last")]).is_empty());
+    assert_eq!(check_names(&entries, &[]).len(), 2);
+    assert!(check_names(&entries, &[("list", "last"), ("count", "mount")]).is_empty());
 }
 
 #[test]
@@ -272,14 +274,15 @@ fn synonyms_and_habits_close_to_commands_are_documented_ties() {
 /// Synonyms and habit words at distance 1 from a command other than their
 /// target. A string at distance 1 from both is a tie and is not corrected;
 /// the written word itself resolves exactly.
-const DOCUMENTED_COMMAND_TIES: [&str; 7] = [
-    "count-mount",
+const DOCUMENTED_COMMAND_TIES: [&str; 8] = [
     "head-read",
+    "mount-umount",
     "ren-run",
     "run-run0",
     "sed-set",
     "sl-sql",
     "start-stat",
+    "umount-unmount",
 ];
 
 fn command_index() -> NameIndex {
