@@ -43,3 +43,9 @@ unicode-width = { workspace = true }
 [dev-dependencies]
 proptest = { workspace = true }
 tempfile = { workspace = true }
+
+# The NEON C code of blake3 does not compile against the arm64 intrinsics
+# headers of MSVC with clang-cl; the Rust implementation is used there.
+[target.'cfg(all(windows, target_arch = "aarch64"))'.dependencies]
+blake3 = { workspace = true, features = ["no_neon"] }
+

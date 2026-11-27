@@ -179,11 +179,11 @@ zig_environment() {
 build_target() {
   case "$1" in
     "$WINDOWS" | "$WINDOWS_ARM")
-      # ring compiles its aarch64 assembly with clang, which does not take
-      # the clang-cl options of the default cross compiler.
-      local compiler=clang-cl
-      [ "$1" = "$WINDOWS_ARM" ] && compiler=clang
-      cargo xwin build --release --locked --cross-compiler "$compiler" --target "$1" -p nurt-cli -p nurt-ffi ;;
+      # The wrappers of packaging/release/msvc-clang translate the options
+      # of cargo-xwin that clang (ring, aarch64 assembly) and clang-cl (aws-lc,
+      # /FI with an absolute path) do not take from a Linux host.
+      PATH="$root/packaging/release/msvc-clang:$PATH" \
+        cargo xwin build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;
     *)
       zig_environment "$1"
       cargo build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;

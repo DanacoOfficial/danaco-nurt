@@ -1,0 +1,21 @@
+#!/bin/sh
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# clang for build scripts that call clang directly for an MSVC target (ring
+# for aarch64-pc-windows-msvc): turns the clang-cl include option /imsvc of
+# the flags of cargo-xwin into -isystem.
+next=""
+for argument in "$@"; do
+    shift
+    if [ -n "$next" ]; then
+        set -- "$@" -isystem "$argument"
+        next=""
+        continue
+    fi
+    case $argument in
+        /imsvc) next=1 ;;
+        *) set -- "$@" "$argument" ;;
+    esac
+done
+exec /usr/bin/clang "$@"
