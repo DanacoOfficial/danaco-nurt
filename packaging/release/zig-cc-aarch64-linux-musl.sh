@@ -14,6 +14,10 @@ for argument in "$@"; do
         --target=*) ;;
         -Wl,--fix-cortex-a53-843419) ;;
         -Wl,-O1) ;;
+        # zig links its own musl start files; the self-contained ones of
+        # Rust would define _start twice.
+        */self-contained/crt1.o | */self-contained/crti.o | */self-contained/crtn.o) ;;
+        */self-contained/crtbegin*.o | */self-contained/crtend*.o) ;;
         *) set -- "$@" "$argument" ;;
     esac
 done

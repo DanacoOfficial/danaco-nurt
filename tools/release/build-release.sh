@@ -179,7 +179,11 @@ zig_environment() {
 build_target() {
   case "$1" in
     "$WINDOWS" | "$WINDOWS_ARM")
-      cargo xwin build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;
+      # ring compiles its aarch64 assembly with clang, which does not take
+      # the clang-cl options of the default cross compiler.
+      local compiler=clang-cl
+      [ "$1" = "$WINDOWS_ARM" ] && compiler=clang
+      cargo xwin build --release --locked --cross-compiler "$compiler" --target "$1" -p nurt-cli -p nurt-ffi ;;
     *)
       zig_environment "$1"
       cargo build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;
