@@ -208,11 +208,11 @@ impl ReadStage for Find {
         let fs = ctx.require_fs()?;
         let mut records = Vec::new();
         for (path, _) in FILES {
-            let abs = AbsPath::new(path)?;
+            let abs = AbsPath::new(nurt_testkit::paths::abs(path))?;
             if let Ok(stat) = fs.metadata(&abs, Follow::NoFollow) {
                 records.push(
                     Record::new(RecordKind::Entry)
-                        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
+                        .with("path", Value::Path(abs.to_language_string()))
                         .with(
                             "size",
                             Value::Int(i64::try_from(stat.size).unwrap_or(i64::MAX)),

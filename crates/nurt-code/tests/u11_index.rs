@@ -280,7 +280,7 @@ fn content_hash_equals_the_file_system_digest() {
     let source = read_source(&ctx, &path).unwrap();
     assert_eq!(source.etag, content_hash(MAIN_RS.as_bytes()));
     assert_eq!(source.etag, sha256(MAIN_RS.as_bytes()));
-    let absolute = test_path(&path.to_string_lossy()).unwrap();
+    let absolute = test_path(&format!("{ROOT}/src/main.rs")).unwrap();
     assert_eq!(
         workspace.test.fs().content_hash(&absolute).unwrap(),
         source.etag

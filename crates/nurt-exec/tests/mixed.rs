@@ -89,7 +89,7 @@ fn applies_a_mixed_stream_in_one_transaction() {
         .collect();
     assert_eq!(
         paths,
-        ["/data/a.txt", "/data/c.txt", "/data/b.txt", "/data/d.txt"]
+        ["/data/a.txt", "/data/c.txt", "/data/b.txt", "/data/d.txt"].map(nurt_testkit::paths::abs)
     );
     assert_eq!(operation.result.records.len(), 2);
 }
