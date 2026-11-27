@@ -117,31 +117,42 @@ impl LinuxFs {
     }
 }
 
-/// Sets the permission bits of the node at `path` without following a
-/// symbolic link: the entry is opened with `O_PATH | O_NOFOLLOW`, checked to
-/// be a named pipe or a device node, and changed through its descriptor
-/// path in `/proc/self/fd`; without `/proc` it fails.
-fn set_node_mode(path: &AbsPath, bits: Mode) -> FsResult<()> {
+/// Sets the permission bits of the node `name` of the directory `dir`
+/// without following a symbolic link: the entry is opened with
+/// `O_PATH | O_NOFOLLOW`, checked to be a named pipe or a device node, and
+/// changed through its descriptor path in `/proc/self/fd`; without `/proc` it
+/// fails.
+fn set_node_mode(dir: &OwnedFd, name: &OsStr, bits: Mode, report: &Path) -> FsResult<()> {
     const OP: &str = "create_node";
     let fd = retry(|| {
         rustix::fs::openat(
-            CWD,
-            path.as_path(),
+            dir,
+            name,
             OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::empty(),
         )
     })
-    .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
-    let stat = rustix::fs::fstat(&fd).map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+    .map_err(|errno| sys_error(errno, OP, report))?;
+    let stat = rustix::fs::fstat(&fd).map_err(|errno| sys_error(errno, OP, report))?;
     if !matches!(
         FileType::from_raw_mode(stat.st_mode),
         FileType::Fifo | FileType::CharacterDevice | FileType::BlockDevice
     ) {
-        return Err(FsError::new(FsErrorKind::Io, OP, Some(path.as_path())));
+        return Err(FsError::new(FsErrorKind::Io, OP, Some(report)));
     }
     let through_descriptor = format!("/proc/self/fd/{}", fd.as_raw_fd());
     retry(|| rustix::fs::chmodat(CWD, through_descriptor.as_str(), bits, AtFlags::empty()))
-        .map_err(|errno| sys_error(errno, OP, path.as_path()))
+        .map_err(|errno| sys_error(errno, OP, report))
+}
+
+/// Removes the entry `name` of `dir` only while it is still the node that
+/// was created, identified by device and inode; anything else is left alone.
+pub(super) fn remove_created(dir: &OwnedFd, name: &OsStr, created: (u64, u64)) {
+    let same = rustix::fs::statat(dir, name, AtFlags::SYMLINK_NOFOLLOW)
+        .is_ok_and(|stat| (stat.st_dev, stat.st_ino) == created);
+    if same {
+        let _ = rustix::fs::unlinkat(dir, name, AtFlags::empty());
+    }
 }
 
 fn open(path: &Path, flags: OFlags, mode: u32, op: &str) -> FsResult<OwnedFd> {
@@ -554,22 +565,35 @@ impl FsWrite for LinuxFs {
             }
         };
         let created = Mode::from_raw_mode(mode.unwrap_or(DEFAULT_NODE_MODE));
-        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, created, device)).map_err(
-            |errno| {
-                if node.kind == SpecialKind::Fifo {
-                    sys_error(errno, OP, path.as_path())
-                } else {
-                    privileged_error(errno, OP, path.as_path())
-                }
-            },
-        )?;
+        let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+            return Err(FsError::new(FsErrorKind::Io, OP, Some(path.as_path())));
+        };
+        let dir = retry(|| {
+            rustix::fs::openat(
+                CWD,
+                parent.as_path(),
+                OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+        })
+        .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+        retry(|| rustix::fs::mknodat(&dir, name, file_type, created, device)).map_err(|errno| {
+            if node.kind == SpecialKind::Fifo {
+                sys_error(errno, OP, path.as_path())
+            } else {
+                privileged_error(errno, OP, path.as_path())
+            }
+        })?;
         let Some(exact) = mode else {
             return Ok(());
         };
-        set_node_mode(path, Mode::from_raw_mode(exact)).inspect_err(|_| {
-            // The node exists but has not got its mode: remove it, so that a
-            // failure leaves nothing behind (for example without `/proc`).
-            let _ = rustix::fs::unlinkat(CWD, path.as_path(), AtFlags::empty());
+        let identity = rustix::fs::statat(&dir, name, AtFlags::SYMLINK_NOFOLLOW)
+            .map(|stat| (stat.st_dev, stat.st_ino))
+            .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+        set_node_mode(&dir, name, Mode::from_raw_mode(exact), path.as_path()).inspect_err(|_| {
+            // The node has not got its mode (for example without `/proc`):
+            // remove it, but only while the entry is still the created node.
+            remove_created(&dir, name, identity);
         })
     }
 

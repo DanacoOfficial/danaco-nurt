@@ -623,21 +623,22 @@ fn preview_of_a_change_touches_nothing_and_names_the_database() {
 }
 
 #[test]
-fn a_statement_split_that_disagrees_with_sqlite_is_refused() {
+fn identifiers_named_like_keywords_do_not_shift_the_kinds_of_statements() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
-    // A column named like the keyword opens a second block for the lexer, so
-    // it reads two statements where SQLite reads three.
-    let query = "create table a(begin); \
+    // The lexer reads `begin` in the column list as the start of a trigger
+    // body and `end` as its end; the kind of each statement still comes from
+    // its own text, so the inserts run.
+    let query = "create table a(begin, \"end\"); \
                  create trigger t after update of begin on a begin select 1; end; \
-                 select 2";
-    let before = contents(&database_files(&db));
-    let mut tx = RecordingTx::new();
-    let error = failure(write(&args_auto(&db, query, Vec::new()), &ctx(), &mut tx));
-    assert_eq!(error.code(), ErrorCode::Sql);
-    assert_eq!(error.problem.as_deref(), Some("statement_split"));
-    tx.undo();
-    assert_eq!(contents(&database_files(&db)), before);
+                 insert into a values (1, 2); insert into a values (3, 4)";
+    write(
+        &args_auto(&db, query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(count(&db, "select count(*) from a"), 2);
 }
 
 #[test]
@@ -705,4 +706,72 @@ fn a_failing_call_after_an_extension_call_names_the_effect() {
         .unwrap_or_else(|| panic!("no detail: {error:?}"))
         .to_string();
     assert!(kept.contains("load_extension"), "{kept}");
+}
+
+#[test]
+fn an_error_and_a_rollback_keep_every_effect_that_stays() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let unresolved = "attach (select name from users where 0) as o";
+    let plain = failure(write(
+        &args_auto(
+            &db,
+            &format!("{unresolved}; insert into missing values (1)"),
+            Vec::new(),
+        ),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    assert_eq!(plain.code(), ErrorCode::Sql);
+    let kept = plain.details.get("irreversible").unwrap().to_string();
+    assert!(kept.contains("could not be resolved"), "{kept}");
+    let query = format!(
+        "{unresolved}; pragma temp_store_directory = '{}'; rollback",
+        text(dir.path())
+    );
+    let rolled = failure(write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    write(
+        &args_auto(&db, "pragma temp_store_directory = ''", Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(rolled.code(), ErrorCode::RolledBack);
+    let kept = rolled.details.get("irreversible").unwrap().to_string();
+    assert!(kept.contains("could not be resolved"), "{kept}");
+    assert!(kept.contains("whole Nurt process"), "{kept}");
+}
+
+#[test]
+fn a_database_attached_for_reading_is_not_reported_as_changed() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let reference = database(dir.path(), "ref.db", USERS);
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "attach '{}' as r; insert into users(name) select name from r.users",
+        text(&reference)
+    );
+    let written = write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert_eq!(written.changes.len(), 1, "{:?}", written.changes);
+    assert!(
+        tx.observed
+            .iter()
+            .all(|change| !change.path.as_path().ends_with("ref.db"))
+    );
+    let query = format!(
+        "attach '{}' as r; insert into r.users(name) values ('zed')",
+        text(&reference)
+    );
+    let written = write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(written.changes.len(), 2);
 }

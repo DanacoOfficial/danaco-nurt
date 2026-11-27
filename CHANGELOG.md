@@ -39,8 +39,7 @@ their own version numbers, described in the specification.
   `file:` URIs are read to their path, the call turns the defensive mode of
   SQLite off when it writes, a preview lists the files of `ATTACH` and
   `VACUUM INTO`, the other database files appear as changes of the report, and
-  a query that the lexer and SQLite split differently fails with
-  `problem: statement_split`.
+  the kind of each statement is read from its own text.
 
 ## [0.1.1] - 2026-11-27
 

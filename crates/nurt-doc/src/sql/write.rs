@@ -70,11 +70,10 @@ pub(crate) fn planned_changes(request: &SqlRequest) -> Result<Vec<Change>> {
         .into_iter()
         .enumerate()
     {
-        let expression = target::attach_parts(text)
-            .map(|parts| parts.expression)
-            .or_else(|| target::vacuum_parts(text).map(|parts| parts.expression));
-        let Some(expression) = expression else {
-            continue;
+        let (expression, creates) = match (target::attach_parts(text), target::vacuum_parts(text)) {
+            (Some(parts), _) => (parts.expression, false),
+            (None, Some(parts)) => (parts.expression, true),
+            (None, None) => continue,
         };
         let literal = target::literal_of(&expression).map(|value| names::database_name(&value));
         match literal {
@@ -90,7 +89,11 @@ pub(crate) fn planned_changes(request: &SqlRequest) -> Result<Vec<Change>> {
             }
             _ => changes.push(Change::new(
                 format!("(file named by statement {})", index + 1),
-                ChangeAction::Modify,
+                if creates {
+                    ChangeAction::Create
+                } else {
+                    ChangeAction::Modify
+                },
             )),
         }
     }
@@ -178,13 +181,19 @@ impl<'a> Journaled<'a> {
         let mut others = Vec::new();
         for (position, set) in self.sets.iter().enumerate() {
             let after = set.files.snapshot();
-            changes.extend(set.files.changes(&set.before, &after, wrote, set.base));
+            let own = set
+                .files
+                .changes(&set.before, &after, wrote && position == 0, set.base);
+            let changed = !own.is_empty();
+            changes.extend(own);
             if position == 0 {
                 sizes = (
                     set.before.first().map(FileState::len),
                     after.first().map(FileState::len),
                 );
-            } else if let (Some(old), Some(new)) = (set.before.first(), after.first()) {
+            } else if let (true, Some(old), Some(new)) =
+                (changed, set.before.first(), after.first())
+            {
                 others.push(set.files.change_of(old, new));
             }
         }
@@ -237,10 +246,9 @@ fn execute(
     let effects = database.effects();
     let summary = result.map_err(|error| {
         let error = ctx.checkpoint().err().unwrap_or(error);
-        match effects.describe() {
-            kept if kept.is_empty() => error,
-            kept => error.with_detail("irreversible", serde_json::json!(kept)),
-        }
+        let mut kept = files.notes();
+        kept.extend(effects.describe());
+        with_kept(error, kept)
     })?;
     for note in effects.describe() {
         files.untracked(0, &note);
@@ -262,6 +270,32 @@ fn watch(ctx: &ExecCtx, interrupt: &InterruptHandle, finished: &AtomicBool) {
             interrupt.interrupt();
             thread::park_timeout(WATCH_INTERVAL);
         }
+    }
+}
+
+/// Adds the effects that cannot be undone to the list of the error, keeping
+/// the entries the error already has.
+fn with_kept(error: Error, kept: Vec<String>) -> Error {
+    let mut list: Vec<String> = error
+        .details
+        .get("irreversible")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    for note in kept {
+        if !list.contains(&note) {
+            list.push(note);
+        }
+    }
+    if list.is_empty() {
+        error
+    } else {
+        error.with_detail("irreversible", serde_json::json!(list))
     }
 }
 

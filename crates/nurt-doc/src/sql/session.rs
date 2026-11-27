@@ -196,17 +196,14 @@ impl Database {
         sink: &mut dyn FnMut(Record) -> Result<()>,
     ) -> Result<Summary> {
         let start = self.connection.total_changes();
-        let kinds = split::statement_kinds(&request.query);
-        let multiple = kinds.len() > 1;
+        let multiple = split::statement_count(&request.query) > 1;
         let mut binder = Binder::new(&request.params);
         let mut batch = Batch::new(&self.connection, &request.query);
         let mut summary = Summary::default();
         let mut number = 0;
         while let Some(mut statement) = self.next_statement(&mut batch, request, number + 1)? {
             number += 1;
-            let Some(kind) = kinds.get(number - 1).copied() else {
-                return Err(split_mismatch(number, kinds.len()));
-            };
+            let kind = kind_of(&statement);
             self.bind(&mut binder, &mut statement, number, request)?;
             let table = multiple.then(|| number.to_string());
             match kind {
@@ -241,9 +238,6 @@ impl Database {
             }
         }
         binder.finish()?;
-        if number != kinds.len() {
-            return Err(split_mismatch(number + 1, kinds.len()));
-        }
         self.commit(script, request)?;
         for (number, mut statement) in std::mem::take(&mut script.deferred) {
             self.emit_rows(&mut statement, number, request, None, sink)?;
@@ -548,15 +542,13 @@ pub(super) trait Files {
     fn notes(&self) -> Vec<String>;
 }
 
-/// Error for statements that the lexer and SQLite split differently.
-fn split_mismatch(number: usize, expected: usize) -> Error {
-    Error::new(
-        ErrorCode::Sql,
-        format!(
-            "statement {number} does not match the {expected} statements the query was read as; split the query at its semicolons"
-        ),
-    )
-    .with_problem("statement_split")
+/// Kind of a prepared statement, read from its own text, so the kind never
+/// depends on how a query is split.
+fn kind_of(statement: &Statement<'_>) -> StatementKind {
+    statement
+        .expanded_sql()
+        .and_then(|text| split::statement_kinds(&text).first().copied())
+        .unwrap_or(StatementKind::Change)
 }
 
 /// State of the statements of one change.

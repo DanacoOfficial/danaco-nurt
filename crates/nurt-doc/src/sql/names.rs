@@ -189,6 +189,10 @@ fn written_on(file: &Path, uri: bool, query: Option<&str>, windows: bool) -> Str
         let slashes = text.replace('\\', "/");
         if slashes.as_bytes().get(1) == Some(&b':') {
             format!("/{slashes}")
+        } else if slashes.starts_with("//") {
+            // A share: `file:////host/share/a.db`, because the authority of a
+            // URI must stay empty.
+            format!("//{slashes}")
         } else {
             slashes
         }
@@ -299,6 +303,14 @@ mod tests {
         assert_eq!(
             written_on(Path::new("C:\\db\\a.db"), false, None, true),
             "C:\\db\\a.db"
+        );
+    }
+
+    #[test]
+    fn writes_a_share_with_an_empty_authority() {
+        assert_eq!(
+            written_on(Path::new("\\\\srv\\share\\a.db"), true, None, true),
+            "file:////srv/share/a.db"
         );
     }
 

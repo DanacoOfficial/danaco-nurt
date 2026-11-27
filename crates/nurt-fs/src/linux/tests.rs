@@ -28,7 +28,7 @@ use rustix::fs::IFlags;
 use rustix::io::Errno;
 use tempfile::TempDir;
 
-use super::fs::emulate_noreplace;
+use super::fs::{emulate_noreplace, remove_created};
 use super::{LinuxFs, MountTable, features_for, volume_kind};
 use crate::conformance;
 
@@ -2149,4 +2149,36 @@ fn a_node_without_mode_follows_the_umask_and_with_mode_is_exact() {
         0o666,
         "an explicit mode is not reduced by the umask"
     );
+}
+
+#[test]
+fn a_created_node_is_removed_only_while_it_is_the_same_entry() {
+    use std::os::fd::OwnedFd;
+    let fixture = Fixture::new();
+    let node = fixture.path("pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &node, SpecialNode::fifo(), None)
+        .unwrap();
+    let dir: OwnedFd = rustix::fs::openat(
+        rustix::fs::CWD,
+        fixture.root.as_path(),
+        rustix::fs::OFlags::PATH | rustix::fs::OFlags::DIRECTORY,
+        rustix::fs::Mode::empty(),
+    )
+    .unwrap();
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    let identity = (stat.st_dev, stat.st_ino);
+    // The entry is replaced by another file, as an attacker could do.
+    std::fs::remove_file(node.as_path()).unwrap();
+    std::fs::write(node.as_path(), b"theirs").unwrap();
+    remove_created(&dir, std::ffi::OsStr::new("pipe"), identity);
+    assert_eq!(std::fs::read(node.as_path()).unwrap(), b"theirs");
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    remove_created(
+        &dir,
+        std::ffi::OsStr::new("pipe"),
+        (stat.st_dev, stat.st_ino),
+    );
+    assert!(!node.as_path().exists());
 }
