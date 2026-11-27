@@ -488,8 +488,37 @@ impl FsWrite for MacosFs {
             ErrnoContext::Privileged
         };
         let created = to_mode(mode.unwrap_or(0o666));
-        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, created, device))
-            .map_err(|errno| sys_error(errno, context, OP, path.as_path()))?;
+        // rustix has no `mknodat` on macOS, so the node is made with `mknod`.
+        let name = std::ffi::CString::new(std::os::unix::ffi::OsStrExt::as_bytes(
+            path.as_path().as_os_str(),
+        ))
+        .map_err(|_| FsError::new(FsErrorKind::InvalidPath, OP, Some(path.as_path())))?;
+        let kind_bits = match file_type {
+            FileType::Fifo => libc::S_IFIFO,
+            FileType::CharacterDevice => libc::S_IFCHR,
+            _ => libc::S_IFBLK,
+        };
+        let dev = libc::dev_t::try_from(device).unwrap_or_default();
+        let made = retry(|| {
+            // SAFETY: `name` is a valid C string that lives through the call.
+            let code = unsafe {
+                libc::mknod(
+                    name.as_ptr(),
+                    kind_bits | libc::mode_t::from(created.bits()),
+                    dev,
+                )
+            };
+            if code == 0 {
+                Ok(())
+            } else {
+                Err(rustix::io::Errno::from_raw_os_error(
+                    std::io::Error::last_os_error()
+                        .raw_os_error()
+                        .unwrap_or(libc::EIO),
+                ))
+            }
+        });
+        made.map_err(|errno| sys_error(errno, context, OP, path.as_path()))?;
         if let Some(exact) = mode {
             retry(|| {
                 rustix::fs::chmodat(

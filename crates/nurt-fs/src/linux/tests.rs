@@ -1397,8 +1397,18 @@ fn free_space_shrinks_after_written_and_flushed_data() {
         assert!(before.total > 0);
         let path = fixture.path(&format!("probe{attempt}"));
         let mut file = File::create(&path).expect("probe file");
-        file.write_all(&vec![0x5a; SPACE_PROBE])
-            .expect("probe data");
+        // Incompressible data: a file system that compresses blocks (ZFS, btrfs)
+        // would otherwise show no decrease for a constant fill.
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64 ^ (attempt as u64 + 1);
+        let data: Vec<u8> = (0..SPACE_PROBE)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state.to_le_bytes()[0]
+            })
+            .collect();
+        file.write_all(&data).expect("probe data");
         file.sync_all().expect("probe flush");
         let after = fixture.fs.space(&volume.id).expect("space after");
         let decrease = before.available.saturating_sub(after.available);

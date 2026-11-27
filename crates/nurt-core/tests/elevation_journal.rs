@@ -14,7 +14,7 @@
 mod support;
 
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 
 use nurt_contracts::config::Config;
 use nurt_contracts::envelope::{Language, Privilege, Request, RequestOptions, Response};
@@ -115,19 +115,24 @@ fn bare_stage(name: &str) -> serde_json::Value {
     })
 }
 
-/// The journal directory is named by the volume, so the tests of this file
-/// share one journal and run one at a time to see consecutive numbers. The
-/// mutex orders the threads of one process; the lock on a file of the
-/// temporary directory orders the processes (`cargo nextest` runs every test
-/// in its own process, and other test runs on the machine use the journal too).
-static JOURNAL: Mutex<()> = Mutex::new(());
+/// Distinguishes the journal directory of every test.
+static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 struct World {
     engine: Engine,
     dir: tempfile::TempDir,
     programs: Arc<Mutex<Programs>>,
-    _turn: MutexGuard<'static, ()>,
-    _process_turn: std::fs::File,
+    journal_name: String,
+}
+
+impl Drop for World {
+    fn drop(&mut self) {
+        // The journal directory is created in the first writable ancestor of
+        // the state directory; the name is private to this test.
+        for ancestor in self.dir.path().ancestors() {
+            let _ = std::fs::remove_dir_all(ancestor.join(&self.journal_name));
+        }
+    }
 }
 
 impl World {
@@ -222,16 +227,21 @@ impl nurt_core::frontend::Frontend for NoCorrection {
 }
 
 fn world() -> World {
-    let turn = JOURNAL
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let process_turn = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(std::env::temp_dir().join("nurt-elevation-journal.lock"))
-        .unwrap();
-    process_turn.lock().unwrap();
+    // The journal of a volume is shared by every process of the account on
+    // it and numbers its operations per journal directory, so each test keeps
+    // a journal directory of its own and removes it at the end. The space
+    // reserve is small, so that a disk that other work fills below the default
+    // 15 % does not make the journal skip the preservation of a file.
+    let journal_name = format!(
+        ".nurt-journal-test-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
+    let embedded = nurt_core::config::toml_table(
+        &format!("[journal]\ndir_name = \"{journal_name}\"\n[space]\nreserve = \"1mib\"\n"),
+        "test",
+    )
+    .unwrap();
     let dir = tempfile::tempdir().unwrap();
     for name in ["x", "y", "z"] {
         std::fs::write(dir.path().join(name), name).unwrap();
@@ -248,7 +258,7 @@ fn world() -> World {
         Arc::new(nurt_core::system::SystemClock::new()),
         Arc::new(TestHost::linux()),
     )
-    .with_sources(ConfigSources::isolated())
+    .with_sources(ConfigSources::isolated().with_embedded(embedded))
     .with_state_dir(dir.path().join("state"))
     .with_system_journal()
     .with_fs(nurt_fs::system_fs())
@@ -261,8 +271,7 @@ fn world() -> World {
         engine: Engine::open(config).unwrap(),
         dir,
         programs,
-        _turn: turn,
-        _process_turn: process_turn,
+        journal_name,
     }
 }
 

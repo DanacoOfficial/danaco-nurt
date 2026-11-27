@@ -770,7 +770,9 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
     let home = tempfile::tempdir().unwrap();
     // The journal of a volume is shared by every process on it and numbers
     // its operations per state directory, so the test keeps its own journal
-    // directory and removes it at the end.
+    // directory and removes it at the end. The space reserve is small, so that
+    // a disk filled below the default 15 % by other work does not make the
+    // journal skip the preservation of the file.
     let journal_name = format!(
         ".nurt-journal-test-{}-{}",
         std::process::id(),
@@ -782,7 +784,7 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
     std::fs::create_dir_all(&config_dir).unwrap();
     std::fs::write(
         config_dir.join("nurt.toml"),
-        format!("[journal]\ndir_name = \"{journal_name}\"\n"),
+        format!("[journal]\ndir_name = \"{journal_name}\"\n[space]\nreserve = \"1mib\"\n"),
     )
     .unwrap();
     let dir = work.path().to_str().unwrap().to_owned();

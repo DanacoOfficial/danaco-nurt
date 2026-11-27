@@ -305,6 +305,7 @@ impl AccountFs {
         }
     }
 
+    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
     fn sync_as_account(&self, path: &AbsPath, to: &mut dyn WriteHandle) -> FsResult<()> {
         match self.mode {
             #[cfg(target_os = "linux")]
