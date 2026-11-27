@@ -13,26 +13,26 @@ use crate::catalog::{self, Command};
 use crate::table::{self, Coverage, CoverageTable, FORMAT};
 
 /// Commands of the catalog.
-const COMMANDS: usize = 166;
+const COMMANDS: usize = 177;
 /// Commands with at least one row that changes data.
-const CHANGING_COMMANDS: usize = 73;
+const CHANGING_COMMANDS: usize = 101;
 /// Commands whose rows only read.
-const READ_ONLY_COMMANDS: usize = 75;
+const READ_ONLY_COMMANDS: usize = 76;
 /// Rows of the table. A source row that lists several catalog actions is
 /// split into one row per action (`http.request` with the methods `post`,
 /// `put`, `patch`, `delete` and `options`).
-const ROWS: usize = 236;
+const ROWS: usize = 265;
 /// Rows per coverage value.
-const ROWS_FULL: usize = 112;
-const ROWS_PARTIAL: usize = 17;
-const ROWS_NONE: usize = 21;
-const ROWS_NO_EFFECT: usize = 86;
+const ROWS_FULL: usize = 120;
+const ROWS_PARTIAL: usize = 21;
+const ROWS_NONE: usize = 37;
+const ROWS_NO_EFFECT: usize = 87;
 /// Distinct row sets exercised by the cases: one per source row of the
 /// table, and one per parameter common to every command.
-const SOURCE_ROWS: usize = 232;
+const SOURCE_ROWS: usize = 261;
 const COMMON_PARAMETERS: usize = 5;
 /// Coverage cases, one per test function.
-const CASE_COUNT: usize = 278;
+const CASE_COUNT: usize = 307;
 
 fn rows_by_command(table: &CoverageTable) -> BTreeMap<&str, Vec<&table::Row>> {
     let mut by_command: BTreeMap<&str, Vec<&table::Row>> = BTreeMap::new();
