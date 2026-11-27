@@ -250,7 +250,7 @@ fn world() -> World {
         "test",
     )
     .unwrap();
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
     for name in ["x", "y", "z"] {
         std::fs::write(dir.path().join(name), name).unwrap();
     }

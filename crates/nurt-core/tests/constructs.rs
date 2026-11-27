@@ -49,7 +49,7 @@ struct World {
 }
 
 fn world() -> World {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
     let root = temp.path().canonicalize().unwrap().join("work");
     fs::create_dir_all(&root).unwrap();
     let engine = engine(&temp.path().join("state"));

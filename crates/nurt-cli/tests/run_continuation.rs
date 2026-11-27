@@ -647,7 +647,7 @@ fn next_full_of_a_utf16_file_returns_the_decoded_text() {
 #[test]
 fn a_new_repl_still_sees_the_operations_made_before_it() {
     use std::io::Write;
-    let home = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
     let file = home.path().join("made.txt");
     let made = nurt(
         home.path(),

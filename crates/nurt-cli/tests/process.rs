@@ -774,8 +774,8 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt;
 
-    let work = tempfile::tempdir().unwrap();
-    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+    let home = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
     // The journal of a volume is shared by every process on it and numbers
     // its operations per state directory, so the test keeps its own journal
     // directory and removes it at the end. The space reserve is small, so that
