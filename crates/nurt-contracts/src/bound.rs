@@ -238,7 +238,7 @@ impl BoundStage {
             .iter()
             .find(|arg| arg.name == name && !arg.default)
             .and_then(|arg| match &arg.value {
-                BoundExpr::Text { v } => Some(v.as_str()),
+                BoundExpr::Text { v } | BoundExpr::Enum { v } => Some(v.as_str()),
                 _ => None,
             })
     }

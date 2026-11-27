@@ -264,3 +264,96 @@ fn run0_runs_an_elevated_read() {
     let response = response(&output);
     assert_eq!(response.report.backend.as_deref(), Some("run0"));
 }
+
+#[cfg(unix)]
+fn has_program(name: &str) -> bool {
+    Command::new("sh")
+        .args(["-c", &format!("command -v {name}")])
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
+#[cfg(unix)]
+fn shell(command: &str) -> bool {
+    Command::new("sh")
+        .args(["-c", command])
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+#[cfg(unix)]
+fn run_json(home: &Path, program: &str) -> Response {
+    let output = nurt_in(home, &["--format", "json", program], "", None);
+    response(&output)
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs root, apt and network access to a Debian repository"]
+fn package_install_with_privilege_elevated_is_undone_by_removal() {
+    if !has_program("apt-get") || !has_program("dpkg") || !running_as_root() {
+        return;
+    }
+    let package = "hello";
+    shell(&format!("apt-get remove -y {package} > /dev/null 2>&1"));
+    let home = tempfile::tempdir().unwrap();
+    let installed = run_json(
+        home.path(),
+        &format!("package.install [\"{package}\"] manager: apt privilege: elevated"),
+    );
+    assert_eq!(installed.report.status, ReportStatus::Ok, "{installed:?}");
+    assert!(installed.report.elevated);
+    assert!(shell(&format!("dpkg -s {package} > /dev/null 2>&1")));
+    let op = installed.report.op.expect("an entry number");
+    let undone = run_json(home.path(), &format!("undo {op}"));
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(!shell(&format!("dpkg -s {package} > /dev/null 2>&1")));
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "needs root and systemd"]
+fn service_start_and_stop_with_privilege_elevated_are_undone() {
+    if !has_program("systemctl") || !running_as_root() || !Path::new("/run/systemd/system").exists()
+    {
+        return;
+    }
+    let unit = "nurt-test-priv";
+    let file = format!("/etc/systemd/system/{unit}.service");
+    std::fs::write(
+        &file,
+        "[Unit]\nDescription=nurt test unit\n[Service]\nExecStart=/bin/sleep 3600\n",
+    )
+    .unwrap();
+    assert!(shell("systemctl daemon-reload"));
+    let active = || shell(&format!("systemctl is-active --quiet {unit}"));
+    let home = tempfile::tempdir().unwrap();
+    let started = run_json(
+        home.path(),
+        &format!("services name: \"{unit}\" |> start privilege: elevated"),
+    );
+    assert_eq!(started.report.status, ReportStatus::Ok, "{started:?}");
+    assert!(active());
+    let op = started.report.op.expect("an entry number");
+    let undone = run_json(home.path(), &format!("undo {op}"));
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(!active());
+    let started = run_json(
+        home.path(),
+        &format!("services name: \"{unit}\" |> start privilege: elevated"),
+    );
+    assert_eq!(started.report.status, ReportStatus::Ok);
+    let stopped = run_json(
+        home.path(),
+        &format!("services name: \"{unit}\" |> stop privilege: elevated"),
+    );
+    assert_eq!(stopped.report.status, ReportStatus::Ok, "{stopped:?}");
+    assert!(!active());
+    let op = stopped.report.op.expect("an entry number");
+    let undone = run_json(home.path(), &format!("undo {op}"));
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(active());
+    shell(&format!(
+        "systemctl stop {unit}; rm -f {file}; systemctl daemon-reload"
+    ));
+}

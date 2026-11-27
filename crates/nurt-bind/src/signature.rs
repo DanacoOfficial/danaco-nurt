@@ -125,6 +125,8 @@ impl<'a> Binder<'a> {
 
     fn bind_command(&mut self, stage: &Stage, flow: &Flow) -> Result<Vec<Bound>, BindError> {
         let spec = self.spec(stage)?;
+        let elevated = self.elevated_run(stage);
+        let stage = elevated.as_ref().unwrap_or(stage);
         let (stripped, call) = call_parameters(stage, spec)?;
         let stage = stripped.as_ref().unwrap_or(stage);
         let mut bound = self.bind_signature(stage, spec, flow)?;
@@ -756,7 +758,11 @@ fn call_parameters(
         }
         bound.push(BoundArg {
             name: name.to_owned(),
-            value: BoundExpr::Text { v: word.to_owned() },
+            value: if name == "privilege" {
+                BoundExpr::Enum { v: word.to_owned() }
+            } else {
+                BoundExpr::Text { v: word.to_owned() }
+            },
             default: false,
             span: arg.span,
         });

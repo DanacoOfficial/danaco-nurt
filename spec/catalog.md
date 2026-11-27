@@ -139,10 +139,12 @@ elevated`, `package.install ["jq"] privilege: elevated`, `run [...] cwd: "/"
 as_user: "deploy"`). The binder takes them out of the signature, checks the
 value (`privilege` is `account`, `elevated` or `auto`, written as a word or a
 text; `as_user` is a non-empty word or text; each at most once per stage) and
-appends them to the arguments of the stage as `text` values after the
+appends them to the arguments of the stage (`privilege` as an `enum` value, `as_user` as `text`) after the
 parameters of the signature, with `default: false`. A value written on a stage
 replaces the option of the request and the configuration key
-`privilege.default` for the whole call. A stage reads the effective value from
+`privilege.default` for the whole call.
+
+Rule of `privilege: auto`: the call first runs with the rights of the account. When it ends with `E_PERMISSION` or `E_PRIVILEGE` and has left no operation (`op` absent: nothing was kept), the whole call is repeated once with `elevated`; the report states `elevated: true` and `elevation_reason: permission_denied`. A call that already changed something is never repeated, and a second denial is returned as it is. A stage reads the effective value from
 the options of its context: `ctx.options().privilege()` and
 `ctx.options().effective_privilege()`; the executor has already run the call
 with the rights that value names, so a stage never needs to elevate itself.

@@ -1260,6 +1260,22 @@ impl Engine {
     ) -> Response {
         if let Some(mark) = &prepared.elevation {
             mark.apply(&mut report);
+        } else if report
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code() == ErrorCode::Privilege)
+            && let Some(error) = report.error.take()
+        {
+            let config = prepared.config.config();
+            let system = crate::elevation::system_of(self.inner.host.info().os);
+            let backends =
+                crate::elevation::backends_of(&config.privilege, system).unwrap_or_default();
+            report.error = Some(crate::elevation::guide_privilege_error(
+                error,
+                &backends,
+                &self.inner.elevation,
+                config.privilege.allowed,
+            ));
         }
         if !prepared.options.preview() {
             self.keep_inverse(&mut report);

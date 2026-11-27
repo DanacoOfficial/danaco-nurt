@@ -152,6 +152,59 @@ pub(crate) fn disabled_error() -> Error {
     .with_next_step("run the operation without `privilege`, or ask the administrator of the installation to set `privilege.allowed` to true")
 }
 
+/// Adds to an `E_PRIVILEGE` that a stage returned the way forward: the call
+/// parameter `privilege: elevated` and, when the error has none, the backends
+/// that this installation can try with the state of each.
+pub(crate) fn guide_privilege_error(
+    error: Error,
+    backends: &[Backend],
+    setup: &Setup,
+    allowed: bool,
+) -> Error {
+    if error.code() != ErrorCode::Privilege
+        || error.details.contains_key("backend")
+        || error.details.contains_key("reason")
+    {
+        return error;
+    }
+    let mut error = error;
+    if !error.details.contains_key("backend") {
+        let listed: Vec<serde_json::Value> = backends
+            .iter()
+            .map(|backend| {
+                let result = match backend {
+                    Backend::SelfProcess if setup.is_administrator() => "available",
+                    Backend::SelfProcess => "not_administrator",
+                    Backend::Broker => "not_installed",
+                    other => {
+                        if nurt_proc::elevation::locate(*other, setup.search_path.as_deref())
+                            .is_some()
+                        {
+                            "available"
+                        } else {
+                            "not_installed"
+                        }
+                    }
+                };
+                json!({"backend": backend.as_str(), "result": result})
+            })
+            .collect();
+        error = error.with_detail("backend", json!(listed));
+    }
+    if !error
+        .next_steps
+        .iter()
+        .any(|step| step.contains("privilege: elevated"))
+    {
+        error = error.with_next_step(if allowed {
+            "repeat the call with `privilege: elevated` (or `privilege: auto`)"
+        } else {
+            "elevation is disabled by `privilege.allowed`; run nurt as an account with the rights"
+        });
+    }
+    error
+}
+
 /// `E_UNSUPPORTED` for `as_user` on Windows.
 pub(crate) fn as_user_unsupported() -> Error {
     Error::new(

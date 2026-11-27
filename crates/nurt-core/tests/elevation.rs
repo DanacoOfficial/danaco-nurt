@@ -107,6 +107,9 @@ impl ReadStage for DeniedFind {
         input: StageInput<'a>,
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
+        if matches!(args.value("path"), Some(Value::Path(path)) if path.ends_with("/needs-root")) {
+            return Err(Error::new(ErrorCode::Privilege, "the operation needs root"));
+        }
         if matches!(args.value("path"), Some(Value::Path(path)) if path.ends_with("/denied")) {
             return Err(Error::new(ErrorCode::Permission, "access denied"));
         }
@@ -130,6 +133,13 @@ fn with_call(mut stage: serde_json::Value, name: &str, value: &str) -> serde_jso
     stage
 }
 
+fn root_stage() -> serde_json::Value {
+    json!({
+        "t": "stage", "name": "find", "effect": "read", "phase": "source",
+        "args": [{"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs("/needs-root")}}]
+    })
+}
+
 fn undo_stage(id: i64) -> serde_json::Value {
     json!({
         "t": "stage", "name": "undo", "effect": "local", "phase": "source",
@@ -142,6 +152,7 @@ fn programs() -> Programs {
         .with("find /data", program(find_stage(), Vec::new()))
         .with("undo 7", program(undo_stage(7), Vec::new()))
         .with("deny", program(deny_stage(), Vec::new()))
+        .with("needs-root", program(root_stage(), Vec::new()))
         .with(
             "find /data privilege: account",
             program(with_call(find_stage(), "privilege", "account"), Vec::new()),
@@ -487,6 +498,23 @@ fn auto_without_a_backend_reports_the_refusal_and_the_denial() {
         error.cause.as_ref().map(Error::code),
         Some(ErrorCode::Permission)
     );
+}
+
+#[test]
+fn a_privilege_error_of_a_stage_names_elevation_and_the_backends() {
+    let setup = setup(TestHost::linux(), false, None, "");
+    let response = call(&setup, "needs-root", options(None, None));
+    let error = error_of(&response);
+    assert_eq!(error.code(), ErrorCode::Privilege);
+    assert!(
+        error
+            .next_steps
+            .iter()
+            .any(|step| step.contains("privilege: elevated"))
+    );
+    let listed = error.details.get("backend").unwrap().as_array().unwrap();
+    assert!(listed.contains(&json!({"backend": "self", "result": "not_administrator"})));
+    assert!(listed.contains(&json!({"backend": "sudo", "result": "not_installed"})));
 }
 
 #[test]
