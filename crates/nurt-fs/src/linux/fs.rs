@@ -119,7 +119,8 @@ impl LinuxFs {
 
 /// Sets the permission bits of the node at `path` without following a
 /// symbolic link: the entry is opened with `O_PATH | O_NOFOLLOW`, checked to
-/// be a named pipe or a device node, and changed through its descriptor.
+/// be a named pipe or a device node, and changed through its descriptor
+/// path in `/proc/self/fd`; without `/proc` it fails.
 fn set_node_mode(path: &AbsPath, bits: Mode) -> FsResult<()> {
     const OP: &str = "create_node";
     let fd = retry(|| {
@@ -562,10 +563,14 @@ impl FsWrite for LinuxFs {
                 }
             },
         )?;
-        match mode {
-            Some(exact) => set_node_mode(path, Mode::from_raw_mode(exact)),
-            None => Ok(()),
-        }
+        let Some(exact) = mode else {
+            return Ok(());
+        };
+        set_node_mode(path, Mode::from_raw_mode(exact)).inspect_err(|_| {
+            // The node exists but has not got its mode: remove it, so that a
+            // failure leaves nothing behind (for example without `/proc`).
+            let _ = rustix::fs::unlinkat(CWD, path.as_path(), AtFlags::empty());
+        })
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

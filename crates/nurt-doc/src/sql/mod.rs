@@ -31,7 +31,7 @@ use nurt_contracts::value::{Fields, Value};
 pub(crate) use read::read_rows;
 pub(crate) use session::check_file;
 pub(crate) use split::statement_count;
-pub(crate) use write::{planned_change, write};
+pub(crate) use write::{planned_changes, write};
 
 /// Values bound to the placeholders of the statements.
 #[derive(Debug, Clone)]

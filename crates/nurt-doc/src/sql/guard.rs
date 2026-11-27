@@ -53,6 +53,23 @@ pub(super) struct Effects {
     pub(super) process_pragmas: Vec<String>,
 }
 
+impl Effects {
+    /// One sentence for each action, as the report names it.
+    pub(super) fn describe(&self) -> Vec<String> {
+        let mut notes = Vec::new();
+        if self.extension {
+            notes.push(
+                "the statements call load_extension, whose effects are unknown and cannot be undone"
+                    .to_owned(),
+            );
+        }
+        notes.extend(self.process_pragmas.iter().map(|name| {
+            format!("pragma {name} changes the state of the whole Nurt process and is not undone")
+        }));
+        notes
+    }
+}
+
 impl Policy {
     fn new(writing: bool) -> Self {
         Self {

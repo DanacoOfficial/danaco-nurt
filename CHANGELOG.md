@@ -33,7 +33,14 @@ their own version numbers, described in the specification.
   journaled as a created file, `VACUUM` runs after the other statements,
   `load_extension` is allowed (its effects are reported as unknown and
   irreversible) and the pragmas `temp_store_directory` and
-  `data_store_directory` are allowed.
+  `data_store_directory` are allowed (reported as effects on the whole Nurt
+  process, which `undo` does not reset). The file of `ATTACH` and `VACUUM INTO`
+  is resolved like every path argument (`E_PATH_RELATIVE` without `base`),
+  `file:` URIs are read to their path, the call turns the defensive mode of
+  SQLite off when it writes, a preview lists the files of `ATTACH` and
+  `VACUUM INTO`, the other database files appear as changes of the report, and
+  a query that the lexer and SQLite split differently fails with
+  `problem: statement_split`.
 
 ## [0.1.1] - 2026-11-27
 

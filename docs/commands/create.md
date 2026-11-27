@@ -48,7 +48,7 @@ on Linux and macOS only; on Windows they fail with `E_OS_ONLY`, and for a
 pipe the message points to the named pipes of the system, which are objects
 of the `\\.\pipe\` namespace created by the program that serves them. A
 device node needs `privilege: elevated`; without it the system refuses with
-`E_PRIVILEGE`. Both are journaled as created files, and `undo` removes them.
+`E_PRIVILEGE`. An exact `mode` is set through `/proc/self/fd` on Linux; without `/proc` the command fails and removes the new node. Both are journaled as created files, and `undo` removes them.
 `info` and `list` report such an entry with the type `fifo` or `device`;
 a device node also reports `major` and `minor`. `kind`, `major`, `minor`
 and `mode` cannot be combined with other types, and `temporary` cannot be

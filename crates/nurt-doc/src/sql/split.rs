@@ -4,4 +4,6 @@
 //! Statement boundaries and kinds of a query, read by the shared lexer of
 //! the contracts.
 
-pub(crate) use nurt_contracts::sql_text::{StatementKind, statement_count, statement_kinds};
+pub(crate) use nurt_contracts::sql_text::{
+    StatementKind, statement_count, statement_kinds, statement_texts,
+};

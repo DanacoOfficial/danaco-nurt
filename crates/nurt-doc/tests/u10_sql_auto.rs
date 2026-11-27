@@ -22,6 +22,7 @@ use std::path::Path;
 
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::journal::{ExternalChangeKind, TargetPath};
+use nurt_contracts::report::ChangeAction;
 use nurt_contracts::value::Value;
 use u10_support::{
     CtxOptions, RecordingTx, args, args_auto, contents, context, count, ctx, database,
@@ -606,7 +607,16 @@ fn preview_of_a_change_touches_nothing_and_names_the_database() {
         .unwrap()
         .plan(&call, StageInput::none(), &ctx())
         .unwrap();
-    assert_eq!(plan.changes.len(), 1);
+    let paths: Vec<_> = plan
+        .changes
+        .iter()
+        .map(|c| c.path.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        paths,
+        [text(&db), text(&dir.path().join("new.db")), text(&copy)]
+    );
+    assert_eq!(plan.changes[1].action, ChangeAction::Create);
     assert!(!copy.exists());
     assert!(!dir.path().join("new.db").exists());
     assert_eq!(contents(&database_files(&db)), before);
@@ -616,8 +626,18 @@ fn preview_of_a_change_touches_nothing_and_names_the_database() {
 fn a_statement_split_that_disagrees_with_sqlite_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
-    let call = args_auto(&db, "select 1; select 2", Vec::new());
-    assert_eq!(read(&call, &ctx()).unwrap().len(), 2);
+    // A column named like the keyword opens a second block for the lexer, so
+    // it reads two statements where SQLite reads three.
+    let query = "create table a(begin); \
+                 create trigger t after update of begin on a begin select 1; end; \
+                 select 2";
+    let before = contents(&database_files(&db));
+    let mut tx = RecordingTx::new();
+    let error = failure(write(&args_auto(&db, query, Vec::new()), &ctx(), &mut tx));
+    assert_eq!(error.code(), ErrorCode::Sql);
+    assert_eq!(error.problem.as_deref(), Some("statement_split"));
+    tx.undo();
+    assert_eq!(contents(&database_files(&db)), before);
 }
 
 #[test]
@@ -636,4 +656,53 @@ fn a_quoted_load_extension_is_attempted_not_refused() {
         "{}",
         error.message
     );
+}
+
+#[test]
+fn a_rollback_after_a_process_pragma_names_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let query = format!(
+        "pragma temp_store_directory = '{}'; rollback",
+        text(dir.path())
+    );
+    let error = failure(write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    write(
+        &args_auto(&db, "pragma temp_store_directory = ''", Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(error.code(), ErrorCode::RolledBack);
+    assert!(
+        error.message.contains("whole Nurt process"),
+        "{}",
+        error.message
+    );
+    assert!(!error.message.contains("changes nothing"));
+}
+
+#[test]
+fn a_failing_call_after_an_extension_call_names_the_effect() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let query = format!(
+        "select LOAD_Extension('{}')",
+        text(&dir.path().join("none"))
+    );
+    let error = failure(write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    let kept = error
+        .details
+        .get("irreversible")
+        .unwrap_or_else(|| panic!("no detail: {error:?}"))
+        .to_string();
+    assert!(kept.contains("load_extension"), "{kept}");
 }

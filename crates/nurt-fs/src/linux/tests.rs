@@ -2121,25 +2121,32 @@ fn device_nodes_are_created_with_their_numbers_and_removed() {
 fn a_node_without_mode_follows_the_umask_and_with_mode_is_exact() {
     let fixture = Fixture::new();
     let default = fixture.path("default-pipe");
-    fixture
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o027));
+    let created = fixture
         .fs
-        .create_node(&fixture.scope, &default, SpecialNode::fifo(), None)
-        .unwrap();
-    let bits = fixture
-        .fs
-        .metadata(&default, Follow::NoFollow)
-        .unwrap()
-        .mode
-        & 0o7777;
-    assert_eq!(bits & 0o111, 0, "a pipe is never executable: {bits:o}");
-    assert_eq!(bits & !0o666, 0, "the default is 0666 before the umask");
+        .create_node(&fixture.scope, &default, SpecialNode::fifo(), None);
+    rustix::process::umask(previous);
+    created.unwrap();
+    assert_eq!(
+        fixture
+            .fs
+            .metadata(&default, Follow::NoFollow)
+            .unwrap()
+            .mode
+            & 0o7777,
+        0o640,
+        "0666 reduced by the umask 027"
+    );
     let exact = fixture.path("exact-pipe");
-    fixture
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o077));
+    let created = fixture
         .fs
-        .create_node(&fixture.scope, &exact, SpecialNode::fifo(), Some(0o666))
-        .unwrap();
+        .create_node(&fixture.scope, &exact, SpecialNode::fifo(), Some(0o666));
+    rustix::process::umask(previous);
+    created.unwrap();
     assert_eq!(
         fixture.fs.metadata(&exact, Follow::NoFollow).unwrap().mode & 0o7777,
-        0o666
+        0o666,
+        "an explicit mode is not reduced by the umask"
     );
 }

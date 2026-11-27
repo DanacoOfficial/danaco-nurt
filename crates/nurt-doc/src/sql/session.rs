@@ -85,12 +85,13 @@ impl Database {
         Ok(Self { connection, policy })
     }
 
-    /// The connection, for the statements that `sql` runs itself.
-    /// Actions of the call that the journal cannot undo.
+    /// Actions of the call that the journal cannot undo, as the authorizer
+    /// recorded them while it prepared the statements.
     pub(super) fn effects(&self) -> super::guard::Effects {
         self.policy.effects()
     }
 
+    /// The connection, for the statements that `sql` runs itself.
     pub(super) fn connection(&self) -> &Connection {
         &self.connection
     }
@@ -280,7 +281,8 @@ impl Database {
             let _ = self.connection.execute_batch("ROLLBACK");
             script.open = false;
         }
-        let kept = files.notes();
+        let mut kept = files.notes();
+        kept.extend(self.policy.effects().describe());
         let message = if kept.is_empty() {
             format!("statement {number} is ROLLBACK: the call is rolled back and changes nothing")
         } else {
@@ -401,7 +403,7 @@ impl Database {
             }
             DatabaseName::File { path, uri, query } => {
                 let file = names::absolute(request.base.as_deref(), &path)?;
-                files.watch(file.clone(), &value)?;
+                files.watch(file.clone(), &file.to_string_lossy())?;
                 Ok(Some(names::written(&file, uri, query.as_deref())))
             }
         }
@@ -561,7 +563,7 @@ fn split_mismatch(number: usize, expected: usize) -> Error {
 struct Script<'c> {
     /// A transaction is open.
     open: bool,
-    /// `DETACH` and `VACUUM` statements that run after the others.
+    /// `VACUUM` statements that run after the others.
     deferred: Vec<(usize, Statement<'c>)>,
 }
 

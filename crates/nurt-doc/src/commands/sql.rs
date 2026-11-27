@@ -128,7 +128,7 @@ impl EffectStage for SqlStage {
         sql::check_file(&request)?;
         let mut plan = EffectPlan::new();
         if request.write {
-            plan.changes.push(sql::planned_change(&request));
+            plan.changes.extend(sql::planned_changes(&request)?);
         }
         Ok(plan.with_state(request))
     }
@@ -165,6 +165,7 @@ impl EffectStage for SqlStage {
             outcome.rows,
         )));
         effect.changes.push(outcome.change);
+        effect.changes.extend(outcome.others);
         effect.irreversible = outcome.irreversible;
         Ok(effect)
     }

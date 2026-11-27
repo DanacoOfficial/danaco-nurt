@@ -34,6 +34,11 @@ pub(super) enum DatabaseName {
 
 /// Classifies the name that `ATTACH` or `VACUUM INTO` receives.
 pub(super) fn database_name(name: &str) -> DatabaseName {
+    database_name_on(name, cfg!(windows))
+}
+
+/// [`database_name`] for a system with or without drive letters.
+fn database_name_on(name: &str, windows: bool) -> DatabaseName {
     if name.is_empty() || name == ":memory:" {
         return DatabaseName::Memory;
     }
@@ -65,6 +70,11 @@ pub(super) fn database_name(name: &str) -> DatabaseName {
     let Some(path) = percent_decode(path) else {
         return DatabaseName::Unknown;
     };
+    let path = if windows {
+        without_slash_before_drive(&path).to_owned()
+    } else {
+        path
+    };
     let in_memory = query
         .as_deref()
         .is_some_and(|query| query.split('&').any(|pair| pair == "mode=memory"));
@@ -75,6 +85,22 @@ pub(super) fn database_name(name: &str) -> DatabaseName {
         path,
         uri: true,
         query,
+    }
+}
+
+/// `/C:/db/a.db` of a URI is the path `C:/db/a.db` on Windows, as SQLite
+/// reads it.
+fn without_slash_before_drive(path: &str) -> &str {
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3
+        && bytes[0] == b'/'
+        && bytes[1].is_ascii_alphabetic()
+        && bytes[2] == b':'
+        && bytes.get(3).is_none_or(|next| matches!(next, b'/' | b'\\'))
+    {
+        &path[1..]
+    } else {
+        path
     }
 }
 
@@ -150,10 +176,25 @@ pub(super) fn absolute(base: Option<&Path>, path: &str) -> Result<PathBuf> {
 /// The name that SQLite receives for the resolved file: the plain path, or
 /// the URI with the same query.
 pub(super) fn written(file: &Path, uri: bool, query: Option<&str>) -> String {
+    written_on(file, uri, query, cfg!(windows))
+}
+
+/// [`written`] for a system with or without drive letters.
+fn written_on(file: &Path, uri: bool, query: Option<&str>, windows: bool) -> String {
     let text = file.to_string_lossy();
     if !uri {
         return text.into_owned();
     }
+    let text = if windows {
+        let slashes = text.replace('\\', "/");
+        if slashes.as_bytes().get(1) == Some(&b':') {
+            format!("/{slashes}")
+        } else {
+            slashes
+        }
+    } else {
+        text.into_owned()
+    };
     let mut name = format!("file:{}", percent_encode(&text));
     if let Some(query) = query {
         name.push('?');
@@ -215,6 +256,49 @@ mod tests {
         assert_eq!(
             absolute(None, "").unwrap_err().code(),
             ErrorCode::InvalidValue
+        );
+    }
+
+    #[test]
+    fn reads_the_drive_letter_of_a_windows_uri() {
+        let on = |name| database_name_on(name, true);
+        for (name, expected) in [
+            ("file:///C:/db/a.db", "C:/db/a.db"),
+            ("file:/c:/db/a.db", "c:/db/a.db"),
+            ("file:///C:", "C:"),
+            ("file:///C:%5Cdb%5Ca.db", "C:\\db\\a.db"),
+            ("file:///srv/a.db", "/srv/a.db"),
+            ("file:///Cx/a.db", "/Cx/a.db"),
+        ] {
+            assert_eq!(
+                on(name),
+                DatabaseName::File {
+                    path: expected.to_owned(),
+                    uri: true,
+                    query: None
+                },
+                "{name}"
+            );
+        }
+        assert_eq!(
+            database_name_on("file:///C:/db/a.db", false),
+            DatabaseName::File {
+                path: "/C:/db/a.db".to_owned(),
+                uri: true,
+                query: None
+            }
+        );
+    }
+
+    #[test]
+    fn writes_a_windows_uri_with_forward_slashes() {
+        assert_eq!(
+            written_on(Path::new("C:\\db\\a b.db"), true, Some("mode=ro"), true),
+            "file:/C:/db/a b.db?mode=ro"
+        );
+        assert_eq!(
+            written_on(Path::new("C:\\db\\a.db"), false, None, true),
+            "C:\\db\\a.db"
         );
     }
 

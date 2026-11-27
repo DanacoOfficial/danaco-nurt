@@ -106,7 +106,24 @@ pub fn statement_count(query: &str) -> usize {
 pub fn statement_kinds(query: &str) -> Vec<StatementKind> {
     statements(query)
         .iter()
-        .map(|tokens| kind_of(tokens))
+        .map(|statement| kind_of(&statement.tokens))
+        .collect()
+}
+
+/// Text of every statement of `query`, in order, without the semicolon.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::sql_text::statement_texts;
+///
+/// assert_eq!(statement_texts("select 1; vacuum into 'a';"), ["select 1", "vacuum into 'a'"]);
+/// ```
+#[must_use]
+pub fn statement_texts(query: &str) -> Vec<&str> {
+    statements(query)
+        .into_iter()
+        .map(|statement| statement.text)
         .collect()
 }
 
@@ -128,20 +145,37 @@ pub fn changes_database(query: &str) -> bool {
         .any(|kind| kind != StatementKind::Read)
 }
 
-fn statements(query: &str) -> Vec<Vec<Token<'_>>> {
+/// One statement of a query: its tokens and its text.
+struct Statement<'a> {
+    tokens: Vec<Token<'a>>,
+    text: &'a str,
+}
+
+fn statements(query: &str) -> Vec<Statement<'_>> {
     let mut found = Vec::new();
     let mut current: Vec<Token<'_>> = Vec::new();
+    let mut start = 0_usize;
     let mut depth = 0_usize;
     let mut creates = false;
     let mut trigger = false;
-    for token in Tokens::new(query) {
+    let mut tokens = Tokens::new(query);
+    loop {
+        tokens.skip_space_and_comments();
+        let position = query.len() - tokens.rest.len();
+        let Some(token) = tokens.next() else {
+            break;
+        };
         if token == Token::Symbol(';') {
             if depth == 0 && !current.is_empty() {
-                found.push(std::mem::take(&mut current));
+                found.push(Statement {
+                    tokens: std::mem::take(&mut current),
+                    text: query[start..position].trim(),
+                });
             }
             continue;
         }
         if current.is_empty() {
+            start = position;
             creates = token.is_keyword("CREATE");
             trigger = false;
         }
@@ -157,7 +191,10 @@ fn statements(query: &str) -> Vec<Vec<Token<'_>>> {
         current.push(token);
     }
     if !current.is_empty() {
-        found.push(current);
+        found.push(Statement {
+            tokens: current,
+            text: query[start..].trim(),
+        });
     }
     found
 }
@@ -374,6 +411,21 @@ mod tests {
         assert_eq!(statement_count("/* unterminated ;"), 0);
         assert_eq!(statement_count("select 'unterminated ;"), 1);
         assert_eq!(statement_count(""), 0);
+    }
+
+    #[test]
+    fn returns_the_text_of_each_statement() {
+        assert_eq!(
+            statement_texts(
+                " -- c\n select ';' , 1 ; /* x */ create trigger t after insert on a begin select 1; end; select 2"
+            ),
+            [
+                "select ';' , 1",
+                "create trigger t after insert on a begin select 1; end",
+                "select 2"
+            ]
+        );
+        assert!(statement_texts(" ; ").is_empty());
     }
 
     #[test]

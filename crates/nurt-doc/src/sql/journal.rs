@@ -20,7 +20,8 @@ use nurt_contracts::journal::{
     Expect, ExternalChange, ExternalChangeKind, Preserved, TargetAction, TargetIndex, TargetPath,
     TargetSpec,
 };
-use nurt_contracts::report::IrreversibleEntry;
+use nurt_contracts::report::{Change, ChangeAction, IrreversibleEntry};
+use nurt_contracts::value::Size;
 
 use super::SqlRequest;
 use super::error;
@@ -77,6 +78,20 @@ impl DatabaseFiles {
             labels.push(format!("{label}{suffix}"));
         }
         Ok(Self { paths, labels })
+    }
+
+    /// Change record of the database file, from its state before and after.
+    pub(super) fn change_of(&self, before: &FileState, after: &FileState) -> Change {
+        let action = if before.exists {
+            ChangeAction::Modify
+        } else {
+            ChangeAction::Create
+        };
+        let label = self.labels.first().cloned().unwrap_or_default();
+        let mut change = Change::new(label, action);
+        change.size_before = before.exists.then(|| Size::from_bytes(before.len));
+        change.size_after = after.exists.then(|| Size::from_bytes(after.len));
+        change
     }
 
     /// `true` when both name the same database file.

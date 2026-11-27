@@ -32,6 +32,7 @@ use nurt_contracts::report::Irreversible;
 
 use super::journal::{DatabaseFiles, FileState};
 use super::session::{self, Database, Files, Summary};
+use super::{names, split, target};
 
 /// Longest wait of the cancellation watcher before it checks the deadline.
 const WATCH_INTERVAL: Duration = Duration::from_millis(20);
@@ -44,17 +45,56 @@ pub(crate) struct WriteOutcome {
     /// Change of the database file; `rows_changed` holds the number of rows
     /// inserted, updated or deleted.
     pub(crate) change: Change,
+    /// Changes of the other database files of the call: attached databases
+    /// and the files that `VACUUM INTO` creates.
+    pub(crate) others: Vec<Change>,
     /// Files whose previous content the journal did not keep.
     pub(crate) irreversible: Vec<IrreversibleEntry>,
 }
 
-/// Planned change of the database file, shown by a preview.
-pub(crate) fn planned_change(request: &SqlRequest) -> Change {
+/// Planned changes shown by a preview: the database file, and the file of
+/// every `ATTACH` and `VACUUM INTO` whose name is a literal, resolved like a
+/// path argument. A file that is only known when the statement runs is listed
+/// as an unknown file.
+///
+/// # Errors
+///
+/// Fails with `E_PATH_RELATIVE` for a relative file without a base.
+pub(crate) fn planned_changes(request: &SqlRequest) -> Result<Vec<Change>> {
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
     change.size_before = fs::metadata(&request.path)
         .ok()
         .map(|metadata| Size::from_bytes(metadata.len()));
-    change
+    let mut changes = vec![change];
+    for (index, text) in split::statement_texts(&request.query)
+        .into_iter()
+        .enumerate()
+    {
+        let expression = target::attach_parts(text)
+            .map(|parts| parts.expression)
+            .or_else(|| target::vacuum_parts(text).map(|parts| parts.expression));
+        let Some(expression) = expression else {
+            continue;
+        };
+        let literal = target::literal_of(&expression).map(|value| names::database_name(&value));
+        match literal {
+            Some(names::DatabaseName::Memory) => {}
+            Some(names::DatabaseName::File { path, .. }) => {
+                let file = names::absolute(request.base.as_deref(), &path)?;
+                let action = if file.exists() {
+                    ChangeAction::Modify
+                } else {
+                    ChangeAction::Create
+                };
+                changes.push(Change::new(file.to_string_lossy().into_owned(), action));
+            }
+            _ => changes.push(Change::new(
+                format!("(file named by statement {})", index + 1),
+                ChangeAction::Modify,
+            )),
+        }
+    }
+    Ok(changes)
 }
 
 /// Runs the statements as one change preserved by `tx`.
@@ -68,7 +108,7 @@ pub(crate) fn write(
     journal.declare(DatabaseFiles::locate(request)?)?;
     let mut rows = Vec::new();
     let summary = execute(request, ctx, &mut journal, &mut rows)?;
-    let (size_before, size_after) = journal.finish(summary.wrote)?;
+    let (size_before, size_after, others) = journal.finish(summary.wrote)?;
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
     change.size_before = size_before.map(Size::from_bytes);
     change.size_after = size_after.map(Size::from_bytes);
@@ -76,6 +116,7 @@ pub(crate) fn write(
     Ok(WriteOutcome {
         rows,
         change,
+        others,
         irreversible: journal.irreversible,
     })
 }
@@ -129,10 +170,12 @@ impl<'a> Journaled<'a> {
     }
 
     /// Reports the changes of every declared file to the journal and
-    /// returns the size of the database of the call before and after.
-    fn finish(&mut self, wrote: bool) -> Result<(Option<u64>, Option<u64>)> {
+    /// returns the size of the database of the call before and after, and
+    /// the changes of the other database files.
+    fn finish(&mut self, wrote: bool) -> Result<(Option<u64>, Option<u64>, Vec<Change>)> {
         let mut changes = Vec::new();
         let mut sizes = (None, None);
+        let mut others = Vec::new();
         for (position, set) in self.sets.iter().enumerate() {
             let after = set.files.snapshot();
             changes.extend(set.files.changes(&set.before, &after, wrote, set.base));
@@ -141,12 +184,14 @@ impl<'a> Journaled<'a> {
                     set.before.first().map(FileState::len),
                     after.first().map(FileState::len),
                 );
+            } else if let (Some(old), Some(new)) = (set.before.first(), after.first()) {
+                others.push(set.files.change_of(old, new));
             }
         }
         if !changes.is_empty() {
             self.tx.observe_external(&changes)?;
         }
-        Ok(sizes)
+        Ok((sizes.0, sizes.1, others))
     }
 }
 
@@ -189,19 +234,16 @@ fn execute(
         finished.store(true, Ordering::Release);
         result
     });
-    let summary = result.map_err(|error| ctx.checkpoint().err().unwrap_or(error))?;
     let effects = database.effects();
-    if effects.extension {
-        files.untracked(
-            0,
-            "the statements call load_extension, whose effects are unknown and cannot be undone",
-        );
-    }
-    for name in &effects.process_pragmas {
-        files.untracked(
-            0,
-            &format!("pragma {name} changes the state of the whole Nurt process and is not undone"),
-        );
+    let summary = result.map_err(|error| {
+        let error = ctx.checkpoint().err().unwrap_or(error);
+        match effects.describe() {
+            kept if kept.is_empty() => error,
+            kept => error.with_detail("irreversible", serde_json::json!(kept)),
+        }
+    })?;
+    for note in effects.describe() {
+        files.untracked(0, &note);
     }
     database.close(request)?;
     Ok(summary)
