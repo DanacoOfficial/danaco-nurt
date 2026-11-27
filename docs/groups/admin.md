@@ -1,6 +1,6 @@
 ---
 group: admin
-summary: System services, the registry provider and CIM.
+summary: System services, the registry provider, CIM, the firewall, routes, DNS and the clock.
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
@@ -39,7 +39,17 @@ change made with `write` can be undone.
 | `restart` | run | `service` to `effect` | irreversible | [restart](../commands/restart.md) |
 | `enable` | change | `service` to `effect` | irreversible | [enable](../commands/enable.md) |
 | `disable` | change | `service` to `effect` | irreversible | [disable](../commands/disable.md) |
-| `windows.cim` | source | none to `cim_object` | read | [windows.cim](../commands/windows.cim.md) |
+| `windows.cim` | change | none to `cim_object`, `effect` | read | [windows.cim](../commands/windows.cim.md) |
+| `firewall.rules` | source | none to `map` | read | [firewall.rules](../commands/firewall.rules.md) |
+| `firewall.allow` | change | none to `effect` | reversible | [firewall.allow](../commands/firewall.allow.md) |
+| `firewall.deny` | change | none to `effect` | reversible | [firewall.deny](../commands/firewall.deny.md) |
+| `firewall.remove` | change | none to `effect` | reversible | [firewall.remove](../commands/firewall.remove.md) |
+| `network.route_add` | change | none to `effect` | reversible | [network.route_add](../commands/network.route_add.md) |
+| `network.route_remove` | change | none to `effect` | reversible | [network.route_remove](../commands/network.route_remove.md) |
+| `network.dns_set` | change | none to `effect` | reversible | [network.dns_set](../commands/network.dns_set.md) |
+| `clock.timezone_set` | change | none to `effect` | reversible | [clock.timezone_set](../commands/clock.timezone_set.md) |
+| `clock.set` | change | none to `effect` | irreversible | [clock.set](../commands/clock.set.md) |
+| `clock.ntp` | change | none to `effect` | reversible | [clock.ntp](../commands/clock.ntp.md) |
 
 ## Records
 
@@ -85,6 +95,42 @@ operation journal records it as irreversible, `undo` does not reverse it, and
 the effect report lists it among the irreversible effects. A preview shows the
 services that would be changed and changes nothing.
 
+## Firewall, routes, DNS and the clock
+
+`firewall.rules`, `firewall.allow`, `firewall.deny` and `firewall.remove` read
+and change the rules of the firewall of the system: nftables, firewalld or ufw
+on Linux, pf on macOS and the Windows Defender Firewall. `network.route_add`,
+`network.route_remove` and `network.dns_set` change the routing table and the
+name servers. `clock.timezone_set`, `clock.ntp` and `clock.set` change the time
+zone, network time and the clock.
+
+Every one of these commands changes the system and accepts `privilege`; they
+need the administrator, so a call is written with `privilege: elevated`. The
+stage never starts `sudo` itself: the executor runs the stage with the
+elevated process, and a program that reports missing rights ends the call with
+`E_PRIVILEGE`.
+
+The report of a change holds a change of the action `state` for one target
+with the value before and after: `firewall:<rule>` (`absent` or `present`),
+`route:<destination>`, `dns:<interface>`, `clock:timezone` and `clock:ntp`.
+From these values the engine derives the program that `undo` runs, with the
+rights of the original call:
+
+| Command | `undo` runs |
+|---|---|
+| `firewall.allow`, `firewall.deny` | `firewall.remove` of the rule |
+| `firewall.remove` | `firewall.allow` or `firewall.deny` of every removed rule |
+| `network.route_add` | `network.route_remove` of the route |
+| `network.route_remove` | `network.route_add` of every removed route |
+| `network.dns_set` | `network.dns_set` with the previous servers and domains; a change of `/etc/resolv.conf` is restored by the journal |
+| `clock.timezone_set` | `clock.timezone_set` with the previous zone |
+| `clock.ntp` | `clock.ntp` with the previous state |
+| `clock.set` | irreversible |
+
+A change that the system already holds (a rule that exists, the same zone) is
+reported as `unchanged`, opens no journal entry and runs no program. A preview
+reads the system and lists the effects without changing anything.
+
 ## Platform differences
 
 | Aspect | Linux | macOS | Windows |
@@ -113,6 +159,16 @@ the service manager is reported as `E_SERVICE`.
 | `restart` | [X] | macOS only: services are restarted through `launchctl` |
 | `enable` | [X] | macOS only: services are enabled through `launchctl` |
 | `disable` | [X] | macOS only: services are disabled through `launchctl` |
+| `firewall.rules` | [X] | `nft`, `firewall-cmd`, `ufw` or `pfctl` read the rules; Windows uses PowerShell |
+| `firewall.allow` | [X] | the same programs change the rules |
+| `firewall.deny` | [X] | the same programs change the rules |
+| `firewall.remove` | [X] | the same programs change the rules |
+| `network.route_add` | [X] | `ip`, `route` or PowerShell |
+| `network.route_remove` | [X] | `ip`, `route` or PowerShell |
+| `network.dns_set` | [X] | `resolvectl`, `networksetup` or PowerShell; `/etc/resolv.conf` is written without a program |
+| `clock.timezone_set` | [X] | `timedatectl`, `systemsetup` or `tzutil` |
+| `clock.set` | [X] | `date` or PowerShell |
+| `clock.ntp` | [X] | `timedatectl`, `systemsetup` or PowerShell |
 
 The [X] marker names a component of the operating system that a command
 starts as a program. macOS offers no public interface for these operations, so `launchctl` is the

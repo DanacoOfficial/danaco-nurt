@@ -26,6 +26,24 @@ their own version numbers, described in the specification.
   `E_OS_ONLY`. Both are journaled as created files, and `undo` removes them.
   `info` and `list` report the types `fifo` and `device`; a device node has
   the fields `major` and `minor`.
+- Administration of the firewall, the network and the clock (group `admin`,
+  language brief section 10): `firewall.rules`, `firewall.allow`,
+  `firewall.deny` and `firewall.remove` on nftables, firewalld and ufw (Linux),
+  pf (macOS) and the Windows Defender Firewall; `network.route_add`,
+  `network.route_remove` and `network.dns_set` (systemd-resolved,
+  `/etc/resolv.conf`, `networksetup`, the Windows interface DNS);
+  `clock.timezone_set`, `clock.ntp` and `clock.set`. Each takes
+  `privilege: elevated` and reports one `state` change of the target
+  `firewall:<rule>`, `route:<destination>`, `dns:<interface>`, `clock:timezone`
+  or `clock:ntp` with the value before and after; `undo` runs the inverse
+  derived from those values (`firewall.remove` for `firewall.allow`, the
+  previous zone, the previous servers, and so on). `clock.set` is irreversible.
+  A change that the system already holds is reported as `unchanged`.
+- `windows.cim` calls methods: `invoke: "<method>"` with `where` (the selected
+  instances) or without it (a static method of the class) and `arguments`
+  (text, int and bool values). A method with a documented opposite
+  (`StartService` and `StopService`, `Enable` and `Disable`, `Pause` and
+  `Resume`) is undone by the opposite call; any other call is irreversible.
 
 ### Changed
 
