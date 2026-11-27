@@ -447,6 +447,9 @@ fn accepts(action: &TargetAction, mutation: &Mutation, provider: bool) -> bool {
             action,
             TargetAction::Create | TargetAction::CreateTree | TargetAction::Replace
         ),
+        Mutation::CreateNode { .. } => {
+            matches!(action, TargetAction::Create | TargetAction::Replace)
+        }
         Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. } => matches!(
             action,
             TargetAction::Create | TargetAction::Link | TargetAction::Replace
@@ -1878,6 +1881,9 @@ impl Tx<'_> {
             Mutation::CreateDir { mode } => {
                 self.create(position, |fs, scope, path| fs.create_dir(scope, path, mode))
             }
+            Mutation::CreateNode { node, mode } => self.create(position, |fs, scope, path| {
+                fs.create_node(scope, path, node, mode)
+            }),
             Mutation::CreateLink { target, kind } => self.create(position, |fs, scope, path| {
                 fs.create_link(scope, &target, path, kind)
             }),
@@ -4564,6 +4570,30 @@ mod tests {
         tx.apply(TargetIndex(0), Mutation::AppendBytes(b"x".to_vec()))
             .unwrap();
         assert_eq!(env.read(&path), b"x");
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert!(!env.fixture.exists(&path));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_created_fifo_is_a_created_target_and_rollback_removes_it() {
+        use nurt_contracts::fs::SpecialNode;
+
+        let env = Env::new();
+        let path = env.fixture.fs.path("vol-a/pipe");
+        let mut tx = begin(&env.ctx, request("create"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Create)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Created);
+        tx.apply(
+            TargetIndex(0),
+            Mutation::CreateNode {
+                node: SpecialNode::fifo(),
+                mode: Some(0o600),
+            },
+        )
+        .unwrap();
+        let meta = std::fs::symlink_metadata(path.as_path()).unwrap();
+        assert!(std::os::unix::fs::FileTypeExt::is_fifo(&meta.file_type()));
         tx.rollback(RollbackReason::Cancelled).unwrap();
         assert!(!env.fixture.exists(&path));
     }

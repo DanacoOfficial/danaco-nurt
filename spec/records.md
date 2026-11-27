@@ -128,7 +128,7 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `extension` | text | no | Last extension, without the leading period. |
 | `parent` | path | no | Parent directory. |
 | `raw_parent` | bytes | no | Native bytes of `parent`; present only when it is not valid Unicode. |
-| `type` | enum(file\|directory\|link\|other) | yes | Type of the entry. |
+| `type` | enum(file\|directory\|link\|fifo\|device\|other) | yes | Type of the entry. |
 | `exists` | bool | no | Whether the entry exists; set in the result of `info`. |
 | `size` | size | yes | Size in bytes; for directories as reported by the system. |
 | `modified` | instant | yes | Time of the last modification. |
@@ -143,6 +143,8 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `link_target` | path | no | Target of a link. |
 | `raw_link_target` | bytes | no | Native bytes of `link_target`; present only when it is not valid Unicode. |
 | `link_type` | enum(symbolic\|junction\|hard) | no | Kind of a link. |
+| `major` | int | no | Major device number of a device node. |
+| `minor` | int | no | Minor device number of a device node. |
 | `links` | int | no | Number of hard links. |
 | `volume` | path | no | Mount point of the volume. |
 | `file_id` | text | no | File identifier on the volume. |
@@ -933,7 +935,7 @@ Member of an archive.
 | `archive` | path | yes | Archive file. |
 | `name` | text | yes | Last component of the member path. |
 | `size` | size | yes | Size after extraction. |
-| `type` | enum(file\|directory\|link\|other) | yes | Type. |
+| `type` | enum(file\|directory\|link\|fifo\|device\|other) | yes | Type. |
 | `path` | text | no | Full path inside the archive. |
 | `packed` | size | no | Size in the archive. |
 | `modified` | instant | no | Modification time. |

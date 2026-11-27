@@ -49,5 +49,6 @@ pub mod report;
 pub mod schema;
 pub mod services;
 pub mod spec;
+pub mod sql_text;
 pub mod stage;
 pub mod value;

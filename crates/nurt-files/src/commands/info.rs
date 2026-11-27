@@ -44,7 +44,7 @@ use nurt_text::TextCodec;
 use nurt_text::hash::{HashAlgorithm, hash_reader};
 use serde_json::Value as Json;
 
-use crate::common::entry::{entry_record, missing_entry};
+use crate::common::entry::{add_special_node, entry_record, missing_entry};
 use crate::common::etag::parse_etag;
 use crate::common::notable::at_path;
 use crate::common::path::{path_field, path_list_arg, resolve};
@@ -283,6 +283,7 @@ impl Describer<'_> {
             Err(error) => return Err(error.into()),
         };
         let mut entry = entry_record(path, &meta);
+        add_special_node(self.fs, path, &mut entry);
         entry.exists = Some(true);
         if self.is_known(path, &meta) {
             self.ctx.note(at_path(Notable::Unchanged, path));
@@ -802,7 +803,7 @@ mod tests {
     use std::collections::BTreeSet;
     use std::path::PathBuf;
 
-    use nurt_contracts::fs::{MetaChange, Xattr};
+    use nurt_contracts::fs::{MetaChange, SpecialKind, SpecialNode, Xattr};
     use nurt_contracts::journal::{FileOp, JournalStore, apply_ops};
     use nurt_contracts::record::{EntryType, LineEnding, LinkType};
     use nurt_contracts::services::Services;
@@ -1018,6 +1019,28 @@ mod tests {
         let mut special = test.fs().metadata(&dir, Follow::NoFollow).unwrap();
         special.kind = FileKind::Special;
         assert_eq!(describer.content_meta(&dir, &special), None);
+    }
+
+    #[test]
+    fn a_fifo_and_a_device_node_report_their_type_and_numbers() {
+        let test = TestContext::new();
+        test.fs().create_dir_all(&abs("/dev")).unwrap();
+        test.fs()
+            .create_special_node(&abs("/dev/p"), SpecialNode::fifo(), 0o600)
+            .unwrap();
+        test.fs()
+            .create_special_node(
+                &abs("/dev/sda"),
+                SpecialNode::device(SpecialKind::Block, 8, 0),
+                0o660,
+            )
+            .unwrap();
+        let found = entries(&test.ctx(), &args(&["/dev/p", "/dev/sda"])).unwrap();
+        assert_eq!(found[0].kind, EntryType::Fifo);
+        assert_eq!((found[0].major, found[0].minor), (None, None));
+        assert_eq!(found[1].kind, EntryType::Device);
+        assert_eq!((found[1].major, found[1].minor), (Some(8), Some(0)));
+        assert_eq!(found[1].mode.as_deref(), Some("0660"));
     }
 
     #[test]

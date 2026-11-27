@@ -475,7 +475,7 @@ tail -n 20 /home/user/app/app.log
 Insert a row into a SQLite database.
 
 ```nurt example
-sql "/home/user/app/app.db" "insert into users (name, active) values (?, ?)" params: ["ann", 1] write: true
+sql "/home/user/app/app.db" "insert into users (name, active) values (?, ?)" params: ["ann", 1]
 ```
 
 ```text expected

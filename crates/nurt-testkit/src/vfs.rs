@@ -44,7 +44,7 @@ use nurt_contracts::fs::{
     AbsPath, AlternateStream, ContentHash, DirEntry, ExtendedMeta, FileId, FileKind, FileLock,
     FileMeta, Follow, Fs, FsError, FsErrorKind, FsFeatures, FsResult, FsWrite, Holder, LinkKind,
     MetaChange, MetaTransferReport, PathKey, ReadHandle, RemoveStats, RenameMode, ScopePurpose,
-    SpaceInfo, TxScope, VolumeId, VolumeInfo, VolumeKind, WriteHandle, Xattr,
+    SpaceInfo, SpecialNode, TxScope, VolumeId, VolumeInfo, VolumeKind, WriteHandle, Xattr,
 };
 use nurt_contracts::journal::OpId;
 use unicode_normalization::UnicodeNormalization;
@@ -328,6 +328,7 @@ struct Inode {
     flags: Option<u64>,
     link_target: Option<PathBuf>,
     streams: BTreeMap<String, Vec<u8>>,
+    node: Option<SpecialNode>,
 }
 
 impl Inode {
@@ -349,6 +350,7 @@ impl Inode {
             flags: None,
             link_target: None,
             streams: BTreeMap::new(),
+            node: None,
         }
     }
 
@@ -1292,6 +1294,46 @@ impl VirtualFs {
         Ok(())
     }
 
+    /// Creates a named pipe or device node with permission bits `mode`,
+    /// with its parents.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::Exists`] when `path` exists, and as
+    /// [`VirtualFs::create_dir_all`] for the parents.
+    pub fn create_special_node(
+        &self,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: u32,
+    ) -> FsResult<()> {
+        if let Some(parent) = path.parent() {
+            self.create_dir_all(&parent)?;
+        }
+        let now = self.shared.now();
+        let mut state = self.lock();
+        let resolved = state.resolve(path.as_path(), false, "create_special_node")?;
+        if resolved.exists {
+            return Err(fs_error(
+                FsErrorKind::Exists,
+                "create_special_node",
+                path.as_path(),
+            ));
+        }
+        let mut inode = Inode::new(FileKind::Special, mode, state.account, now);
+        inode.node = Some(node);
+        let name = path.file_name().map(OsStr::to_owned).unwrap_or_default();
+        state.insert(
+            &Slot {
+                vol: resolved.vol,
+                key: resolved.key,
+                name,
+            },
+            inode,
+        );
+        Ok(())
+    }
+
     fn setup_inode(
         &self,
         path: &AbsPath,
@@ -1510,6 +1552,17 @@ impl Fs for VirtualFs {
             .inode(&resolved)
             .ok_or_else(|| fs_error(FsErrorKind::NotFound, "metadata", native))?;
         Ok(state.volumes[resolved.vol].meta(id, inode))
+    }
+
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let native = path.as_path();
+        let mut state = self.lock();
+        state.check_fault("special_node", native)?;
+        let resolved = state.existing(native, false, "special_node")?;
+        let (_, inode) = state
+            .inode(&resolved)
+            .ok_or_else(|| fs_error(FsErrorKind::NotFound, "special_node", native))?;
+        Ok(inode.node)
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -2057,6 +2110,28 @@ impl FsWrite for VirtualFs {
             return Err(fs_error(FsErrorKind::Exists, op, path.as_path()));
         }
         let inode = Inode::new(FileKind::Directory, mode, state.account, now);
+        state.insert(&slot, inode);
+        state.record(scope, op, &[path]);
+        Ok(())
+    }
+
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        let op = "create_node";
+        let now = self.shared.now();
+        let mut state = self.lock();
+        state.check_fault(op, path.as_path())?;
+        let slot = state.slot(path, op)?;
+        if state.slot_inode(&slot).is_some() {
+            return Err(fs_error(FsErrorKind::Exists, op, path.as_path()));
+        }
+        let mut inode = Inode::new(FileKind::Special, mode.unwrap_or(0o644), state.account, now);
+        inode.node = Some(node);
         state.insert(&slot, inode);
         state.record(scope, op, &[path]);
         Ok(())

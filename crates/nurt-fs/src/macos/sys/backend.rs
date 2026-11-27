@@ -15,10 +15,10 @@ use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, ExtendedMeta, FileKind, FileLock, FileMeta, Follow, Fs,
     FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialKind, SpecialNode, TxScope,
+    VolumeId, VolumeInfo, WriteHandle,
 };
-use rustix::fs::{Access, AtFlags, CWD, FlockOperation, Mode, OFlags, RenameFlags};
+use rustix::fs::{Access, AtFlags, CWD, FileType, FlockOperation, Mode, OFlags, RenameFlags};
 use rustix::io::Errno;
 use sha2::{Digest, Sha256};
 
@@ -114,6 +114,26 @@ fn std_kind(kind: std::fs::FileType) -> FileKind {
 impl Fs for MacosFs {
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
         stat_path(path.as_path(), follow, "metadata").map(|stat| file_meta(&stat))
+    }
+
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let stat = stat_path(path.as_path(), Follow::NoFollow, "special_node")?;
+        let numbers = (
+            rustix::fs::major(stat.st_rdev),
+            rustix::fs::minor(stat.st_rdev),
+        );
+        Ok(match FileType::from_raw_mode(stat.st_mode) {
+            FileType::Fifo => Some(SpecialNode::fifo()),
+            FileType::CharacterDevice => {
+                Some(SpecialNode::device(SpecialKind::Char, numbers.0, numbers.1))
+            }
+            FileType::BlockDevice => Some(SpecialNode::device(
+                SpecialKind::Block,
+                numbers.0,
+                numbers.1,
+            )),
+            _ => None,
+        })
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -433,6 +453,55 @@ impl FsWrite for MacosFs {
         parallelism: usize,
     ) -> FsResult<RemoveStats> {
         tree::remove_tree(path, parallelism)
+    }
+
+    fn create_node(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        const OP: &str = "create_node";
+        let (file_type, device) = match node.kind {
+            SpecialKind::Fifo => (FileType::Fifo, 0),
+            SpecialKind::Char => (
+                FileType::CharacterDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            SpecialKind::Block => (
+                FileType::BlockDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            _ => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    OP,
+                    Some(path.as_path()),
+                ));
+            }
+        };
+        let to_mode = |bits: u32| Mode::from_bits_truncate(bits.try_into().unwrap_or_default());
+        let context = if node.kind == SpecialKind::Fifo {
+            ErrnoContext::Plain
+        } else {
+            ErrnoContext::Privileged
+        };
+        let created = to_mode(mode.unwrap_or(0o666));
+        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, created, device))
+            .map_err(|errno| sys_error(errno, context, OP, path.as_path()))?;
+        if let Some(exact) = mode {
+            retry(|| {
+                rustix::fs::chmodat(
+                    CWD,
+                    path.as_path(),
+                    to_mode(exact),
+                    AtFlags::SYMLINK_NOFOLLOW,
+                )
+            })
+            .map_err(plain(OP, path))?;
+        }
+        Ok(())
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

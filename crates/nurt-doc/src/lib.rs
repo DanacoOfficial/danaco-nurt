@@ -9,7 +9,7 @@
 //! runs SQL statements on SQLite databases.
 
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 pub mod commands;
 pub mod constructs;

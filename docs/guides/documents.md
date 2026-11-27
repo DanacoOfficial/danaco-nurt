@@ -36,7 +36,7 @@ A write that introduces a new syntax error into a known format is rolled back. `
 
 ## Databases
 
-`sql` runs statements on an SQLite database file. The database is opened read-only unless `write: true` is given, and a statement that changes data is then recorded in the journal like any other change.
+`sql` runs statements on an SQLite database file. A call whose statements only read opens the database read-only. A statement that changes anything opens it for writing, and the change is recorded in the journal like any other change: the database file and its `-wal`, `-shm` and `-journal` files are preserved first, and `undo` restores them. `write: true` is optional; `write: false` keeps the call read-only. `BEGIN`, `COMMIT` and `END` merge with the transaction of the call, `ROLLBACK` ends it with `E_ROLLED_BACK`, and `ATTACH`, `VACUUM INTO`, `VACUUM`, `load_extension` and the pragmas `temp_store_directory` and `data_store_directory` are allowed (see the command page).
 
 ```nurt
 sql "/srv/app/app.db" "select id, name from users where active = 1 limit 5"

@@ -16,9 +16,11 @@ mod convert;
 mod error;
 mod guard;
 mod journal;
+mod names;
 mod read;
 mod session;
 mod split;
+mod target;
 mod write;
 
 use std::path::PathBuf;
@@ -29,7 +31,7 @@ use nurt_contracts::value::{Fields, Value};
 pub(crate) use read::read_rows;
 pub(crate) use session::check_file;
 pub(crate) use split::statement_count;
-pub(crate) use write::{planned_change, write};
+pub(crate) use write::{planned_changes, write};
 
 /// Values bound to the placeholders of the statements.
 #[derive(Debug, Clone)]
@@ -52,8 +54,12 @@ pub(crate) struct SqlRequest {
     pub(crate) query: String,
     /// Values bound to the parameters of the statements.
     pub(crate) params: SqlParams,
-    /// Statements may change the database.
+    /// The database is opened for writing: `write: true`, or no `write` and a
+    /// statement that changes something.
     pub(crate) write: bool,
+    /// Directory against which a relative file of `ATTACH` or `VACUUM INTO`
+    /// is resolved: the `base` option or `scope.base`.
+    pub(crate) base: Option<PathBuf>,
     /// Longest wait for a lock held by another connection.
     pub(crate) busy_timeout: Duration,
 }

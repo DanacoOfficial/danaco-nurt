@@ -155,7 +155,7 @@ plist = "1.10.4"
 jaq-core = "3.1.2"
 jaq-std = "3.0.4"
 jaq-json = { path = "crates/jaq-json", version = "2.0.3" }
-rusqlite = { version = "0.43.0", features = ["bundled", "hooks"] }
+rusqlite = { version = "0.43.0", features = ["bundled", "hooks", "load_extension"] }
 rust-ini = "0.21.3"
 
 # Archives and compression.

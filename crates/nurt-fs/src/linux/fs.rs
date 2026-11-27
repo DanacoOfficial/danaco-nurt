@@ -7,7 +7,7 @@
 use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
-use std::os::fd::{AsFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::process;
@@ -19,8 +19,8 @@ use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileKind, FileLock, FileMeta, Follow,
     Fs, FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialKind, SpecialNode, TxScope,
+    VolumeId, VolumeInfo, WriteHandle,
 };
 use rustix::fs::{Access, AtFlags, CWD, Dir, FileType, FlockOperation, Mode, OFlags, RenameFlags};
 use rustix::io::Errno;
@@ -31,7 +31,7 @@ use crate::key;
 use super::handle::{LinuxFileLock, LinuxReadHandle, LinuxWriteHandle};
 use super::meta::{self, Target, Transfer};
 use super::mountinfo::MountEntry;
-use super::sys::{io_error, kind_error, retry, sys_error};
+use super::sys::{io_error, kind_error, privileged_error, retry, sys_error};
 use super::volume::{self, VolumeCache};
 use super::{copy, holders, remove};
 
@@ -40,6 +40,8 @@ const TEMP_MODE: u32 = 0o600;
 /// Permission bits, before the umask, of files created by
 /// [`FsWrite::create_new`] and of lock files.
 const NEW_FILE_MODE: u32 = 0o666;
+/// Permission bits of a new named pipe or device node before the umask.
+const DEFAULT_NODE_MODE: u32 = 0o666;
 /// Attempts to find an unused temporary name.
 const TEMP_NAME_ATTEMPTS: u32 = 64;
 /// Longest file name in bytes (`NAME_MAX`).
@@ -115,6 +117,44 @@ impl LinuxFs {
     }
 }
 
+/// Sets the permission bits of the node `name` of the directory `dir`
+/// without following a symbolic link: the entry is opened with
+/// `O_PATH | O_NOFOLLOW`, checked to be a named pipe or a device node, and
+/// changed through its descriptor path in `/proc/self/fd`; without `/proc` it
+/// fails.
+fn set_node_mode(dir: &OwnedFd, name: &OsStr, bits: Mode, report: &Path) -> FsResult<()> {
+    const OP: &str = "create_node";
+    let fd = retry(|| {
+        rustix::fs::openat(
+            dir,
+            name,
+            OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+    })
+    .map_err(|errno| sys_error(errno, OP, report))?;
+    let stat = rustix::fs::fstat(&fd).map_err(|errno| sys_error(errno, OP, report))?;
+    if !matches!(
+        FileType::from_raw_mode(stat.st_mode),
+        FileType::Fifo | FileType::CharacterDevice | FileType::BlockDevice
+    ) {
+        return Err(FsError::new(FsErrorKind::Io, OP, Some(report)));
+    }
+    let through_descriptor = format!("/proc/self/fd/{}", fd.as_raw_fd());
+    retry(|| rustix::fs::chmodat(CWD, through_descriptor.as_str(), bits, AtFlags::empty()))
+        .map_err(|errno| sys_error(errno, OP, report))
+}
+
+/// Removes the entry `name` of `dir` only while it is still the node that
+/// was created, identified by device and inode; anything else is left alone.
+pub(super) fn remove_created(dir: &OwnedFd, name: &OsStr, created: (u64, u64)) {
+    let same = rustix::fs::statat(dir, name, AtFlags::SYMLINK_NOFOLLOW)
+        .is_ok_and(|stat| (stat.st_dev, stat.st_ino) == created);
+    if same {
+        let _ = rustix::fs::unlinkat(dir, name, AtFlags::empty());
+    }
+}
+
 fn open(path: &Path, flags: OFlags, mode: u32, op: &str) -> FsResult<OwnedFd> {
     let flags = flags | OFlags::CLOEXEC | OFlags::NOCTTY;
     retry(|| rustix::fs::openat(CWD, path, flags, Mode::from_raw_mode(mode)))
@@ -179,6 +219,27 @@ fn os_path(bytes: Vec<u8>) -> PathBuf {
 impl Fs for LinuxFs {
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
         meta::stat_at(CWD, path.as_path(), follow, "metadata", path.as_path())
+    }
+
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let stat = retry(|| rustix::fs::statat(CWD, path.as_path(), AtFlags::SYMLINK_NOFOLLOW))
+            .map_err(|errno| sys_error(errno, "special_node", path.as_path()))?;
+        let numbers = (
+            rustix::fs::major(stat.st_rdev),
+            rustix::fs::minor(stat.st_rdev),
+        );
+        Ok(match FileType::from_raw_mode(stat.st_mode) {
+            FileType::Fifo => Some(SpecialNode::fifo()),
+            FileType::CharacterDevice => {
+                Some(SpecialNode::device(SpecialKind::Char, numbers.0, numbers.1))
+            }
+            FileType::BlockDevice => Some(SpecialNode::device(
+                SpecialKind::Block,
+                numbers.0,
+                numbers.1,
+            )),
+            _ => None,
+        })
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -475,6 +536,65 @@ impl FsWrite for LinuxFs {
         parallelism: usize,
     ) -> FsResult<RemoveStats> {
         remove::remove_tree(path.as_path(), parallelism)
+    }
+
+    fn create_node(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        const OP: &str = "create_node";
+        let (file_type, device) = match node.kind {
+            SpecialKind::Fifo => (FileType::Fifo, 0),
+            SpecialKind::Char => (
+                FileType::CharacterDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            SpecialKind::Block => (
+                FileType::BlockDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            _ => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    OP,
+                    Some(path.as_path()),
+                ));
+            }
+        };
+        let created = Mode::from_raw_mode(mode.unwrap_or(DEFAULT_NODE_MODE));
+        let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+            return Err(FsError::new(FsErrorKind::Io, OP, Some(path.as_path())));
+        };
+        let dir = retry(|| {
+            rustix::fs::openat(
+                CWD,
+                parent.as_path(),
+                OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+        })
+        .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+        retry(|| rustix::fs::mknodat(&dir, name, file_type, created, device)).map_err(|errno| {
+            if node.kind == SpecialKind::Fifo {
+                sys_error(errno, OP, path.as_path())
+            } else {
+                privileged_error(errno, OP, path.as_path())
+            }
+        })?;
+        let Some(exact) = mode else {
+            return Ok(());
+        };
+        let identity = rustix::fs::statat(&dir, name, AtFlags::SYMLINK_NOFOLLOW)
+            .map(|stat| (stat.st_dev, stat.st_ino))
+            .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+        set_node_mode(&dir, name, Mode::from_raw_mode(exact), path.as_path()).inspect_err(|_| {
+            // The node has not got its mode (for example without `/proc`):
+            // remove it, but only while the entry is still the created node.
+            remove_created(&dir, name, identity);
+        })
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

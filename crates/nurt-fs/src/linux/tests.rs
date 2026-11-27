@@ -21,14 +21,14 @@ use std::time::{Duration, Instant};
 
 use nurt_contracts::fs::{
     AbsPath, Durability, ExtendedMeta, FileKind, Follow, Fs, FsErrorKind, FsWrite, LinkKind,
-    MetaChange, RenameMode, ScopePurpose, TxScope, VolumeKind, Xattr,
+    MetaChange, RenameMode, ScopePurpose, SpecialKind, SpecialNode, TxScope, VolumeKind, Xattr,
 };
 use nurt_contracts::journal::OpId;
 use rustix::fs::IFlags;
 use rustix::io::Errno;
 use tempfile::TempDir;
 
-use super::fs::emulate_noreplace;
+use super::fs::{emulate_noreplace, remove_created};
 use super::{LinuxFs, MountTable, features_for, volume_kind};
 use crate::conformance;
 
@@ -2033,4 +2033,152 @@ fn path_keys_are_raw_bytes_on_case_sensitive_volumes() {
         fixture.fs.path_key(&raw).expect("key").0,
         raw.as_path().as_os_str().as_encoded_bytes()
     );
+}
+
+#[test]
+fn a_fifo_is_created_with_the_requested_mode_and_reported_by_special_node() {
+    let fixture = Fixture::new();
+    let path = fixture.path("pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
+        .expect("create the fifo");
+    let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+    assert_eq!(meta.kind, FileKind::Special);
+    assert_eq!(meta.mode & 0o7777, 0o640);
+    assert_eq!(
+        fixture.fs.special_node(&path).unwrap(),
+        Some(SpecialNode::fifo())
+    );
+    let again = fixture
+        .fs
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
+        .unwrap_err();
+    assert_eq!(again.kind, FsErrorKind::Exists);
+    fixture.fs.remove_file(&fixture.scope, &path).unwrap();
+    assert!(!path.as_path().exists());
+}
+
+#[test]
+fn special_node_is_empty_for_regular_files_and_directories() {
+    let fixture = Fixture::new();
+    let file = fixture.file("plain", b"x");
+    let dir = fixture.dir("folder");
+    assert_eq!(fixture.fs.special_node(&file).unwrap(), None);
+    assert_eq!(fixture.fs.special_node(&dir).unwrap(), None);
+}
+
+#[test]
+fn a_device_node_needs_a_privilege() {
+    let fixture = Fixture::new();
+    if rustix::process::geteuid().is_root() {
+        return;
+    }
+    let path = fixture.path("null2");
+    let error = fixture
+        .fs
+        .create_node(
+            &fixture.scope,
+            &path,
+            SpecialNode::device(SpecialKind::Char, 1, 3),
+            None,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            error.kind,
+            FsErrorKind::Privilege | FsErrorKind::PermissionDenied
+        ),
+        "{error:?}"
+    );
+    assert!(!path.as_path().exists());
+}
+
+#[test]
+#[ignore = "needs root to create device nodes: run on the pool machine as root"]
+fn device_nodes_are_created_with_their_numbers_and_removed() {
+    let fixture = Fixture::new();
+    for (name, kind, major, minor) in [
+        ("char", SpecialKind::Char, 1, 3),
+        ("block", SpecialKind::Block, 7, 5),
+    ] {
+        let path = fixture.path(name);
+        let node = SpecialNode::device(kind, major, minor);
+        fixture
+            .fs
+            .create_node(&fixture.scope, &path, node, Some(0o600))
+            .expect("create the device node as root");
+        let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+        assert_eq!(meta.kind, FileKind::Special);
+        assert_eq!(meta.mode & 0o7777, 0o600);
+        assert_eq!(fixture.fs.special_node(&path).unwrap(), Some(node));
+        fixture.fs.remove_file(&fixture.scope, &path).unwrap();
+        assert!(!path.as_path().exists());
+    }
+}
+
+#[test]
+fn a_node_without_mode_follows_the_umask_and_with_mode_is_exact() {
+    let fixture = Fixture::new();
+    let default = fixture.path("default-pipe");
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o027));
+    let created = fixture
+        .fs
+        .create_node(&fixture.scope, &default, SpecialNode::fifo(), None);
+    rustix::process::umask(previous);
+    created.unwrap();
+    assert_eq!(
+        fixture
+            .fs
+            .metadata(&default, Follow::NoFollow)
+            .unwrap()
+            .mode
+            & 0o7777,
+        0o640,
+        "0666 reduced by the umask 027"
+    );
+    let exact = fixture.path("exact-pipe");
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o077));
+    let created = fixture
+        .fs
+        .create_node(&fixture.scope, &exact, SpecialNode::fifo(), Some(0o666));
+    rustix::process::umask(previous);
+    created.unwrap();
+    assert_eq!(
+        fixture.fs.metadata(&exact, Follow::NoFollow).unwrap().mode & 0o7777,
+        0o666,
+        "an explicit mode is not reduced by the umask"
+    );
+}
+
+#[test]
+fn a_created_node_is_removed_only_while_it_is_the_same_entry() {
+    use std::os::fd::OwnedFd;
+    let fixture = Fixture::new();
+    let node = fixture.path("pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &node, SpecialNode::fifo(), None)
+        .unwrap();
+    let dir: OwnedFd = rustix::fs::openat(
+        rustix::fs::CWD,
+        fixture.root.as_path(),
+        rustix::fs::OFlags::PATH | rustix::fs::OFlags::DIRECTORY,
+        rustix::fs::Mode::empty(),
+    )
+    .unwrap();
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    let identity = (stat.st_dev, stat.st_ino);
+    // The entry is replaced by another file, as an attacker could do.
+    std::fs::remove_file(node.as_path()).unwrap();
+    std::fs::write(node.as_path(), b"theirs").unwrap();
+    remove_created(&dir, std::ffi::OsStr::new("pipe"), identity);
+    assert_eq!(std::fs::read(node.as_path()).unwrap(), b"theirs");
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    remove_created(
+        &dir,
+        std::ffi::OsStr::new("pipe"),
+        (stat.st_dev, stat.st_ino),
+    );
+    assert!(!node.as_path().exists());
 }

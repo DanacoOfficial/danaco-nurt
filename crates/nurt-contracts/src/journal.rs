@@ -47,7 +47,7 @@ use crate::env::WallTime;
 use crate::error::{Error, ErrorCode, Result};
 use crate::fs::{
     AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
-    ProviderSnapshot, ProviderValue, VolumeId, VolumeInfo, WriteHandle,
+    ProviderSnapshot, ProviderValue, SpecialNode, VolumeId, VolumeInfo, WriteHandle,
 };
 use crate::report::{Correction, Irreversible, IrreversibleEntry};
 
@@ -548,6 +548,13 @@ pub enum Mutation {
         /// Permission bits.
         mode: u32,
     },
+    /// Create a named pipe or a device node.
+    CreateNode {
+        /// Kind of the entry and its device numbers.
+        node: SpecialNode,
+        /// Permission bits set exactly; `None` leaves the umask in effect.
+        mode: Option<u32>,
+    },
     /// Create a symbolic link or junction.
     CreateLink {
         /// Link target as stored in the link.
@@ -927,6 +934,17 @@ impl FileOp {
     #[must_use]
     pub fn create_dir(path: AbsPath, mode: u32) -> Self {
         Self::new(path, TargetAction::Create, Mutation::CreateDir { mode }).expect(Expect::Absent)
+    }
+
+    /// Creates a named pipe or a device node.
+    #[must_use]
+    pub fn create_node(path: AbsPath, node: SpecialNode, mode: Option<u32>) -> Self {
+        Self::new(
+            path,
+            TargetAction::Create,
+            Mutation::CreateNode { node, mode },
+        )
+        .expect(Expect::Absent)
     }
 
     /// Creates a symbolic link or a junction.

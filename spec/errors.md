@@ -81,7 +81,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_KEY_SYNTAX` | 1 | `NURT_E_ARG` | A key path into a document is not valid. |
 | `E_PATTERN_SYNTAX` | 1 | `NURT_E_ARG` | A syntax pattern does not parse in the target language. |
 | `E_QUERY` | 1, 2, 5 | `NURT_E_ARG` | A document query does not compile or fails to run. |
-| `E_SQL` | 1, 2, 5 | `NURT_E_ARG` | An SQL statement cannot be prepared or executed, or changes data without `write: true`. |
+| `E_SQL` | 1, 2, 5 | `NURT_E_ARG` | An SQL statement cannot be prepared or executed, or changes data with `write: false`. |
 | `E_ARG` | 1, 5 | `NURT_E_ARG` | An argument of a call cannot be passed without changing its meaning, for example a NUL character in a process argument. |
 | `E_EXTERNAL_MISSING` | 1, 5 | `NURT_OK` | A program required by the command is not installed; `fix` shows how to install it. |
 | `E_EXTERNAL_FAILED` | 2, 5 | `NURT_OK` | An external program used by the command, such as a language server, failed or broke its protocol. |

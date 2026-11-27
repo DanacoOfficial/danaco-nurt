@@ -4,19 +4,18 @@
 //! The authorizer of every connection.
 //!
 //! SQLite calls the authorizer while it prepares a statement, with each
-//! action the statement performs. The authorizer refuses `ATTACH` and
-//! `DETACH`, including the database that `VACUUM` attaches internally, the
-//! pragmas that point SQLite to directories outside the database, the
-//! function `load_extension` and, while the statements of a change are
-//! prepared, statements that begin or end a transaction. Each refusal is
-//! recorded, so that the failure of the statement reports its reason
-//! instead of the generic `not authorized` of SQLite.
+//! action the statement performs. A connection opened for reading refuses
+//! `ATTACH` and `DETACH`, the pragmas that point SQLite to directories
+//! outside the database and the function `load_extension`; each refusal is
+//! recorded, so that the failure of the statement reports its reason instead
+//! of the generic `not authorized` of SQLite. A connection opened for
+//! writing allows all of them: the call changes files, and the journal
+//! preserves them before the change.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use rusqlite::Connection;
-use rusqlite::hooks::{AuthAction, AuthContext, Authorization, TransactionOperation};
+use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 
 /// Pragmas that make SQLite create or use files outside the database
 /// directory.
@@ -34,29 +33,54 @@ pub(super) enum Denial {
     Pragma(String),
     /// A call of `load_extension`.
     Extension,
-    /// A statement that starts or ends the transaction of a change.
-    Transaction(&'static str),
 }
 
 /// Decisions of the authorizer of one connection.
 #[derive(Debug)]
 pub(super) struct Policy {
     writing: bool,
-    statements: AtomicBool,
     denial: Mutex<Option<Denial>>,
+    effects: Mutex<Effects>,
+}
+
+/// Actions that a connection opened for writing performed and whose effect
+/// the journal cannot undo.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub(super) struct Effects {
+    /// A statement called `load_extension`.
+    pub(super) extension: bool,
+    /// Pragmas that set a value of the whole process, by name.
+    pub(super) process_pragmas: Vec<String>,
+}
+
+impl Effects {
+    /// One sentence for each action, as the report names it.
+    pub(super) fn describe(&self) -> Vec<String> {
+        let mut notes = Vec::new();
+        if self.extension {
+            notes.push(
+                "the statements call load_extension, whose effects are unknown and cannot be undone"
+                    .to_owned(),
+            );
+        }
+        notes.extend(self.process_pragmas.iter().map(|name| {
+            format!("pragma {name} changes the state of the whole Nurt process and is not undone")
+        }));
+        notes
+    }
 }
 
 impl Policy {
     fn new(writing: bool) -> Self {
         Self {
             writing,
-            statements: AtomicBool::new(false),
             denial: Mutex::new(None),
+            effects: Mutex::new(Effects::default()),
         }
     }
 
-    /// Installs the authorizer on `connection`; `writing` refuses
-    /// transaction control in the statements of the call.
+    /// Installs the authorizer on `connection`; `writing` allows every
+    /// action.
     pub(super) fn install(
         connection: &mut Connection,
         writing: bool,
@@ -69,20 +93,44 @@ impl Policy {
         Ok(policy)
     }
 
-    /// Marks the statements of the call as being prepared until the scope
-    /// ends. Statements that `sql` runs itself, such as `BEGIN IMMEDIATE`
-    /// and `COMMIT`, run outside this scope.
-    pub(super) fn statements(&self) -> StatementScope<'_> {
-        self.statements.store(true, Ordering::Release);
-        StatementScope { policy: self }
-    }
-
     /// The last refusal, which is then cleared.
     pub(super) fn take_denial(&self) -> Option<Denial> {
         self.denial
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .take()
+    }
+
+    /// Effects recorded so far.
+    pub(super) fn effects(&self) -> Effects {
+        self.effects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    fn record(&self, action: &AuthAction<'_>) {
+        let mut effects = self.effects.lock().unwrap_or_else(PoisonError::into_inner);
+        match action {
+            AuthAction::Function { function_name }
+                if function_name.eq_ignore_ascii_case(EXTENSION_FUNCTION) =>
+            {
+                effects.extension = true;
+            }
+            AuthAction::Pragma {
+                pragma_name,
+                pragma_value: Some(_),
+            } => {
+                if let Some(denied) = DENIED_PRAGMAS
+                    .iter()
+                    .find(|denied| pragma_name.eq_ignore_ascii_case(denied))
+                    && !effects.process_pragmas.iter().any(|seen| seen == denied)
+                {
+                    effects.process_pragmas.push((*denied).to_owned());
+                }
+            }
+            _ => {}
+        }
     }
 
     fn authorize(&self, action: &AuthAction<'_>) -> Authorization {
@@ -96,6 +144,10 @@ impl Policy {
     }
 
     fn denial_of(&self, action: &AuthAction<'_>) -> Option<Denial> {
+        if self.writing {
+            self.record(action);
+            return None;
+        }
         match action {
             AuthAction::Attach { .. } => Some(Denial::Attach("ATTACH")),
             AuthAction::Detach { .. } => Some(Denial::Attach("DETACH")),
@@ -108,36 +160,8 @@ impl Policy {
             {
                 Some(Denial::Extension)
             }
-            AuthAction::Transaction { operation }
-                if self.writing && self.statements.load(Ordering::Acquire) =>
-            {
-                Some(Denial::Transaction(transaction_keyword(operation)))
-            }
             _ => None,
         }
-    }
-}
-
-/// Scope in which the statements of the call are prepared.
-#[derive(Debug)]
-pub(super) struct StatementScope<'p> {
-    policy: &'p Policy,
-}
-
-impl Drop for StatementScope<'_> {
-    fn drop(&mut self) {
-        self.policy.statements.store(false, Ordering::Release);
-    }
-}
-
-/// Keyword of a transaction statement. SQLite reports `BEGIN`, `COMMIT`
-/// and `ROLLBACK`; `rusqlite` names only `BEGIN` and `ROLLBACK`, so any
-/// other operation is a `COMMIT` (also written `END`).
-fn transaction_keyword(operation: &TransactionOperation) -> &'static str {
-    match operation {
-        TransactionOperation::Begin => "BEGIN",
-        TransactionOperation::Rollback => "ROLLBACK",
-        _ => "COMMIT",
     }
 }
 
@@ -210,42 +234,45 @@ mod tests {
     }
 
     #[test]
-    fn refuses_transaction_control_in_statements_of_a_change() {
-        let writing = Policy::new(true);
-        let begin = AuthAction::Transaction {
-            operation: TransactionOperation::Begin,
+    fn records_extension_calls_and_process_pragmas_while_writing() {
+        let policy = Policy::new(true);
+        let quoted_in_another_case = AuthAction::Function {
+            function_name: "Load_Extension",
         };
-        assert_eq!(decide(&writing, begin), (Authorization::Allow, None));
-        {
-            let _scope = writing.statements();
-            assert_eq!(
-                decide(&writing, begin),
-                (Authorization::Deny, Some(Denial::Transaction("BEGIN")))
-            );
-            let commit = AuthAction::Transaction {
-                operation: TransactionOperation::Unknown,
-            };
-            assert_eq!(
-                decide(&writing, commit),
-                (Authorization::Deny, Some(Denial::Transaction("COMMIT")))
-            );
-            let savepoint = AuthAction::Savepoint {
-                operation: TransactionOperation::Rollback,
-                savepoint_name: "s1",
-            };
-            assert_eq!(decide(&writing, savepoint), (Authorization::Allow, None));
-        }
-        assert_eq!(decide(&writing, begin), (Authorization::Allow, None));
-        let reading = Policy::new(false);
-        let _scope = reading.statements();
-        assert_eq!(decide(&reading, begin), (Authorization::Allow, None));
+        assert_eq!(
+            decide(&policy, quoted_in_another_case).0,
+            Authorization::Allow
+        );
+        let pragma = AuthAction::Pragma {
+            pragma_name: "TEMP_STORE_DIRECTORY",
+            pragma_value: Some("/tmp"),
+        };
+        decide(&policy, pragma);
+        let read = AuthAction::Pragma {
+            pragma_name: "data_store_directory",
+            pragma_value: None,
+        };
+        decide(&policy, read);
+        let effects = policy.effects();
+        assert!(effects.extension);
+        assert_eq!(effects.process_pragmas, ["temp_store_directory"]);
     }
 
     #[test]
-    fn names_rollback_statements() {
-        assert_eq!(
-            transaction_keyword(&TransactionOperation::Rollback),
-            "ROLLBACK"
-        );
+    fn allows_every_action_while_writing() {
+        let policy = Policy::new(true);
+        let load = AuthAction::Function {
+            function_name: "load_extension",
+        };
+        assert_eq!(decide(&policy, load), (Authorization::Allow, None));
+        let attach = AuthAction::Attach {
+            filename: "other.db",
+        };
+        assert_eq!(decide(&policy, attach), (Authorization::Allow, None));
+        let pragma = AuthAction::Pragma {
+            pragma_name: "temp_store_directory",
+            pragma_value: Some("/tmp"),
+        };
+        assert_eq!(decide(&policy, pragma), (Authorization::Allow, None));
     }
 }
