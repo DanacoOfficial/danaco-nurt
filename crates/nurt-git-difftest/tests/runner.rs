@@ -238,7 +238,7 @@ command = "git.fetch"
             let path = repo_dir(args).join("notes.txt");
             let record = Record::new(RecordKind::Finding)
                 .with("check", Value::from("final_newline"))
-                .with("path", Value::Text(path.to_string_lossy().into_owned()));
+                .with("path", Value::Text(path.to_string_lossy().replace('\\', "/")));
             Ok(StageOutput::records(RecordStream::new(std::iter::once(
                 Ok(record),
             ))))

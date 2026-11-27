@@ -544,8 +544,23 @@ pub struct ScriptHost {
 }
 
 impl ProcessHost for ScriptHost {
+    /// The file of `program` on the path, as a real host resolves it, or the
+    /// name itself when no file is found.
     fn resolve_program(&self, program: &str, _cwd: &Path) -> Result<PathBuf> {
-        Ok(PathBuf::from(program))
+        let named = Path::new(program);
+        if named.components().count() > 1 {
+            return Ok(named.to_path_buf());
+        }
+        let suffixes: &[&str] = if cfg!(windows) { &[".exe", ""] } else { &[""] };
+        let found = std::env::var_os("PATH").and_then(|paths| {
+            std::env::split_paths(&paths).find_map(|dir| {
+                suffixes
+                    .iter()
+                    .map(|suffix| dir.join(format!("{program}{suffix}")))
+                    .find(|path| path.is_file())
+            })
+        });
+        Ok(found.unwrap_or_else(|| PathBuf::from(program)))
     }
 
     fn run_program(&self, spec: &ProgramSpec, _cancel: &CancelToken) -> Result<ProgramOutcome> {
