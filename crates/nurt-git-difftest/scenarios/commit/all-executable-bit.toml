@@ -8,7 +8,7 @@ setup = [
   ["add", "-A"],
   ["commit", "-q", "-m", "base"],
 ]
-platforms = ["linux", "macos", "windows"]
+platforms = ["linux", "macos"]
 
 [git]
 args = ["commit", "-q", "-a", "-m", "mode"]

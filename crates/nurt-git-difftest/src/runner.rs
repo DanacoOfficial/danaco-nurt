@@ -220,6 +220,8 @@ fn move_addresses(side: &Path, base: &Path, from: &str, to: &str) -> Result<()> 
         }
         if LOCATION_FILES.contains(&name) {
             moved = moved.replace(base.as_ref(), side_dir.as_ref());
+            // Git for Windows records the locations with forward slashes.
+            moved = moved.replace(&base.replace('\\', "/"), &side_dir.replace('\\', "/"));
         }
         if moved != text {
             let path = side.join(&key);
