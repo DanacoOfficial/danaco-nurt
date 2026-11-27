@@ -74,7 +74,7 @@ if [ -f /srv/a ]; then rm /srv/a; fi
 ```
 
 ```nurt
-when exists "/srv/a" and (info "/srv/a" |> first).type == "file" {
+when exists("/srv/a") and ((info "/srv/a" |> first 1)).type == "file" {
     remove "/srv/a" on_missing: error
 }
 ```
@@ -136,7 +136,7 @@ remove @dir
 | `mkfs.FS [-L LABEL] DEVICE`, `mkfs -t FS DEVICE` | `disks.format device: "DEVICE" fs: "FS" label: "LABEL"` |
 | `sqlite3 DB "SQL"` | `sql "DB" "SQL"` |
 
-A rule beyond a port rule (`iptables -t nat …`, a rule with a match module) is run with `run ["iptables", …] cwd: "…"`, and with `privilege: elevated` when written with `sudo`. A form with an option that has no counterpart is an error that names the option. `sudo` before any of these commands adds `privilege: elevated`, as for every command.
+A rule beyond a port rule (`iptables -t nat …`, a rule with a match module) is run with `run ["iptables", …] cwd: "/"`, and with `privilege: elevated` when written with `sudo`. A form with an option that has no counterpart is an error that names the option. `sudo` before any of these commands adds `privilege: elevated`, as for every command.
 
 ## What is rejected
 
