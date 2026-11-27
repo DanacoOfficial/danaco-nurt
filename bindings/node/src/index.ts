@@ -18,6 +18,7 @@ export type { JsonObject } from "./json.js";
 export type {
   Ast,
   CallOptions,
+  CatalogSelection,
   Config,
   DescribeOptions,
   Language,

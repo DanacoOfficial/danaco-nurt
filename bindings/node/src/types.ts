@@ -85,6 +85,14 @@ export interface StartOptions extends RunOptions {
   readonly onEvent?: ((event: NurtEvent) => void) | undefined;
 }
 
+/** Selection of {@link Nurt.catalog}: one group or one command. */
+export interface CatalogSelection {
+  /** Name of the group whose commands are returned. */
+  readonly group?: string | undefined;
+  /** Name of the command whose specification is returned. */
+  readonly command?: string | undefined;
+}
+
 /** Options of {@link Nurt.describe}. */
 export interface DescribeOptions {
   /** Description layer; default `core`. */

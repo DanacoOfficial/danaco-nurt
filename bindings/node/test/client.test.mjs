@@ -83,7 +83,7 @@ describe("Nurt", () => {
       assert.equal(await client.describe({ layer: "group", name: "git", language: "pl" }), "git pl");
       assert.equal(await client.help(), "index");
       assert.equal(await client.help("syntax"), "syntax");
-      assert.deepEqual(await client.catalog("core"), { method: "catalog", params: { what: "core" } });
+      assert.deepEqual(await client.catalog({ group: "core" }), { method: "catalog", params: { what: { group: "core" } } });
       assert.deepEqual(await client.schema("report"), { method: "schema", params: { name: "report" } });
       assert.deepEqual(await client.history(), { method: "history", params: {} });
       assert.deepEqual(await client.space("/"), { method: "space", params: { volume: "/" } });
