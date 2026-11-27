@@ -48,7 +48,7 @@ Positional arguments follow the order of the positions in the catalog. Named arg
 
 `when` runs one branch. The condition is a `bool` expression: comparisons, `and`, `or`, `not`, `exists <path>`, a reading pipeline in parentheses (`(processes name: "nginx" |> count) > 0`), `exit_code` and the fields of a record held by a `let`. `otherwise when` repeats and `otherwise` is optional. The condition is evaluated once, before its branch; the report gives its value and the number of the branch. A condition that is not `bool` is `E_TYPE` before any effect when its type is known at binding: a comparison, a bare pipeline, `exit_code`, and a field of the loop record whose type the output record of the source command declares. The same holds for every use of such a field that no value of its type can satisfy: `f.size ~ "x"`, `f.name < 3`, `f.name == 3`, `not f.name`, `f.path - 1`, `1 in f.size`. The only exception is a field typed `any` or `json`, whose type depends on the data: it is checked when the condition is evaluated, and a failure then restores the construct. A pipeline in a condition only reads: a stage that may change the world and takes its action from a value that is not a literal (`http.request … method: @m`, `git.branch delete: @a`) is `E_TYPE` at binding.
 
-```nurt
+```nurt example
 when (read "/etc/app.toml" key: "mode") == "prod" {
     replace /debug = true/ "debug = false" in: "/etc/app.toml" expect: 1
 } otherwise when exists "/srv/app/.staging" {
@@ -62,7 +62,7 @@ when (read "/etc/app.toml" key: "mode") == "prod" {
 
 `each <records> as name { … }` runs the block once per record, in order; `name` is the record and `name.path` a field. `repeat until: <bool> every: <duration> limit: <duration or number> { … }` runs the block and then tests the condition; `while <bool> limit: <duration or number> { … }` tests before each run. Without `limit` a loop ends at `loop.max_iterations` (10 000) or `loop.max_time` (10 minutes): `repeat` then ends with `E_LIMIT`, `while` ends normally and the report says that the limit ended it. With `limit` the loop ignores the configured defaults: a number of iterations is then not bounded by time, and a duration is not bounded by the number of iterations. `preview` plans one iteration of a `repeat` or a `while`, because the number of iterations is known only by running; an `each` plans every iteration. `and` and `or` evaluate both operands, so a pipeline in the right operand also runs when the left one decides. `break` and `continue` work inside a loop, usually after `when`. `each` accepts `parallel: N`; every loop accepts `atomic: false`, which keeps the iterations completed before a failure and names the failed one.
 
-```nurt
+```nurt example
 each (find "/srv/app" glob: "**/*.log") as f {
     lines f.path |> filter text ~ /ERROR/ |> write "/srv/reports/" + f.name + ".err" mode: overwrite
 }
@@ -72,7 +72,7 @@ each (find "/srv/app" glob: "**/*.log") as f {
 
 `steps { … }` holds pipelines that each change; `let` passes results to later steps.
 
-```nurt
+```nurt example
 steps {
     find "/srv/app/old" glob: "*.conf" |> move to: "/srv/app/conf"
     replace /old\/path/ "conf/path" in: "/srv/app/app.toml" expect: 3
@@ -83,7 +83,7 @@ steps {
 
 `define name(parameter: type = default, …) { … }` defines a function; a call is written `name(value, parameter: value)`. The body sees its parameters (`@dir`) and its own `let`, nothing of the caller. The value of the last statement is the result. Recursion ends with `E_LIMIT` at `function.max_depth` (64).
 
-```nurt
+```nurt example
 define rotate_logs(dir: path, keep: int = 7) {
     find @dir glob: "*.log.*" |> sort modified desc |> skip @keep |> remove
 }
@@ -95,7 +95,7 @@ rotate_logs("/var/log/app2", keep: 14)
 
 A file starts with `params { … }`; each line is a name, a type and an optional default. `nurt run cleanup.nurt dir: "/srv/app" days: 7 dry` passes the values, `nurt run cleanup.nurt --help` prints the declaration, and the engine takes the values in the `params` member of the request. A missing value, an unknown name (with the nearest name) or a value of the wrong type is reported before anything runs.
 
-```nurt
+```nurt example
 params {
     dir: path
     days: int = 30
