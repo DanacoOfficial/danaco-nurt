@@ -218,7 +218,7 @@ fn sudo_writes_a_system_file_and_undo_removes_it() {
         .args(["-n", "rm", "-f", target])
         .status();
     let config = "[privilege]\nbackends = [\"sudo\"]\n";
-    let write = format!("write \"{target}\" \"a=1\\n\" privilege: elevated");
+    let write = format!("write \"{target}\" \"a=1\\n\" mode: create privilege: elevated");
     let home = tempfile::tempdir().unwrap();
     let output = nurt_in(home.path(), &["--format", "json", &write], "", Some(config));
     let written = response(&output);
@@ -310,6 +310,24 @@ fn package_install_with_privilege_elevated_is_undone_by_removal() {
     assert!(!shell(&format!("dpkg -s {package} > /dev/null 2>&1")));
 }
 
+/// Removes the test unit when the test ends, also when an assertion fails.
+#[cfg(unix)]
+struct UnitGuard {
+    unit: &'static str,
+    file: String,
+}
+
+#[cfg(unix)]
+impl Drop for UnitGuard {
+    fn drop(&mut self) {
+        shell(&format!(
+            "systemctl stop {unit}; systemctl disable {unit}; rm -f {file}; systemctl daemon-reload; systemctl reset-failed {unit}",
+            unit = self.unit,
+            file = self.file
+        ));
+    }
+}
+
 #[cfg(unix)]
 #[test]
 #[ignore = "needs root and systemd"]
@@ -320,6 +338,10 @@ fn service_start_and_stop_with_privilege_elevated_are_undone() {
     }
     let unit = "nurt-test-priv";
     let file = format!("/etc/systemd/system/{unit}.service");
+    let _guard = UnitGuard {
+        unit,
+        file: file.clone(),
+    };
     std::fs::write(
         &file,
         "[Unit]\nDescription=nurt test unit\n[Service]\nExecStart=/bin/sleep 3600\n",
@@ -328,32 +350,26 @@ fn service_start_and_stop_with_privilege_elevated_are_undone() {
     assert!(shell("systemctl daemon-reload"));
     let active = || shell(&format!("systemctl is-active --quiet {unit}"));
     let home = tempfile::tempdir().unwrap();
-    let started = run_json(
-        home.path(),
-        &format!("services name: \"{unit}\" |> start privilege: elevated"),
-    );
+    let call = |verb: &str| {
+        run_json(
+            home.path(),
+            &format!("services name: \"{unit}.service\" |> {verb} privilege: elevated"),
+        )
+    };
+    let started = call("start");
     assert_eq!(started.report.status, ReportStatus::Ok, "{started:?}");
     assert!(active());
     let op = started.report.op.expect("an entry number");
     let undone = run_json(home.path(), &format!("undo {op}"));
     assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
     assert!(!active());
-    let started = run_json(
-        home.path(),
-        &format!("services name: \"{unit}\" |> start privilege: elevated"),
-    );
-    assert_eq!(started.report.status, ReportStatus::Ok);
-    let stopped = run_json(
-        home.path(),
-        &format!("services name: \"{unit}\" |> stop privilege: elevated"),
-    );
+    let started = call("start");
+    assert_eq!(started.report.status, ReportStatus::Ok, "{started:?}");
+    let stopped = call("stop");
     assert_eq!(stopped.report.status, ReportStatus::Ok, "{stopped:?}");
     assert!(!active());
     let op = stopped.report.op.expect("an entry number");
     let undone = run_json(home.path(), &format!("undo {op}"));
     assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
     assert!(active());
-    shell(&format!(
-        "systemctl stop {unit}; rm -f {file}; systemctl daemon-reload"
-    ));
 }
