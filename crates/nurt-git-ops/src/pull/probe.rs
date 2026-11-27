@@ -426,7 +426,7 @@ pub(crate) mod tests {
     impl Fixture {
         pub(crate) fn new() -> Self {
             let dir = tempfile::tempdir().unwrap();
-            let repo = gix::init(dir.path()).unwrap();
+            let repo = nurt_git::testutil::init_isolated(dir.path()).unwrap();
             fs::write(repo.git_dir().join("HEAD"), "ref: refs/heads/main\n").unwrap();
             Self {
                 dir,
@@ -562,7 +562,7 @@ pub(crate) mod tests {
     #[test]
     fn rejects_a_bare_repository() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        nurt_git::testutil::init_bare_isolated(dir.path()).unwrap();
         let error = open(dir.path(), &test_ctx()).err().unwrap();
         assert_eq!(error.code, ErrorCode::GitUnsupported);
         assert_eq!(error.problem.as_deref(), Some("bare_repository"));

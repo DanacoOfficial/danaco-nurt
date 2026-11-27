@@ -478,7 +478,7 @@ impl Fixture {
 
 /// Fetches every branch of the remote at `url` into `refs/remotes/origin/`.
 fn fetch(repo: &Path, url: &str, transport: impl Transport) -> gix::remote::fetch::Outcome {
-    let repo = gix::open(repo).unwrap();
+    let repo = gix::open_opts(repo, gix::open::Options::isolated()).unwrap();
     let url = gix_url::parse(BStr::new(url)).unwrap();
     let remote = repo
         .remote_at(url)
@@ -497,7 +497,7 @@ fn fetch(repo: &Path, url: &str, transport: impl Transport) -> gix::remote::fetc
 }
 
 fn push(transport: &mut SshTransport, repo: &Path, commands: &[RefCommand]) {
-    let repo = gix::open(repo).unwrap();
+    let repo = gix::open_opts(repo, gix::open::Options::isolated()).unwrap();
     let advertisement = send_pack::discover(transport).unwrap();
     let outcome = send_pack::send(
         transport,

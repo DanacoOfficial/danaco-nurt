@@ -20,7 +20,7 @@ pub(crate) struct Fixture {
 impl Fixture {
     pub(crate) fn new() -> Self {
         let dir = tempfile::tempdir().expect("temporary directory");
-        let repo = gix::init(dir.path()).expect("repository");
+        let repo = nurt_git::testutil::init_isolated(dir.path()).expect("repository");
         Self { dir, repo }
     }
 

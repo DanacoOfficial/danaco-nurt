@@ -355,18 +355,24 @@ mod tests {
 
     #[test]
     fn relative_paths_are_normalized_against_the_root() {
-        let root = Path::new("/r");
+        let root = &nurt_testkit::paths::abs_path("/r");
         assert_eq!(relative_path(root, "a/b/../c").unwrap(), "a/c");
         assert_eq!(relative_path(root, r"a\b").unwrap(), "a/b");
         assert_eq!(relative_path(root, ".").unwrap(), "");
-        assert_eq!(relative_path(root, "/r").unwrap(), "");
-        assert_eq!(relative_path(root, "/r/x").unwrap(), "x");
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/r").as_str()).unwrap(),
+            ""
+        );
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/r/x").as_str()).unwrap(),
+            "x"
+        );
     }
 
     #[test]
     fn paths_outside_the_root_are_rejected() {
-        let root = Path::new("/r");
-        let error = relative_path(root, "/rx/a").unwrap_err();
+        let root = &nurt_testkit::paths::abs_path("/r");
+        let error = relative_path(root, nurt_testkit::paths::abs("/rx/a").as_str()).unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidValue);
         assert_eq!(error.problem.as_deref(), Some("outside_repository"));
         assert!(relative_path(root, "a/../../b").is_err());

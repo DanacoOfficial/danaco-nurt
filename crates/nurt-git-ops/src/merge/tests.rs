@@ -318,7 +318,7 @@ fn reads_options_from_repository_configuration() {
         "[merge]\n\tconflictStyle = zdiff3\n\trenames = false\n\trenormalize = true\n\tdefault = keep\n[merge \"keep\"]\n\tname = keep ours\n\tdriver = keep %A\n",
     );
     std::fs::write(&config, text).unwrap();
-    let repo = gix::open(fx.repo.git_dir()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(fx.repo.git_dir()).unwrap();
     let opts = MergeOptions::from_repo(&repo).unwrap();
     assert_eq!(opts.conflict_style, ConflictStyle::Zdiff3);
     assert!(opts.renames.is_none());
@@ -352,7 +352,7 @@ fn rejects_unknown_conflict_style_in_configuration() {
     let mut text = std::fs::read_to_string(&config).unwrap();
     text.push_str("[merge]\n\tconflictStyle = fancy\n");
     std::fs::write(&config, text).unwrap();
-    let repo = gix::open(fx.repo.git_dir()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(fx.repo.git_dir()).unwrap();
     let error = MergeOptions::from_repo(&repo).unwrap_err();
     assert_eq!(error.code(), ErrorCode::Config);
 }

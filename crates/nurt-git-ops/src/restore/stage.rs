@@ -439,26 +439,39 @@ mod tests {
 
     #[test]
     fn absolute_paths_outside_the_root_are_refused() {
-        let root = Path::new("/r/repo");
+        let root = &nurt_testkit::paths::abs_path("/r/repo");
         assert_eq!(
-            relative_path(root, "/r/repo/src/a.txt").expect("inside"),
+            relative_path(root, nurt_testkit::paths::abs("/r/repo/src/a.txt").as_str())
+                .expect("inside"),
             "src/a.txt"
         );
-        assert_eq!(relative_path(root, "/r/repo").expect("root"), ".");
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/r/repo").as_str()).expect("root"),
+            "."
+        );
         assert_eq!(relative_path(root, "*.txt").expect("pattern"), "*.txt");
-        let error = relative_path(root, "/elsewhere/a.txt").expect_err("outside");
+        let error = relative_path(root, nurt_testkit::paths::abs("/elsewhere/a.txt").as_str())
+            .expect_err("outside");
         assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 
     #[test]
     fn parent_components_of_absolute_paths_are_resolved_not_dropped() {
-        let root = Path::new("/r/repo");
+        let root = &nurt_testkit::paths::abs_path("/r/repo");
         assert_eq!(
-            relative_path(root, "/r/repo/sub/../a.txt").expect("inside"),
+            relative_path(
+                root,
+                nurt_testkit::paths::abs("/r/repo/sub/../a.txt").as_str()
+            )
+            .expect("inside"),
             "a.txt"
         );
-        let error = relative_path(root, "/r/repo/../other/a.txt").expect_err("outside");
+        let error = relative_path(
+            root,
+            nurt_testkit::paths::abs("/r/repo/../other/a.txt").as_str(),
+        )
+        .expect_err("outside");
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 

@@ -342,11 +342,18 @@ mod tests {
 
     #[test]
     fn absolute_paths_outside_the_working_tree_are_rejected() {
-        let root = Path::new("/srv/repo");
-        assert_eq!(relative_path(root, "/srv/repo/a/b.txt").unwrap(), "a/b.txt");
-        assert_eq!(relative_path(root, "/srv/repo").unwrap(), ".");
+        let root = &nurt_testkit::paths::abs_path("/srv/repo");
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/srv/repo/a/b.txt").as_str()).unwrap(),
+            "a/b.txt"
+        );
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/srv/repo").as_str()).unwrap(),
+            "."
+        );
         assert_eq!(relative_path(root, "dir/x").unwrap(), "dir/x");
-        let error = relative_path(root, "/srv/other/x").unwrap_err();
+        let error =
+            relative_path(root, nurt_testkit::paths::abs("/srv/other/x").as_str()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("invalid_path"));
     }
 }

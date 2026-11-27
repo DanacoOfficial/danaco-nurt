@@ -911,16 +911,21 @@ mod tests {
 
     #[test]
     fn relative_paths_reject_escapes_and_git_directory() {
-        let root = Path::new("/srv/repo");
+        let root = &nurt_testkit::paths::abs_path("/srv/repo");
         assert_eq!(repo_relative(root, "src/./a.rs").unwrap(), "src/a.rs");
-        assert_eq!(repo_relative(root, "/srv/repo/src").unwrap(), "src");
+        assert_eq!(
+            repo_relative(root, nurt_testkit::paths::abs("/srv/repo/src").as_str()).unwrap(),
+            "src"
+        );
         assert_eq!(repo_relative(root, ".").unwrap(), "");
         assert_eq!(
             repo_relative(root, "../x").unwrap_err().code(),
             ErrorCode::GitNotRepository
         );
         assert_eq!(
-            repo_relative(root, "/etc/hosts").unwrap_err().code(),
+            repo_relative(root, nurt_testkit::paths::abs("/etc/hosts").as_str())
+                .unwrap_err()
+                .code(),
             ErrorCode::GitNotRepository
         );
         assert_eq!(
@@ -1025,7 +1030,7 @@ mod tests {
     fn empty_identity_variables_fall_back_to_the_configuration() {
         use crate::testutil::{TestHost, test_ctx_with};
         let dir = tempfile::tempdir().unwrap();
-        gix::init(dir.path()).unwrap();
+        crate::testutil::init_isolated(dir.path()).unwrap();
         let config = dir.path().join(".git/config");
         let mut text = std::fs::read_to_string(&config).unwrap();
         text.push_str("[user]\n\tname = Config Name\n\temail = config@example.com\n");
@@ -1043,7 +1048,7 @@ mod tests {
     fn identity_characters_that_break_a_log_line_are_removed() {
         use crate::testutil::{TestHost, test_ctx_with};
         let dir = tempfile::tempdir().unwrap();
-        gix::init(dir.path()).unwrap();
+        crate::testutil::init_isolated(dir.path()).unwrap();
         let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
         let host = TestHost::new("/nonexistent-home")
             .with_var("GIT_COMMITTER_NAME", "Ada <Lovelace>\n")
@@ -1125,7 +1130,7 @@ mod tests {
     #[test]
     fn packed_reference_lookup_matches_whole_names_only() {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = crate::testutil::init_isolated(dir.path()).unwrap();
         let id = "1".repeat(40);
         std::fs::write(
             repo.common_dir().join("packed-refs"),

@@ -537,15 +537,15 @@ mod tests {
     #[test]
     fn reads_the_log_policy_from_configuration() {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = crate::send_pack::testing::init_isolated(dir.path(), false);
         assert_eq!(LogPolicy::of(&repo), LogPolicy::Standard);
-        let bare = gix::init_bare(dir.path().join("bare.git")).unwrap();
+        let bare = crate::send_pack::testing::init_isolated(&dir.path().join("bare.git"), true);
         assert_eq!(LogPolicy::of(&bare), LogPolicy::Existing);
         let config = dir.path().join(".git").join("config");
         let mut text = std::fs::read_to_string(&config).unwrap();
         text.push_str("[core]\n\tlogAllRefUpdates = always\n");
         std::fs::write(&config, text).unwrap();
-        let repo = gix::open(dir.path()).unwrap();
+        let repo = crate::send_pack::testing::open_isolated(dir.path());
         assert_eq!(LogPolicy::of(&repo), LogPolicy::Always);
         assert!(LogPolicy::Always.creates_log_for(b"refs/tags/v1"));
         assert!(!LogPolicy::Standard.creates_log_for(b"refs/tags/v1"));

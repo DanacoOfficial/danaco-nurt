@@ -319,25 +319,31 @@ impl SshNotice {
 mod options_tests {
     use super::*;
 
-    fn env_of(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<OsString> {
+    fn env_of(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> + use<> {
+        let pairs: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+            .collect();
         move |name| {
             pairs
                 .iter()
-                .find(|(key, _)| *key == name)
+                .find(|(key, _)| key == name)
                 .map(|(_, value)| OsString::from(value))
         }
     }
 
     #[test]
     fn linux_defaults_follow_xdg_and_etc() {
+        let sock = nurt_testkit::paths::abs("/run/user/1000/agent.sock");
+        let config_home = nurt_testkit::paths::abs("/home/user/.cfg");
         let env = env_of(&[
-            ("SSH_AUTH_SOCK", "/run/user/1000/agent.sock"),
-            ("XDG_CONFIG_HOME", "/home/user/.cfg"),
+            ("SSH_AUTH_SOCK", sock.as_str()),
+            ("XDG_CONFIG_HOME", config_home.as_str()),
             ("GIT_SSH_COMMAND", "ssh -i key"),
             ("GIT_SSH", ""),
         ]);
         let options = SshOptions::for_host(
-            "/home/user".into(),
+            nurt_testkit::paths::abs("/home/user").as_str().into(),
             "user".into(),
             "box".into(),
             Os::Linux,
@@ -345,16 +351,18 @@ mod options_tests {
         );
         assert_eq!(
             options.auth_sock,
-            Some(PathBuf::from("/run/user/1000/agent.sock"))
+            Some(nurt_testkit::paths::abs_path("/run/user/1000/agent.sock"))
         );
         assert_eq!(
             options.nurt_known_hosts,
-            Some(PathBuf::from("/home/user/.cfg/nurt/known_hosts"))
+            Some(nurt_testkit::paths::abs_path(
+                "/home/user/.cfg/nurt/known_hosts"
+            ))
         );
         assert_eq!(options.system_dir, Some(PathBuf::from("/etc/ssh")));
         assert_eq!(
             options.user_config,
-            Some(PathBuf::from("/home/user/.ssh/config"))
+            Some(nurt_testkit::paths::abs_path("/home/user/.ssh/config"))
         );
         assert_eq!(options.ignored_ssh_command, ["GIT_SSH_COMMAND"]);
         assert_eq!(options.connect_timeout, DEFAULT_CONNECT_TIMEOUT);

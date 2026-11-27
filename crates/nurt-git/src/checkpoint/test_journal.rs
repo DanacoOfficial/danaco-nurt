@@ -144,7 +144,12 @@ impl Fixture {
     pub(crate) fn state_without_refs(&self) -> BTreeMap<PathBuf, TreeEntry> {
         self.state()
             .into_iter()
-            .filter(|(path, _)| !path.to_string_lossy().contains(CHECKPOINT_REFS))
+            .filter(|(path, _)| {
+                !path
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .contains(CHECKPOINT_REFS)
+            })
             .collect()
     }
 
@@ -190,7 +195,7 @@ fn write_index(repo: &gix::Repository, entries: &BTreeMap<BString, Blob>) {
 fn checked_state(base: &Path) -> BTreeMap<PathBuf, TreeEntry> {
     testutil::snapshot(base)
         .into_iter()
-        .filter(|(path, _)| !path.to_string_lossy().contains(OBJECTS))
+        .filter(|(path, _)| !path.to_string_lossy().replace('\\', "/").contains(OBJECTS))
         .collect()
 }
 

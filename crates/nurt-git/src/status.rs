@@ -1296,7 +1296,7 @@ mod tests {
     #[test]
     fn bare_repository_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        crate::testutil::init_bare_isolated(dir.path()).unwrap();
         let ctx = test_ctx();
         let opened = open_repository(dir.path(), &ctx).unwrap();
         let error =

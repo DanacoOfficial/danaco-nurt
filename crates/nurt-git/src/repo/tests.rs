@@ -52,13 +52,16 @@ fn separate_git_directory_is_followed_through_the_git_file() {
     std::fs::rename(fixture.path().join(".git"), &moved).unwrap();
     std::fs::write(
         fixture.path().join(".git"),
-        format!("gitdir: {}\n", moved.display()),
+        format!(
+            "gitdir: {}\n",
+            moved.display().to_string().replace('\\', "/")
+        ),
     )
     .unwrap();
     let mut config = std::fs::read_to_string(moved.join("config")).unwrap();
     config.push_str(&format!(
         "[core]\n\tworktree = {}\n",
-        fixture.path().display()
+        fixture.path().display().to_string().replace('\\', "/")
     ));
     std::fs::write(moved.join("config"), config).unwrap();
     let repo = GitRepo::discover(fixture.path(), &test_ctx()).unwrap();

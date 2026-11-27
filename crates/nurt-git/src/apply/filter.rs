@@ -199,7 +199,7 @@ mod tests {
     use super::*;
 
     fn repository(dir: &std::path::Path, attributes: &str) -> gix::Repository {
-        let repo = gix::init(dir).expect("init");
+        let repo = crate::testutil::init_isolated(dir).expect("init");
         std::fs::write(dir.join(".gitattributes"), attributes).expect("attributes");
         repo
     }
@@ -239,7 +239,7 @@ mod clean_tests {
     #[test]
     fn clean_converts_working_tree_line_endings_to_lf() {
         let dir = tempfile::tempdir().expect("temp dir");
-        let repo = gix::init(dir.path()).expect("init");
+        let repo = crate::testutil::init_isolated(dir.path()).expect("init");
         std::fs::write(dir.path().join(".gitattributes"), "f.txt text eol=crlf\n")
             .expect("attributes");
         let index = gix_index::State::new(repo.object_hash());

@@ -461,7 +461,7 @@ mod tests {
     #[test]
     fn local_repository_opens_the_in_process_transport() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        crate::send_pack::testing::init_isolated(dir.path(), true);
         let url = format!("file://{}", dir.path().display());
         assert!(connect(&url, Direction::Fetch, &options()).is_ok());
     }

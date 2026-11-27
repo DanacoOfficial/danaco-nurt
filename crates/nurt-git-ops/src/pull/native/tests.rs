@@ -61,7 +61,7 @@ impl Pair {
     }
 
     fn branch(&self) -> ObjectId {
-        let repo = gix::open(self.local.root()).unwrap();
+        let repo = nurt_git::testutil::open_isolated(self.local.root()).unwrap();
         repo.find_reference("refs/heads/main")
             .unwrap()
             .into_fully_peeled_id()
@@ -144,7 +144,7 @@ fn fetch_plans_the_tracking_update_and_fetch_head() {
     );
     assert!(outcome.objects_received > 0);
     assert!(
-        gix::open(pair.local.root())
+        nurt_git::testutil::open_isolated(pair.local.root())
             .unwrap()
             .has_object(pair.upstream)
     );
@@ -203,7 +203,7 @@ fn rebase_replays_local_commits_onto_the_fetched_head() {
     let pair = Pair::new(LOCAL);
     let outcome = rebase(&pair, RebaseKind::Plain).unwrap();
 
-    let repo = gix::open(pair.local.root()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(pair.local.root()).unwrap();
     let rebased = repo.find_commit(pair.branch()).unwrap();
     assert_eq!(rebased.parent_ids().next().unwrap().detach(), pair.upstream);
     assert_eq!(pair.read("a.txt"), "a\nb\n");

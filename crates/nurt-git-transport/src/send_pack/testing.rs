@@ -37,6 +37,41 @@ use nurt_contracts::stage::CancelToken;
 
 use super::refs::content_hash;
 
+/// Creates a repository at `root` (bare when `bare` is set) and opens it
+/// without the configuration of the machine that runs the tests (system and
+/// global files, environment), so that a setting such as `core.autocrlf` of
+/// Git for Windows does not change what a test sees.
+pub fn init_isolated(root: &Path, bare: bool) -> gix::Repository {
+    let kind = if bare {
+        gix::create::Kind::Bare
+    } else {
+        gix::create::Kind::WithWorktree
+    };
+    let repo = gix::ThreadSafeRepository::init_opts(
+        root,
+        kind,
+        gix::create::Options::default(),
+        isolated_options(),
+    )
+    .expect("repository")
+    .to_thread_local();
+    // `git` writes `\n` line ends on every system; `gix` uses `\r\n` on
+    // Windows.
+    let config = repo.git_dir().join("config");
+    let text = std::fs::read_to_string(&config).expect("configuration is readable");
+    std::fs::write(&config, text.replace("\r\n", "\n")).expect("configuration is writable");
+    repo
+}
+
+/// Opens the repository at `root` as [`init_isolated`] does.
+pub fn open_isolated(root: &Path) -> gix::Repository {
+    gix::open_opts(root, isolated_options()).expect("open")
+}
+
+/// Options of [`open_isolated`].
+pub fn isolated_options() -> gix::open::Options {
+    gix::open::Options::isolated().with_enforced_trust(gix::sec::Trust::Full)
+}
 /// Fixed time of fixture commits.
 const FIXTURE_SECONDS: i64 = 1_700_000_000;
 
@@ -68,11 +103,7 @@ impl Fixture {
 
     /// Repository at `root`, created when absent.
     pub fn init(root: &Path, bare: bool) -> Self {
-        let repo = if bare {
-            gix::init_bare(root).expect("init bare")
-        } else {
-            gix::init(root).expect("init")
-        };
+        let repo = init_isolated(root, bare);
         let git_dir = repo.git_dir().to_path_buf();
         std::fs::write(git_dir.join("HEAD"), b"ref: refs/heads/main\n").expect("HEAD");
         Self {
@@ -94,7 +125,7 @@ impl Fixture {
 
     /// Opened repository.
     pub fn repo(&self) -> gix::Repository {
-        gix::open(&self.root).expect("open")
+        open_isolated(&self.root)
     }
 
     /// Appends configuration text to the repository configuration.

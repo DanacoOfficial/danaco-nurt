@@ -1060,7 +1060,7 @@ fn log_setting_is_read_as_git_reads_it() {
         );
     }
     let bare = tempfile::tempdir().expect("directory");
-    gix::init_bare(bare.path()).expect("bare repository");
+    crate::testutil::init_bare_isolated(bare.path()).expect("bare repository");
     let config = bare.path().join("config");
     let mut text = std::fs::read_to_string(&config).expect("config");
     text.push_str("[core]\n\tlogAllRefUpdates = true\n");

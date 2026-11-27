@@ -23,12 +23,12 @@ pub(crate) struct TestRepo {
 impl TestRepo {
     pub(crate) fn init() -> Self {
         let dir = tempfile::tempdir().expect("temporary directory");
-        let initialized = gix::init(dir.path()).expect("initialized repository");
+        let initialized = crate::send_pack::testing::init_isolated(dir.path(), false);
         let config = initialized.git_dir().join("config");
         let mut text = std::fs::read_to_string(&config).expect("configuration read");
         text.push_str(IDENTITY);
         std::fs::write(&config, text).expect("configuration written");
-        let repo = gix::open(dir.path()).expect("opened repository");
+        let repo = crate::send_pack::testing::open_isolated(dir.path());
         let this = Self { dir, repo };
         this.set_head("main");
         this

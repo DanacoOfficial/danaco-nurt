@@ -52,6 +52,59 @@ fn fixture_options() -> gix::open::Options {
     )
 }
 
+/// Creates a repository with a working tree at `dir` and opens it with the
+/// options of the fixtures. The configuration of the machine that runs the
+/// tests (system and global files, environment) is never read, so that a
+/// setting such as `core.autocrlf` of Git for Windows does not change what a
+/// test sees.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be created.
+pub fn init_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    init_with(dir.as_ref(), gix::create::Kind::WithWorktree)
+}
+
+/// Creates a bare repository at `dir`, opened as [`init_isolated`] opens it.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be created.
+pub fn init_bare_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    init_with(dir.as_ref(), gix::create::Kind::Bare)
+}
+
+/// Opens the repository at `dir` with the options of the fixtures, without
+/// the configuration of the machine that runs the tests.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be opened.
+pub fn open_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    gix::open_opts(dir.as_ref(), fixture_options())
+}
+
+fn init_with(dir: &Path, kind: gix::create::Kind) -> gix::Result<gix::Repository> {
+    let repo = gix::ThreadSafeRepository::init_opts(
+        dir,
+        kind,
+        gix::create::Options::default(),
+        fixture_options(),
+    )?
+    .to_thread_local();
+    with_git_line_ends(repo.git_dir());
+    Ok(repo)
+}
+
+/// Rewrites the configuration of the repository at `git_dir` with `\n` line
+/// ends, as `git` writes it on every system; `gix` uses the line ends of the
+/// system, `\r\n` on Windows.
+pub fn with_git_line_ends(git_dir: &Path) {
+    let path = git_dir.join("config");
+    let text = std::fs::read_to_string(&path).expect("configuration is readable");
+    std::fs::write(&path, text.replace("\r\n", "\n")).expect("configuration is writable");
+}
+
 /// Clock that always reads the same wall time.
 #[derive(Debug, Clone, Copy)]
 pub struct FixedClock {

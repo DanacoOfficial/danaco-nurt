@@ -436,7 +436,7 @@ fn errors_come_before_warnings_and_message_findings_name_the_root() {
 #[test]
 fn a_bare_repository_has_no_working_tree_to_review() {
     let dir = tempfile::tempdir().unwrap();
-    gix::init_bare(dir.path()).unwrap();
+    crate::testutil::init_bare_isolated(dir.path()).unwrap();
     let review = ReviewRequest::new(dir.path());
     let error = run_review(&review, &context(None)).unwrap_err();
     assert_eq!(error.code(), ErrorCode::GitUnsupported);

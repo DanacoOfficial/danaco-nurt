@@ -199,7 +199,7 @@ mod tests {
         let action_of = |suffix: &str| {
             changes
                 .iter()
-                .find(|change| change.path.as_str().ends_with(suffix))
+                .find(|change| change.path.as_str().replace('\\', "/").ends_with(suffix))
                 .map(|change| change.action)
         };
         assert_eq!(action_of("repo/p"), Some(ChangeAction::Modify));

@@ -18,7 +18,7 @@ impl Fixture {
     /// An empty repository.
     pub(crate) fn new() -> Self {
         let dir = tempfile::tempdir().expect("temporary directory");
-        gix::init(dir.path()).expect("repository");
+        crate::testutil::init_isolated(dir.path()).expect("repository");
         Self { dir }
     }
 

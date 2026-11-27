@@ -476,9 +476,13 @@ mod tests {
         let local = parse("[core]\n\texcludesFile = ~/.ignore\n");
         let env = GitEnv::from_host(&TestHost::new("/home/user"));
         let plan = merge_overrides(&local, &parse(""), &env);
+        let expanded = std::path::Path::new("/home/user").join(".ignore");
         assert_eq!(
             plan.paths,
-            vec![BString::from("core.excludesFile=/home/user/.ignore")]
+            vec![BString::from(format!(
+                "core.excludesFile={}",
+                expanded.display()
+            ))]
         );
     }
 

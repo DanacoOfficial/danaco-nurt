@@ -1106,7 +1106,7 @@ mod tests {
     #[test]
     fn empty_pack_trailer_has_the_length_of_the_repository_hash() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        crate::send_pack::testing::init_isolated(dir.path(), true);
         let config = dir.path().join("config");
         let text = std::fs::read_to_string(&config).unwrap();
         let text = text.replace("repositoryformatversion = 0", "repositoryformatversion = 1");

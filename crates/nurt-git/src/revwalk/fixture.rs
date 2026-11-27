@@ -50,7 +50,7 @@ impl Fixture {
     /// An empty repository.
     pub(crate) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = crate::testutil::init_isolated(dir.path()).unwrap();
         std::fs::write(dir.path().join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
         let root = gix::path::realpath(dir.path()).unwrap();
         Self {
@@ -215,7 +215,7 @@ impl Fixture {
     }
 
     fn head_commit(&self) -> Option<ObjectId> {
-        let repo = gix::open(self.dir.path()).ok()?;
+        let repo = crate::testutil::open_isolated(self.dir.path()).ok()?;
         repo.head_id().ok().map(gix::Id::detach)
     }
 
