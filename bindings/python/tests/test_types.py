@@ -95,6 +95,7 @@ class TypesTest(unittest.TestCase):
             self.skipTest("spec/schemas is not available outside the repository")
         generator = load_generator()
         _, current = generator.strip_header((support.PACKAGE_DIR / "src" / "nurt" / "types.py").read_text("utf-8"))
+        current, _ = generator.strip_footer(current)
         self.assertEqual(current, generator.render(SCHEMAS), "run tools/gen_types.py")
 
     def test_golden_reports_conform_to_report_type(self) -> None:
