@@ -127,7 +127,9 @@ pub(crate) fn classify(definition: &str) -> HelperKind {
         return HelperKind::Program(ProgramHelper::Script(definition.to_owned()));
     }
     let first = words.remove(0);
-    let absolute = Path::new(&first).is_absolute();
+    // Git takes a helper that starts with a separator as an absolute path,
+    // on Windows too, where such a path names the current drive.
+    let absolute = Path::new(&first).is_absolute() || first.starts_with(['/', '\\']);
     let name = if absolute {
         Path::new(&first)
             .file_stem()
@@ -264,7 +266,9 @@ mod tests {
         assert_eq!(classify("manager-core"), HelperKind::CredentialManager);
         assert_eq!(classify("wincred"), HelperKind::CredentialManager);
         assert_eq!(
-            classify("/usr/lib/git-core/git-credential-libsecret"),
+            classify(&nurt_testkit::paths::abs(
+                "/usr/lib/git-core/git-credential-libsecret"
+            )),
             HelperKind::SecretService
         );
     }

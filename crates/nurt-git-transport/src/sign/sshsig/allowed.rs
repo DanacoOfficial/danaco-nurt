@@ -57,7 +57,7 @@ pub(super) fn is_krl(path: &Path) -> Result<bool> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(bytes.starts_with(KRL_MAGIC)),
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(source) => Err(io_error(path, &source)),
+        Err(source) => Err(io_error(path, &directory_error(path, source))),
     }
 }
 
@@ -78,7 +78,17 @@ fn read(path: &Path) -> Result<Option<String>> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(Some(String::from_utf8_lossy(&bytes).into_owned())),
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(source) => Err(io_error(path, &source)),
+        Err(source) => Err(io_error(path, &directory_error(path, source))),
+    }
+}
+
+/// The error of reading `path`; for a directory the error that Linux
+/// reports, which Windows reports as a denied access instead.
+fn directory_error(path: &Path, source: std::io::Error) -> std::io::Error {
+    if path.is_dir() {
+        std::io::Error::from(std::io::ErrorKind::IsADirectory)
+    } else {
+        source
     }
 }
 

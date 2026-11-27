@@ -484,8 +484,16 @@ fn scratch_dir() -> Result<tempfile::TempDir> {
         .map_err(|source| io_error(&std::env::temp_dir(), &source))
 }
 
+/// Path argument of `gpg`; on Windows with `/` separators, which both the
+/// native GnuPG and the MSYS build that comes with Git for Windows read,
+/// while the MSYS build takes a path with `\\` for a relative one.
 fn path_arg(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
+    let text = path.to_string_lossy();
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text.into_owned()
+    }
 }
 
 /// Reads the first line of a passphrase file, as `gpg` does; the file must
@@ -651,7 +659,7 @@ mod tests {
     fn gpg(home: &Path, args: &[&str]) -> std::process::Output {
         let output = Command::new("gpg")
             .arg("--homedir")
-            .arg(home)
+            .arg(path_arg(home))
             .args(["--batch", "--no-tty", "--pinentry-mode", "loopback"])
             .args(args)
             .output()
@@ -729,7 +737,7 @@ mod tests {
         drop(
             Command::new("gpgconf")
                 .arg("--homedir")
-                .arg(home)
+                .arg(path_arg(home))
                 .args(["--kill", "gpg-agent"])
                 .output(),
         );
