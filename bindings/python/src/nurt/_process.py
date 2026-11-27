@@ -480,7 +480,17 @@ class ProcessBackend(Backend):
         return self._text("print", {"ast": dict(ast), "variant": variant})
 
     def correct(self, program: str, variant: str) -> Json:
-        return self._object("correct", {"program": program, "variant": variant})
+        """Correct a program; the result names the corrected text as ``program``.
+
+        The server answers with the corrected tree, the corrections and, when a
+        correction was applied, the canonical text as ``ran``. A program that
+        needed no correction is its own corrected text.
+        """
+        result = self._object("correct", {"program": program, "variant": variant})
+        if "program" in result or "ast" not in result:
+            return result
+        ran = result.get("ran")
+        return {**result, "program": ran if isinstance(ran, str) else program}
 
     def page(self, cursor: str, limit: Optional[int]) -> Json:
         params: Dict[str, Any] = {"cursor": cursor}
@@ -493,16 +503,18 @@ class ProcessBackend(Backend):
         if "language" in what:
             params["language"] = what["language"]
         result = self._query("describe", params)
-        text = result.get("description")
-        if not isinstance(text, str):
+        description = result.get("description")
+        if isinstance(description, dict):
+            description = description.get("text")
+        if not isinstance(description, str):
             raise NurtError("NURT_E_INTERNAL", "invalid result of describe")
-        return text
+        return description
 
     def help(self, topic: Optional[str]) -> str:
         return self._text("help", {} if topic is None else {"topic": topic})
 
     def catalog(self, what: Optional[Mapping[str, Any]]) -> Json:
-        return self._query("catalog", {} if what is None else dict(what))
+        return self._query("catalog", {} if what is None else {"what": dict(what)})
 
     def schema(self, which: str) -> Json:
         return self._query("schema", {"name": which})
