@@ -337,7 +337,7 @@ mod tests {
                 ("id", Value::Int(3)),
                 (
                     "paths",
-                    Value::Text("/home/użytkownik/zażółć.txt".to_owned()),
+                    Value::Text(nurt_testkit::paths::abs("/home/użytkownik/zażółć.txt")),
                 ),
             ],
         );
@@ -345,7 +345,7 @@ mod tests {
             parse(&args).unwrap().selection,
             Selection::Paths {
                 op: OpId(3),
-                paths: vec!["/home/użytkownik/zażółć.txt".to_owned()],
+                paths: vec![nurt_testkit::paths::abs("/home/użytkownik/zażółć.txt")],
             }
         );
         let wrong = call(NAME, &[("id", Value::Int(3)), ("paths", Value::Int(1))]);
@@ -357,7 +357,9 @@ mod tests {
         use super::super::testing::path;
 
         let env = Env::new();
-        let ctx = env.ctx_with(NAME, |options| options.base = Some("/home/user".to_owned()));
+        let ctx = env.ctx_with(NAME, |options| {
+            options.base = Some(nurt_testkit::paths::abs("/home/user"))
+        });
         let args = call(
             NAME,
             &[
@@ -383,7 +385,7 @@ mod tests {
                     "paths",
                     Value::List(vec![
                         Value::Path("a.txt".to_owned()),
-                        Value::Text("/srv/b.txt".to_owned()),
+                        Value::Text(nurt_testkit::paths::abs("/srv/b.txt")),
                     ]),
                 ),
             ],

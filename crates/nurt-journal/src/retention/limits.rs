@@ -824,7 +824,8 @@ mod tests {
         request.age = Some(AgeLimit::Limited(DurationSetting::from_secs(2 * HOUR)));
         limits_store(&store, &request).unwrap();
         let written = store.user_config().unwrap();
-        assert!(written.contains("[journal.volume.\"/home\"]"), "{written}");
+        let table = format!("[journal.volume.\"{}\"]", nurt_testkit::paths::abs("/home"));
+        assert!(written.contains(&table), "{written}");
         assert!(written.contains("max_ops = 15"));
         assert!(written.contains("max_age = \"2h\""));
 

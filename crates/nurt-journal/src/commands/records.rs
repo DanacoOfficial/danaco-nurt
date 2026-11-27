@@ -338,7 +338,7 @@ mod tests {
     use super::*;
 
     fn path(text: &str) -> TargetPath {
-        TargetPath::Fs(AbsPath::new(text).unwrap())
+        TargetPath::Fs(AbsPath::for_test(text))
     }
 
     fn detail(target: &str, action: TargetAction) -> ItemDetail {
@@ -378,7 +378,7 @@ mod tests {
             .build()
             .unwrap();
         for dir in ["/d/tree/sub/deep", "/d/tree/empty"] {
-            fs.seed_dir(&AbsPath::new(dir).unwrap()).unwrap();
+            fs.seed_dir(&AbsPath::for_test(dir)).unwrap();
         }
         fs.seed_file(&AbsPath::for_test("/d/tree/a.bin"), b"1234")
             .unwrap();
@@ -456,9 +456,18 @@ mod tests {
             changes[0].hash_after,
             Some(ContentHash([1; 32]).to_string())
         );
-        assert_eq!(changes[1].path, Path::from("/d/b.txt"));
-        assert_eq!(changes[1].to, Some(Path::from("/d/b.txt")));
-        assert_eq!(changes[1].from, Some(Path::from("/d/e.txt")));
+        assert_eq!(
+            changes[1].path,
+            Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str())
+        );
+        assert_eq!(
+            changes[1].to,
+            Some(Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str()))
+        );
+        assert_eq!(
+            changes[1].from,
+            Some(Path::from(nurt_testkit::paths::abs("/d/e.txt").as_str()))
+        );
         let only = [path("/d/b.txt")];
         assert_eq!(reversals(&details, Some(&only)).len(), 1);
     }
@@ -573,7 +582,10 @@ mod tests {
     fn restored_items_are_reported_with_the_paths_of_a_creation_a_rename_and_a_delete() {
         let created = change(&outcome_of("/d/ñüé", TargetAction::CreateTree), None);
         assert_eq!(created.action, ChangeAction::Create);
-        assert_eq!(created.path, Path::from("/d/ñüé"));
+        assert_eq!(
+            created.path,
+            Path::from(nurt_testkit::paths::abs("/d/ñüé").as_str())
+        );
 
         let moved = change(
             &outcome_of(
@@ -586,9 +598,18 @@ mod tests {
             None,
         );
         assert_eq!(moved.action, ChangeAction::Rename);
-        assert_eq!(moved.path, Path::from("/d/b.txt"));
-        assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
-        assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
+        assert_eq!(
+            moved.path,
+            Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str())
+        );
+        assert_eq!(
+            moved.to,
+            Some(Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str()))
+        );
+        assert_eq!(
+            moved.from,
+            Some(Path::from(nurt_testkit::paths::abs("/d/a.txt").as_str()))
+        );
 
         let mut unchanged = outcome_of("/d/a.txt", TargetAction::Delete);
         unchanged.after = None;
@@ -618,7 +639,10 @@ mod tests {
             let changes = reversals(&details, None);
             assert_eq!(changes.len(), 1, "{action:?}");
             assert_eq!(changes[0].action, reversed, "{action:?}");
-            assert_eq!(changes[0].path, Path::from("/d/a.txt"));
+            assert_eq!(
+                changes[0].path,
+                Path::from(nurt_testkit::paths::abs("/d/a.txt").as_str())
+            );
         }
     }
 
@@ -654,7 +678,10 @@ mod tests {
         let marker = marker(Irreversible::Purged, &[OpId(1)]).unwrap();
         let full = outcome(
             effect("journal.purge", EffectStatus::Ok),
-            vec![Change::new("/d/a.txt".to_owned(), ChangeAction::Delete)],
+            vec![Change::new(
+                nurt_testkit::paths::abs("/d/a.txt"),
+                ChangeAction::Delete,
+            )],
             vec![marker],
         );
         assert_eq!(full.changes.len(), 1);
@@ -686,7 +713,7 @@ mod tests {
             assert_eq!(value.get("op"), Some(&Value::Int(3)));
             assert_eq!(
                 value.get("path"),
-                Some(&Value::Path("/d/ñüé.txt".to_owned()))
+                Some(&Value::Path(nurt_testkit::paths::abs("/d/ñüé.txt")))
             );
             assert_eq!(
                 value.get("expected"),

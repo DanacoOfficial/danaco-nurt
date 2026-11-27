@@ -102,7 +102,7 @@ mod tests {
         assert_eq!(listed.len(), 2);
         assert_eq!(
             listed[0].get("mount"),
-            Some(&Value::Path("/home".to_owned()))
+            Some(&Value::Path(nurt_testkit::paths::abs("/home")))
         );
         assert_eq!(listed[0].get("journal"), Some(&Value::Bool(true)));
         assert_eq!(listed[1].get("journal"), Some(&Value::Bool(false)));
@@ -113,13 +113,19 @@ mod tests {
 
         let home = call(
             NAME,
-            &[("volume", Value::Path("/home/user/docs".to_owned()))],
+            &[(
+                "volume",
+                Value::Path(nurt_testkit::paths::abs("/home/user/docs")),
+            )],
         );
         let listed = read(&Space, &home, &ctx).unwrap();
         assert_eq!(listed.len(), 1);
         let error = read(
             &Space,
-            &call(NAME, &[("volume", Value::Path("/srv".to_owned()))]),
+            &call(
+                NAME,
+                &[("volume", Value::Path(nurt_testkit::paths::abs("/srv")))],
+            ),
             &ctx,
         )
         .unwrap_err();

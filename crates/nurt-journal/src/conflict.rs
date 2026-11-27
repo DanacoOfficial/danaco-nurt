@@ -873,7 +873,7 @@ mod tests {
     fn addresses_are_shown_to_the_language_as_paths_and_provider_keys() {
         assert_eq!(
             display_path(&TargetPath::Fs(abs("/home/użytkownik/zażółć.txt"))),
-            "/home/użytkownik/zażółć.txt"
+            nurt_testkit::paths::abs("/home/użytkownik/zażółć.txt")
         );
         let key = |segments: &[&str], value: Option<&str>| {
             TargetPath::Provider(ProviderKey {

@@ -2577,7 +2577,10 @@ pub(crate) mod testkit {
 
     impl WorldFs<'_> {
         fn node(&self, op: &str, path: &AbsPath) -> FsResult<&Node> {
-            if path.as_path().starts_with("/denied") {
+            if path
+                .as_path()
+                .starts_with(nurt_testkit::paths::abs_path("/denied"))
+            {
                 return Err(FsError::new(
                     FsErrorKind::PermissionDenied,
                     op,
@@ -3483,7 +3486,10 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             file.fix,
-            ["undo file: \"/home/user/a\" since: 0 on_conflict: force"]
+            [format!(
+                "undo file: \"{}\" since: 0 on_conflict: force",
+                nurt_testkit::paths::abs("/home/user/a")
+            )]
         );
     }
 
@@ -3917,7 +3923,7 @@ mod tests {
         let error = undo(&journal, &unknown).unwrap_err();
         assert_eq!(error.code, ErrorCode::JournalNoop);
         assert_eq!(error.problem.as_deref(), Some("path_not_in_operation"));
-        assert_eq!(error.sample, ["/home/user/z"]);
+        assert_eq!(error.sample, [nurt_testkit::paths::abs("/home/user/z")]);
     }
 
     #[test]
@@ -4488,7 +4494,11 @@ mod tests {
     fn path_list_of_a_selection_names_file_paths_only() {
         assert_eq!(
             super::fs_path_list(&[fs_path("/home/user/a"), fs_path("/home/user/b")]),
-            Some("\"/home/user/a\", \"/home/user/b\"".to_owned())
+            Some(format!(
+                "\"{}\", \"{}\"",
+                nurt_testkit::paths::abs("/home/user/a"),
+                nurt_testkit::paths::abs("/home/user/b")
+            ))
         );
         assert_eq!(
             super::fs_path_list(&[fs_path("/home/user/a"), value_path("PATH")]),
@@ -4662,10 +4672,10 @@ mod tests {
         assert_eq!(error.code, ErrorCode::JournalConflict);
         assert_eq!(
             error.fix,
-            [
-                "undo 1 paths: [\"/home/user/a\"] on_conflict: include_later",
-                "undo 1 paths: [\"/home/user/a\"] on_conflict: force"
-            ]
+            ["include_later", "force"].map(|mode| format!(
+                "undo 1 paths: [\"{}\"] on_conflict: {mode}",
+                nurt_testkit::paths::abs("/home/user/a")
+            ))
         );
     }
 
@@ -5607,7 +5617,7 @@ mod journal_ctx_tests {
         };
         let store = CtxStore(&world.ctx);
         let mine = Some(world.ctx.state.account_id());
-        let theirs = Some("/home/other/.local/state/nurt".to_owned());
+        let theirs = Some(nurt_testkit::paths::abs("/home/other/.local/state/nurt"));
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 1, mine)).unwrap();
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 2, theirs)).unwrap();
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 3, None)).unwrap();

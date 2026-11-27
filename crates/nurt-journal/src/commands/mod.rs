@@ -469,7 +469,7 @@ mod tests {
     fn resolves_relative_paths_against_the_base_option() {
         let env = testing::Env::new();
         let ctx = env.ctx_with("journal.status", |options| {
-            options.base = Some("/home/user".to_owned());
+            options.base = Some(nurt_testkit::paths::abs("/home/user"));
         });
         assert_eq!(
             super::resolve(&ctx, "docs").unwrap(),
@@ -484,7 +484,7 @@ mod tests {
     fn absolute_paths_ignore_the_base_option_and_multibyte_names_are_kept() {
         let env = testing::Env::new();
         let ctx = env.ctx_with("journal.status", |options| {
-            options.base = Some("/home/użytkownik".to_owned());
+            options.base = Some(nurt_testkit::paths::abs("/home/użytkownik"));
         });
         assert_eq!(
             super::resolve(&ctx, "docs/zażółć.txt").unwrap(),

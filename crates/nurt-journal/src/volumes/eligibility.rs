@@ -180,7 +180,12 @@ mod tests {
         let mut config = JournalConfig::default();
         let mut settings = VolumeOverride::default();
         settings.enabled = Some(enabled);
-        config.volume.insert(mount.to_owned(), settings);
+        let key = if mount.starts_with('/') {
+            nurt_testkit::paths::abs(mount)
+        } else {
+            mount.to_owned()
+        };
+        config.volume.insert(key, settings);
         config
     }
 

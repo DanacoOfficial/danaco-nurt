@@ -4491,11 +4491,13 @@ mod tests {
             .unwrap()
             .set_modified(old)
             .unwrap();
-        crate::store::test_support::set_path_mode(path.as_path(), 0o600).unwrap();
+        // Windows keeps of the permission bits only the read-only flag.
+        let mode = if cfg!(windows) { 0o444 } else { 0o600 };
+        crate::store::test_support::set_path_mode(path.as_path(), mode).unwrap();
         env.overwrite(&path, b"new");
         let written = env.fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
         assert_eq!(env.read(&path), b"new");
-        assert_eq!(written.mode & 0o777, 0o600);
+        assert_eq!(written.mode & 0o777, mode);
         assert!(written.modified_ns > 1_000_000_000_000, "{written:?}");
     }
 

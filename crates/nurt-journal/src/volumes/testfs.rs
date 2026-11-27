@@ -167,6 +167,22 @@ pub(crate) fn abs(path: &str) -> AbsPath {
     AbsPath::for_test(path)
 }
 
+/// Key of the entry named by the literal `path`: the path in the native form
+/// of [`abs`], so that a literal and an [`AbsPath`] name the same entry.
+fn key(path: &str) -> PathBuf {
+    abs(path).as_path().to_path_buf()
+}
+
+/// Target of a link: an absolute literal in the native form of [`key`], a
+/// relative one as written.
+fn link_target(target: &str) -> PathBuf {
+    if target.starts_with('/') {
+        key(target)
+    } else {
+        PathBuf::from(target)
+    }
+}
+
 impl TestFs {
     pub(crate) fn new() -> Self {
         let fs = Self {
@@ -190,7 +206,7 @@ impl TestFs {
     pub(crate) fn add_volume(&self, root: &str, info: VolumeInfo, space: SpaceInfo) {
         let mut state = self.state();
         state.volumes.push(TestVolume {
-            root: PathBuf::from(root),
+            root: key(root),
             info,
             space,
         });
@@ -202,7 +218,7 @@ impl TestFs {
     pub(crate) fn mkdir_p(&self, path: &str) {
         let mut state = self.state();
         let mut current = PathBuf::new();
-        for component in Path::new(path).components() {
+        for component in key(path).components() {
             current.push(component);
             if state.node(&current).is_none() {
                 state.insert(
@@ -219,7 +235,7 @@ impl TestFs {
 
     pub(crate) fn write_file(&self, path: &str, data: &[u8]) {
         self.state().insert(
-            PathBuf::from(path),
+            key(path),
             Node::File {
                 data: data.to_vec(),
                 mode: 0o644,
@@ -230,9 +246,9 @@ impl TestFs {
 
     pub(crate) fn symlink(&self, path: &str, target: &str) {
         self.state().insert(
-            PathBuf::from(path),
+            key(path),
             Node::Symlink {
-                target: PathBuf::from(target),
+                target: link_target(target),
             },
         );
     }
@@ -240,22 +256,20 @@ impl TestFs {
     /// Marks a directory as belonging to the lower layer of an overlay:
     /// renaming it fails with a cross-device error.
     pub(crate) fn mark_lower(&self, path: &str) {
-        if let Some((_, Node::Dir { lower, .. })) = self.state().nodes.get_mut(Path::new(path)) {
+        if let Some((_, Node::Dir { lower, .. })) = self.state().nodes.get_mut(&key(path)) {
             *lower = true;
         }
     }
 
     /// Denies creation of entries in a directory.
     pub(crate) fn deny_write(&self, path: &str) {
-        self.state().read_only_dirs.insert(PathBuf::from(path));
+        self.state().read_only_dirs.insert(key(path));
     }
 
     /// Makes the operation `op` on `path` and on every entry below it fail
     /// with `kind`.
     pub(crate) fn fail(&self, op: &str, path: &str, kind: FsErrorKind) {
-        self.state()
-            .failures
-            .push((op.to_owned(), PathBuf::from(path), kind));
+        self.state().failures.push((op.to_owned(), key(path), kind));
     }
 
     pub(crate) fn clear_failures(&self) {
@@ -263,18 +277,18 @@ impl TestFs {
     }
 
     pub(crate) fn read(&self, path: &str) -> Option<Vec<u8>> {
-        match self.state().node(Path::new(path)) {
+        match self.state().node(&key(path)) {
             Some(Node::File { data, .. }) => Some(data.clone()),
             _ => None,
         }
     }
 
     pub(crate) fn exists(&self, path: &str) -> bool {
-        self.state().node(Path::new(path)).is_some()
+        self.state().node(&key(path)).is_some()
     }
 
     pub(crate) fn mode(&self, path: &str) -> Option<u32> {
-        match self.state().node(Path::new(path)) {
+        match self.state().node(&key(path)) {
             Some(Node::Dir { mode, .. } | Node::File { mode, .. }) => Some(*mode),
             _ => None,
         }
@@ -282,26 +296,27 @@ impl TestFs {
 
     pub(crate) fn is_hidden(&self, path: &str) -> bool {
         matches!(
-            self.state().node(Path::new(path)),
+            self.state().node(&key(path)),
             Some(Node::Dir { hidden: true, .. } | Node::File { hidden: true, .. })
         )
     }
 
     pub(crate) fn remove_all(&self, path: &str) {
         let mut state = self.state();
-        for key in state.subtree(Path::new(path)) {
-            state.nodes.remove(&key);
+        for entry in state.subtree(&key(path)) {
+            state.nodes.remove(&entry);
         }
     }
 
     /// Names of entries directly inside a directory.
     pub(crate) fn children(&self, path: &str) -> Vec<String> {
+        let dir = key(path);
         let state = self.state();
         state
             .nodes
             .keys()
-            .filter(|key| key.parent() == Some(Path::new(path)))
-            .filter_map(|key| key.file_name())
+            .filter(|entry| entry.parent() == Some(dir.as_path()))
+            .filter_map(|entry| entry.file_name())
             .map(|name| name.to_string_lossy().into_owned())
             .collect()
     }

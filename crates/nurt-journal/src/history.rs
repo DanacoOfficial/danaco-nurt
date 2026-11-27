@@ -1139,7 +1139,7 @@ mod tests {
         assert_eq!(entry.irreversible[0].reason, Irreversible::JournalError);
         assert_eq!(
             entry.irreversible[0].path.as_deref(),
-            Some("/srv/app/src/a.go")
+            Some(nurt_testkit::paths::abs("/srv/app/src/a.go").as_str())
         );
     }
 

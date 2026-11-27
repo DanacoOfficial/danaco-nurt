@@ -191,7 +191,10 @@ mod tests {
         let listed = read(&Status, &call(NAME, &[]), &ctx).unwrap();
         assert_eq!(listed.len(), 1);
         let state = &listed[0];
-        assert_eq!(state.get("volume"), Some(&Value::Path("/home".to_owned())));
+        assert_eq!(
+            state.get("volume"),
+            Some(&Value::Path(nurt_testkit::paths::abs("/home")))
+        );
         assert_eq!(state.get("active"), Some(&Value::Bool(true)));
         assert_eq!(state.get("entries"), Some(&Value::Int(3)));
         assert_eq!(state.get("oldest_id"), Some(&Value::Int(1)));
@@ -209,10 +212,16 @@ mod tests {
     fn a_volume_without_entries_reports_an_empty_journal() {
         let env = Env::new();
         let ctx = env.ctx(NAME);
-        let args = call(NAME, &[("volume", Value::Path("/srv".to_owned()))]);
+        let args = call(
+            NAME,
+            &[("volume", Value::Path(nurt_testkit::paths::abs("/srv")))],
+        );
         let listed = read(&Status, &args, &ctx).unwrap();
         assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].get("volume"), Some(&Value::Path("/".to_owned())));
+        assert_eq!(
+            listed[0].get("volume"),
+            Some(&Value::Path(nurt_testkit::paths::abs("/")))
+        );
         assert_eq!(listed[0].get("active"), Some(&Value::Bool(true)));
         assert_eq!(listed[0].get("entries"), Some(&Value::Int(0)));
     }

@@ -533,7 +533,10 @@ mod tests {
             serde_json::from_slice(&fs.read(&format!("{root}/vol.json")).unwrap()).unwrap();
         assert_eq!(description["dev"], 1);
         assert_eq!(description["fs"], "ext4");
-        assert_eq!(description["anchor"], "/home/user");
+        assert_eq!(
+            description["anchor"],
+            nurt_testkit::paths::abs("/home/user")
+        );
         assert_eq!(
             description["features"],
             serde_json::json!(["durable_metadata"])

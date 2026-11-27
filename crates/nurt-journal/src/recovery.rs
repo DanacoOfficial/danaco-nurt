@@ -3294,7 +3294,7 @@ mod pass_tests {
         let index = world.ctx.state.index().unwrap();
         let part = world.part(0);
         let mut foreign = entry_of(1, Vec::new(), vec![part.clone()]);
-        foreign.account = Some("/home/other/.local/state/nurt".to_owned());
+        foreign.account = Some(nurt_testkit::paths::abs("/home/other/.local/state/nurt"));
         world.write_entry(0, foreign, StateRecord::new(EntryState::Committed), true);
         let mut own = entry_of(2, Vec::new(), vec![part]);
         own.account = Some(world.ctx.state.account_id());

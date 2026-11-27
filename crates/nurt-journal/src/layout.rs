@@ -1008,7 +1008,7 @@ mod tests {
     }
 
     fn seeded(fs: &nurt_fs::mem::MemFs, path: &str) {
-        fs.seed_file(&AbsPath::new(path).unwrap(), b"x").unwrap();
+        fs.seed_file(&AbsPath::for_test(path), b"x").unwrap();
     }
 
     #[test]

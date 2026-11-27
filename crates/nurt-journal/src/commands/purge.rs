@@ -170,7 +170,10 @@ mod tests {
         let env = Env::new();
         env.three_operations();
         let ctx = env.ctx(NAME);
-        let args = call(NAME, &[("volume", Value::Path("/srv".to_owned()))]);
+        let args = call(
+            NAME,
+            &[("volume", Value::Path(nurt_testkit::paths::abs("/srv")))],
+        );
         let error = apply(&env, &Purge, &args, &ctx).err().unwrap();
         assert_eq!(error.code, ErrorCode::NotFound);
         assert_eq!(env.available(), 3);
