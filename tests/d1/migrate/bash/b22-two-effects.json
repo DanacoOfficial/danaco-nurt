@@ -16,13 +16,14 @@
       "source": "mkdir -p /srv/out && cp /srv/a.txt /srv/out",
       "status": "translated",
       "rules": [
+        "B41",
         "B05",
         "L21",
         "B04"
       ],
       "assumptions": [],
       "fix": [],
-      "output": "create \"/srv/out\" type: directory\ncopy \"/srv/a.txt\" to: \"/srv/out\" preserve: false"
+      "output": "steps {\n    create \"/srv/out\" type: directory\n    copy \"/srv/a.txt\" to: \"/srv/out\" preserve: false\n}"
     },
     {
       "line": 6,

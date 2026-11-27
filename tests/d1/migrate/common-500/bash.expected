@@ -1,4 +1,4 @@
-translated without error: 223 of 250
+translated without error: 224 of 250
 translated	rm /tmp/build.log	remove "/tmp/build.log" on_missing: error
 translated	rm -f /var/tmp/app.pid	remove "/var/tmp/app.pid"
 translated	rm -rf /srv/app/build	remove "/srv/app/build"
@@ -146,9 +146,9 @@ translated	[ -d /srv/app ]	info "/srv/app" |> assert all: type == "directory"
 translated	test -d /var/lib/app	info "/var/lib/app" |> assert all: type == "directory"
 translated	[ -f /srv/app/.env ]	info "/srv/app/.env" |> assert all: type == "file"
 translated	test -e /tmp/lock	info "/tmp/lock" |> assert all: exists
-translated	mkdir -p /srv/out && cp /srv/a.txt /srv/out/	create "/srv/out" type: directory copy "/srv/a.txt" into: "/srv/out" preserve: false
-translated	rm -rf /srv/app/build && mkdir /srv/app/build	remove "/srv/app/build" create "/srv/app/build" type: directory parents: false
-translated	cp /etc/hosts /tmp/hosts && chmod 644 /tmp/hosts	copy "/etc/hosts" to: "/tmp/hosts" preserve: false attributes "/tmp/hosts" mode: "644"
+translated	mkdir -p /srv/out && cp /srv/a.txt /srv/out/	steps {     create "/srv/out" type: directory     copy "/srv/a.txt" into: "/srv/out" preserve: false }
+translated	rm -rf /srv/app/build && mkdir /srv/app/build	steps {     remove "/srv/app/build"     create "/srv/app/build" type: directory parents: false }
+translated	cp /etc/hosts /tmp/hosts && chmod 644 /tmp/hosts	steps {     copy "/etc/hosts" to: "/tmp/hosts" preserve: false     attributes "/tmp/hosts" mode: "644" }
 failed	ls /srv/app/out || echo "missing"	E_UNCORRECTABLE: `||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)
 failed	echo $USER	E_UNCORRECTABLE: `$USER` is not substituted; the account is the field `user` of `host` (host_variable)
 failed	ls $HOME	E_UNCORRECTABLE: `$HOME` is not substituted; the home directory is the field `home` of `host` (host_variable)
@@ -248,4 +248,4 @@ translated	find /srv/app -name "*.tmp" | xargs rm	find "/srv/app" glob: "**/*.tm
 translated	echo "x" | tee /tmp/x.txt	write "/tmp/x.txt" "x\n" mode: overwrite
 failed	nohup /srv/app/bin/server &	E_UNCORRECTABLE: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
 translated	timeout 10 curl https://example.com	http.request "https://example.com" follow_redirects: false timeout: 10s
-failed	for f in /srv/app/*.log; do gzip "$f"; done	E_UNCORRECTABLE: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+translated	for f in /srv/app/*.log; do gzip "$f"; done	each (find "/srv/app" glob: "*.log" depth: 1 hidden: false) as f {     compress @f.path keep: false }

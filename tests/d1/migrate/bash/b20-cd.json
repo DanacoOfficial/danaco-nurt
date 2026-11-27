@@ -16,6 +16,7 @@
       "source": "cd /srv/app && go test ./...",
       "status": "translated",
       "rules": [
+        "B41",
         "B20",
         "B38"
       ],

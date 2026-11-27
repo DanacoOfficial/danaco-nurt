@@ -9,7 +9,7 @@
 # B38: git with and without a working directory.
 # translated: B38, L21
 git.status "/srv/app"
-# translated: B20, B38
+# translated: B41, B20, B38
 git.pull "/srv/app"
 # untranslated: E_UNCORRECTABLE: git log --oneline -5
 #   problem: the repository is not given; write `git -C <absolute path>` or `cd <absolute path> &&` before it (repository_directory)
