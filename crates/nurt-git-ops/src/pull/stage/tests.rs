@@ -642,6 +642,7 @@ fn keeps_the_transfer_when_the_rebase_engine_refuses() {
     assert_eq!(scenario.branch(), scenario.local);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn refuses_a_rebase_without_an_engine_after_the_transfer() {
     let scenario = Scenario::new("[pull]\n\trebase = true\n");

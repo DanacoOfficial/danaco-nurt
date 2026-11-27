@@ -7,6 +7,8 @@
 //! every enumerated value is recognized, the defaults equal the constants of
 //! the implementation and the effects of the methods match the effect plan.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -121,6 +123,7 @@ fn sample(name: &str) -> Vec<(&'static str, Value)> {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn every_catalog_parameter_passes_the_check() {
     for param in &spec().params {
@@ -223,6 +226,7 @@ fn method_effects_match_the_plan() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn save_effect_matches_the_plan() {
     let spec = spec();

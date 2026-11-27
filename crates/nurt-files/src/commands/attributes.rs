@@ -893,6 +893,7 @@ mod tests {
         notable.iter().map(|entry| entry.code).collect()
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn every_change_goes_through_the_transaction() {
         let test = TestContext::new();

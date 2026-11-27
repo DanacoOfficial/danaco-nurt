@@ -485,6 +485,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn follows_volume_mounted_at_another_place() {
         let (fs, registry) = setup();
