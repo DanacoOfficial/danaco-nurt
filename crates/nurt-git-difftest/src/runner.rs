@@ -37,7 +37,7 @@ use crate::compare::{DifferenceReport, Sides, compare};
 use crate::corpus::{self, Corpus, REPO_DIR};
 use crate::error::{DifftestError, Result, io_error, scenario_error};
 use crate::fsutil::{self, Entry};
-use crate::git::{GitEnv, GitProgram, expect_exit, join_args};
+use crate::git::{GLOBAL_CONFIG, GitEnv, GitProgram, expect_exit, join_args};
 use crate::journal::{self, RecordingJournal, UndoResult};
 use crate::normalize::{Normalizer, RepoState, SERVER_PLACEHOLDER};
 use crate::process::ScenarioProcessHost;
@@ -143,7 +143,7 @@ impl CaseDirs {
             std::fs::create_dir_all(dir).map_err(io_error("create directory", dir))?;
         }
         let config = dirs.home.join(".gitconfig");
-        std::fs::write(&config, b"").map_err(io_error("write", &config))?;
+        std::fs::write(&config, GLOBAL_CONFIG).map_err(io_error("write", &config))?;
         Ok(dirs)
     }
 }

@@ -32,6 +32,14 @@ pub const IDENTITY_NAME: &str = "Nurt Test";
 /// Author and committer e-mail address of both sides.
 pub const IDENTITY_EMAIL: &str = "test@nurt.invalid";
 
+/// Content of the global configuration file of both sides.
+///
+/// Automatic garbage collection and maintenance are switched off: `git`
+/// starts them detached after a commit, and the lock files and packs they
+/// create would appear and disappear while a repository is copied or its
+/// state is read.
+pub const GLOBAL_CONFIG: &str = "[gc]\n\tauto = 0\n[maintenance]\n\tauto = false\n";
+
 /// Variable that stops the search for a repository above the case directory.
 #[cfg(unix)]
 const CEILING_VARIABLE: &str = "GIT_CEILING_DIRECTORIES";
@@ -282,8 +290,9 @@ pub struct GitEnv {
 impl GitEnv {
     /// Environment with home directory `home` and dates of `clock`.
     ///
-    /// `home` must contain the empty file `.gitconfig`; it is the global
-    /// configuration of both sides.
+    /// `home` must contain the file `.gitconfig`, with the content
+    /// [`GLOBAL_CONFIG`] or empty; it is the global configuration of both
+    /// sides.
     #[must_use]
     pub fn new(home: &Path, clock: ScenarioClock) -> Self {
         let date = OsString::from(clock.git_date());

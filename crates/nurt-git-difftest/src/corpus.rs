@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::error::{DifftestError, Result, io_error};
 use crate::fsutil;
-use crate::git::{GitEnv, GitProgram, IDENTITY_EMAIL, IDENTITY_NAME, expect_exit};
+use crate::git::{GLOBAL_CONFIG, GitEnv, GitProgram, IDENTITY_EMAIL, IDENTITY_NAME, expect_exit};
 use crate::scenario::Platform;
 use crate::time::ScenarioClock;
 
@@ -942,7 +942,7 @@ impl Corpus {
         let home = self.root.join(".home");
         std::fs::create_dir_all(&home).map_err(io_error("create directory", &home))?;
         let config = home.join(".gitconfig");
-        std::fs::write(&config, b"").map_err(io_error("write", &config))?;
+        std::fs::write(&config, GLOBAL_CONFIG).map_err(io_error("write", &config))?;
         let clock =
             ScenarioClock::parse(CORPUS_EPOCH).map_err(|message| DifftestError::Corpus {
                 name: recipe.name.to_owned(),
