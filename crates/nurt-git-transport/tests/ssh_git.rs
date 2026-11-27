@@ -68,6 +68,34 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Path of a repository in the form written after the port of an `ssh://` URL
+/// and in the remote command: `/C:/Users/user/repo.git` on Windows, the path
+/// itself elsewhere.
+fn ssh_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    if cfg!(windows) {
+        format!("/{}", text.replace('\\', "/"))
+    } else {
+        text
+    }
+}
+
+/// Path given to `git` for the path of a remote command: the drive letter of
+/// `/C:/Users/user/repo.git` loses its leading slash on Windows.
+fn local_path(remote: &str) -> &str {
+    let bytes = remote.as_bytes();
+    if cfg!(windows)
+        && bytes.len() > 2
+        && bytes[0] == b'/'
+        && bytes[1].is_ascii_alphabetic()
+        && bytes[2] == b':'
+    {
+        &remote[1..]
+    } else {
+        remote
+    }
+}
+
 /// `git` with an isolated home directory, without system configuration and
 /// with a fixed identity.
 fn git_command(home: &Path) -> Command {
@@ -114,7 +142,7 @@ impl Handler {
         let path = quoted.strip_prefix('\'')?.strip_suffix('\'')?;
         let mut git = git_command(&self.home);
         git.arg(service)
-            .arg(path)
+            .arg(local_path(path))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -475,7 +503,7 @@ impl Fixture {
     }
 
     fn url(&self, repo: &Path) -> String {
-        format!("ssh://git@127.0.0.1:{}{}", self.server.port, repo.display())
+        format!("ssh://git@127.0.0.1:{}{}", self.server.port, ssh_path(repo))
     }
 
     fn connect(&self, repo: &Path, protocol: Protocol) -> SshTransport {
@@ -550,7 +578,7 @@ fn fetch_over_protocol_v2_receives_every_branch() {
     assert_eq!(log.users, ["git"]);
     assert_eq!(
         log.commands,
-        [format!("git-upload-pack '{}'", source.display())]
+        [format!("git-upload-pack '{}'", ssh_path(&source))]
     );
 }
 
@@ -647,8 +675,8 @@ fn push_creates_updates_and_deletes_branches() {
     assert_eq!(
         log.commands,
         [
-            format!("git-receive-pack '{}'", remote.display()),
-            format!("git-receive-pack '{}'", remote.display())
+            format!("git-receive-pack '{}'", ssh_path(&remote)),
+            format!("git-receive-pack '{}'", ssh_path(&remote))
         ]
     );
 }
