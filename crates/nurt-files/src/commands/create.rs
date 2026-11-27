@@ -488,7 +488,7 @@ impl<'c> Planner<'c> {
         let ctx = self.ctx;
         let fs = ctx.require_fs()?;
         match observe(fs, &path)? {
-            Observed::Present(meta) => {
+            Observed::Present(meta, _) => {
                 let special = fs.special_node(&path).ok().flatten();
                 self.existing(&path, &meta, special)
             }

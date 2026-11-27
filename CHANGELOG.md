@@ -160,6 +160,23 @@ their own version numbers, described in the specification.
   - concurrent refreshes of one symbol index on Windows keep the rule "the
     last rename wins"; before, a refresh could fail to store the index while
     another process replaced the same file.
+  - change detection by scan finds a file rewritten with the same size within
+    the timestamp granularity of the file system (ZFS, ext4 without multigrain
+    timestamps, FAT 2 s, HFS+ 1 s) and restores it on undo: a file modified
+    less than 3 s before the start of the first scan gets its content hash
+    computed in both scans, as the racy-entry rule of the Git index does. Only
+    files up to `run.preimage_copy_max` (64 MiB when unlimited) are hashed for
+    this; a larger file is still compared by metadata, so a same-size rewrite
+    of it within the timestamp granularity stays undetected.
+  - an edit, convert or compress after a read, and an `if_match` with the etag
+    of a read, refuse with `E_STALE` a file that another program rewrote with
+    the same size within the timestamp granularity of the file system: the
+    etag (`etag`) of a file whose content was read carries the SHA-256 of the
+    bytes returned, and the journal compares it with the current content. Etags
+    made from metadata only (`list`, `find`, `info`, git apply) are checked by
+    metadata as before. The etag is opaque, and its form depends on the
+    operation that made it (with or without the hash, 72 characters longer).
+    Etags without the hash are still accepted.
 
 ### Changed
 

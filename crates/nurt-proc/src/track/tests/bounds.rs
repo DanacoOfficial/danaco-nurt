@@ -48,6 +48,7 @@ fn bounded_scan(
             roots: &roots,
             ignore: &ignore,
             hash: false,
+            racy: None,
             bound: Some(&bound),
         },
     );
@@ -467,6 +468,7 @@ fn a_listing_that_panics_ends_the_scan_instead_of_blocking_the_other_threads() {
                     roots: &roots,
                     ignore: &ignore,
                     hash: false,
+                    racy: None,
                     bound: None,
                 },
             )

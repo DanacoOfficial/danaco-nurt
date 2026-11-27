@@ -677,7 +677,7 @@ impl Against {
                 let file = dir.join_name(name)?;
                 match observe(ctx.require_fs()?, &file)? {
                     Observed::Absent => Ok((Source::Absent, None)),
-                    Observed::Present(_) => Ok((Source::File(file.clone()), Some(file))),
+                    Observed::Present(..) => Ok((Source::File(file.clone()), Some(file))),
                 }
             }
             Self::Records(records) => {

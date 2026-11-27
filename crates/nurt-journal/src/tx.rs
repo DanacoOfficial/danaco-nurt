@@ -932,7 +932,19 @@ impl<'a> Tx<'a> {
             (Expect::Unchecked, _) => true,
             (Expect::Absent, current) => current.is_none(),
             (Expect::Etag(_) | Expect::Hash(_), None) => false,
-            (Expect::Etag(expected), Some(meta)) => expected.matches(&meta.etag()),
+            (Expect::Etag(expected), Some(meta)) => {
+                if !expected.matches(&meta.etag()) {
+                    false
+                } else if let Some(hash) = expected.hash {
+                    self.ctx
+                        .fs
+                        .content_hash(path)
+                        .map_err(|error| target_error(target.index(), error))?
+                        == hash
+                } else {
+                    true
+                }
+            }
             (Expect::Hash(expected), Some(_)) => {
                 let hash = self
                     .ctx
@@ -4334,7 +4346,9 @@ mod tests {
         let b = env.file("vol-a/b.txt", b"b");
         let mut tx = begin(&env.ctx, request("write"));
         let mut stale_spec = spec(&b, TargetAction::Modify);
-        stale_spec.expect = Expect::Etag(env.fixture.fs.etag(&b, Follow::NoFollow).unwrap());
+        let mut etag = env.fixture.fs.etag(&b, Follow::NoFollow).unwrap();
+        etag.hash = Some(manifest::hash_bytes(b"b"));
+        stale_spec.expect = Expect::Etag(etag);
         tx.preserve(&[spec(&a, TargetAction::Modify), stale_spec])
             .unwrap();
         tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
@@ -4717,6 +4731,54 @@ mod tests {
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[right_hash]).unwrap();
         assert_eq!(env.read(&path), b"a");
+    }
+
+    /// Rewrites `path` with `bytes` of the same size and sets its
+    /// modification time back to `time`, as a coarse timestamp would.
+    fn foreign_rewrite_keeping_time(path: &AbsPath, bytes: &[u8], time: std::time::SystemTime) {
+        std::fs::write(path.as_path(), bytes).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(path.as_path())
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
+    fn racy_modify(env: &Env, path: &AbsPath, etag: nurt_contracts::fs::Etag) -> Result<()> {
+        let mut target = spec(path, TargetAction::Modify);
+        target.expect = Expect::Etag(etag);
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[target]).map(|_| ())
+    }
+
+    #[test]
+    fn a_hashed_etag_detects_a_same_size_rewrite_that_kept_the_modification_time() {
+        let env = Env::new();
+        let path = env.file("vol-a/racy.txt", b"aaaa");
+        let kept = std::fs::metadata(path.as_path())
+            .unwrap()
+            .modified()
+            .unwrap();
+        let mut etag = env.fixture.fs.etag(&path, Follow::NoFollow).unwrap();
+        etag.hash = Some(manifest::hash_bytes(b"aaaa"));
+        racy_modify(&env, &path, etag.clone()).unwrap();
+        foreign_rewrite_keeping_time(&path, b"bbbb", kept);
+        let error = racy_modify(&env, &path, etag).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(env.read(&path), b"bbbb");
+    }
+
+    #[test]
+    fn a_metadata_etag_of_a_file_changed_a_moment_ago_is_accepted() {
+        let env = Env::new();
+        let path = env.file("vol-a/fresh.txt", b"aaaa");
+        let future = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
+        foreign_rewrite_keeping_time(&path, b"bbbb", future);
+        let etag = env.fixture.fs.etag(&path, Follow::NoFollow).unwrap();
+        assert!(etag.hash.is_none());
+        racy_modify(&env, &path, etag).unwrap();
+        assert_eq!(env.read(&path), b"bbbb");
     }
 
     #[test]

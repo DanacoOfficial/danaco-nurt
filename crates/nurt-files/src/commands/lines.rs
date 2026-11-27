@@ -342,7 +342,11 @@ struct FileLines {
 
 impl FileLines {
     fn from_file(ctx: &ExecCtx, file: TextFile, range: Range) -> Self {
-        let etag = record_etag(ctx, &file.path, file.etag(), None);
+        let mut tag = file.meta.etag();
+        if ctx.demand().etag {
+            tag.hash = Some(file.hash);
+        }
+        let etag = etag_text(&tag);
         Self {
             cr_only: splits_at_cr(&file.text),
             offsets: OffsetMapper::for_file(&file.encoding),

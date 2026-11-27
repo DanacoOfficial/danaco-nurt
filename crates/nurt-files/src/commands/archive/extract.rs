@@ -299,7 +299,7 @@ impl EffectStage for ArchiveExtract {
             .take_state::<ExtractState>()
             .ok_or_else(|| missing_state(COMMAND))?;
         let reader = fs.open_read(&state.archive)?;
-        let current = Observed::Present(reader.meta()?);
+        let current = Observed::Present(reader.meta()?, None);
         check_if_match(&state.archive, &current, Some(&state.archive_tag))?;
 
         let preserved = tx.preserve(&state.targets)?;
@@ -655,7 +655,7 @@ impl<'a> Planner<'a> {
             }
             match observe(self.fs, &dir)? {
                 Observed::Absent => missing.push(dir.clone()),
-                Observed::Present(meta) => {
+                Observed::Present(meta, _) => {
                     if meta.kind == FileKind::Directory {
                         self.known.insert(dir, Known::Directory);
                         break;
@@ -757,7 +757,7 @@ impl<'a> Planner<'a> {
                 fs_target(&target, TargetAction::Create, Expect::Absent),
                 Some(mode),
             ),
-            Observed::Present(meta) if meta.kind == FileKind::File => {
+            Observed::Present(meta, _) if meta.kind == FileKind::File => {
                 match self.settings.on_conflict {
                     OnConflict::Overwrite => {
                         self.summary.overwritten += 1;
@@ -772,7 +772,7 @@ impl<'a> Planner<'a> {
                     OnConflict::Error => return Err(exists_error(&target, None)),
                 }
             }
-            Observed::Present(meta) => {
+            Observed::Present(meta, _) => {
                 self.conflict(&entry, &target, meta.kind)?;
                 return Ok(None);
             }

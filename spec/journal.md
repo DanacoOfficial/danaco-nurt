@@ -92,7 +92,23 @@ stage returns. The stage never commits.
    flush returned; a failed flush rolls the transaction back.
 3. Expected state. `TargetSpec::expect` (`unchecked`, `absent`, an entity
    tag or a content hash) is checked atomically with the change. A mismatch
-   fails with `E_STALE` and rolls the whole transaction back.
+   fails with `E_STALE` and rolls the whole transaction back. An entity tag
+   is `size-modified-volume-low-high` in hexadecimal, optionally followed by
+   `-sha256:<digest>`; tags without the hash are accepted. The tag is opaque:
+   its form depends on how it was made. File modification times have a
+   granularity of up to 2 s (FAT) and, on ZFS and ext4 without multigrain
+   timestamps, a few milliseconds, so a same-size rewrite within that
+   granularity leaves size and time unchanged. A tag with a hash is therefore
+   also compared with the hash of the current content. A read stage that read
+   the content (`read`, `lines`, `edit`, `convert`, `compress`, notebooks) puts
+   the hash of the bytes it returned into the tag, so an edit, convert or
+   compress after such a read refuses a foreign same-size rewrite with
+   `E_STALE`. Tags made from metadata only (`list`, `find`, `info`, the git
+   apply, `write`/`copy`/`remove` of paths they did not read) are checked by
+   metadata, as before; a same-size rewrite within the timestamp granularity is
+   not detected for them. Clocks: the check relies on the local clock only in
+   change tracking (see below); NFS attribute caches and a file system clock
+   that differs from the local clock by more than 3 s are not covered.
 4. External writers. Targets written by a library (embedded database
    engine, repository index writer) or by a launched program are declared with
    the action `external_write`; the journal preserves their full previous

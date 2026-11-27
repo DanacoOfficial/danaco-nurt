@@ -240,7 +240,7 @@ impl Planner<'_> {
                 self.ctx.checkpoint()?;
             }
             match source.observe(self.fs)? {
-                Observed::Present(meta) => present.push((source.path, meta)),
+                Observed::Present(meta, _) => present.push((source.path, meta)),
                 Observed::Absent if self.on_missing == OnMissing::Skip => self.summary.missing += 1,
                 Observed::Absent => return Err(missing_error(&source.path)),
             }
@@ -343,7 +343,7 @@ impl Planner<'_> {
             let file = read_text(self.ctx, &edit.path, EncodingParam::Auto)?;
             check_if_match(
                 &edit.path,
-                &Observed::Present(file.meta.clone()),
+                &Observed::Present(file.meta.clone(), Some(file.hash)),
                 edit.etag.as_ref(),
             )?;
             edit.etag = Some(file.etag());
@@ -459,7 +459,7 @@ impl TextEdit {
         let file = read_text(ctx, &self.path, EncodingParam::Auto)?;
         check_if_match(
             &self.path,
-            &Observed::Present(file.meta.clone()),
+            &Observed::Present(file.meta.clone(), Some(file.hash)),
             self.etag.as_ref(),
         )?;
         Ok(file)

@@ -182,11 +182,12 @@ fn a_file_above_the_copy_limit_is_kept_on_a_volume_that_clones() {
 #[test]
 fn excluded_names_are_not_kept() {
     let h = Harness::new();
-    h.write("node_modules/pkg/index.js", "module.exports = 1");
+    h.write_racy("node_modules/pkg/index.js", "module.exports = 1");
     h.write("src/main.js", "main");
+    let kept = h.modified("node_modules/pkg/index.js");
     let mut tx = RecordingTx::new();
     let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
-        h.write("node_modules/pkg/index.js", "module.exports = 2");
+        h.write_keeping_time("node_modules/pkg/index.js", "module.exports = 2", kept);
     });
     assert_eq!(tx.declared.len(), 1);
     let change = h.change(&outcome, "node_modules/pkg/index.js");
@@ -200,15 +201,16 @@ fn explicit_paths_are_kept_regardless_of_limits() {
     let h = Harness::with_config(config(|config| {
         config.run.preimage_max_entries = 0;
     }));
-    h.write("important/state.json", "{\"v\":1}");
+    h.write_racy("important/state.json", "{\"v\":1}");
     h.write("other.txt", "other");
     let spec = TrackSpec {
         preserve: vec![h.path("important")],
         ..h.spec(TrackMode::Scan)
     };
+    let kept = h.modified("important/state.json");
     let mut tx = RecordingTx::new();
     let outcome = h.run(&spec, &mut tx, |h| {
-        h.write("important/state.json", "{\"v\":2}");
+        h.write_keeping_time("important/state.json", "{\"v\":2}", kept);
         h.write("other.txt", "changed");
     });
     assert_eq!(

@@ -18,12 +18,13 @@
 
 use std::io::{self, Read, Write};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use nurt_archive::codec::{self, Algorithm};
 use nurt_archive::compress::{compress, compressed_name};
 use nurt_archive::decompress::{decompress, decompressed_name};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{AbsPath, Etag, FileKind, Follow, ReadHandle};
+use nurt_contracts::fs::{AbsPath, ContentHash, Etag, FileKind, FileMeta, Follow, Fs, ReadHandle};
 use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetSpec};
 use nurt_contracts::record::{Change, Effect, EffectStatus};
 use nurt_contracts::report::{Notable, NotableEntry};
@@ -357,12 +358,13 @@ fn plan_jobs(
             return Err(not_a_file(&target.path, kind, command));
         }
         let observed = observe(fs, &target.path)?;
-        let (Some(etag), Some(meta)) = (observed.etag(), observed.meta()) else {
+        let (Some(mut etag), Some(meta)) = (observed.etag(), observed.meta()) else {
             return Err(Error::new(
                 ErrorCode::NotFound,
                 format!("`{}` does not exist: check the path", target.path),
             ));
         };
+        etag.hash = racy_hash(fs, &target.path, meta);
         let output = derive(ctx, &target.path)?;
         let taken = observe(fs, &output)?.exists() || jobs.iter().any(|job| job.output == output);
         if taken {
@@ -376,6 +378,18 @@ fn plan_jobs(
         });
     }
     Ok((jobs, plan))
+}
+
+/// Content hash of a source modified within the timestamp granularity of the
+/// file system (`RACY_WINDOW`), whose size and modification time would not show
+/// a same-size rewrite between the plan and the apply; the apply reads the
+/// source whole anyway. `None` when the file is older or cannot be read.
+fn racy_hash(fs: &dyn Fs, path: &AbsPath, meta: &FileMeta) -> Option<ContentHash> {
+    if meta.is_racy(SystemTime::now()) {
+        fs.content_hash(path).ok()
+    } else {
+        None
+    }
 }
 
 /// Plan with the declared changes of the jobs and the state for the apply
@@ -430,7 +444,12 @@ fn apply_jobs<'a>(
     let mut changes: Vec<Change> = Vec::with_capacity(specs.len());
     for (position, job) in state.jobs.iter().enumerate() {
         ctx.checkpoint()?;
-        let current = observe(fs, &job.source)?.etag();
+        let mut current = observe(fs, &job.source)?.etag();
+        if job.etag.hash.is_some()
+            && let Some(current) = current.as_mut()
+        {
+            current.hash = fs.content_hash(&job.source).ok();
+        }
         if !current.as_ref().is_some_and(|etag| etag.matches(&job.etag)) {
             return Err(stale_error(&job.source, &job.etag, current.as_ref()));
         }
@@ -605,7 +624,7 @@ mod tests {
     use nurt_contracts::stage::{ArgValue, StageData};
     use nurt_contracts::value::Value;
     use nurt_testkit::ctx::TestContext;
-    use nurt_testkit::fixtures::begin_request;
+    use nurt_testkit::fixtures::{begin_request, racy_time_ns};
     use nurt_testkit::journal::JournalCall;
     use nurt_testkit::vfs::test_path;
 
@@ -1055,6 +1074,25 @@ mod tests {
             .unwrap();
         assert_eq!(plan.notable[0].code, Notable::NothingMatched);
         assert!(plan.changes.is_empty());
+    }
+
+    #[test]
+    fn a_same_size_rewrite_that_kept_the_modification_time_fails_with_stale() {
+        let test = with_files(&[("/data/a.txt", TEXT)]);
+        let path = abs("/data/a.txt");
+        let racy = racy_time_ns();
+        test.fs().set_modified(&path, racy).unwrap();
+        let given = args(COMPRESS, &["/data/a.txt"], &[]);
+        let ctx = test.ctx();
+        let plan = Compress.plan(&given, StageInput::none(), &ctx).unwrap();
+        let mut rewritten = TEXT.to_vec();
+        rewritten[0] ^= 1;
+        test.fs().write_file(&path, &rewritten).unwrap();
+        test.fs().set_modified(&path, racy).unwrap();
+        let mut tx = test.journal().begin(begin_request(COMPRESS));
+        let error = Compress.apply(&given, plan, tx.as_mut(), &ctx).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert!(!test.fs().exists(&abs("/data/a.txt.gz")));
     }
 
     #[test]

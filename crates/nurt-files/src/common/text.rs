@@ -12,7 +12,7 @@
 use std::io::Read;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{AbsPath, Etag, FileMeta, Follow, Fs};
+use nurt_contracts::fs::{AbsPath, ContentHash, Etag, FileMeta, Follow, Fs};
 use nurt_contracts::journal::{
     Applied, Expect, Mutation, MutationTx, TargetAction, TargetIndex, TargetPath, TargetSpec,
 };
@@ -24,6 +24,7 @@ use nurt_text::TextCodec;
 use nurt_text::codec::{decode, encode};
 use nurt_text::codec_service::line_ending;
 use nurt_text::eol;
+use nurt_text::hash::content_hash;
 
 use super::params::EncodingParam;
 use super::path::path_field;
@@ -38,6 +39,8 @@ pub struct TextFile {
     pub meta: FileMeta,
     /// Size of the content in bytes.
     pub size: u64,
+    /// SHA-256 hash of the bytes read.
+    pub hash: ContentHash,
     /// Decoded text, without the byte order mark.
     pub text: String,
     /// Encoding of the file.
@@ -47,10 +50,13 @@ pub struct TextFile {
 }
 
 impl TextFile {
-    /// Entity tag of the file as read.
+    /// Entity tag of the file as read, with the hash of the content read.
     #[must_use]
     pub fn etag(&self) -> Etag {
-        self.meta.etag()
+        Etag {
+            hash: Some(self.hash),
+            ..self.meta.etag()
+        }
     }
 
     /// Declaration of the file as a modified target that must still have the
@@ -106,6 +112,7 @@ pub fn read_text(ctx: &ExecCtx, path: &AbsPath, encoding: EncodingParam) -> Resu
         path: path.clone(),
         meta,
         size: byte_count(bytes.len()),
+        hash: content_hash(&bytes),
         line_ending: line_ending(&bytes, &encoding),
         text,
         encoding,

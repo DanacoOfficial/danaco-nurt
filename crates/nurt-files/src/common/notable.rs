@@ -80,6 +80,7 @@ mod tests {
             meta: test.fs().metadata(&path, Follow::NoFollow).unwrap(),
             path,
             size: 1,
+            hash: nurt_text::hash::content_hash(b"a"),
             text: "a".to_owned(),
             encoding: TextEncoding {
                 label: label.to_owned(),

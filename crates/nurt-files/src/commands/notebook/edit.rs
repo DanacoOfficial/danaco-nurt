@@ -150,7 +150,7 @@ impl EffectStage for NotebookEdit {
         let expected = if_match_param(args, ctx)?;
         check_if_match(
             &path,
-            &Observed::Present(loaded.meta.clone()),
+            &Observed::Present(loaded.meta.clone(), Some(loaded.hash())),
             expected.as_ref().and_then(|tags| tags.expected(&path)),
         )?;
         let report = params.apply(&mut loaded.notebook, &path)?;

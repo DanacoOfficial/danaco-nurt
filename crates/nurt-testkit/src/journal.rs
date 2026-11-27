@@ -1140,7 +1140,15 @@ impl NoopTx<'_> {
             Expect::Unchecked => true,
             Expect::Absent => self.meta(path)?.is_none(),
             Expect::Etag(tag) => match self.fs().etag(path, Follow::NoFollow) {
-                Ok(current) => current.matches(tag),
+                Ok(current) => {
+                    current.matches(tag)
+                        && match tag.hash {
+                            Some(expected) => {
+                                self.fs().content_hash(path).map_err(convert)? == expected
+                            }
+                            None => true,
+                        }
+                }
                 Err(error) if error.kind == FsErrorKind::NotFound => false,
                 Err(error) => return Err(convert(error)),
             },
