@@ -62,7 +62,9 @@ jobs:
           persist-credentials: false
       - name: ShellCheck
         run: |
-          git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --shell=bash
+          # The scripts under tests/d1/migrate and tests/d5/code are inputs of the
+          # migration and symbol tests and contain faulty shell code on purpose.
+          git ls-files -z '*.sh' ':!tests/d1/migrate' ':!tests/d5/code' | xargs -0 --no-run-if-empty shellcheck --shell=bash
 
   workflows:
     name: Workflow files

@@ -126,6 +126,7 @@ assert_eq 'resolve strips v prefix' 1.2.3 "$(resolve_version v1.2.3)"
 assert_eq 'resolve exact pre-release' 3.0.0-rc.1 "$(resolve_version 3.0.0-rc.1)"
 assert_fails 'resolve fails without a match' resolve_version '>=5.0.0'
 unavailable_listing() {
+  # shellcheck disable=SC2016 # the inner shell expands $1
   env NURT_RELEASES_URL=file:///nonexistent bash -c 'source "$1"; resolve_version latest' _ "$here/../scripts/lib.sh"
 }
 assert_fails 'resolve fails when listing is unavailable' unavailable_listing

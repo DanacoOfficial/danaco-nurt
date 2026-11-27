@@ -66,6 +66,8 @@ alpine_image="${NURT_ALPINE_IMAGE:-docker.io/library/alpine:latest}"
 
 # The script that runs inside the container. It receives the file name of the
 # archive and exits with 0 only when every check passed.
+# The text is the script of the container: its variables expand there.
+# shellcheck disable=SC2016
 inside='
 set -eu
 archive="/archive/$1"

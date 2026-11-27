@@ -42,6 +42,7 @@ done
 
 # Removes the agents that an interrupted run left behind; agents that
 # existed before the run stay.
+# shellcheck disable=SC2329 # runs through the trap below
 cleanup() {
   local label
   for label in "${labels[@]}"; do
@@ -71,7 +72,8 @@ counts() {
 }
 
 run_suite() {
-  local suite=$1 log="$out/test-$suite.log" status=0 args run_ignored
+  local suite=$1
+  local log="$out/test-$suite.log" status=0 args run_ignored
   : >"$log"
   case $suite in
     container) args=() run_ignored=default ;;

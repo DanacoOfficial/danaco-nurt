@@ -318,6 +318,8 @@ if [ "$host_target_built" -eq 0 ]; then
   log "the host $host is not a target of this release: no executable was run"
 fi
 
+# The names in the output directory are the artifact names of this script.
+# shellcheck disable=SC2012
 log "done: $(ls "$output" | tr '\n' ' ')"
 
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.

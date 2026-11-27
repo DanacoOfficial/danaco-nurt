@@ -40,6 +40,7 @@ had_system_unit=0
 
 # Removes the service units that an interrupted run of the service scenarios
 # left behind; units that existed before the run stay.
+# shellcheck disable=SC2329 # runs through the trap below
 cleanup() {
   if [[ $had_user_unit == 0 && -e $user_unit ]]; then
     systemctl --user disable --now nurt-service.service >/dev/null 2>&1 || true
@@ -72,7 +73,8 @@ counts() {
 }
 
 run_suite() {
-  local suite=$1 log="$out/test-$suite.log" status=0 args run_ignored
+  local suite=$1
+  local log="$out/test-$suite.log" status=0 args run_ignored
   : >"$log"
   case $suite in
     container) args=() run_ignored=default ;;
