@@ -20,6 +20,8 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-27
+
 ### Changed
 
 - The preview of `sql` lists the effects of `load_extension` and of the pragmas
@@ -124,8 +126,6 @@ their own version numbers, described in the specification.
   gains the member `params`; `Report` gains `parts` and `parts_total`.
 - `MutationTx::allow_incremental`: a transaction of the journal may preserve
   further targets after its first change, so that a construct is one entry.
-
-## [0.1.1] - 2026-11-27
 
 ### Added
 
