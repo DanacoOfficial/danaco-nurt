@@ -216,6 +216,9 @@ pub(crate) fn copy_entry(
             }
             FileKind::File | FileKind::Special | _ => {
                 copied += fs.copy_file(scope, &from, &to)?;
+                // The copy takes the place of a rename, so it keeps the
+                // permissions, owner and times of the entry as a rename does.
+                fs.open_in_place(scope, &to)?.apply_meta(&meta)?;
             }
         }
     }
