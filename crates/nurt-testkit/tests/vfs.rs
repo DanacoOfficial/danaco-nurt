@@ -218,33 +218,56 @@ fn file_identities_count_up_per_volume() {
 #[test]
 fn symbolic_links_resolve_and_loops_are_detected() {
     let (_clock, fs, scope) = setup();
-    fs.write_file(&path("/real/file.txt"), b"x").unwrap();
-    fs.symlink("/real", &path("/alias")).unwrap();
-    assert_eq!(fs.read_file(&path("/alias/file.txt")).unwrap(), b"x");
+    fs.write_file(
+        &path(nurt_testkit::paths::abs("/real/file.txt").as_str()),
+        b"x",
+    )
+    .unwrap();
+    fs.symlink(
+        nurt_testkit::paths::abs("/real"),
+        &path(nurt_testkit::paths::abs("/alias").as_str()),
+    )
+    .unwrap();
     assert_eq!(
-        fs.real_path(&path("/alias/file.txt")).unwrap(),
-        path("/real/file.txt")
+        fs.read_file(&path(nurt_testkit::paths::abs("/alias/file.txt").as_str()))
+            .unwrap(),
+        b"x"
     );
     assert_eq!(
-        fs.metadata(&path("/alias"), Follow::NoFollow).unwrap().kind,
+        fs.real_path(&path(nurt_testkit::paths::abs("/alias/file.txt").as_str()))
+            .unwrap(),
+        path(nurt_testkit::paths::abs("/real/file.txt").as_str())
+    );
+    assert_eq!(
+        fs.metadata(
+            &path(nurt_testkit::paths::abs("/alias").as_str()),
+            Follow::NoFollow
+        )
+        .unwrap()
+        .kind,
         FileKind::Symlink
     );
 
     fs.create_link(
         &scope,
-        std::path::Path::new("/loop-b"),
-        &path("/loop-a"),
+        &nurt_testkit::paths::abs_path("/loop-b"),
+        &path(nurt_testkit::paths::abs("/loop-a").as_str()),
         LinkKind::SymlinkFile,
     )
     .unwrap();
     fs.create_link(
         &scope,
-        std::path::Path::new("/loop-a"),
-        &path("/loop-b"),
+        &nurt_testkit::paths::abs_path("/loop-a"),
+        &path(nurt_testkit::paths::abs("/loop-b").as_str()),
         LinkKind::SymlinkFile,
     )
     .unwrap();
-    let error = fs.metadata(&path("/loop-a"), Follow::Follow).unwrap_err();
+    let error = fs
+        .metadata(
+            &path(nurt_testkit::paths::abs("/loop-a").as_str()),
+            Follow::Follow,
+        )
+        .unwrap_err();
     assert_eq!(error.kind, FsErrorKind::Loop);
 }
 

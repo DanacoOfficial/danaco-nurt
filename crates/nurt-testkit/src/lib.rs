@@ -20,6 +20,7 @@
 //! | [`fs_contract`] | conformance checks of `Fs` and `FsWrite` implementations |
 //! | [`fixtures`] | journal requests and target declarations |
 //! | [`hash`] | SHA-256 of content |
+//! | [`paths`] | absolute paths of the tests on the current system |
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -32,6 +33,7 @@ pub mod golden;
 pub mod hash;
 pub mod host;
 pub mod journal;
+pub mod paths;
 pub mod services;
 pub mod snapshot;
 pub mod vfs;
