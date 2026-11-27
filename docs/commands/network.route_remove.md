@@ -66,7 +66,7 @@ network.route_remove "10.9.0.0/16" privilege: elevated
 Remove the route that uses one next hop.
 
 ```nurt example
-network.route_remove "10.9.0.0/16" gateway: "192.168.1.5" privilege: elevated
+network.route_remove "10.9.0.0/16" gateway: "203.0.113.5" privilege: elevated
 ```
 
 Remove the route of one interface.

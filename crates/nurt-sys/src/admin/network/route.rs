@@ -629,13 +629,13 @@ mod tests {
     use crate::admin::testing::{FakeProcess, RecordingTx, args, ctx, input, records, text};
     use nurt_contracts::value::Value;
 
-    const TABLE: &str = r#"[{"dst":"default","gateway":"192.168.1.1","dev":"eth0","metric":100},{"dst":"10.9.0.0/16","gateway":"192.168.1.5","dev":"eth0"},{"dst":"192.168.1.0/24","dev":"eth0","scope":"link"}]"#;
+    const TABLE: &str = r#"[{"dst":"default","gateway":"203.0.113.1","dev":"eth0","metric":100},{"dst":"10.9.0.0/16","gateway":"203.0.113.5","dev":"eth0"},{"dst":"192.168.1.0/24","dev":"eth0","scope":"link"}]"#;
 
     #[test]
     fn state_round_trips() {
         let route = Route {
             destination: "10.9.0.0/16".to_owned(),
-            gateway: Some("192.168.1.5".to_owned()),
+            gateway: Some("203.0.113.5".to_owned()),
             interface: Some("Ethernet 2".to_owned()),
             metric: Some(50),
         };
@@ -652,12 +652,12 @@ mod tests {
         assert_eq!(routes.len(), 3);
         assert_eq!(routes[0].metric, Some(100));
         assert_eq!(routes[2].gateway, None);
-        let netstat = "Routing tables\n\nInternet:\nDestination        Gateway            Flags               Netif Expire\ndefault            192.168.1.1        UGScg                 en0\n10.9.0.0/16        link#6             UCS                   en1\n";
+        let netstat = "Routing tables\n\nInternet:\nDestination        Gateway            Flags               Netif Expire\ndefault            203.0.113.1        UGScg                 en0\n10.9.0.0/16        link#6             UCS                   en1\n";
         let routes = parse_netstat(netstat);
         assert_eq!(routes.len(), 2);
-        assert_eq!(routes[0].gateway.as_deref(), Some("192.168.1.1"));
+        assert_eq!(routes[0].gateway.as_deref(), Some("203.0.113.1"));
         assert_eq!(routes[1].gateway, None);
-        let windows = r#"[{"DestinationPrefix":"0.0.0.0/0","NextHop":"192.168.1.1","InterfaceAlias":"Ethernet","RouteMetric":25}]"#;
+        let windows = r#"[{"DestinationPrefix":"0.0.0.0/0","NextHop":"203.0.113.1","InterfaceAlias":"Ethernet","RouteMetric":25}]"#;
         let routes = parse_windows(windows).unwrap();
         assert_eq!(routes[0].destination, "default");
         assert_eq!(routes[0].metric, Some(25));
@@ -667,21 +667,21 @@ mod tests {
     fn calls_per_system() {
         let route = Route {
             destination: "10.9.0.0/16".to_owned(),
-            gateway: Some("192.168.1.5".to_owned()),
+            gateway: Some("203.0.113.5".to_owned()),
             interface: Some("eth0".to_owned()),
             metric: Some(20),
         };
         assert_eq!(
             add_call(System::Linux, &route).line(),
-            "ip route add 10.9.0.0/16 via 192.168.1.5 dev eth0 metric 20"
+            "ip route add 10.9.0.0/16 via 203.0.113.5 dev eth0 metric 20"
         );
         assert_eq!(
             remove_call(System::Macos, &route).line(),
-            "route -n delete -net 10.9.0.0/16 192.168.1.5"
+            "route -n delete -net 10.9.0.0/16 203.0.113.5"
         );
         assert!(add_call(System::Windows, &route)
             .line()
-            .contains("New-NetRoute -DestinationPrefix '10.9.0.0/16' -Confirm:$false -NextHop '192.168.1.5' -InterfaceAlias 'eth0' -RouteMetric 20"));
+            .contains("New-NetRoute -DestinationPrefix '10.9.0.0/16' -Confirm:$false -NextHop '203.0.113.5' -InterfaceAlias 'eth0' -RouteMetric 20"));
     }
 
     #[test]
@@ -693,7 +693,7 @@ mod tests {
             "network.route_add",
             &[
                 ("destination", text("10.9.0.0/16")),
-                ("gateway", text("192.168.1.5")),
+                ("gateway", text("203.0.113.5")),
             ],
         );
         let plan = RouteChange::ADD.plan(&request, input(), &ctx).unwrap();
@@ -710,7 +710,7 @@ mod tests {
             "network.route_add",
             &[
                 ("destination", text("10.20.0.0/16")),
-                ("gateway", text("192.168.1.9")),
+                ("gateway", text("203.0.113.9")),
                 ("metric", Value::Int(7)),
             ],
         );
@@ -722,12 +722,12 @@ mod tests {
             .unwrap();
         assert_eq!(
             outcome.changes[0].after.as_deref(),
-            Some("via=192.168.1.9 dev=- metric=7")
+            Some("via=203.0.113.9 dev=- metric=7")
         );
         assert_eq!(tx.markers.len(), 1);
         assert_eq!(
             process.lines().last().unwrap(),
-            "ip route add 10.20.0.0/16 via 192.168.1.9 metric 7"
+            "ip route add 10.20.0.0/16 via 203.0.113.9 metric 7"
         );
         assert_eq!(records(outcome.output).len(), 1);
     }
@@ -744,7 +744,7 @@ mod tests {
         let plan = RouteChange::REMOVE.plan(&request, input(), &ctx).unwrap();
         assert_eq!(
             plan.changes[0].before.as_deref(),
-            Some("via=192.168.1.5 dev=eth0 metric=-")
+            Some("via=203.0.113.5 dev=eth0 metric=-")
         );
         let mut tx = RecordingTx::default();
         RouteChange::REMOVE
@@ -752,7 +752,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             process.lines().last().unwrap(),
-            "ip route del 10.9.0.0/16 via 192.168.1.5 dev eth0"
+            "ip route del 10.9.0.0/16 via 203.0.113.5 dev eth0"
         );
     }
 
@@ -812,7 +812,7 @@ mod tests {
             "network.route_add",
             &[
                 ("destination", text("10.20.0.0/16")),
-                ("gateway", text("192.168.1.9")),
+                ("gateway", text("203.0.113.9")),
             ],
         );
         let plan = RouteChange::ADD.plan(&request, input(), &ctx).unwrap();

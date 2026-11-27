@@ -13,6 +13,7 @@
 //! valid programs: they parse and bind against the catalog on the system
 //! they are made for.
 
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::Path;
@@ -81,7 +82,7 @@ fn firewall_inverses_bind() {
 
 #[test]
 fn route_dns_and_clock_inverses_bind() {
-    let state = "via=192.168.1.5 dev=eth0 metric=20";
+    let state = "via=203.0.113.5 dev=eth0 metric=20";
     let mut all = programs(
         "network.route_add",
         &[change("route:10.9.0.0/16", None, Some(state))],
@@ -91,7 +92,7 @@ fn route_dns_and_clock_inverses_bind() {
         "network.route_remove",
         &[change(
             "route:default",
-            Some("via=192.168.1.1 dev=- metric=-"),
+            Some("via=203.0.113.1 dev=- metric=-"),
             None,
         )],
         &[],
@@ -100,7 +101,7 @@ fn route_dns_and_clock_inverses_bind() {
         "network.dns_set",
         &[change(
             "dns:eth0",
-            Some("servers=10.0.0.1,10.0.0.2;search=a.org,b.org"),
+            Some("servers=198.51.100.1,198.51.100.2;search=a.org,b.org"),
             Some("servers=1.1.1.1;search=a.org,b.org"),
         )],
         &[],

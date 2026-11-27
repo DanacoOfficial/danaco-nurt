@@ -341,7 +341,7 @@ mod tests {
       {"chain":{"family":"inet","table":"nurt","name":"input","handle":1,"type":"filter","hook":"input","prio":0,"policy":"accept"}},
       {"chain":{"family":"inet","table":"filter","name":"output","handle":2,"type":"filter","hook":"output","prio":0,"policy":"accept"}},
       {"rule":{"family":"inet","table":"nurt","chain":"input","handle":4,"comment":"nurt:allow tcp 22 in any -","expr":[{"match":{"op":"==","left":{"payload":{"protocol":"tcp","field":"dport"}},"right":22}},{"accept":null}]}},
-      {"rule":{"family":"inet","table":"filter","chain":"output","handle":7,"expr":[{"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},"right":{"prefix":{"addr":"10.0.0.0","len":8}}}},{"match":{"op":"==","left":{"payload":{"protocol":"udp","field":"dport"}},"right":{"range":[5000,5010]}}},{"drop":null}]}},
+      {"rule":{"family":"inet","table":"filter","chain":"output","handle":7,"expr":[{"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},"right":{"prefix":{"addr":"198.51.100.0","len":8}}}},{"match":{"op":"==","left":{"payload":{"protocol":"udp","field":"dport"}},"right":{"range":[5000,5010]}}},{"drop":null}]}},
       {"rule":{"family":"inet","table":"filter","chain":"output","handle":8,"expr":[{"counter":{"packets":0,"bytes":0}},{"accept":null}]}}
     ]}"#;
 

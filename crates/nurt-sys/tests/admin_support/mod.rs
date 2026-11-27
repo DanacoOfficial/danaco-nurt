@@ -10,6 +10,7 @@
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Harness shared by the tests of the administration commands against the real system.
+// A shared harness: not every test uses every helper; test code asserts with unwrap, expect and panic.
 #![allow(dead_code, clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use std::io::Write;

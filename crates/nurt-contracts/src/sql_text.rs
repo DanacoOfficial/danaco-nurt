@@ -409,7 +409,10 @@ mod tests {
 
     #[test]
     fn counts_multibyte_identifiers_as_words() {
-        assert_eq!(statement_count("select zażółć from tabela; select 2"), 2);
+        assert_eq!(
+            statement_count("select za\u{17c}\u{f3}\u{142}\u{107} from tabela; select 2"),
+            2
+        );
     }
 
     #[test]

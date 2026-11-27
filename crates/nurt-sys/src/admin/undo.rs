@@ -269,7 +269,7 @@ mod tests {
         let undo = derive(
             "firewall.remove",
             &[change(
-                "firewall:deny udp 53 out 10.0.0.1 -",
+                "firewall:deny udp 53 out 198.51.100.1 -",
                 Some("present"),
                 Some("absent"),
             )],
@@ -278,14 +278,14 @@ mod tests {
         assert_eq!(
             programs(undo),
             [
-                "firewall.deny \"53\" protocol: udp direction: outbound source: \"10.0.0.1\" backend: ufw"
+                "firewall.deny \"53\" protocol: udp direction: outbound source: \"198.51.100.1\" backend: ufw"
             ]
         );
     }
 
     #[test]
     fn routes_are_undone_by_the_opposite_command() {
-        let state = "via=192.168.1.5 dev=eth0 metric=20";
+        let state = "via=203.0.113.5 dev=eth0 metric=20";
         assert_eq!(
             programs(derive(
                 "network.route_add",
@@ -293,7 +293,7 @@ mod tests {
                 &[]
             )),
             [
-                "network.route_remove \"10.9.0.0/16\" gateway: \"192.168.1.5\" interface: \"eth0\" metric: 20"
+                "network.route_remove \"10.9.0.0/16\" gateway: \"203.0.113.5\" interface: \"eth0\" metric: 20"
             ]
         );
         assert_eq!(
@@ -303,7 +303,7 @@ mod tests {
                 &[]
             )),
             [
-                "network.route_add \"10.9.0.0/16\" gateway: \"192.168.1.5\" interface: \"eth0\" metric: 20"
+                "network.route_add \"10.9.0.0/16\" gateway: \"203.0.113.5\" interface: \"eth0\" metric: 20"
             ]
         );
     }
@@ -315,12 +315,12 @@ mod tests {
                 "network.dns_set",
                 &[change(
                     "dns:eth0",
-                    Some("servers=10.0.0.1;search=a.org"),
+                    Some("servers=198.51.100.1;search=a.org"),
                     Some("servers=1.1.1.1;search=a.org")
                 )],
                 &[],
             )),
-            ["network.dns_set [\"10.0.0.1\"] search: [\"a.org\"] interface: \"eth0\""]
+            ["network.dns_set [\"198.51.100.1\"] search: [\"a.org\"] interface: \"eth0\""]
         );
         assert_eq!(
             programs(derive(

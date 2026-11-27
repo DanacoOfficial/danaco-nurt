@@ -55,7 +55,7 @@ fn check(code: libc::c_int) -> io::Result<libc::c_int> {
 }
 
 fn owned(fd: libc::c_int) -> OwnedFd {
-    // SAFETY: `fd` is a descriptor that the caller has just obtained from a
+    // SAFETY: `fd` is a descriptor that the caller has obtained from a
     // successful system call and that nothing else owns.
     unsafe { OwnedFd::from_raw_fd(fd) }
 }

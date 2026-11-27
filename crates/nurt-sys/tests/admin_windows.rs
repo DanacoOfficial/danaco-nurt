@@ -16,6 +16,7 @@
 //! --test admin_windows --run-ignored only`. Every test removes the rule it
 //! created and restores the time zone and the name servers of the interface.
 #![cfg(windows)]
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 mod admin_support;

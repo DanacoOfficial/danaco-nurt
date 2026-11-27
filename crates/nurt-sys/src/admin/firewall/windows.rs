@@ -209,13 +209,13 @@ mod tests {
         assert_eq!(rules.len(), 1);
         assert!(rules[0].managed);
         let many = format!(
-            "[{one},{{\"name\":\"Web\",\"direction\":\"Inbound\",\"action\":\"Allow\",\"profile\":\"Any\",\"protocol\":\"UDP\",\"port\":\"5000-5010\",\"remote\":\"10.0.0.1\"}},{{\"name\":\"Ping\",\"direction\":\"Inbound\",\"action\":\"Allow\",\"profile\":\"Any\",\"protocol\":\"ICMPv4\",\"port\":\"\",\"remote\":\"Any\"}}]"
+            "[{one},{{\"name\":\"Web\",\"direction\":\"Inbound\",\"action\":\"Allow\",\"profile\":\"Any\",\"protocol\":\"UDP\",\"port\":\"5000-5010\",\"remote\":\"198.51.100.1\"}},{{\"name\":\"Ping\",\"direction\":\"Inbound\",\"action\":\"Allow\",\"profile\":\"Any\",\"protocol\":\"ICMPv4\",\"port\":\"\",\"remote\":\"Any\"}}]"
         );
         let rules = parse_list(&many).unwrap();
         assert_eq!(rules.len(), 3);
         assert_eq!(
             rules[1].rule.as_ref().unwrap().key(),
-            "allow udp 5000-5010 in 10.0.0.1 -"
+            "allow udp 5000-5010 in 198.51.100.1 -"
         );
         assert_eq!(rules[2].rule, None);
         assert!(parse_list("").unwrap().is_empty());

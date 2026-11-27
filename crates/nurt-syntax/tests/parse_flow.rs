@@ -12,6 +12,7 @@
 //! Parsing of the control constructs: conditions, loops, `steps`, functions
 //! and script parameters, in the three syntax variants.
 
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use nurt_contracts::ast::{AstDocument, Statement};

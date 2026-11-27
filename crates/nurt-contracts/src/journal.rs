@@ -739,7 +739,7 @@ pub trait MutationTx: Send + Sync {
     /// Allows [`MutationTx::preserve`] after the first change.
     ///
     /// A control construct that changes the world in several steps forms one
-    /// entry: each step declares and preserves its targets just before it
+    /// entry: each step declares and preserves its targets directly before it
     /// changes them, and one commit or one rollback closes them all. The
     /// previous state of every target is still durable before its first
     /// change. A transaction that does not support the mode ignores the call

@@ -179,8 +179,8 @@ their own version numbers, described in the specification.
 
 ### Added
 
-- The command `next` and the field `continuation` of every shortened response
-  (decision P-19): a response that leaves lines, records or the end of long
+- The command `next` and the field `continuation` of every shortened response:
+  a response that leaves lines, records or the end of long
   lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`,
   `cut_lines`) and its text ends with `more: next`; `next`, `next c3`,
   `next 200`, `next c3 200`, `next all` and `next full` return the next part

@@ -646,10 +646,9 @@ mod tests {
 
     #[test]
     fn resolvconf_is_read_and_rewritten_keeping_other_lines() {
-        let old =
-            "# managed\noptions edns0\nsearch a.org\nnameserver 10.0.0.1\nnameserver 10.0.0.2\n";
+        let old = "# managed\noptions edns0\nsearch a.org\nnameserver 198.51.100.1\nnameserver 198.51.100.2\n";
         let state = parse_resolvconf(old);
-        assert_eq!(state.servers, ["10.0.0.1", "10.0.0.2"]);
+        assert_eq!(state.servers, ["198.51.100.1", "198.51.100.2"]);
         assert_eq!(state.search, ["a.org"]);
         let wanted = DnsState {
             servers: vec!["9.9.9.9".to_owned()],
@@ -698,7 +697,10 @@ mod tests {
 
     fn resolved() -> std::sync::Arc<FakeProcess> {
         let process = FakeProcess::new();
-        process.reply("resolvectl dns eth0", "Link 2 (eth0): 10.0.0.1 10.0.0.2\n");
+        process.reply(
+            "resolvectl dns eth0",
+            "Link 2 (eth0): 198.51.100.1 198.51.100.2\n",
+        );
         process.reply("resolvectl domain eth0", "Link 2 (eth0): corp.example\n");
         process
     }
@@ -717,7 +719,7 @@ mod tests {
         let plan = DnsSet.plan(&request, input(), &ctx).unwrap();
         assert_eq!(
             plan.changes[0].before.as_deref(),
-            Some("servers=10.0.0.1,10.0.0.2;search=corp.example")
+            Some("servers=198.51.100.1,198.51.100.2;search=corp.example")
         );
         assert_eq!(
             plan.changes[0].after.as_deref(),
@@ -741,7 +743,7 @@ mod tests {
         let request = args(
             "network.dns_set",
             &[
-                ("servers", texts(&["10.0.0.1", "10.0.0.2"])),
+                ("servers", texts(&["198.51.100.1", "198.51.100.2"])),
                 ("interface", text("eth0")),
             ],
         );

@@ -640,7 +640,7 @@ mod tests {
                 "firewall.allow",
                 &[("port", Value::Int(80)), ("protocol", word("icmp"))],
             ),
-            args("firewall.allow", &[("source", text("10.0.0.1"))]),
+            args("firewall.allow", &[("source", text("198.51.100.1"))]),
         ] {
             assert!(FirewallChange::ALLOW.plan(&request, input(), &ctx).is_err());
         }

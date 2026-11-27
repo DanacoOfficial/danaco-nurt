@@ -216,7 +216,7 @@ ufw allow 443/tcp
 firewall-cmd --add-port=8080/tcp
 nft add rule inet filter input tcp dport 22 accept
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-ip route add 10.1.0.0/16 via 10.0.0.1
+ip route add 10.1.0.0/16 via 198.51.100.1
 resolvectl dns eth0 1.1.1.1
 timedatectl set-timezone Europe/Warsaw
 date -s \"2026-11-27 10:00:00\"
@@ -275,8 +275,9 @@ fn elevation_of_an_administration_program_is_a_privilege_option() {
 
 #[test]
 fn a_complex_firewall_rule_runs_with_the_elevated_privilege() {
-    let migration =
-        translated("sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 10.0.0.2\n");
+    let migration = translated(
+        "sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 198.51.100.2\n",
+    );
     contains_in_order(
         &migration.nurt,
         &["run [", "\"iptables\"", "] cwd: \"/\" privilege: elevated"],

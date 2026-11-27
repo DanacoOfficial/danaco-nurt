@@ -276,3 +276,5 @@ user-path crates/nurt-tooldef/tests/equivalence.rs
 # Reference drawings of the start banner reproduce the example session of the
 # design pack, which contains the words of the check.
 promotional-word */terminal-banner*
+emoji branding/terminal/*
+emoji crates/nurt-contracts/src/product.rs

@@ -150,7 +150,7 @@ impl Backend for Ufw {
 mod tests {
     use super::*;
 
-    const STATUS: &str = "Status: active\n\nTo                         Action      From\n--                         ------      ----\n22/tcp                     ALLOW IN    Anywhere\n8000:8100/tcp              ALLOW       10.0.0.0/8\n53/udp                     DENY OUT    Anywhere\n22/tcp (v6)                ALLOW IN    Anywhere (v6)\nAnywhere                   ALLOW IN    192.168.1.5\n";
+    const STATUS: &str = "Status: active\n\nTo                         Action      From\n--                         ------      ----\n22/tcp                     ALLOW IN    Anywhere\n8000:8100/tcp              ALLOW       10.0.0.0/8\n53/udp                     DENY OUT    Anywhere\n22/tcp (v6)                ALLOW IN    Anywhere (v6)\nAnywhere                   ALLOW IN    203.0.113.5\n";
 
     #[test]
     fn parses_the_status_table() {
@@ -177,10 +177,10 @@ mod tests {
             rule_args(&incoming).join(" "),
             "in proto tcp from 10.0.0.0/8 to any port 8000:8100"
         );
-        let outgoing = Rule::parse_key("deny udp 53 out 10.0.0.1 -").unwrap();
+        let outgoing = Rule::parse_key("deny udp 53 out 198.51.100.1 -").unwrap();
         assert_eq!(
             rule_args(&outgoing).join(" "),
-            "out proto udp from any to 10.0.0.1 port 53"
+            "out proto udp from any to 198.51.100.1 port 53"
         );
     }
 }

@@ -60,7 +60,7 @@ Routes and DNS are read before the change. The report holds the state before and
 Route a network through a gateway.
 
 ```nurt example
-network.route_add "10.9.0.0/16" gateway: "192.168.1.5" privilege: elevated
+network.route_add "10.9.0.0/16" gateway: "203.0.113.5" privilege: elevated
 ```
 
 Route a network over an interface with a metric.
@@ -72,7 +72,7 @@ network.route_add "10.20.0.0/16" interface: "eth0" metric: 200 privilege: elevat
 Set the default route.
 
 ```nurt example
-network.route_add "default" gateway: "192.168.1.1" privilege: elevated
+network.route_add "default" gateway: "203.0.113.1" privilege: elevated
 ```
 
 ## Errors

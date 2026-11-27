@@ -18,6 +18,7 @@
 //! `nurt_test_fw`, the interface `nurt_test0`) and restores the time zone
 //! and the state of network time.
 #![cfg(target_os = "linux")]
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use nurt_sys::admin::clock::ClockCommand;

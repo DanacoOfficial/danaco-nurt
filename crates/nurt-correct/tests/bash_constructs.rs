@@ -329,8 +329,8 @@ fn firewall_translate() {
 fn network_translate() {
     check(&[
         (
-            "ip route add 10.1.0.0/16 via 10.0.0.1 dev eth0 metric 100",
-            "network.route_add destination: \"10.1.0.0/16\" gateway: \"10.0.0.1\" interface: \"eth0\" metric: 100",
+            "ip route add 10.1.0.0/16 via 198.51.100.1 dev eth0 metric 100",
+            "network.route_add destination: \"10.1.0.0/16\" gateway: \"198.51.100.1\" interface: \"eth0\" metric: 100",
         ),
         (
             "ip route del 10.1.0.0/16",
@@ -387,8 +387,8 @@ fn disks_translate() {
 fn complex_firewall_rules_run_as_programs() {
     check(&[
         (
-            "iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 10.0.0.2",
-            "run [\n  \"iptables\",\n  \"-t\",\n  \"nat\",\n  \"-A\",\n  \"PREROUTING\",\n  \"-p\",\n  \"tcp\",\n  \"--dport\",\n  \"80\",\n  \"-j\",\n  \"DNAT\",\n  \"--to\",\n  \"10.0.0.2\"\n] cwd: \"/\"",
+            "iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 198.51.100.2",
+            "run [\n  \"iptables\",\n  \"-t\",\n  \"nat\",\n  \"-A\",\n  \"PREROUTING\",\n  \"-p\",\n  \"tcp\",\n  \"--dport\",\n  \"80\",\n  \"-j\",\n  \"DNAT\",\n  \"--to\",\n  \"198.51.100.2\"\n] cwd: \"/\"",
         ),
         (
             "sudo nft add table inet filter",
@@ -573,7 +573,7 @@ fn translations_to_administration_commands_use_the_catalog() {
         "firewall-cmd --permanent --zone=public --add-port=8080/tcp",
         "nft add rule inet filter input tcp dport 22 accept",
         "iptables -A INPUT -p tcp --dport 80 -j ACCEPT",
-        "ip route add 10.1.0.0/16 via 10.0.0.1 dev eth0 metric 100",
+        "ip route add 10.1.0.0/16 via 198.51.100.1 dev eth0 metric 100",
         "ip route del 10.1.0.0/16",
         "resolvectl dns eth0 1.1.1.1 9.9.9.9",
         "timedatectl set-timezone Europe/Warsaw",

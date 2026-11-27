@@ -378,7 +378,7 @@ mod tests {
         assert!(valid_source("2001:db8::/32"));
         assert!(!valid_source("10.0.0.0/33"));
         assert!(!valid_source("example.org"));
-        assert!(!valid_source("10.0.0.1; reboot"));
+        assert!(!valid_source("198.51.100.1; reboot"));
         assert!(valid_zone("public"));
         assert!(!valid_zone("pub lic"));
         assert!(!valid_zone("a\"b"));

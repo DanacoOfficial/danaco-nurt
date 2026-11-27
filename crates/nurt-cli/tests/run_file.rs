@@ -12,6 +12,7 @@
 //! `nurt run <file>.nurt` runs a program file with parameters; any other
 //! `nurt run …` is the program of the command `run`.
 
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use nurt_cli::args::{Invocation, resolve};

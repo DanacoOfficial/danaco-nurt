@@ -72,7 +72,7 @@ network.dns_set ["1.1.1.1", "8.8.8.8"] interface: "eth0" privilege: elevated
 Set servers and search domains.
 
 ```nurt example
-network.dns_set ["10.0.0.2"] search: ["corp.example.com"] interface: "eth0" privilege: elevated
+network.dns_set ["198.51.100.2"] search: ["corp.example.com"] interface: "eth0" privilege: elevated
 ```
 
 Return an interface to automatic servers.

@@ -13,6 +13,7 @@
 //! the engine: the first response cuts the result at the page size, the
 //! stage cuts it again at its own limit, and events arrive between the parts.
 
+// Test code asserts with unwrap, expect and panic.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod support;
