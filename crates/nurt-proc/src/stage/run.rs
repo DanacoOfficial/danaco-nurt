@@ -33,6 +33,7 @@ use nurt_contracts::value::{Record, RecordKind, Value};
 
 use crate::api::{ToolKind, ToolOutcome, ToolResult, ToolRun};
 use crate::classify::EffectClassifier;
+use crate::continuation;
 use crate::iface::{
     OutputView, Priority, ProcessLimits, RunHost, RunKind, RunRequest, RunResult, RunWait,
     ShowMode, StdinSource, TrackMode, TrackSpec,
@@ -409,6 +410,7 @@ fn run_single<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: RunPlan) -> Result<E
                 return Err(error);
             }
             let changes = result.track.changes.clone();
+            continuation::offer(ctx, &result.output);
             let mut outcome = one_record(Record::from(exec));
             outcome.changes = changes;
             outcome.notable = record::notes(&result);

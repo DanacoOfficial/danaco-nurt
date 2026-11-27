@@ -179,6 +179,11 @@ pub const NOTES: &[ErrorNote] = &[
         "remove the character the error names",
     ),
     note(
+        ErrorCode::ContinuationExpired,
+        "the continuation read by next expired or was removed, or none is kept",
+        "run the call from next_steps again",
+    ),
+    note(
         ErrorCode::ExternalMissing,
         "a program the command requires is not installed",
         "install the program; fix shows how",

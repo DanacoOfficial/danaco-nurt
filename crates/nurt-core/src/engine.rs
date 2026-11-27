@@ -46,14 +46,14 @@ use nurt_contracts::fs::{AbsPath, Fs, RegistryAccess};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::{
-    REPORT_VERSION, RecordsPage, Report, ReportPart, ReportStatus, Timing,
+    Notable, NotableEntry, REPORT_VERSION, RecordsPage, Report, ReportPart, ReportStatus, Timing,
 };
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{
     CancelReason, CancelToken, EventSink, ExecCtx, ExecStep, Extensions, Limits, StageImpl,
 };
-use nurt_contracts::value::{Record, RecordKind};
+use nurt_contracts::value::{Record, RecordKind, Value};
 use nurt_exec::{ExecEnv, Executor, OperationOutcome, Outcome, ResultData};
 use nurt_lspclient::provider::LspProvider;
 use nurt_plan::{CheckSummary, Plan, PlanOptions};
@@ -67,6 +67,7 @@ use serde_json::{Value as Json, json};
 
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
+use crate::continuation::{ContinuationStore, NotKept, Registration, SessionKey};
 use crate::cursor::{CursorStore, ProgramRef};
 use crate::elevated::Early;
 use crate::elevation::{Mark, ReferenceLog, Setup};
@@ -80,6 +81,10 @@ use crate::registry::{ProcessComponents, registry_with};
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
+use nurt_contracts::continuation::{
+    ContinuationRequest, ContinuationSink, ContinuationSource, ContinuationUnit, CutLine,
+    ResumeOverride, ResumeRunner, ResumedPart,
+};
 
 /// Report kind of a request that fails the envelope rules before any program
 /// is known.
@@ -471,6 +476,8 @@ pub(crate) struct Inner {
     pub(crate) cursors: CursorStore,
     pub(crate) read_cache: Arc<ReadCache>,
     pub(crate) default_session: Option<SessionId>,
+    pub(crate) continuations: Arc<ContinuationStore>,
+    pub(crate) console: Mutex<Option<String>>,
     pub(crate) requests: AtomicU64,
     pub(crate) results: AtomicU64,
     pub(crate) elevation: Setup,
@@ -672,6 +679,9 @@ impl Engine {
             settings.output.spool_ttl.as_std(),
         );
         cursors.sweep(config.clock.now());
+        let continuations = Arc::new(ContinuationStore::new(
+            state.as_ref().map(|state| state.area(StateArea::Results)),
+        ));
         let mut read_cache = ReadCache::new(Arc::clone(&config.clock));
         if let Some(state) = &state {
             read_cache = read_cache.with_dir(state.area(StateArea::ReadCache));
@@ -717,6 +727,8 @@ impl Engine {
             loader,
             state,
             default_session,
+            continuations,
+            console: Mutex::new(None),
             requests: AtomicU64::new(0),
             results: AtomicU64::new(0),
             references,
@@ -1154,10 +1166,13 @@ impl Engine {
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
         );
+        let sink = Arc::new(ContinuationSink::new());
         let report = cancel
             .check()
             .and_then(|()| {
                 let run = Run {
+                    sink: Arc::clone(&sink),
+                    resume: None,
                     compiled: &compiled,
                     prepared: &prepared,
                     kind: &kind,
@@ -1170,14 +1185,86 @@ impl Engine {
             })
             .unwrap_or_else(|error| (failure(&reports, &kind, Some(&compiled), error), Vec::new()));
         let (report, pipelines) = report;
-        let mut response = self.finish(report, &prepared, Some(&program), started);
+        let mut response =
+            self.finish_with(report, &prepared, Some(&program), started, Some(&sink));
         attach_pipelines(&mut response, &pipelines, &prepared.options);
         response
+    }
+
+    /// Runs `program` of a continuation from the cursor of `resume` and
+    /// returns its records with the description of what remains.
+    fn resume_part(&self, program: &str, resume: ResumeOverride) -> Result<ResumedPart, Error> {
+        let options = resume
+            .options
+            .clone()
+            .and_then(|value| serde_json::from_value::<RequestOptions>(value).ok())
+            .unwrap_or_default();
+        let request = Request::program(program).with_options(options);
+        let prepared = self.prepare(&request)?;
+        let compiled = self.compile(program, None, &prepared)?;
+        let reports = self.report_context(prepared.config.config());
+        let kind = ProgramKind::of(&compiled.bound);
+        if kind.changing {
+            return Err(Error::new(
+                ErrorCode::InvalidValue,
+                "a program that changes the world is not run again by `next`",
+            ));
+        }
+        let sink = Arc::new(ContinuationSink::new());
+        let cancel = CancelToken::new();
+        let (report, _) = self.run_program(Run {
+            sink: Arc::clone(&sink),
+            resume: Some(resume),
+            compiled: &compiled,
+            prepared: &prepared,
+            kind: &kind,
+            reports: &reports,
+            cancel: &cancel,
+            events: None,
+            started: self.inner.clock.monotonic(),
+        })?;
+        if let Some(error) = report.error {
+            return Err(error);
+        }
+        Ok(ResumedPart {
+            records: report.records.map(|page| page.rows).unwrap_or_default(),
+            next: sink.take().pop(),
+        })
+    }
+
+    /// Names the console that owns the continuations of the following
+    /// requests, apart from the session of the journal: results kept for
+    /// `next` belong to the console, and requests keep their own session.
+    pub fn set_console(&self, console: Option<String>) {
+        *self
+            .inner
+            .console
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = console;
+    }
+
+    /// Key under which a request keeps and finds its continuations: the
+    /// console when one is named, else the session of the request.
+    fn continuation_session(&self, prepared: &Prepared) -> Option<String> {
+        self.inner
+            .console
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .or_else(|| prepared.session.as_ref().map(|id| id.as_str().to_owned()))
+    }
+
+    /// Removes the continuations kept for `next`, as at the end of a session
+    /// of the console.
+    pub fn end_session(&self, session: Option<&str>) {
+        self.inner.continuations.end_session(session);
     }
 
     /// Plans a bound program, executes the plan and assembles its report.
     fn run_program(&self, run: Run<'_>) -> Result<(Report, Vec<Report>), Error> {
         let Run {
+            sink,
+            resume,
             compiled,
             prepared,
             kind,
@@ -1194,7 +1281,15 @@ impl Engine {
         let env = self
             .exec_env(prepared, cancel, events)?
             .with_params(params)
-            .with_extension(Arc::new(compiled.bound.clone()));
+            .with_extension(Arc::new(compiled.bound.clone()))
+            .with_extension(sink)
+            .with_extension(Arc::clone(&self.inner.continuations))
+            .with_extension::<dyn ResumeRunner>(Arc::new(EngineRunner(self.clone())))
+            .with_extension(Arc::new(SessionKey(self.continuation_session(prepared))));
+        let env = match resume {
+            Some(resume) => env.with_extension(Arc::new(resume)),
+            None => env,
+        };
         let env = match &compiled.ast_hash {
             Some(hash) => env.with_ast_hash(hash.clone()),
             None => env,
@@ -1297,10 +1392,23 @@ impl Engine {
     /// rendered result.
     fn finish(
         &self,
+        report: Report,
+        prepared: &Prepared,
+        program: Option<&ProgramRef>,
+        started: Duration,
+    ) -> Response {
+        self.finish_with(report, prepared, program, started, None)
+    }
+
+    /// [`Engine::finish`] that also keeps what the stages of the execution
+    /// left out, as a continuation of the response.
+    fn finish_with(
+        &self,
         mut report: Report,
         prepared: &Prepared,
         program: Option<&ProgramRef>,
         started: Duration,
+        sink: Option<&ContinuationSink>,
     ) -> Response {
         if let Some(mark) = &prepared.elevation {
             mark.apply(&mut report);
@@ -1351,12 +1459,86 @@ impl Engine {
                 Err(_) => {}
             }
         }
-        if let Some(program) = program {
+        let advanced = sink.is_some_and(|sink| {
+            let requests = sink.take();
+            let existing = requests
+                .iter()
+                .any(|request| matches!(request.source, ContinuationSource::Existing));
+            let limit = prepared.options.limit();
+            let read_only = report.op.is_none() && report.changes.is_empty();
+            let resume = requests
+                .iter()
+                .rev()
+                .find_map(|request| match &request.source {
+                    ContinuationSource::Resume { cursor } if read_only => Some(cursor.clone()),
+                    _ => None,
+                });
+            let cuts: Vec<CutLine> = requests
+                .iter()
+                .filter_map(|request| match &request.source {
+                    ContinuationSource::Records { cut, .. } => Some(cut.clone()),
+                    _ => None,
+                })
+                .flatten()
+                .collect();
+            let chosen = if existing {
+                requests
+                    .into_iter()
+                    .rev()
+                    .find(|request| matches!(request.source, ContinuationSource::Existing))
+            } else {
+                records_request(&report, limit, resume, &cuts).or_else(|| {
+                    // Several stages of one program (for example two `run`):
+                    // the first whose output was cut, in program order.
+                    requests.into_iter().find(|request| {
+                        matches!(request.source, ContinuationSource::Lines { .. })
+                            && (request.remaining != 0 || request.cut_lines > 0)
+                    })
+                })
+            };
+            if let Some(request) = chosen {
+                let registration = Registration {
+                    program: program.and_then(|program| program.text.clone()),
+                    session: self.continuation_session(prepared),
+                    part: request.shown,
+                    options: serde_json::to_value(&prepared.options).ok(),
+                };
+                match self.inner.continuations.register(
+                    request,
+                    &registration,
+                    &prepared.config.config().continuation,
+                    self.now(),
+                ) {
+                    Ok(continuation) => {
+                        for entry in &mut report.notable {
+                            if matches!(entry.code, Notable::TruncatedLines | Notable::LimitReached)
+                            {
+                                entry.continuation = Some(continuation.id.clone());
+                            }
+                        }
+                        report.continuation = Some(continuation);
+                    }
+                    Err(NotKept(reason)) => {
+                        let mut entry = NotableEntry::new(Notable::LimitReached);
+                        entry.detail = Some(format!("no continuation is kept: {reason}"));
+                        report.notable.push(entry);
+                    }
+                }
+            }
+            existing
+        });
+        if let (Some(program), false) = (program, advanced) {
             let limit = prepared.options.limit();
             report = self
                 .inner
                 .cursors
                 .first_page(report, limit, program, self.now());
+        }
+        if advanced {
+            let rows = report.records.as_ref().map_or(0, |page| page.rows.len());
+            let mut options = prepared.options.clone();
+            options.limit = Some(options.limit().max(u32::try_from(rows).unwrap_or(u32::MAX)));
+            return respond_with(&report, &options);
         }
         respond_with(&report, &prepared.options)
     }
@@ -1823,6 +2005,8 @@ fn nested_pipelines<'b>(statements: &'b [BoundStatement], found: &mut Vec<&'b Bo
 
 /// Inputs of one program execution.
 struct Run<'a> {
+    sink: Arc<ContinuationSink>,
+    resume: Option<ResumeOverride>,
     compiled: &'a Compiled,
     prepared: &'a Prepared,
     kind: &'a ProgramKind,
@@ -2121,6 +2305,66 @@ pub(crate) fn failed_report(kind: &str, error: Error) -> Report {
     let mut report = Report::new(ReportStatus::Failed, kind);
     report.error = Some(error);
     report
+}
+
+/// The remainder of a reading result: the records that the first page
+/// leaves out, the lines of the first page that stages cut (`cuts`, as far as
+/// the page shows them) and the cursor of a query that continues after the
+/// records; `None` when nothing is left and nothing was cut.
+fn records_request(
+    report: &Report,
+    limit: u32,
+    resume: Option<String>,
+    cuts: &[CutLine],
+) -> Option<ContinuationRequest> {
+    let rows = &report.records.as_ref()?.rows;
+    if !report.changes.is_empty() {
+        return None;
+    }
+    let size = usize::try_from(limit).unwrap_or(usize::MAX).max(1);
+    let shown = rows.len().min(size);
+    let rest = rows[shown..].to_vec();
+    let cut: Vec<CutLine> = cuts
+        .iter()
+        .filter(|line| {
+            rows[..shown].iter().any(|row| {
+                row.get("path").and_then(Value::as_str) == Some(line.path.as_str())
+                    && match row.get("no") {
+                        Some(Value::Int(no)) => u64::try_from(*no).ok() == Some(line.no),
+                        _ => true,
+                    }
+            })
+        })
+        .cloned()
+        .collect();
+    if rest.is_empty() && cut.is_empty() && resume.is_none() {
+        return None;
+    }
+    Some(ContinuationRequest {
+        id: None,
+        unit: ContinuationUnit::Records,
+        shown: u64::try_from(shown).unwrap_or(u64::MAX),
+        remaining: if resume.is_some() {
+            -1
+        } else {
+            i64::try_from(rest.len()).unwrap_or(i64::MAX)
+        },
+        cut_lines: u64::try_from(cut.len()).unwrap_or(u64::MAX),
+        source: ContinuationSource::Records {
+            rows: rest,
+            cut,
+            resume,
+        },
+    })
+}
+
+/// Runs the program of a continuation again from its cursor, for `next`.
+struct EngineRunner(Engine);
+
+impl ResumeRunner for EngineRunner {
+    fn resume(&self, program: &str, resume: ResumeOverride) -> Result<ResumedPart, Error> {
+        self.0.resume_part(program, resume)
+    }
 }
 
 fn has_items(report: &Report) -> bool {

@@ -25,7 +25,9 @@ use nurt_contracts::report::{
 use serde_json::Value;
 
 /// Property names that would tell whether, until when or how an operation
-/// can be undone, or expose the state of a journal entry.
+/// can be undone, or expose the state of a journal entry. The name
+/// `remaining` is not in the list: `continuation.remaining` counts the units
+/// of a shortened result that `next` has not given yet.
 const UNDO_WINDOW_FIELDS: &[&str] = &[
     "undo",
     "undoable",
@@ -44,7 +46,6 @@ const UNDO_WINDOW_FIELDS: &[&str] = &[
     "deadline_utc",
     "ttl",
     "time_left",
-    "remaining",
     "after_ops",
     "after_seconds",
     "journal_state",

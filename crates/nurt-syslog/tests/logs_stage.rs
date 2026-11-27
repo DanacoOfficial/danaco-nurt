@@ -900,3 +900,108 @@ fn parameters_and_defaults_match_the_catalog() {
         }
     }
 }
+
+fn harness_with_extensions(extensions: nurt_contracts::stage::Extensions) -> Harness {
+    let events = Arc::new(Events::default());
+    let frame = StageFrame {
+        command: COMMAND.to_owned(),
+        ..StageFrame::default()
+    };
+    let clock = Arc::new(SystemClock {
+        origin: StdInstant::now(),
+    });
+    let ctx = ExecCtx::builder(clock, host())
+        .events(events.clone())
+        .frame(frame)
+        .extensions(extensions)
+        .build();
+    Harness { ctx, events }
+}
+
+fn sink_extensions() -> (
+    nurt_contracts::stage::Extensions,
+    Arc<nurt_contracts::continuation::ContinuationSink>,
+) {
+    let sink = Arc::new(nurt_contracts::continuation::ContinuationSink::new());
+    let mut extensions = nurt_contracts::stage::Extensions::new();
+    extensions.insert(Arc::clone(&sink));
+    (extensions, sink)
+}
+
+#[test]
+fn a_limit_that_cuts_the_result_describes_the_continuation_after_the_last_event() {
+    use nurt_contracts::continuation::{ContinuationSource, ContinuationUnit};
+    let (root, _) = sample_root();
+    let (extensions, sink) = sink_extensions();
+    let h = harness_with_extensions(extensions);
+    let first = run(
+        &stage_over(root.path()),
+        &args(&[("limit", Value::Int(3)), ("level", level("debug"))]),
+        &h.ctx,
+    )
+    .unwrap();
+    let cursor = field(&first[2], "cursor").unwrap();
+    let requests = sink.take();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].unit, ContinuationUnit::Records);
+    assert_eq!((requests[0].shown, requests[0].remaining), (3, -1));
+    match &requests[0].source {
+        ContinuationSource::Resume { cursor: kept } => assert_eq!(kept, &cursor),
+        other => panic!("not a resumed query: {other:?}"),
+    }
+}
+
+#[test]
+fn a_result_that_fits_describes_no_continuation() {
+    let (root, _) = sample_root();
+    let (extensions, sink) = sink_extensions();
+    let h = harness_with_extensions(extensions);
+    run(
+        &stage_over(root.path()),
+        &args(&[("level", level("debug"))]),
+        &h.ctx,
+    )
+    .unwrap();
+    assert!(sink.take().is_empty());
+}
+
+#[test]
+fn parts_of_a_query_continue_after_the_cursor_when_newer_events_arrive_between_them() {
+    use nurt_contracts::continuation::{ContinuationSource, ResumeOverride};
+    let (old_root, _) = sample_root();
+    let (grown_root, _) = root_with(&[(
+        "system.journal",
+        journal(&sample_entries(ENTRIES + 4, START)),
+    )]);
+    let mut all = Vec::new();
+    let (extensions, sink) = sink_extensions();
+    let h = harness_with_extensions(extensions);
+    let given = args(&[("limit", Value::Int(5)), ("level", level("debug"))]);
+    all.extend(messages(
+        &run(&stage_over(old_root.path()), &given, &h.ctx).unwrap(),
+    ));
+    let mut request = sink.take().pop().unwrap();
+    let mut grown = false;
+    loop {
+        let ContinuationSource::Resume { cursor } = request.source else {
+            panic!("not a resumed query");
+        };
+        let (mut extensions, sink) = sink_extensions();
+        extensions.insert(Arc::new(ResumeOverride {
+            cursor,
+            count: Some(5),
+            options: None,
+        }));
+        let h = harness_with_extensions(extensions);
+        let root = if grown { &grown_root } else { &old_root };
+        grown = true;
+        all.extend(messages(
+            &run(&stage_over(root.path()), &given, &h.ctx).unwrap(),
+        ));
+        match sink.take().pop() {
+            Some(next) => request = next,
+            None => break,
+        }
+    }
+    assert_eq!(all, names((0..ENTRIES).rev()));
+}

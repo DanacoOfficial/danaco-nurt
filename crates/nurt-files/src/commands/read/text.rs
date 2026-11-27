@@ -515,6 +515,7 @@ struct Rendered {
     text: String,
     lines: u64,
     shortened: u64,
+    cut: Vec<(u64, String)>,
 }
 
 fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rendered {
@@ -522,6 +523,7 @@ fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rende
         text: String::new(),
         lines: 0,
         shortened: 0,
+        cut: Vec::new(),
     };
     let width = spans
         .iter()
@@ -545,6 +547,7 @@ fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rende
                 Some(short) => {
                     rendered.text.push_str(&short);
                     rendered.shortened += 1;
+                    rendered.cut.push((line, content.to_owned()));
                 }
                 None => rendered.text.push_str(content),
             }
@@ -576,6 +579,19 @@ fn lines_content(
         .unwrap_or_else(|| lines.whole().into_iter().collect());
     let rendered = render(lines, &selected, options);
     if rendered.shortened > 0 {
+        let path = source.path.to_language_string();
+        crate::common::continuation::offer_cut_lines(
+            ctx,
+            rendered
+                .cut
+                .iter()
+                .map(|(no, text)| nurt_contracts::continuation::CutLine {
+                    path: path.clone(),
+                    no: *no,
+                    text: text.clone(),
+                })
+                .collect(),
+        );
         ctx.note(NotableEntry {
             count: Some(rendered.shortened),
             ..at_path(Notable::TruncatedLines, &source.path)

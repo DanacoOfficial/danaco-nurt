@@ -891,6 +891,29 @@
         }
       }
     },
+    "ContinuationConfig": {
+      "description": "Section `[continuation]`.",
+      "type": "object",
+      "properties": {
+        "max_age": {
+          "description": "Key `continuation.max_age`: a continuation older than this expires.\nDefault `1h`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1h"
+        },
+        "max_count": {
+          "description": "Key `continuation.max_count`: most continuations kept; the oldest is\nremoved first. Default `50`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 50
+        },
+        "max_size": {
+          "description": "Key `continuation.max_size`: most space of all kept results; the\noldest is removed first. Default `256mib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "256mib"
+        }
+      }
+    },
     "TextConfig": {
       "description": "Section `[text]`.",
       "type": "object",
@@ -1840,6 +1863,15 @@
           "per_file_repl": 100,
           "targets_high": 500
         }
+      }
+    },
+    "continuation": {
+      "description": "Continuation of shortened results: lifetime and space.",
+      "$ref": "#/$defs/ContinuationConfig",
+      "default": {
+        "max_age": "1h",
+        "max_count": 50,
+        "max_size": "256mib"
       }
     },
     "text": {

@@ -233,11 +233,18 @@ const CALLS: Block = Block {
     header_en: None,
     header_pl: None,
     programs: false,
-    lines: &[Line {
-        priority: 2,
-        en: "CALL PARAMETERS: preview (only targets and effect), base (directory for relative paths), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
-        pl: "PARAMETRY WYWOŁANIA: preview (tylko cele i skutek), base (katalog dla ścieżek względnych), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
-    }],
+    lines: &[
+        Line {
+            priority: 2,
+            en: "CALL PARAMETERS: preview (only targets and effect), base (directory for relative paths), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
+            pl: "PARAMETRY WYWOŁANIA: preview (tylko cele i skutek), base (katalog dla ścieżek względnych), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
+        },
+        Line {
+            priority: 2,
+            en: "A shortened result ends with `more: next`; call `next` for the next part.",
+            pl: "Skrócony wynik kończy się `more: next`; wywołaj `next`, aby pobrać następną część.",
+        },
+    ],
 };
 
 const EXAMPLES: Block = Block {

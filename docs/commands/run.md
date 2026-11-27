@@ -99,12 +99,16 @@ hundreds of warnings. A shorter output is returned whole and has no
 `diagnostics`. A line `error: message` without a code and a location counts as
 an error of `cargo` only when the output shows another mark of it.
 
-When the response leaves lines out or cuts lines, `read_hint` is one sentence
-with ready commands that read the rest from the output file without running
-the program again, for example `read "/state/spool/r1.out" lines: 200..260`,
-and `search /error|FAILED/ "/state/spool/r1.out"` for the lines that contain
-a word. Line numbers are those of the file, so lines collapsed by `dedupe`
-count as the lines they stand for.
+When the response leaves lines out or cuts lines, the report carries the field
+`continuation` (`id`, `unit: lines`, `shown`, `remaining`, `cut_lines`) and the
+text ends with the hint "more: next". `next` returns the lines left out from the output
+file in parts of the size of the first response, `next 200` returns 200 lines,
+`next all` everything that is left and `next full` the lines that the response
+cut, whole; the program does not run again. Line numbers are those of the
+file, so lines collapsed by `dedupe` count as the lines they stand for. A
+response that shows a selection of lines (`show: errors`) is continued from the
+first line of the file. The output file stays in the record (`output_file`,
+`stdout_file`, `stderr_file`) and can still be read with `read` and `search`.
 
 `run` waits up to `wait` for the program. A program that ends within `wait`
 yields an `exec` record. A program still running after `wait` continues as a
@@ -272,6 +276,14 @@ Fail when the program exits with a code other than zero:
 
 ```nurt example
 run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0
+```
+
+A response that leaves lines out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+exit 1  3000 lines  more: next
 ```
 
 ## Errors

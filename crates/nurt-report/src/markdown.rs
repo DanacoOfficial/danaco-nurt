@@ -73,8 +73,13 @@ pub(crate) fn render(shaped: &Shaped) -> String {
     if let Some(error) = &report.error {
         blocks.push(error_block(error, "error"));
     }
-    if let Some(cursor) = &report.next_cursor {
+    if report.continuation.is_none()
+        && let Some(cursor) = &report.next_cursor
+    {
         blocks.push(format!("next cursor {}", code(cursor)));
+    }
+    if let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more()) {
+        blocks.push(continuation.more_text());
     }
     if let Some(path) = &report.result_file {
         blocks.push(format!("result file {}", code(path)));

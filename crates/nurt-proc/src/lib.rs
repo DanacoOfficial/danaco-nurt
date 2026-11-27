@@ -18,6 +18,7 @@ pub mod api;
 pub mod elevation;
 
 mod classify;
+mod continuation;
 mod control;
 mod host;
 mod iface;

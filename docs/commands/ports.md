@@ -85,6 +85,14 @@ List all sockets with their states and processes:
 ports state: all
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 85  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

@@ -174,6 +174,15 @@ impl<'a> Hit<'a> {
         Cow::Owned(lines.collect::<Vec<_>>().join("\n"))
     }
 
+    /// Text of the lines joined by `\n`, none of them shortened.
+    #[must_use]
+    pub fn full_text(&self) -> String {
+        self.lines()
+            .map(|line| String::from_utf8_lossy(line).into_owned())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Whether [`Hit::text`] shortens a line.
     #[must_use]
     pub fn is_truncated(&self) -> bool {

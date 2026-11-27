@@ -3,13 +3,13 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 
 format = "nurt-catalog-index/1"
-total = 148
+total = 149
 
 [[file]]
 name = "core"
 file = "core.toml"
 summary = "Core commands for files, text, records, programs, the journal and help."
-commands = 33
+commands = 34
 
 [[file]]
 name = "documents"

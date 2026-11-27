@@ -96,7 +96,7 @@ fn a_budget_of_zero_is_no_limit() {
     let store = bench.finished("zero", &numbered("row", 300, 100), b"");
     let out = store.render(&budgeted(0), Some(1)).unwrap();
     assert_eq!(out.stdout.lines().count(), 300);
-    assert_eq!(out.read_hint, None);
+    assert_eq!(out.continuation, None);
 }
 
 #[test]
@@ -115,7 +115,9 @@ fn a_line_longer_than_400_characters_is_cut_and_marked() {
         .find(|note| note.code == Notable::TruncatedLines)
         .unwrap();
     assert_eq!(notes.count, Some(1));
-    assert!(out.read_hint.unwrap().contains("long lines cut"));
+    let continuation = out.continuation.unwrap();
+    assert_eq!(continuation.cut, [1]);
+    assert!(continuation.first_line > continuation.last_line);
 }
 
 #[test]
@@ -160,7 +162,7 @@ fn identical_lines_collapse_and_the_hint_counts_the_lines_of_the_file() {
     };
     let out = store.render(&collapsing, Some(0)).unwrap();
     assert_eq!(out.stdout, "hello (\u{d7}50000)\nlast");
-    assert_eq!(out.read_hint, None);
+    assert_eq!(out.continuation, None);
 }
 
 #[test]
@@ -301,21 +303,8 @@ fn the_budget_keeps_the_errors_before_the_text() {
     );
 }
 
-/// The numbers of the first and the last line a hint of the form
-/// `read "<file>" lines: A..B` names.
-fn read_range(hint: &str) -> (std::path::PathBuf, u64, u64) {
-    let marker = hint.find("read \"").expect("the hint has a read command");
-    let rest = &hint[marker + "read \"".len()..];
-    let end = rest.find('"').unwrap();
-    let path = std::path::PathBuf::from(&rest[..end]);
-    let range = rest[end..].split("lines: ").nth(1).unwrap();
-    let range = range.split_whitespace().next().unwrap();
-    let (from, to) = range.split_once("..").unwrap();
-    (path, from.parse().unwrap(), to.parse().unwrap())
-}
-
 #[test]
-fn the_hint_names_the_lines_left_out_of_the_file() {
+fn the_continuation_names_the_lines_left_out_of_the_file() {
     let bench = Bench::new();
     let store = bench.finished("hint", &numbered("row", 300, 40), b"");
     let narrow = OutputView {
@@ -324,19 +313,23 @@ fn the_hint_names_the_lines_left_out_of_the_file() {
         ..budgeted(4096)
     };
     let out = store.render(&narrow, Some(1)).unwrap();
-    let hint = out.read_hint.unwrap();
-    let (path, from, to) = read_range(&hint);
+    let continuation = out.continuation.unwrap();
+    let (path, from, to) = (
+        continuation.path.clone(),
+        continuation.first_line,
+        continuation.last_line,
+    );
     assert_eq!(Some(path.clone()), out.stdout_file);
     assert_eq!((from, to), (11, 280));
+    assert_eq!(continuation.shown, 30);
     let text = std::fs::read_to_string(path).unwrap();
     let lines: Vec<&str> = text.lines().collect();
     assert!(lines[from as usize - 1].starts_with("row 00010"));
     assert!(lines[to as usize - 1].starts_with("row 00279"));
-    assert!(hint.contains("search /"));
 }
 
 #[test]
-fn the_hint_counts_lines_of_the_file_when_lines_were_collapsed() {
+fn the_continuation_counts_lines_of_the_file_when_lines_were_collapsed() {
     let bench = Bench::new();
     let mut text = String::from("start\n");
     text.push_str(&"tick\n".repeat(100));
@@ -356,7 +349,12 @@ fn the_hint_counts_lines_of_the_file_when_lines_were_collapsed() {
     };
     let out = store.render(&narrow, Some(1)).unwrap();
     assert!(out.stdout.starts_with("start\ntick (\u{d7}100)"));
-    let (path, from, to) = read_range(&out.read_hint.unwrap());
+    let continuation = out.continuation.unwrap();
+    let (path, from, to) = (
+        continuation.path,
+        continuation.first_line,
+        continuation.last_line,
+    );
     assert_eq!((from, to), (102, 148));
     let text = std::fs::read_to_string(path).unwrap();
     assert_eq!(text.lines().nth(from as usize - 1), Some("item aa"));
@@ -364,9 +362,9 @@ fn the_hint_counts_lines_of_the_file_when_lines_were_collapsed() {
 }
 
 #[test]
-fn nothing_cut_means_no_hint() {
+fn nothing_cut_means_no_continuation() {
     let bench = Bench::new();
     let store = bench.finished("whole", b"a\nb\n", b"");
     let out = store.render(&budgeted(4096), Some(1)).unwrap();
-    assert_eq!(out.read_hint, None);
+    assert_eq!(out.continuation, None);
 }

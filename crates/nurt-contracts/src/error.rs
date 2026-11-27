@@ -434,6 +434,9 @@ error_codes! {
     /// An argument of a call cannot be passed without changing its meaning,
     /// for example a NUL character in a process argument.
     Arg = "E_ARG", [Bind, Apply], Arg;
+    /// A continuation read by `next` has expired or was removed by the limits
+    /// of `[continuation]`; `next_steps` holds the call that produced it.
+    ContinuationExpired = "E_CONTINUATION_EXPIRED", [Read], Arg;
     /// A program required by the command is not installed; `fix` shows how
     /// to install it.
     ExternalMissing = "E_EXTERNAL_MISSING", [Bind, Apply], Ok;

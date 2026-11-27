@@ -18,6 +18,7 @@
 mod builtin;
 pub mod candidates;
 pub mod config;
+pub mod continuation;
 pub mod cursor;
 mod elevated;
 mod elevated_journal;

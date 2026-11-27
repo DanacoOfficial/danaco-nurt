@@ -768,6 +768,23 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
 
     let work = tempfile::tempdir().unwrap();
     let home = tempfile::tempdir().unwrap();
+    // The journal of a volume is shared by every process on it and numbers
+    // its operations per state directory, so the test keeps its own journal
+    // directory and removes it at the end.
+    let journal_name = format!(
+        ".nurt-journal-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_nanos())
+    );
+    let config_dir = home.path().join("config").join("nurt");
+    std::fs::create_dir_all(&config_dir).unwrap();
+    std::fs::write(
+        config_dir.join("nurt.toml"),
+        format!("[journal]\ndir_name = \"{journal_name}\"\n"),
+    )
+    .unwrap();
     let dir = work.path().to_str().unwrap().to_owned();
     let bad = work.path().join(OsStr::from_bytes(b"bad\xffname.txt"));
     std::fs::write(&bad, b"raw").unwrap();
@@ -806,6 +823,9 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
         .unwrap();
     assert_eq!(undone.status.code(), Some(0), "{}", stdout(&undone));
     assert_eq!(std::fs::read(&bad).unwrap(), b"raw", "{}", stdout(&undone));
+    if let Some(user_home) = std::env::var_os("HOME") {
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&user_home).join(&journal_name));
+    }
 }
 
 #[cfg(unix)]

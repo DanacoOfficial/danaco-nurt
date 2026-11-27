@@ -127,6 +127,14 @@ List the files of a directory changed most recently first:
 list "/home/user/app/src" type: file sort: modified order: desc
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 312  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

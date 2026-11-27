@@ -65,6 +65,7 @@ name never appears in the output of a program.
 | `irreversible` | non-empty list | irreversible effects, section 7 |
 | `error` | object | error of the language, section 8 |
 | `next_cursor` | text | cursor of the next page; absent on the last page |
+| `continuation` | object | what a shortened response leaves out and how `next` reads it, section 2.1 |
 | `timing` | object | `parse_ms`, `read_ms`, `plan_ms`, `apply_ms` (verbosity `detailed`) |
 | `parts` | list | the parts of a control construct in order, section 2.1 |
 | `parts_total` | integer | number of parts when `parts` is shortened to the first 200 |
@@ -109,6 +110,33 @@ field; a new domain adds a new optional field of the same kind.
 Fields marked `x-nurt-volatile` in the schema (`op`, `result_file`,
 `next_cursor`, `timing`) differ between runs of the same program and are
 ignored when reports are compared.
+
+### 2.1 Continuation of a shortened response
+
+Every response that leaves out lines, records, bytes or the end of long lines
+carries the field `continuation`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | text | short identifier, `c1`, `c2`, … within the session of the console |
+| `unit` | `lines`, `records`, `bytes` | unit of the parts |
+| `shown` | int | units in the responses given so far |
+| `remaining` | int | units not yet given; `-1` when not known in advance (a query that continues after a cursor, such as `logs`) |
+| `cut_lines` | int | lines of the shown part that were shortened by `max_line` or `max_chars` |
+
+The one-line text of the response ends with `more: next` when the
+continuation is the latest one and with `more: next c3` otherwise. The
+command `next` returns the next part and never computes the result again.
+The notices `truncated_lines` and `limit_reached` stay and gain the optional
+field `continuation`: the identifier (`c3`) of the continuation of the
+response, absent when nothing continues. The sentence `read_hint` of
+the record `exec` no longer exists: the spool file of a run stays, its path
+stays in the record (`output_file`, `stdout_file`, `stderr_file`) and the
+continuation reads the lines left out of that file. A result that is a
+selection of lines (`show: errors`) is continued from the first line of the
+file. Kept results are bound by the keys `continuation.max_age`,
+`continuation.max_count` and `continuation.max_size`; a continuation that
+expired ends with `E_CONTINUATION_EXPIRED`.
 
 ## 3. Status
 

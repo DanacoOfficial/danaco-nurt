@@ -321,6 +321,14 @@ read "/srv/site/logo.png" view: header
 image: {mime: image/png, width: 64, height: 32}
 ```
 
+A response that leaves lines out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

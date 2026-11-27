@@ -119,6 +119,24 @@ their own version numbers, described in the specification.
   `deny.toml` records the reason.
 - The lock files of the fuzz targets are regenerated.
 
+### Added
+
+- The command `next` and the field `continuation` of every shortened response
+  (decision P-19): a response that leaves lines, records or the end of long
+  lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`,
+  `cut_lines`) and its text ends with `more: next`; `next`, `next c3`,
+  `next 200`, `next c3 200`, `next all` and `next full` return the next part
+  from the output file of `run`, from the kept result of a reading command or
+  from the cursor of `logs`, without running the program again. The keys
+  `continuation.max_age` (`1h`), `continuation.max_count` (`50`) and
+  `continuation.max_size` (`256mib`) bound the kept results; an expired
+  continuation ends with the new error `E_CONTINUATION_EXPIRED`. The record
+  `exec` no longer has the field `read_hint`; `continuation` replaces it.
+  The default sizes of the responses are unchanged. A continuation belongs to
+  the session that made it and is allocated under a lock file, so that several
+  processes can share one state directory. When one program has several stages
+  that cut their output, the first one in program order is continued.
+
 ### Fixed
 
 - The code review of 0.1.0 corrected the defects found in every crate of the

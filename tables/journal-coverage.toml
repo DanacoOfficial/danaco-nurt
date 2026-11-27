@@ -498,6 +498,13 @@ preserve = []
 coverage = "no_effect"
 
 [[row]]
+command = "next"
+group = "core"
+changes = "Nothing; the command only reads."
+preserve = []
+coverage = "no_effect"
+
+[[row]]
 command = "undo"
 group = "core"
 changes = "Items of the last or of a selected entry, restored."
