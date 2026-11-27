@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Firewall backends: the interface and the choice of the backend.
 
-use nurt_contracts::env::Os;
+use crate::admin::System;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::model::Rule;
@@ -79,7 +79,7 @@ pub const NAMES: [&str; 6] = ["auto", "nftables", "firewalld", "ufw", "pf", "win
 /// `E_EXTERNAL_MISSING` when no firewall program is found.
 pub fn select(tool: &Tool<'_>, name: &str, table: &str) -> Result<Box<dyn Backend>> {
     let os = tool.os();
-    let known = |wanted: &str, systems: &[Os]| -> Result<()> {
+    let known = |wanted: &str, systems: &[System]| -> Result<()> {
         if systems.contains(&os) {
             Ok(())
         } else {
@@ -92,23 +92,23 @@ pub fn select(tool: &Tool<'_>, name: &str, table: &str) -> Result<Box<dyn Backen
     };
     match name {
         "nftables" => {
-            known("nftables", &[Os::Linux])?;
+            known("nftables", &[System::Linux])?;
             Ok(Box::new(super::nftables::Nftables::new(table)))
         }
         "firewalld" => {
-            known("firewalld", &[Os::Linux])?;
+            known("firewalld", &[System::Linux])?;
             Ok(Box::new(super::firewalld::Firewalld))
         }
         "ufw" => {
-            known("ufw", &[Os::Linux])?;
+            known("ufw", &[System::Linux])?;
             Ok(Box::new(super::ufw::Ufw))
         }
         "pf" => {
-            known("pf", &[Os::Macos])?;
+            known("pf", &[System::Macos])?;
             Ok(Box::new(super::pf::Pf))
         }
         "windows" => {
-            known("windows", &[Os::Windows])?;
+            known("windows", &[System::Windows])?;
             Ok(Box::new(super::windows::WindowsFirewall))
         }
         _ => auto(tool, table),
@@ -117,15 +117,15 @@ pub fn select(tool: &Tool<'_>, name: &str, table: &str) -> Result<Box<dyn Backen
 
 fn auto(tool: &Tool<'_>, table: &str) -> Result<Box<dyn Backend>> {
     match tool.os() {
-        Os::Windows => Ok(Box::new(super::windows::WindowsFirewall)),
-        Os::Macos => {
+        System::Windows => Ok(Box::new(super::windows::WindowsFirewall)),
+        System::Macos => {
             if tool.available("pfctl") {
                 Ok(Box::new(super::pf::Pf))
             } else {
                 Err(missing("pfctl"))
             }
         }
-        Os::Linux => {
+        System::Linux => {
             if tool.available("firewall-cmd")
                 && tool
                     .run(&Call::new("firewall-cmd", &["--state"]))

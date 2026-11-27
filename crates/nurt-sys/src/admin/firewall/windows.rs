@@ -7,12 +7,12 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use serde_json::Value as Json;
 
 use super::backend::{Backend, Listed};
-use super::model::{label_of, Direction, Protocol, Rule, Verdict, LABEL_PREFIX};
+use super::model::{Direction, LABEL_PREFIX, Protocol, Rule, Verdict, label_of};
 use crate::admin::{Call, Tool};
 
 /// The Windows Defender Firewall.
 #[derive(Debug, Clone, Copy)]
-pub struct WindowsFirewall;
+pub(crate) struct WindowsFirewall;
 
 const PROFILES: [&str; 3] = ["Domain", "Private", "Public"];
 
@@ -39,7 +39,7 @@ fn profile_of(rule: &Rule) -> Result<Option<&'static str>> {
 /// # Errors
 ///
 /// `E_INVALID_VALUE` for a zone that is not a profile.
-pub fn add_script(rule: &Rule) -> Result<String> {
+pub(crate) fn add_script(rule: &Rule) -> Result<String> {
     let mut script = format!(
         "New-NetFirewallRule -DisplayName '{}' -Direction {} -Action {} -Protocol {} -LocalPort {}",
         label_of(rule),
@@ -66,7 +66,7 @@ pub fn add_script(rule: &Rule) -> Result<String> {
 
 /// PowerShell command that removes the rule.
 #[must_use]
-pub fn remove_script(rule: &Rule) -> String {
+pub(crate) fn remove_script(rule: &Rule) -> String {
     format!(
         "Remove-NetFirewallRule -DisplayName '{}' -ErrorAction Stop",
         label_of(rule)
@@ -79,7 +79,7 @@ pub fn remove_script(rule: &Rule) -> String {
 /// # Errors
 ///
 /// `E_STAGE_FAILED` when the text is not JSON.
-pub fn parse_list(text: &str) -> Result<Vec<Listed>> {
+pub(crate) fn parse_list(text: &str) -> Result<Vec<Listed>> {
     if text.trim().is_empty() {
         return Ok(Vec::new());
     }
@@ -188,7 +188,10 @@ mod tests {
     #[test]
     fn unknown_profile_is_rejected() {
         let rule = Rule::parse_key("allow tcp 22 in any dmz").unwrap();
-        assert_eq!(add_script(&rule).unwrap_err().code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            add_script(&rule).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
     }
 
     #[test]

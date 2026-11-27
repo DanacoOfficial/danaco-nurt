@@ -36,16 +36,16 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Record, RecordKind, Value};
 
-pub use self::backend::{select, Backend, Listed, NAMES};
+pub use self::backend::{Backend, Listed, NAMES, select};
 pub use self::model::{
-    label_of, parse_ports, valid_source, valid_zone, Direction, Protocol, Rule, Verdict,
-    LABEL_PREFIX, TARGET_PREFIX,
+    Direction, LABEL_PREFIX, Protocol, Rule, TARGET_PREFIX, Verdict, label_of, parse_ports,
+    valid_source, valid_zone,
 };
 pub use self::nftables::DEFAULT_TABLE;
-pub use self::nftables::{parse_ruleset, Nftables};
+pub use self::nftables::{Nftables, parse_ruleset};
 
-use super::effects::{effect_record, marker, state_change, unchanged};
 use super::Tool;
+use super::effects::{effect_record, marker, state_change, unchanged};
 
 const PARAM_PORT: &str = "port";
 const PARAM_PROTOCOL: &str = "protocol";
@@ -115,7 +115,11 @@ fn source_of(args: &BoundArgs) -> Result<Option<String>> {
     match args.text(PARAM_SOURCE)? {
         None => Ok(None),
         Some(text) if valid_source(text) => Ok(Some(text.to_owned())),
-        Some(text) => Err(invalid(PARAM_SOURCE, text, "an IP address or a network in CIDR form")),
+        Some(text) => Err(invalid(
+            PARAM_SOURCE,
+            text,
+            "an IP address or a network in CIDR form",
+        )),
     }
 }
 
@@ -219,7 +223,9 @@ impl ReadStage for FirewallRules {
         let tool = Tool::from_ctx(ctx)?;
         let backend = select(&tool, &backend_name(args)?, &table_of(args)?)?;
         let ports = port_of(args)?;
-        let protocol = word(args, PARAM_PROTOCOL)?.map(|_| protocol_of(args)).transpose()?;
+        let protocol = word(args, PARAM_PROTOCOL)?
+            .map(|_| protocol_of(args))
+            .transpose()?;
         let records: Vec<Record> = backend
             .list(&tool)?
             .iter()
@@ -237,7 +243,7 @@ impl ReadStage for FirewallRules {
 
 /// Which of the three changing commands a [`FirewallChange`] is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Change {
+enum Verb {
     Allow,
     Deny,
     Remove,
@@ -246,28 +252,26 @@ enum Change {
 /// The commands `firewall.allow`, `firewall.deny` and `firewall.remove`.
 #[derive(Debug, Clone, Copy)]
 pub struct FirewallChange {
-    change: Change,
+    change: Verb,
 }
 
 impl FirewallChange {
     /// The command `firewall.allow`.
     pub const ALLOW: Self = Self {
-        change: Change::Allow,
+        change: Verb::Allow,
     };
     /// The command `firewall.deny`.
-    pub const DENY: Self = Self {
-        change: Change::Deny,
-    };
+    pub const DENY: Self = Self { change: Verb::Deny };
     /// The command `firewall.remove`.
     pub const REMOVE: Self = Self {
-        change: Change::Remove,
+        change: Verb::Remove,
     };
 
     fn command(self) -> &'static str {
         match self.change {
-            Change::Allow => "firewall.allow",
-            Change::Deny => "firewall.deny",
-            Change::Remove => "firewall.remove",
+            Verb::Allow => "firewall.allow",
+            Verb::Deny => "firewall.deny",
+            Verb::Remove => "firewall.remove",
         }
     }
 
@@ -279,12 +283,12 @@ impl FirewallChange {
             )
         })?;
         let (verdict, any_verdict) = match (self.change, word(args, PARAM_ACTION)?) {
-            (Change::Allow, _) => (Verdict::Allow, false),
-            (Change::Deny, _) => (Verdict::Deny, false),
-            (Change::Remove, None | Some("any")) => (Verdict::Allow, true),
-            (Change::Remove, Some("allow")) => (Verdict::Allow, false),
-            (Change::Remove, Some("deny")) => (Verdict::Deny, false),
-            (Change::Remove, Some(other)) => {
+            (Verb::Allow, _) => (Verdict::Allow, false),
+            (Verb::Deny, _) => (Verdict::Deny, false),
+            (Verb::Remove, None | Some("any")) => (Verdict::Allow, true),
+            (Verb::Remove, Some("allow")) => (Verdict::Allow, false),
+            (Verb::Remove, Some("deny")) => (Verdict::Deny, false),
+            (Verb::Remove, Some(other)) => {
                 return Err(invalid(PARAM_ACTION, other, "any, allow or deny"));
             }
         };
@@ -344,6 +348,12 @@ impl StageImpl for FirewallChange {
     }
 }
 
+/// Kind of the marker of a firewall change: `firewall:<backend>:<table>`; the
+/// inverse of the operation reads the backend and the table from it.
+fn marker_kind(backend: &str, table: &str) -> String {
+    format!("firewall:{backend}:{table}")
+}
+
 fn effects_of(kind: &str, steps: &[Step], status: EffectStatus) -> Vec<Record> {
     steps
         .iter()
@@ -372,7 +382,7 @@ impl EffectStage for FirewallChange {
         let listed = backend.list(&tool)?;
         let mut plan = EffectPlan::new();
         let mut steps = Vec::new();
-        if self.change == Change::Remove {
+        if self.change == Verb::Remove {
             let mut found: Vec<Rule> = listed
                 .iter()
                 .filter(|item| backend.owns(item))
@@ -413,8 +423,10 @@ impl EffectStage for FirewallChange {
             };
             plan.changes
                 .push(state_change(&step.rule.target(), Some(before), Some(after)));
-            plan.irreversible
-                .push(marker(backend.name(), &step.rule.target()));
+            plan.irreversible.push(marker(
+                &marker_kind(backend.name(), &request.table),
+                &step.rule.target(),
+            ));
         }
         plan.preview = effects_of(self.command(), &steps, EffectStatus::Planned);
         Ok(plan.with_state(State {
@@ -440,7 +452,7 @@ impl EffectStage for FirewallChange {
         let mut done: Vec<Step> = Vec::new();
         for step in &state.steps {
             let target = step.rule.target();
-            let entry = marker(backend.name(), &target);
+            let entry = marker(&marker_kind(backend.name(), &state.table), &target);
             tx.mark_irreversible(entry.clone());
             let result = ctx.checkpoint().and_then(|()| {
                 if step.add {
@@ -476,5 +488,343 @@ impl EffectStage for FirewallChange {
             EffectStatus::Ok,
         )));
         Ok(outcome)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::admin::System;
+    use crate::admin::testing::{FakeProcess, RecordingTx, args, ctx, input, records, text, word};
+
+    const EMPTY_NFT: &str = r#"{"nftables":[{"metainfo":{"version":"1.0.9"}}]}"#;
+
+    fn allow_22() -> BoundArgs {
+        args(
+            "firewall.allow",
+            &[
+                ("port", Value::Int(22)),
+                ("backend", word("nftables")),
+                ("table", text("nurt_test_a")),
+            ],
+        )
+    }
+
+    #[test]
+    fn allow_adds_a_rule_with_its_key_as_comment() {
+        let process = FakeProcess::new();
+        process.reply("nft -j list ruleset", EMPTY_NFT);
+        process.fail("nft list chain", 1, "Error: No such file or directory");
+        let ctx = ctx(System::Linux, &process);
+        let request = allow_22();
+        let plan = FirewallChange::ALLOW.plan(&request, input(), &ctx).unwrap();
+        assert_eq!(plan.changes.len(), 1);
+        assert_eq!(
+            plan.changes[0].path.as_str(),
+            "firewall:allow tcp 22 in any -"
+        );
+        assert_eq!(plan.changes[0].before.as_deref(), Some("absent"));
+        let mut tx = RecordingTx::default();
+        let outcome = FirewallChange::ALLOW
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        let lines = process.lines();
+        assert!(lines.contains(&"nft add table inet nurt_test_a".to_owned()));
+        assert_eq!(
+            lines.last().unwrap(),
+            "nft add rule inet nurt_test_a input tcp dport 22 accept comment \"nurt:allow tcp 22 in any -\""
+        );
+        assert_eq!(tx.markers.len(), 1);
+        assert_eq!(
+            tx.markers[0].detail.as_deref(),
+            Some("admin:firewall:nftables:nurt_test_a")
+        );
+        assert_eq!(records(outcome.output).len(), 1);
+    }
+
+    #[test]
+    fn allow_of_an_existing_rule_changes_nothing() {
+        let process = FakeProcess::new();
+        process.reply(
+            "nft -j list ruleset",
+            r#"{"nftables":[{"chain":{"family":"inet","table":"nurt_test_a","name":"input","handle":1,"type":"filter","hook":"input","prio":0,"policy":"accept"}},{"rule":{"family":"inet","table":"nurt_test_a","chain":"input","handle":2,"comment":"nurt:allow tcp 22 in any -","expr":[]}}]}"#,
+        );
+        let ctx = ctx(System::Linux, &process);
+        let plan = FirewallChange::ALLOW
+            .plan(&allow_22(), input(), &ctx)
+            .unwrap();
+        assert!(plan.changes.is_empty());
+        assert_eq!(plan.notable.len(), 1);
+        let mut tx = RecordingTx::default();
+        FirewallChange::ALLOW
+            .apply(&allow_22(), plan, &mut tx, &ctx)
+            .unwrap();
+        assert!(tx.markers.is_empty());
+        assert_eq!(process.lines().len(), 1);
+    }
+
+    #[test]
+    fn remove_deletes_by_handle_and_records_the_removed_rule() {
+        let process = FakeProcess::new();
+        process.reply(
+            "nft -j list ruleset",
+            r#"{"nftables":[{"chain":{"family":"inet","table":"nurt_test_a","name":"input","handle":1,"type":"filter","hook":"input","prio":0,"policy":"accept"}},{"rule":{"family":"inet","table":"nurt_test_a","chain":"input","handle":7,"comment":"nurt:deny tcp 22 in any -","expr":[]}}]}"#,
+        );
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.remove",
+            &[
+                ("port", Value::Int(22)),
+                ("backend", word("nftables")),
+                ("table", text("nurt_test_a")),
+            ],
+        );
+        let plan = FirewallChange::REMOVE
+            .plan(&request, input(), &ctx)
+            .unwrap();
+        assert_eq!(
+            plan.changes[0].path.as_str(),
+            "firewall:deny tcp 22 in any -"
+        );
+        assert_eq!(plan.changes[0].before.as_deref(), Some("present"));
+        let mut tx = RecordingTx::default();
+        FirewallChange::REMOVE
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        assert_eq!(
+            process.lines().last().unwrap(),
+            "nft delete rule inet nurt_test_a input handle 7"
+        );
+    }
+
+    #[test]
+    fn remove_of_a_missing_rule_is_not_found() {
+        let process = FakeProcess::new();
+        process.reply("nft -j list ruleset", EMPTY_NFT);
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.remove",
+            &[("port", Value::Int(22)), ("backend", word("nftables"))],
+        );
+        let error = FirewallChange::REMOVE
+            .plan(&request, input(), &ctx)
+            .err()
+            .unwrap();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn invalid_values_are_rejected_before_any_program_runs() {
+        let process = FakeProcess::new();
+        let ctx = ctx(System::Linux, &process);
+        for request in [
+            args("firewall.allow", &[("port", Value::Int(70000))]),
+            args("firewall.allow", &[("port", text("80; reboot"))]),
+            args(
+                "firewall.allow",
+                &[("port", Value::Int(80)), ("source", text("not-an-address"))],
+            ),
+            args(
+                "firewall.allow",
+                &[("port", Value::Int(80)), ("zone", text("a b"))],
+            ),
+            args(
+                "firewall.allow",
+                &[("port", Value::Int(80)), ("protocol", word("icmp"))],
+            ),
+            args("firewall.allow", &[("source", text("10.0.0.1"))]),
+        ] {
+            assert!(FirewallChange::ALLOW.plan(&request, input(), &ctx).is_err());
+        }
+        assert!(process.lines().is_empty());
+    }
+
+    #[test]
+    fn auto_prefers_firewalld_then_ufw_then_nftables() {
+        let process = FakeProcess::new();
+        process.reply("firewall-cmd --state", "running\n");
+        let chosen = |process: &std::sync::Arc<FakeProcess>| {
+            let cancel = nurt_contracts::stage::CancelToken::new();
+            let tool = Tool::new(process.as_ref(), System::Linux, &cancel);
+            select(&tool, "auto", "nurt").map(|backend| backend.name())
+        };
+        assert_eq!(chosen(&process).unwrap(), "firewalld");
+        let process = FakeProcess::new();
+        process.without("firewall-cmd");
+        assert_eq!(chosen(&process).unwrap(), "ufw");
+        process.without("ufw");
+        assert_eq!(chosen(&process).unwrap(), "nftables");
+        process.without("nft");
+        assert_eq!(
+            chosen(&process).unwrap_err().code(),
+            ErrorCode::ExternalMissing
+        );
+    }
+
+    #[test]
+    fn a_backend_of_another_system_is_os_only() {
+        let process = FakeProcess::new();
+        let cancel = nurt_contracts::stage::CancelToken::new();
+        let tool = Tool::new(process.as_ref(), System::Linux, &cancel);
+        assert_eq!(
+            select(&tool, "pf", "nurt").err().unwrap().code(),
+            ErrorCode::OsOnly
+        );
+        assert_eq!(
+            select(&tool, "windows", "nurt").err().unwrap().code(),
+            ErrorCode::OsOnly
+        );
+    }
+
+    #[test]
+    fn firewalld_normalizes_the_default_zone_and_adds_both_runtime_and_permanent() {
+        let process = FakeProcess::new();
+        process.reply("firewall-cmd --get-default-zone", "public\n");
+        process.reply(
+            "firewall-cmd --get-active-zones",
+            "public\n  interfaces: eth0\n",
+        );
+        process.reply("firewall-cmd --zone=public --list-ports", "80/tcp\n");
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.allow",
+            &[("port", Value::Int(22)), ("backend", word("firewalld"))],
+        );
+        let plan = FirewallChange::ALLOW.plan(&request, input(), &ctx).unwrap();
+        assert_eq!(
+            plan.changes[0].path.as_str(),
+            "firewall:allow tcp 22 in any public"
+        );
+        let mut tx = RecordingTx::default();
+        FirewallChange::ALLOW
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        let lines = process.lines();
+        assert!(lines.contains(&"firewall-cmd --zone=public --add-port=22/tcp".to_owned()));
+        assert_eq!(
+            lines.last().unwrap(),
+            "firewall-cmd --permanent --zone=public --add-port=22/tcp"
+        );
+    }
+
+    #[test]
+    fn a_failure_of_the_permanent_change_removes_the_runtime_rule() {
+        let process = FakeProcess::new();
+        process.reply("firewall-cmd --get-default-zone", "public\n");
+        process.reply("firewall-cmd --get-active-zones", "public\n");
+        process.fail("firewall-cmd --permanent", 1, "Error: ALREADY_ENABLED");
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.allow",
+            &[("port", Value::Int(22)), ("backend", word("firewalld"))],
+        );
+        let plan = FirewallChange::ALLOW.plan(&request, input(), &ctx).unwrap();
+        let mut tx = RecordingTx::default();
+        assert!(
+            FirewallChange::ALLOW
+                .apply(&request, plan, &mut tx, &ctx)
+                .is_err()
+        );
+        assert_eq!(
+            process.lines().last().unwrap(),
+            "firewall-cmd --zone=public --remove-port=22/tcp"
+        );
+    }
+
+    #[test]
+    fn ufw_adds_and_deletes_with_force() {
+        let process = FakeProcess::new();
+        process.reply(
+            "ufw status",
+            "Status: active\n\nTo Action From\n-- ------ ----\n",
+        );
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.deny",
+            &[
+                ("port", text("8000-8100")),
+                ("protocol", word("udp")),
+                ("source", text("10.0.0.0/8")),
+                ("backend", word("ufw")),
+            ],
+        );
+        let plan = FirewallChange::DENY.plan(&request, input(), &ctx).unwrap();
+        let mut tx = RecordingTx::default();
+        FirewallChange::DENY
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        assert_eq!(
+            process.lines().last().unwrap(),
+            "ufw --force deny in proto udp from 10.0.0.0/8 to any port 8000:8100"
+        );
+    }
+
+    #[test]
+    fn pf_loads_the_whole_anchor_through_standard_input() {
+        let process = FakeProcess::new();
+        process.reply(
+            "pfctl -a nurt -sr",
+            "pass in quick proto tcp from any to any port = 80 label \"nurt:allow tcp 80 in any -\"\n",
+        );
+        let ctx = ctx(System::Macos, &process);
+        let request = args(
+            "firewall.allow",
+            &[("port", Value::Int(22)), ("backend", word("pf"))],
+        );
+        let plan = FirewallChange::ALLOW.plan(&request, input(), &ctx).unwrap();
+        let mut tx = RecordingTx::default();
+        FirewallChange::ALLOW
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        let loaded = process.stdin();
+        assert_eq!(loaded.len(), 1);
+        assert!(loaded[0].contains("label \"nurt:allow tcp 80 in any -\""));
+        assert!(loaded[0].contains("label \"nurt:allow tcp 22 in any -\""));
+    }
+
+    #[test]
+    fn windows_rules_are_created_and_removed_by_label() {
+        let process = FakeProcess::new();
+        process.reply(
+            "powershell -NoProfile -NonInteractive -Command Get-NetFirewallRule",
+            "",
+        );
+        let ctx = ctx(System::Windows, &process);
+        let request = args("firewall.allow", &[("port", Value::Int(3389))]);
+        let plan = FirewallChange::ALLOW.plan(&request, input(), &ctx).unwrap();
+        let mut tx = RecordingTx::default();
+        FirewallChange::ALLOW
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        assert!(
+            process
+                .lines()
+                .last()
+                .unwrap()
+                .contains("New-NetFirewallRule -DisplayName 'nurt:allow tcp 3389 in any -'")
+        );
+    }
+
+    #[test]
+    fn rules_lists_records_with_the_fields_of_the_rule() {
+        let process = FakeProcess::new();
+        process.reply(
+            "ufw status",
+            "Status: active\n\nTo Action From\n-- ------ ----\n22/tcp ALLOW IN Anywhere\n",
+        );
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "firewall.rules",
+            &[("backend", word("ufw")), ("port", Value::Int(22))],
+        );
+        let rows = records(FirewallRules.execute(&request, input(), &ctx).unwrap());
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("action"), Some(&text("allow")));
+        assert_eq!(rows[0].get("backend"), Some(&text("ufw")));
+        let none = args(
+            "firewall.rules",
+            &[("backend", word("ufw")), ("port", Value::Int(80))],
+        );
+        assert!(records(FirewallRules.execute(&none, input(), &ctx).unwrap()).is_empty());
     }
 }

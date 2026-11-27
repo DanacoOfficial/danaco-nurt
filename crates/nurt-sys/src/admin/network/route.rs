@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Routes: `network.route_add` and `network.route_remove`.
 
-use nurt_contracts::env::Os;
+use crate::admin::System;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::kinds::Implementation;
@@ -54,7 +54,8 @@ impl Route {
             self.interface
                 .as_deref()
                 .map_or_else(|| "-".to_owned(), |name| name.replace(' ', "\u{a0}")),
-            self.metric.map_or_else(|| "-".to_owned(), |n| n.to_string()),
+            self.metric
+                .map_or_else(|| "-".to_owned(), |n| n.to_string()),
         )
     }
 
@@ -103,12 +104,17 @@ impl Route {
     #[must_use]
     pub fn selects(&self, route: &Self) -> bool {
         self.destination == route.destination
-            && self.gateway.as_ref().is_none_or(|gw| route.gateway.as_ref() == Some(gw))
+            && self
+                .gateway
+                .as_ref()
+                .is_none_or(|gw| route.gateway.as_ref() == Some(gw))
             && self
                 .interface
                 .as_ref()
                 .is_none_or(|name| route.interface.as_ref() == Some(name))
-            && self.metric.is_none_or(|metric| route.metric == Some(metric))
+            && self
+                .metric
+                .is_none_or(|metric| route.metric == Some(metric))
     }
 }
 
@@ -133,7 +139,10 @@ pub fn parse_ip_json(text: &str) -> Result<Vec<Route>> {
         .filter_map(|item| {
             Some(Route {
                 destination: item.get("dst")?.as_str()?.to_owned(),
-                gateway: item.get("gateway").and_then(Json::as_str).map(str::to_owned),
+                gateway: item
+                    .get("gateway")
+                    .and_then(Json::as_str)
+                    .map(str::to_owned),
                 interface: item.get("dev").and_then(Json::as_str).map(str::to_owned),
                 metric: item
                     .get("metric")
@@ -150,10 +159,15 @@ pub fn parse_netstat(text: &str) -> Vec<Route> {
     text.lines()
         .filter_map(|line| {
             let words: Vec<&str> = line.split_whitespace().collect();
-            if words.len() < 4 || !(words[0] == "default" || words[0].chars().next()?.is_ascii_digit()) {
+            if words.len() < 4
+                || !(words[0] == "default" || words[0].chars().next()?.is_ascii_digit())
+            {
                 return None;
             }
-            let gateway = words[1].parse::<std::net::IpAddr>().ok().map(|ip| ip.to_string());
+            let gateway = words[1]
+                .parse::<std::net::IpAddr>()
+                .ok()
+                .map(|ip| ip.to_string());
             Some(Route {
                 destination: words[0].to_owned(),
                 gateway,
@@ -191,7 +205,10 @@ pub fn parse_windows(text: &str) -> Result<Vec<Route>> {
                 "0.0.0.0/0" | "::/0" => "default",
                 other => other,
             };
-            let hop = item.get("NextHop").and_then(Json::as_str).unwrap_or_default();
+            let hop = item
+                .get("NextHop")
+                .and_then(Json::as_str)
+                .unwrap_or_default();
             Some(Route {
                 destination: destination.to_owned(),
                 gateway: (!matches!(hop, "" | "0.0.0.0" | "::")).then(|| hop.to_owned()),
@@ -223,18 +240,22 @@ fn windows_prefix(route: &Route) -> String {
 
 /// Calls that add `route`.
 #[must_use]
-pub fn add_call(os: Os, route: &Route) -> Call {
+pub(crate) fn add_call(os: System, route: &Route) -> Call {
     match os {
-        Os::Linux => {
+        System::Linux => {
             let mut args: Vec<String> = Vec::new();
             if route.is_v6() {
                 args.push("-6".to_owned());
             }
-            args.extend(["route".to_owned(), "add".to_owned(), route.destination.clone()]);
+            args.extend([
+                "route".to_owned(),
+                "add".to_owned(),
+                route.destination.clone(),
+            ]);
             args.extend(detail_args(route));
             Call::owned("ip", args)
         }
-        Os::Macos => {
+        System::Macos => {
             let mut args = vec!["-n".to_owned(), "add".to_owned()];
             if route.is_v6() {
                 args.push("-inet6".to_owned());
@@ -245,12 +266,14 @@ pub fn add_call(os: Os, route: &Route) -> Call {
             args.push(route.destination.clone());
             match (&route.gateway, &route.interface) {
                 (Some(gateway), _) => args.push(gateway.clone()),
-                (None, Some(interface)) => args.extend(["-interface".to_owned(), interface.clone()]),
+                (None, Some(interface)) => {
+                    args.extend(["-interface".to_owned(), interface.clone()])
+                }
                 (None, None) => {}
             }
             Call::owned("route", args)
         }
-        Os::Windows => {
+        System::Windows => {
             let mut script = format!(
                 "New-NetRoute -DestinationPrefix {} -Confirm:$false",
                 quote_ps(&windows_prefix(route))
@@ -264,18 +287,22 @@ pub fn add_call(os: Os, route: &Route) -> Call {
 
 /// Call that removes `route`.
 #[must_use]
-pub fn remove_call(os: Os, route: &Route) -> Call {
+pub(crate) fn remove_call(os: System, route: &Route) -> Call {
     match os {
-        Os::Linux => {
+        System::Linux => {
             let mut args: Vec<String> = Vec::new();
             if route.is_v6() {
                 args.push("-6".to_owned());
             }
-            args.extend(["route".to_owned(), "del".to_owned(), route.destination.clone()]);
+            args.extend([
+                "route".to_owned(),
+                "del".to_owned(),
+                route.destination.clone(),
+            ]);
             args.extend(detail_args(route));
             Call::owned("ip", args)
         }
-        Os::Macos => {
+        System::Macos => {
             let mut args = vec!["-n".to_owned(), "delete".to_owned()];
             if route.is_v6() {
                 args.push("-inet6".to_owned());
@@ -289,7 +316,7 @@ pub fn remove_call(os: Os, route: &Route) -> Call {
             }
             Call::owned("route", args)
         }
-        Os::Windows => {
+        System::Windows => {
             let mut script = format!(
                 "Remove-NetRoute -DestinationPrefix {} -Confirm:$false",
                 quote_ps(&windows_prefix(route))
@@ -328,12 +355,12 @@ fn windows_selectors(route: &Route) -> String {
     text
 }
 
-fn list_call(os: Os, v6: bool) -> Call {
+fn list_call(os: System, v6: bool) -> Call {
     match os {
-        Os::Linux if v6 => Call::new("ip", &["-j", "-6", "route", "show"]),
-        Os::Linux => Call::new("ip", &["-j", "route", "show"]),
-        Os::Macos => Call::new("netstat", &["-rn", "-f", if v6 { "inet6" } else { "inet" }]),
-        Os::Windows => Call::powershell(&format!(
+        System::Linux if v6 => Call::new("ip", &["-j", "-6", "route", "show"]),
+        System::Linux => Call::new("ip", &["-j", "route", "show"]),
+        System::Macos => Call::new("netstat", &["-rn", "-f", if v6 { "inet6" } else { "inet" }]),
+        System::Windows => Call::powershell(&format!(
             "Get-NetRoute -AddressFamily {} | Select-Object DestinationPrefix,NextHop,InterfaceAlias,RouteMetric | ConvertTo-Json -Compress",
             if v6 { "IPv6" } else { "IPv4" }
         )),
@@ -345,12 +372,12 @@ fn list_call(os: Os, v6: bool) -> Call {
 /// # Errors
 ///
 /// The error of the program that failed.
-pub fn read_routes(tool: &Tool<'_>, v6: bool) -> Result<Vec<Route>> {
+pub(crate) fn read_routes(tool: &Tool<'_>, v6: bool) -> Result<Vec<Route>> {
     let output = tool.ok(&list_call(tool.os(), v6))?;
     match tool.os() {
-        Os::Linux => parse_ip_json(&output.stdout),
-        Os::Macos => Ok(parse_netstat(&output.stdout)),
-        Os::Windows => parse_windows(&output.stdout),
+        System::Linux => parse_ip_json(&output.stdout),
+        System::Macos => Ok(parse_netstat(&output.stdout)),
+        System::Windows => parse_windows(&output.stdout),
     }
 }
 
@@ -386,7 +413,11 @@ impl RouteChange {
             _ => args.text("destination").map(|_| String::new()),
         })?;
         if destination != "default" && !valid_source(&destination) {
-            return Err(invalid("destination", &destination, "an address, a network in CIDR form or `default`"));
+            return Err(invalid(
+                "destination",
+                &destination,
+                "an address, a network in CIDR form or `default`",
+            ));
         }
         let gateway = match args.text("gateway")? {
             None => None,
@@ -401,7 +432,11 @@ impl RouteChange {
         let metric = match args.int("metric")? {
             None => None,
             Some(number) => Some(u32::try_from(number).map_err(|_| {
-                invalid("metric", &number.to_string(), "a number from 0 to 4294967295")
+                invalid(
+                    "metric",
+                    &number.to_string(),
+                    "a number from 0 to 4294967295",
+                )
             })?),
         };
         if self.verb == Verb::Add && gateway.is_none() && interface.is_none() {
@@ -444,10 +479,10 @@ impl StageImpl for RouteChange {
     fn check(&self, args: &BoundArgs, ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
         self.request(args)?;
         let mut info = StaticInfo::default();
-        let program = match ctx.host().info().os {
-            Os::Linux => "ip",
-            Os::Macos => "route",
-            Os::Windows => "powershell",
+        let program = match System::of(ctx.host().info().os) {
+            System::Linux => "ip",
+            System::Macos => "route",
+            System::Windows => "powershell",
         };
         info.programs.push(ExternalProgram {
             program: program.to_owned(),
@@ -475,13 +510,17 @@ impl EffectStage for RouteChange {
         let add = self.verb == Verb::Add;
         let routes: Vec<Route> = if add {
             if table.iter().any(|route| wanted.selects(route)) {
-                plan.notable.push(unchanged(&wanted.target(), "the route already exists"));
+                plan.notable
+                    .push(unchanged(&wanted.target(), "the route already exists"));
                 Vec::new()
             } else {
                 vec![wanted]
             }
         } else {
-            let mut found: Vec<Route> = table.into_iter().filter(|route| wanted.selects(route)).collect();
+            let mut found: Vec<Route> = table
+                .into_iter()
+                .filter(|route| wanted.selects(route))
+                .collect();
             found.sort();
             found.dedup();
             if found.is_empty() {
@@ -496,8 +535,11 @@ impl EffectStage for RouteChange {
         plan.bulk = routes.len() > 1;
         for route in &routes {
             let (before, after) = states(route, add);
-            plan.changes
-                .push(state_change(&route.target(), before.as_deref(), after.as_deref()));
+            plan.changes.push(state_change(
+                &route.target(),
+                before.as_deref(),
+                after.as_deref(),
+            ));
             plan.irreversible.push(marker("route", &route.target()));
             plan.preview.push(effect_record(
                 self.command(),
@@ -545,9 +587,11 @@ impl EffectStage for RouteChange {
                 return Err(error.with_effect_applied(false));
             }
             let (before, after) = states(route, state.add);
-            outcome
-                .changes
-                .push(state_change(&route.target(), before.as_deref(), after.as_deref()));
+            outcome.changes.push(state_change(
+                &route.target(),
+                before.as_deref(),
+                after.as_deref(),
+            ));
             outcome.irreversible.push(entry);
             records.push(effect_record(
                 self.command(),
@@ -574,7 +618,7 @@ fn states(route: &Route, add: bool) -> (Option<String>, Option<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::admin::testing::{args, ctx, input, records, text, FakeProcess, RecordingTx};
+    use crate::admin::testing::{FakeProcess, RecordingTx, args, ctx, input, records, text};
     use nurt_contracts::value::Value;
 
     const TABLE: &str = r#"[{"dst":"default","gateway":"192.168.1.1","dev":"eth0","metric":100},{"dst":"10.9.0.0/16","gateway":"192.168.1.5","dev":"eth0"},{"dst":"192.168.1.0/24","dev":"eth0","scope":"link"}]"#;
@@ -587,7 +631,10 @@ mod tests {
             interface: Some("Ethernet 2".to_owned()),
             metric: Some(50),
         };
-        assert_eq!(Route::from_state("10.9.0.0/16", &route.state()), Some(route));
+        assert_eq!(
+            Route::from_state("10.9.0.0/16", &route.state()),
+            Some(route)
+        );
         assert_eq!(Route::from_state("x", "via=1.1.1.1"), None);
     }
 
@@ -617,14 +664,14 @@ mod tests {
             metric: Some(20),
         };
         assert_eq!(
-            add_call(Os::Linux, &route).line(),
+            add_call(System::Linux, &route).line(),
             "ip route add 10.9.0.0/16 via 192.168.1.5 dev eth0 metric 20"
         );
         assert_eq!(
-            remove_call(Os::Macos, &route).line(),
+            remove_call(System::Macos, &route).line(),
             "route -n delete -net 10.9.0.0/16 192.168.1.5"
         );
-        assert!(add_call(Os::Windows, &route)
+        assert!(add_call(System::Windows, &route)
             .line()
             .contains("New-NetRoute -DestinationPrefix '10.9.0.0/16' -Confirm:$false -NextHop '192.168.1.5' -InterfaceAlias 'eth0' -RouteMetric 20"));
     }
@@ -633,10 +680,13 @@ mod tests {
     fn adding_a_present_route_changes_nothing() {
         let process = FakeProcess::new();
         process.reply("ip -j route show", TABLE);
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.route_add",
-            &[("destination", text("10.9.0.0/16")), ("gateway", text("192.168.1.5"))],
+            &[
+                ("destination", text("10.9.0.0/16")),
+                ("gateway", text("192.168.1.5")),
+            ],
         );
         let plan = RouteChange::ADD.plan(&request, input(), &ctx).unwrap();
         assert!(plan.changes.is_empty());
@@ -647,7 +697,7 @@ mod tests {
     fn adding_a_route_records_the_state_and_runs_ip() {
         let process = FakeProcess::new();
         process.reply("ip -j route show", TABLE);
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.route_add",
             &[
@@ -659,8 +709,13 @@ mod tests {
         let plan = RouteChange::ADD.plan(&request, input(), &ctx).unwrap();
         assert_eq!(plan.changes[0].before, None);
         let mut tx = RecordingTx::default();
-        let outcome = RouteChange::ADD.apply(&request, plan, &mut tx, &ctx).unwrap();
-        assert_eq!(outcome.changes[0].after.as_deref(), Some("via=192.168.1.9 dev=- metric=7"));
+        let outcome = RouteChange::ADD
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
+        assert_eq!(
+            outcome.changes[0].after.as_deref(),
+            Some("via=192.168.1.9 dev=- metric=7")
+        );
         assert_eq!(tx.markers.len(), 1);
         assert_eq!(
             process.lines().last().unwrap(),
@@ -673,12 +728,20 @@ mod tests {
     fn removing_a_route_records_what_was_removed() {
         let process = FakeProcess::new();
         process.reply("ip -j route show", TABLE);
-        let ctx = ctx(Os::Linux, &process);
-        let request = args("network.route_remove", &[("destination", text("10.9.0.0/16"))]);
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "network.route_remove",
+            &[("destination", text("10.9.0.0/16"))],
+        );
         let plan = RouteChange::REMOVE.plan(&request, input(), &ctx).unwrap();
-        assert_eq!(plan.changes[0].before.as_deref(), Some("via=192.168.1.5 dev=eth0 metric=-"));
+        assert_eq!(
+            plan.changes[0].before.as_deref(),
+            Some("via=192.168.1.5 dev=eth0 metric=-")
+        );
         let mut tx = RecordingTx::default();
-        RouteChange::REMOVE.apply(&request, plan, &mut tx, &ctx).unwrap();
+        RouteChange::REMOVE
+            .apply(&request, plan, &mut tx, &ctx)
+            .unwrap();
         assert_eq!(
             process.lines().last().unwrap(),
             "ip route del 10.9.0.0/16 via 192.168.1.5 dev eth0"
@@ -689,20 +752,38 @@ mod tests {
     fn removing_a_missing_route_is_not_found() {
         let process = FakeProcess::new();
         process.reply("ip -j route show", TABLE);
-        let ctx = ctx(Os::Linux, &process);
-        let request = args("network.route_remove", &[("destination", text("172.16.0.0/12"))]);
-        let error = RouteChange::REMOVE.plan(&request, input(), &ctx).err().unwrap();
+        let ctx = ctx(System::Linux, &process);
+        let request = args(
+            "network.route_remove",
+            &[("destination", text("172.16.0.0/12"))],
+        );
+        let error = RouteChange::REMOVE
+            .plan(&request, input(), &ctx)
+            .err()
+            .unwrap();
         assert_eq!(error.code(), ErrorCode::NotFound);
     }
 
     #[test]
     fn invalid_values_are_rejected_before_any_program_runs() {
         let process = FakeProcess::new();
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         for request in [
-            args("network.route_add", &[("destination", text("10.0.0.0/8; reboot")), ("gateway", text("1.1.1.1"))]),
+            args(
+                "network.route_add",
+                &[
+                    ("destination", text("10.0.0.0/8; reboot")),
+                    ("gateway", text("1.1.1.1")),
+                ],
+            ),
             args("network.route_add", &[("destination", text("10.0.0.0/8"))]),
-            args("network.route_add", &[("destination", text("10.0.0.0/8")), ("interface", text("-x"))]),
+            args(
+                "network.route_add",
+                &[
+                    ("destination", text("10.0.0.0/8")),
+                    ("interface", text("-x")),
+                ],
+            ),
         ] {
             assert!(RouteChange::ADD.plan(&request, input(), &ctx).is_err());
         }
@@ -713,15 +794,25 @@ mod tests {
     fn a_failing_program_reports_missing_rights() {
         let process = FakeProcess::new();
         process.reply("ip -j route show", TABLE);
-        process.fail("ip route add", 2, "RTNETLINK answers: Operation not permitted");
-        let ctx = ctx(Os::Linux, &process);
+        process.fail(
+            "ip route add",
+            2,
+            "RTNETLINK answers: Operation not permitted",
+        );
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.route_add",
-            &[("destination", text("10.20.0.0/16")), ("gateway", text("192.168.1.9"))],
+            &[
+                ("destination", text("10.20.0.0/16")),
+                ("gateway", text("192.168.1.9")),
+            ],
         );
         let plan = RouteChange::ADD.plan(&request, input(), &ctx).unwrap();
         let mut tx = RecordingTx::default();
-        let error = RouteChange::ADD.apply(&request, plan, &mut tx, &ctx).err().unwrap();
+        let error = RouteChange::ADD
+            .apply(&request, plan, &mut tx, &ctx)
+            .err()
+            .unwrap();
         assert_eq!(error.code(), ErrorCode::Privilege);
     }
 }

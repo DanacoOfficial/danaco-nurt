@@ -17,6 +17,8 @@ use nurt_contracts::journal::{
     RollbackReason, RollbackReport, TargetIndex, TargetSpec,
 };
 use nurt_contracts::report::IrreversibleEntry;
+
+use super::System;
 use nurt_contracts::services::{
     ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec, Services,
 };
@@ -65,7 +67,7 @@ impl Host for TestHost {
     }
 }
 
-/// Reply of the scripted host to the programs whose command line starts with
+/// Reply of the scripted host (the last one registered wins) to the programs whose command line starts with
 /// `prefix`.
 struct Reply {
     prefix: String,
@@ -111,7 +113,10 @@ impl FakeProcess {
 
     /// The program does not exist.
     pub(crate) fn without(&self, program: &str) -> &Self {
-        self.missing.lock().expect("missing").push(program.to_owned());
+        self.missing
+            .lock()
+            .expect("missing")
+            .push(program.to_owned());
         self
     }
 
@@ -132,7 +137,12 @@ impl ProcessHost for FakeProcess {
             .chain(spec.args.iter().map(String::as_str))
             .collect::<Vec<_>>()
             .join(" ");
-        if self.missing.lock().expect("missing").contains(&spec.program) {
+        if self
+            .missing
+            .lock()
+            .expect("missing")
+            .contains(&spec.program)
+        {
             return Err(Error::new(ErrorCode::ProgramNotFound, "program not found"));
         }
         self.lines.lock().expect("lines").push(line.clone());
@@ -143,7 +153,10 @@ impl ProcessHost for FakeProcess {
                 .push(String::from_utf8_lossy(bytes).into_owned());
         }
         let replies = self.replies.lock().expect("replies");
-        let reply = replies.iter().find(|reply| line.starts_with(&reply.prefix));
+        let reply = replies
+            .iter()
+            .rev()
+            .find(|reply| line.starts_with(&reply.prefix));
         Ok(match reply {
             Some(reply) => ProgramOutcome {
                 exit_code: Some(reply.code),
@@ -159,7 +172,13 @@ impl ProcessHost for FakeProcess {
     }
 
     fn resolve_program(&self, program: &str, _cwd: &Path) -> Result<PathBuf> {
-        if self.missing.lock().expect("missing").iter().any(|name| name == program) {
+        if self
+            .missing
+            .lock()
+            .expect("missing")
+            .iter()
+            .any(|name| name == program)
+        {
             return Err(Error::new(ErrorCode::ProgramNotFound, "program not found"));
         }
         Ok(PathBuf::from(program))
@@ -171,14 +190,23 @@ impl ProcessHost for FakeProcess {
 }
 
 /// Execution context of a host of system `os` over `process`.
-pub(crate) fn ctx(os: Os, process: &Arc<FakeProcess>) -> ExecCtx {
+pub(crate) fn ctx(system: System, process: &Arc<FakeProcess>) -> ExecCtx {
+    let os = match system {
+        System::Linux => Os::Linux,
+        System::Macos => Os::Macos,
+        System::Windows => Os::Windows,
+    };
     let host = TestHost(HostInfo {
         os,
         os_version: "test".to_owned(),
         architecture: "x86_64".to_owned(),
         hostname: "host".to_owned(),
         user: "user".to_owned(),
-        home: PathBuf::from(if os == Os::Windows { "C:\\Users\\user" } else { "/home/user" }),
+        home: PathBuf::from(if os == Os::Windows {
+            "C:\\Users\\user"
+        } else {
+            "/home/user"
+        }),
         temp: PathBuf::from("/tmp"),
         path_style: if os == Os::Windows {
             PathStyle::Windows
@@ -207,9 +235,11 @@ pub(crate) fn input() -> StageInput<'static> {
 
 /// Arguments of `command` with the given values, all as given by the user.
 pub(crate) fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
-    values.iter().fold(BoundArgs::new(command), |args, (name, value)| {
-        args.with(*name, ArgValue::Value(value.clone()), false)
-    })
+    values
+        .iter()
+        .fold(BoundArgs::new(command), |args, (name, value)| {
+            args.with(*name, ArgValue::Value(value.clone()), false)
+        })
 }
 
 /// Text value.
@@ -229,11 +259,10 @@ pub(crate) fn texts(values: &[&str]) -> Value {
 
 /// Records of a stage output.
 pub(crate) fn records(output: StageOutput<'_>) -> Vec<Record> {
-    output
-        .into_records()
-        .expect("records")
-        .collect::<Result<Vec<_>>>()
-        .expect("records")
+    match output.data {
+        StageData::Records(stream) => stream.collect::<Result<Vec<_>>>().expect("records"),
+        _ => panic!("expected records"),
+    }
 }
 
 /// Transaction that records the markers of the stage.

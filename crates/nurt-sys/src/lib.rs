@@ -13,6 +13,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 pub mod accounts;
+pub mod admin;
 pub mod cim;
 mod common;
 pub mod console;
@@ -72,6 +73,7 @@ pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
         .into_iter()
         .chain(services::stages())
         .chain([Arc::new(cim::WindowsCim::new()) as Arc<dyn StageImpl>])
+        .chain(admin::stages())
         .chain(package::stages(&packages))
         .try_for_each(|stage| registrar.register(stage))
 }

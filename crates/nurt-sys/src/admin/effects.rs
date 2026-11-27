@@ -5,20 +5,18 @@
 //! notes and effect records.
 
 use nurt_contracts::record::{Change, ChangeAction, Effect, EffectStatus};
-use nurt_contracts::report::{
-    Irreversible, IrreversibleEntry, Notable, NotableEntry,
-};
+use nurt_contracts::report::{Irreversible, IrreversibleEntry, Notable, NotableEntry};
 use nurt_contracts::value::{Record, Value};
 
 /// Prefix of the `detail` of the marker of an administration change.
-pub const MARKER_PREFIX: &str = "admin:";
+pub(crate) const MARKER_PREFIX: &str = "admin:";
 
 /// Marker that opens the journal entry of a change outside the file system.
 ///
 /// The engine removes the marker when it derives the inverse of the
 /// operation from the recorded states.
 #[must_use]
-pub fn marker(kind: &str, target: &str) -> IrreversibleEntry {
+pub(crate) fn marker(kind: &str, target: &str) -> IrreversibleEntry {
     let mut entry = IrreversibleEntry::new(Irreversible::ExternalEffect);
     entry.path = Some(target.to_owned());
     entry.detail = Some(format!("{MARKER_PREFIX}{kind}"));
@@ -27,7 +25,7 @@ pub fn marker(kind: &str, target: &str) -> IrreversibleEntry {
 
 /// `state` change of `target` with the values before and after.
 #[must_use]
-pub fn state_change(target: &str, before: Option<&str>, after: Option<&str>) -> Change {
+pub(crate) fn state_change(target: &str, before: Option<&str>, after: Option<&str>) -> Change {
     let mut change = Change::new(target.to_owned(), ChangeAction::State);
     change.before = before.map(str::to_owned);
     change.after = after.map(str::to_owned);
@@ -36,7 +34,7 @@ pub fn state_change(target: &str, before: Option<&str>, after: Option<&str>) -> 
 
 /// Note that the system already held the requested state.
 #[must_use]
-pub fn unchanged(target: &str, detail: &str) -> NotableEntry {
+pub(crate) fn unchanged(target: &str, detail: &str) -> NotableEntry {
     let mut note = NotableEntry::new(Notable::Unchanged);
     note.path = Some(target.to_owned());
     note.detail = Some(detail.to_owned());
@@ -45,7 +43,7 @@ pub fn unchanged(target: &str, detail: &str) -> NotableEntry {
 
 /// `effect` record of one change.
 #[must_use]
-pub fn effect_record(
+pub(crate) fn effect_record(
     kind: &str,
     target: &str,
     status: EffectStatus,

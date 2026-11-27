@@ -25,6 +25,32 @@ const DENIED: [&str; 8] = [
     "not authorized",
 ];
 
+/// Family of the operating system the programs run on.
+///
+/// The enumeration of the contracts is open; every system that is neither
+/// macOS nor Windows is treated as Linux.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum System {
+    /// Linux and the other Unix systems with the GNU tools.
+    Linux,
+    /// macOS.
+    Macos,
+    /// Windows.
+    Windows,
+}
+
+impl System {
+    /// System of the host.
+    #[must_use]
+    pub fn of(os: Os) -> Self {
+        match os {
+            Os::Macos => Self::Macos,
+            Os::Windows => Self::Windows,
+            _ => Self::Linux,
+        }
+    }
+}
+
 /// One program to run: name, arguments and optional standard input.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
@@ -105,7 +131,7 @@ impl Output {
 /// Access to the programs of the system for one command.
 pub struct Tool<'a> {
     process: &'a dyn ProcessHost,
-    os: Os,
+    os: System,
     cancel: &'a CancelToken,
     timeout_ms: Option<u64>,
 }
@@ -128,7 +154,7 @@ impl<'a> Tool<'a> {
             .map(|left| u64::try_from(left.as_millis()).unwrap_or(u64::MAX));
         Ok(Self {
             process,
-            os: ctx.host().info().os,
+            os: System::of(ctx.host().info().os),
             cancel: ctx.cancel(),
             timeout_ms,
         })
@@ -136,7 +162,7 @@ impl<'a> Tool<'a> {
 
     /// Tool over an explicit process host.
     #[must_use]
-    pub fn new(process: &'a dyn ProcessHost, os: Os, cancel: &'a CancelToken) -> Self {
+    pub fn new(process: &'a dyn ProcessHost, os: System, cancel: &'a CancelToken) -> Self {
         Self {
             process,
             os,
@@ -147,14 +173,18 @@ impl<'a> Tool<'a> {
 
     /// Operating system the programs run on.
     #[must_use]
-    pub fn os(&self) -> Os {
+    pub fn os(&self) -> System {
         self.os
     }
 
     /// Whether `program` is found on the search path.
     #[must_use]
     pub fn available(&self, program: &str) -> bool {
-        let cwd = if self.os == Os::Windows { "C:\\" } else { "/" };
+        let cwd = if self.os == System::Windows {
+            "C:\\"
+        } else {
+            "/"
+        };
         self.process
             .resolve_program(program, Path::new(cwd))
             .is_ok()
@@ -167,7 +197,11 @@ impl<'a> Tool<'a> {
     /// `E_PROGRAM_NOT_FOUND` when the program does not exist and
     /// `E_CANCELLED` or `E_TIMEOUT` when the run was stopped.
     pub fn run(&self, call: &Call) -> Result<Output> {
-        let cwd = if self.os == Os::Windows { "C:\\" } else { "/" };
+        let cwd = if self.os == System::Windows {
+            "C:\\"
+        } else {
+            "/"
+        };
         let mut spec = ProgramSpec::new(call.program.clone(), call.args.clone(), cwd);
         spec.timeout_ms = self.timeout_ms;
         if let Some(text) = &call.stdin {
@@ -202,7 +236,7 @@ impl<'a> Tool<'a> {
 
 /// Error of a program that did not succeed.
 #[must_use]
-pub fn failure(call: &Call, output: &Output) -> Error {
+pub(crate) fn failure(call: &Call, output: &Output) -> Error {
     let text = format!("{}\n{}", output.stderr, output.stdout).to_lowercase();
     let tail = tail_of(&output.stderr, &output.stdout);
     if DENIED.iter().any(|phrase| text.contains(phrase)) {

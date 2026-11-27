@@ -19,10 +19,10 @@
 //! `clock.set` stays irreversible.
 
 pub mod clock;
+pub(crate) mod effects;
 pub mod firewall;
 pub mod inverse;
 pub mod network;
-mod effects;
 #[cfg(test)]
 pub(crate) mod testing;
 mod tool;
@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 use nurt_contracts::stage::StageImpl;
 
-pub use self::tool::{Call, Output, Tool};
+pub use self::tool::{Call, Output, System, Tool};
 
 /// Every stage of the firewall, network and clock commands, in catalog order.
 #[must_use]

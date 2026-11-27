@@ -11,19 +11,19 @@
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::backend::{Backend, Listed};
-use super::model::{label_of, Direction, Rule, Verdict, LABEL_PREFIX};
+use super::model::{Direction, LABEL_PREFIX, Rule, Verdict, label_of};
 use crate::admin::{Call, Tool};
 
 /// Name of the anchor.
-pub const ANCHOR: &str = "nurt";
+pub(crate) const ANCHOR: &str = "nurt";
 
 /// The pf firewall.
 #[derive(Debug, Clone, Copy)]
-pub struct Pf;
+pub(crate) struct Pf;
 
 /// Line of the anchor for `rule`.
 #[must_use]
-pub fn anchor_line(rule: &Rule) -> String {
+pub(crate) fn anchor_line(rule: &Rule) -> String {
     let action = match rule.verdict {
         Verdict::Allow => "pass",
         Verdict::Deny => "block",
@@ -48,7 +48,7 @@ pub fn anchor_line(rule: &Rule) -> String {
 
 /// Rules of Nurt in the output of `pfctl -a nurt -sr`.
 #[must_use]
-pub fn parse_anchor(text: &str) -> Vec<Listed> {
+pub(crate) fn parse_anchor(text: &str) -> Vec<Listed> {
     text.lines()
         .filter_map(|line| {
             let start = line.find(&format!("\"{LABEL_PREFIX}"))? + 1;

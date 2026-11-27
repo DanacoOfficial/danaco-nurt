@@ -8,13 +8,13 @@
 //! restores it. macOS uses `networksetup`, Windows the DnsClient cmdlets.
 //! An empty list of `servers` returns the interface to automatic servers.
 
+use crate::admin::System;
 use std::net::IpAddr;
 
-use nurt_contracts::env::Os;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::journal::{apply_ops, FileOp, MutationTx};
+use nurt_contracts::fs::AbsPath;
+use nurt_contracts::journal::{FileOp, MutationTx, apply_ops};
 use nurt_contracts::kinds::Implementation;
-use nurt_contracts::path::AbsPath;
 use nurt_contracts::record::{Change, ChangeAction, EffectStatus};
 use nurt_contracts::stage::{
     BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, ExternalProgram,
@@ -147,9 +147,9 @@ impl DnsBackendKind {
 
 fn detect(tool: &Tool<'_>) -> DnsBackendKind {
     match tool.os() {
-        Os::Macos => DnsBackendKind::Networksetup,
-        Os::Windows => DnsBackendKind::Windows,
-        Os::Linux => {
+        System::Macos => DnsBackendKind::Networksetup,
+        System::Windows => DnsBackendKind::Windows,
+        System::Linux => {
             if tool.available("resolvectl")
                 && tool
                     .run(&Call::new("resolvectl", &["status", "--no-pager"]))
@@ -187,7 +187,10 @@ fn after_colon(text: &str) -> Vec<String> {
 fn lines_of(text: &str) -> Vec<String> {
     text.lines()
         .map(str::trim)
-        .filter(|line| !line.is_empty() && line.parse::<IpAddr>().is_ok() || line.contains('.') && !line.contains(' '))
+        .filter(|line| {
+            !line.is_empty() && line.parse::<IpAddr>().is_ok()
+                || line.contains('.') && !line.contains(' ')
+        })
         .map(str::to_owned)
         .collect()
 }
@@ -219,12 +222,19 @@ fn read_state(tool: &Tool<'_>, kind: DnsBackendKind, interface: &str) -> Result<
         }
         DnsBackendKind::Networksetup => {
             let servers = tool.ok(&Call::new("networksetup", &["-getdnsservers", interface]))?;
-            let search = tool.ok(&Call::new("networksetup", &["-getsearchdomains", interface]))?;
+            let search = tool.ok(&Call::new(
+                "networksetup",
+                &["-getsearchdomains", interface],
+            ))?;
             let real = |text: &str| -> Vec<String> {
                 if text.contains("aren't any") {
                     Vec::new()
                 } else {
-                    text.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned).collect()
+                    text.lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(str::to_owned)
+                        .collect()
                 }
             };
             Ok(DnsState {
@@ -256,7 +266,7 @@ fn read_state(tool: &Tool<'_>, kind: DnsBackendKind, interface: &str) -> Result<
 /// Calls that bring the interface to `wanted`; `search` of `None` leaves the
 /// search domains alone.
 #[must_use]
-pub fn set_calls(
+pub(crate) fn set_calls(
     kind: DnsBackendKind,
     interface: &str,
     servers: &[String],
@@ -298,7 +308,9 @@ pub fn set_calls(
         }
         DnsBackendKind::Windows => {
             let script = if servers.is_empty() {
-                format!("Set-DnsClientServerAddress -InterfaceAlias '{interface}' -ResetServerAddresses")
+                format!(
+                    "Set-DnsClientServerAddress -InterfaceAlias '{interface}' -ResetServerAddresses"
+                )
             } else {
                 format!(
                     "Set-DnsClientServerAddress -InterfaceAlias '{interface}' -ServerAddresses {}",
@@ -327,7 +339,10 @@ fn texts_of(args: &BoundArgs, name: &str) -> Result<Option<Vec<String>>> {
                 Value::Text(text) => Ok(text.clone()),
                 other => Err(Error::new(
                     ErrorCode::Type,
-                    format!("`network.dns_set` expects text items in `{name}`, not {}", other.type_name()),
+                    format!(
+                        "`network.dns_set` expects text items in `{name}`, not {}",
+                        other.type_name()
+                    ),
                 )),
             })
             .collect::<Result<Vec<_>>>()
@@ -341,7 +356,9 @@ fn valid_domain(text: &str) -> bool {
     !text.is_empty()
         && text.len() <= 253
         && !text.starts_with('-')
-        && text.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+        && text
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
 }
 
 struct Request {
@@ -418,10 +435,10 @@ impl StageImpl for DnsSet {
     fn check(&self, args: &BoundArgs, ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
         request(args)?;
         let mut info = StaticInfo::default();
-        let program = match ctx.host().info().os {
-            Os::Linux => "resolvectl",
-            Os::Macos => "networksetup",
-            Os::Windows => "powershell",
+        let program = match System::of(ctx.host().info().os) {
+            System::Linux => "resolvectl",
+            System::Macos => "networksetup",
+            System::Windows => "powershell",
         };
         info.programs.push(ExternalProgram {
             program: program.to_owned(),
@@ -459,7 +476,10 @@ impl EffectStage for DnsSet {
         let before = read_state(&tool, kind, &interface)?;
         let after = DnsState {
             servers: wanted.servers.clone(),
-            search: wanted.search.clone().unwrap_or_else(|| before.search.clone()),
+            search: wanted
+                .search
+                .clone()
+                .unwrap_or_else(|| before.search.clone()),
         };
         let mut plan = EffectPlan::new();
         let target = if kind == DnsBackendKind::ResolvConf {
@@ -468,7 +488,10 @@ impl EffectStage for DnsSet {
             format!("{DNS_PREFIX}{interface}")
         };
         if before == after {
-            plan.notable.push(unchanged(&target, "the servers and search domains are already set"));
+            plan.notable.push(unchanged(
+                &target,
+                "the servers and search domains are already set",
+            ));
             return Ok(plan.with_state(State {
                 kind,
                 interface,
@@ -490,10 +513,16 @@ impl EffectStage for DnsSet {
             }
             let old = std::fs::read_to_string(RESOLV_CONF).unwrap_or_default();
             content = Some(resolvconf_text(&old, &after));
-            plan.changes.push(Change::new(RESOLV_CONF.to_owned(), ChangeAction::Modify));
+            plan.changes
+                .push(Change::new(RESOLV_CONF.to_owned(), ChangeAction::Modify));
         } else {
-            plan.changes.push(state_change(&target, Some(&before.text()), Some(&after.text())));
-            plan.irreversible.push(marker(&format!("dns:{}", kind.as_str()), &target));
+            plan.changes.push(state_change(
+                &target,
+                Some(&before.text()),
+                Some(&after.text()),
+            ));
+            plan.irreversible
+                .push(marker(&format!("dns:{}", kind.as_str()), &target));
         }
         plan.preview.push(effect_record(
             "network.dns_set",
@@ -529,7 +558,10 @@ impl EffectStage for DnsSet {
         let before = read_state(&tool, state.kind, &state.interface)?;
         let after = DnsState {
             servers: state.servers.clone(),
-            search: state.search.clone().unwrap_or_else(|| before.search.clone()),
+            search: state
+                .search
+                .clone()
+                .unwrap_or_else(|| before.search.clone()),
         };
         let target;
         if let Some(content) = &state.content {
@@ -544,16 +576,30 @@ impl EffectStage for DnsSet {
             target = format!("{DNS_PREFIX}{}", state.interface);
             let entry = marker(&format!("dns:{}", state.kind.as_str()), &target);
             tx.mark_irreversible(entry.clone());
-            let calls = set_calls(state.kind, &state.interface, &state.servers, state.search.as_deref());
+            let calls = set_calls(
+                state.kind,
+                &state.interface,
+                &state.servers,
+                state.search.as_deref(),
+            );
             for call in &calls {
                 if let Err(error) = ctx.checkpoint().and_then(|()| tool.ok(call)) {
-                    for restore in set_calls(state.kind, &state.interface, &before.servers, Some(&before.search)) {
+                    for restore in set_calls(
+                        state.kind,
+                        &state.interface,
+                        &before.servers,
+                        Some(&before.search),
+                    ) {
                         let _ = tool.run(&restore);
                     }
                     return Err(error.with_effect_applied(false));
                 }
             }
-            outcome.changes.push(state_change(&target, Some(&before.text()), Some(&after.text())));
+            outcome.changes.push(state_change(
+                &target,
+                Some(&before.text()),
+                Some(&after.text()),
+            ));
             outcome.irreversible.push(entry);
         }
         outcome.output = StageOutput::records(RecordStream::from_records(vec![effect_record(
@@ -570,7 +616,7 @@ impl EffectStage for DnsSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::admin::testing::{args, ctx, input, records, text, texts, FakeProcess, RecordingTx};
+    use crate::admin::testing::{FakeProcess, RecordingTx, args, ctx, input, records, text, texts};
 
     #[test]
     fn state_text_round_trips() {
@@ -584,12 +630,16 @@ mod tests {
             state.program("eth0"),
             "network.dns_set [\"1.1.1.1\", \"8.8.8.8\"] search: [\"example.org\"] interface: \"eth0\""
         );
-        assert_eq!(parse_dns_text("servers=;search="), Some(DnsState::default()));
+        assert_eq!(
+            parse_dns_text("servers=;search="),
+            Some(DnsState::default())
+        );
     }
 
     #[test]
     fn resolvconf_is_read_and_rewritten_keeping_other_lines() {
-        let old = "# managed\noptions edns0\nsearch a.org\nnameserver 10.0.0.1\nnameserver 10.0.0.2\n";
+        let old =
+            "# managed\noptions edns0\nsearch a.org\nnameserver 10.0.0.1\nnameserver 10.0.0.2\n";
         let state = parse_resolvconf(old);
         assert_eq!(state.servers, ["10.0.0.1", "10.0.0.2"]);
         assert_eq!(state.search, ["a.org"]);
@@ -615,19 +665,27 @@ mod tests {
         };
         assert_eq!(
             lines(DnsBackendKind::Resolved),
-            ["resolvectl dns eth0 1.1.1.1 8.8.8.8", "resolvectl domain eth0 example.org"]
+            [
+                "resolvectl dns eth0 1.1.1.1 8.8.8.8",
+                "resolvectl domain eth0 example.org"
+            ]
         );
         assert_eq!(
             lines(DnsBackendKind::Networksetup),
-            ["networksetup -setdnsservers eth0 1.1.1.1 8.8.8.8", "networksetup -setsearchdomains eth0 example.org"]
+            [
+                "networksetup -setdnsservers eth0 1.1.1.1 8.8.8.8",
+                "networksetup -setsearchdomains eth0 example.org"
+            ]
         );
         assert_eq!(
             set_calls(DnsBackendKind::Resolved, "eth0", &[], None)[0].line(),
             "resolvectl revert eth0"
         );
-        assert!(set_calls(DnsBackendKind::Windows, "Ethernet", &[], None)[0]
-            .line()
-            .ends_with("-ResetServerAddresses"));
+        assert!(
+            set_calls(DnsBackendKind::Windows, "Ethernet", &[], None)[0]
+                .line()
+                .ends_with("-ResetServerAddresses")
+        );
     }
 
     fn resolved() -> std::sync::Arc<FakeProcess> {
@@ -640,10 +698,13 @@ mod tests {
     #[test]
     fn resolved_change_records_the_previous_state() {
         let process = resolved();
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.dns_set",
-            &[("servers", texts(&["1.1.1.1"])), ("interface", text("eth0"))],
+            &[
+                ("servers", texts(&["1.1.1.1"])),
+                ("interface", text("eth0")),
+            ],
         );
         let plan = DnsSet.plan(&request, input(), &ctx).unwrap();
         assert_eq!(
@@ -657,17 +718,24 @@ mod tests {
         let mut tx = RecordingTx::default();
         let outcome = DnsSet.apply(&request, plan, &mut tx, &ctx).unwrap();
         assert_eq!(tx.markers.len(), 1);
-        assert!(process.lines().contains(&"resolvectl dns eth0 1.1.1.1".to_owned()));
+        assert!(
+            process
+                .lines()
+                .contains(&"resolvectl dns eth0 1.1.1.1".to_owned())
+        );
         assert_eq!(records(outcome.output).len(), 1);
     }
 
     #[test]
     fn same_servers_change_nothing() {
         let process = resolved();
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.dns_set",
-            &[("servers", texts(&["10.0.0.1", "10.0.0.2"])), ("interface", text("eth0"))],
+            &[
+                ("servers", texts(&["10.0.0.1", "10.0.0.2"])),
+                ("interface", text("eth0")),
+            ],
         );
         let plan = DnsSet.plan(&request, input(), &ctx).unwrap();
         assert!(plan.changes.is_empty());
@@ -678,7 +746,7 @@ mod tests {
     fn a_failing_second_call_restores_the_first() {
         let process = resolved();
         process.fail("resolvectl domain eth0 x.org", 1, "Failed to set domain");
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         let request = args(
             "network.dns_set",
             &[
@@ -697,10 +765,16 @@ mod tests {
     #[test]
     fn rejects_values_that_are_not_addresses_or_domains() {
         let process = FakeProcess::new();
-        let ctx = ctx(Os::Linux, &process);
+        let ctx = ctx(System::Linux, &process);
         for request in [
             args("network.dns_set", &[("servers", texts(&["dns.example"]))]),
-            args("network.dns_set", &[("servers", texts(&["1.1.1.1"])), ("search", texts(&["a b"]))]),
+            args(
+                "network.dns_set",
+                &[
+                    ("servers", texts(&["1.1.1.1"])),
+                    ("search", texts(&["a b"])),
+                ],
+            ),
             args("network.dns_set", &[("search", texts(&["a.org"]))]),
         ] {
             assert!(DnsSet.plan(&request, input(), &ctx).is_err());

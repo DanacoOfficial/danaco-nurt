@@ -6,12 +6,12 @@
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::backend::{Backend, Listed};
-use super::model::{is_v6, Direction, Protocol, Rule, Verdict};
+use super::model::{Direction, Protocol, Rule, Verdict, is_v6};
 use crate::admin::{Call, Tool};
 
 /// The firewalld firewall.
 #[derive(Debug, Clone, Copy)]
-pub struct Firewalld;
+pub(crate) struct Firewalld;
 
 fn zone_args(rule: &Rule) -> Vec<String> {
     rule.zone
@@ -26,7 +26,7 @@ fn simple(rule: &Rule) -> bool {
 
 /// Rich rule of `rule` in the syntax of `firewall-cmd`.
 #[must_use]
-pub fn rich_rule(rule: &Rule) -> String {
+pub(crate) fn rich_rule(rule: &Rule) -> String {
     let mut text = String::from("rule");
     if let Some(source) = &rule.source {
         let family = if is_v6(source) { "ipv6" } else { "ipv4" };
@@ -73,7 +73,7 @@ fn calls(rule: &Rule, verb: &str) -> Vec<Call> {
 
 /// Rule of one entry of `--list-ports` such as `8000-8100/tcp`.
 #[must_use]
-pub fn parse_port_entry(entry: &str, zone: &str) -> Option<Rule> {
+pub(crate) fn parse_port_entry(entry: &str, zone: &str) -> Option<Rule> {
     let (ports, protocol) = entry.split_once('/')?;
     let protocol = match protocol {
         "tcp" => Protocol::Tcp,
@@ -101,7 +101,7 @@ fn quoted_after<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 /// Rule of one rich rule such as
 /// `rule family="ipv4" source address="10.0.0.0/8" port port="22" protocol="tcp" accept`.
 #[must_use]
-pub fn parse_rich_rule(text: &str, zone: &str) -> Option<Rule> {
+pub(crate) fn parse_rich_rule(text: &str, zone: &str) -> Option<Rule> {
     let verdict = match text.split_whitespace().last()? {
         "accept" => Verdict::Allow,
         "drop" | "reject" => Verdict::Deny,
@@ -200,10 +200,7 @@ impl Backend for Firewalld {
         let calls = calls(rule, "add");
         tool.ok(&calls[0])?;
         if let Err(error) = tool.ok(&calls[1]) {
-            let _ = tool.run(&Call::owned(
-                "firewall-cmd",
-                calls_remove_runtime(rule),
-            ));
+            let _ = tool.run(&Call::owned("firewall-cmd", calls_remove_runtime(rule)));
             return Err(error);
         }
         Ok(())

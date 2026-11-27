@@ -183,7 +183,7 @@ impl Rule {
     /// Used by the engine to undo the change; `verb` is `allow`, `deny` or
     /// `remove`.
     #[must_use]
-    pub fn program(&self, verb: &str, backend: Option<&str>) -> String {
+    pub fn program(&self, verb: &str, backend: Option<&str>, table: Option<&str>) -> String {
         let mut text = format!(
             "firewall.{verb} \"{}\" protocol: {} direction: {}",
             self.port_text(),
@@ -201,6 +201,9 @@ impl Rule {
         }
         if let Some(backend) = backend {
             text.push_str(&format!(" backend: {backend}"));
+        }
+        if let Some(table) = table {
+            text.push_str(&format!(" table: \"{table}\""));
         }
         text
     }
@@ -284,7 +287,7 @@ pub fn valid_zone(text: &str) -> bool {
 
 /// Whether `text` is an IPv6 address or network.
 #[must_use]
-pub fn is_v6(text: &str) -> bool {
+pub(crate) fn is_v6(text: &str) -> bool {
     text.contains(':')
 }
 
@@ -366,8 +369,13 @@ mod tests {
     #[test]
     fn program_of_a_rule_names_every_field() {
         assert_eq!(
-            rule().program("remove", Some("ufw")),
+            rule().program("remove", Some("ufw"), None),
             "firewall.remove \"8000-8100\" protocol: tcp direction: in source: \"10.0.0.0/8\" zone: \"public\" action: allow backend: ufw"
+        );
+        assert!(
+            rule()
+                .program("allow", Some("nftables"), Some("nurt"))
+                .ends_with("backend: nftables table: \"nurt\"")
         );
         assert_eq!(
             Rule {
@@ -378,7 +386,7 @@ mod tests {
                 to: 22,
                 ..rule()
             }
-            .program("deny", None),
+            .program("deny", None, None),
             "firewall.deny \"22\" protocol: tcp direction: in"
         );
     }

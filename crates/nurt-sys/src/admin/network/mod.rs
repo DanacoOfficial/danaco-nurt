@@ -12,9 +12,11 @@ use std::sync::Arc;
 use nurt_contracts::stage::StageImpl;
 
 pub use self::dns::{
-    parse_dns_text, parse_resolvconf, DnsBackendKind, DnsSet, DnsState, DNS_PREFIX,
+    DNS_PREFIX, DnsBackendKind, DnsSet, DnsState, parse_dns_text, parse_resolvconf,
 };
-pub use self::route::{parse_ip_json, parse_netstat, parse_windows, Route, RouteChange, ROUTE_PREFIX};
+pub use self::route::{
+    ROUTE_PREFIX, Route, RouteChange, parse_ip_json, parse_netstat, parse_windows,
+};
 
 /// Every stage of the network commands, in catalog order.
 #[must_use]

@@ -11,7 +11,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use serde_json::Value as Json;
 
 use super::backend::{Backend, Listed};
-use super::model::{label_of, Direction, Protocol, Rule, Verdict, LABEL_PREFIX};
+use super::model::{Direction, LABEL_PREFIX, Protocol, Rule, Verdict, label_of};
 use crate::admin::{Call, Tool};
 
 /// Default table of the rules of Nurt.

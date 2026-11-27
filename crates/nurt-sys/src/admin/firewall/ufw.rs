@@ -11,11 +11,11 @@ use crate::admin::{Call, Tool};
 
 /// The ufw firewall.
 #[derive(Debug, Clone, Copy)]
-pub struct Ufw;
+pub(crate) struct Ufw;
 
 /// Arguments after `ufw allow` or `ufw deny` that describe `rule`.
 #[must_use]
-pub fn rule_args(rule: &Rule) -> Vec<String> {
+pub(crate) fn rule_args(rule: &Rule) -> Vec<String> {
     let remote = rule.source.clone().unwrap_or_else(|| "any".to_owned());
     let ports = rule.port_text().replace('-', ":");
     let mut args = vec![
@@ -24,8 +24,12 @@ pub fn rule_args(rule: &Rule) -> Vec<String> {
         rule.protocol.as_str().to_owned(),
     ];
     match rule.direction {
-        Direction::In => args.extend(["from".to_owned(), remote, "to".to_owned(), "any".to_owned()]),
-        Direction::Out => args.extend(["from".to_owned(), "any".to_owned(), "to".to_owned(), remote]),
+        Direction::In => {
+            args.extend(["from".to_owned(), remote, "to".to_owned(), "any".to_owned()])
+        }
+        Direction::Out => {
+            args.extend(["from".to_owned(), "any".to_owned(), "to".to_owned(), remote])
+        }
     }
     args.extend(["port".to_owned(), ports]);
     args
@@ -40,9 +44,13 @@ fn verb(rule: &Rule) -> &'static str {
 
 /// Parses the table printed by `ufw status`.
 #[must_use]
-pub fn parse_status(text: &str) -> Vec<Listed> {
+pub(crate) fn parse_status(text: &str) -> Vec<Listed> {
     let mut found = Vec::new();
-    for line in text.lines().skip_while(|line| !line.starts_with("--")).skip(1) {
+    for line in text
+        .lines()
+        .skip_while(|line| !line.starts_with("--"))
+        .skip(1)
+    {
         let words: Vec<&str> = line.split_whitespace().collect();
         if words.len() < 3 || line.contains("(v6)") {
             continue;
@@ -119,7 +127,11 @@ impl Backend for Ufw {
     }
 
     fn remove(&self, tool: &Tool<'_>, rule: &Rule) -> Result<()> {
-        let mut args = vec!["--force".to_owned(), "delete".to_owned(), verb(rule).to_owned()];
+        let mut args = vec![
+            "--force".to_owned(),
+            "delete".to_owned(),
+            verb(rule).to_owned(),
+        ];
         args.extend(rule_args(rule));
         tool.ok(&Call::owned("ufw", args))?;
         Ok(())
