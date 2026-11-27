@@ -13,7 +13,7 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-11-26
+## [0.1.1] - 2026-11-27
 
 ### Security
 
