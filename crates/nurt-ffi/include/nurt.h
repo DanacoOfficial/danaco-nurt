@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/include/nurt.h
+// Responsibility:   Source file crates/nurt-ffi/include/nurt.h.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 /*
  * nurt.h - C interface of the Danaco Nurt library (libnurt).
  *
@@ -351,3 +359,7 @@ NURT_API void NURT_CALL nurt_set_log_callback(nurt_log_cb cb, void *user);
 #endif
 
 #endif /* NURT_H */
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

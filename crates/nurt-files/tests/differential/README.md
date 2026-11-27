@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           crates/nurt-files/tests/differential/README.md -->
+<!-- Responsibility:   Documents Differential tests. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Differential tests
 
 Differential tests compare the output of a Nurt command with the output of a reference program on the same generated corpus. They are compiled only with the `differential` feature:
@@ -68,3 +76,7 @@ Before comparison both results are converted to the same form: UTF-8 text, line 
 Ignored tests run with `--ignored`; the corpus directory is set with `NURT_PERF_DIR`.
 
 A test that depends on an intended difference asserts the difference itself, not only the equal part. `differential_patch.rs` compares the library `nurt_text::patch`, so it asserts the empty file; the `patch` command removes such a file when it turns the plan into file operations, as the reference does.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

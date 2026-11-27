@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bench/oracles/nurt_bench_oracle/textform.py
+# Responsibility:   Script textform.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Encoding and line ending classification of file content."""
 
 from __future__ import annotations
@@ -101,3 +109,7 @@ def line_endings_changed(before: bytes, after: bytes) -> bool:
 def is_ascii(data: bytes) -> bool:
     """Returns whether all bytes are 7-bit ASCII."""
     return all(byte < 0x80 for byte in data)
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/python/tests/mock/mock_libnurt.c
+// Responsibility:   Source file bindings/python/tests/mock/mock_libnurt.c.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 /*
  * Mock of libnurt for the tests of the Python binding.
  *
@@ -715,3 +723,7 @@ NURT_API void NURT_CALL nurt_set_log_callback(nurt_log_cb cb, void *user) {
     log_user = user;
     pthread_mutex_unlock(&log_lock);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

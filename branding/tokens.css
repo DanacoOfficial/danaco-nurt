@@ -1,6 +1,14 @@
 /* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
 /* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/* */
+/* Module:           branding/tokens.css */
+/* Responsibility:   Source file branding/tokens.css. */
+/* Dependencies:     none */
+/* Author:           Danaco Official */
+/* Version:          0.1.1, 2026-11-27 */
+/* License:          see the LICENSE file or https://www.danaco-group.pl */
+
 /*
  * Module:           branding.tokens
  * Responsibility:   Colour tokens of the Danaco Nurt identity, production 1.0.0; names describe the function.
@@ -23,6 +31,7 @@
   --color-text-caption: #7C8390;
   --color-pipe: #4FD1F5;
 }
+
 /* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
 /* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
 /* Support: support@danaco-group.pl */

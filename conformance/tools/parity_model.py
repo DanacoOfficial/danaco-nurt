@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           conformance/tools/parity_model.py
+# Responsibility:   Script parity_model.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Building blocks of the parity scenarios: snapshots, typed record values and cases.
 
 A parity scenario states a file system before, a program, the expected report
@@ -245,4 +253,6 @@ def step(program: str | None = None, *, report: dict | None = None, after: objec
         out["fs_after"] = after
     return out
 
-
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

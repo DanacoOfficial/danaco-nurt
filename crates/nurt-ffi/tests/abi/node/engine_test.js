@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/abi/node/engine_test.js
+// Responsibility:   Source file crates/nurt-ffi/tests/abi/node/engine_test.js.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Interface test of libnurt through a Node-API module, against the engine of
 // nurt-core in a build without the cargo feature `stub`.
 //
@@ -160,3 +168,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 process.stdout.write('ok\n');
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

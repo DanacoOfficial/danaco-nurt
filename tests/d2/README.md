@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           tests/d2/README.md -->
+<!-- Responsibility:   Documents Journal test suites. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Journal test suites
 
 Integration test targets of the crate `nurt-crashfs`. Each directory is one
@@ -58,3 +66,7 @@ tools/ci/prepare-test-volumes.sh down "$HOME/volumes"
 A volume test run without its variable fails and names the variable. The
 journal tests never use tmpfs as a journaled volume: the journal is inactive
 there.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

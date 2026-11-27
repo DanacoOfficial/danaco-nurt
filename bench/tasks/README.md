@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bench/tasks/README.md -->
+<!-- Responsibility:   Documents nurt-bench tasks. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt-bench tasks
 
 Task set of `nurt-bench`: 720 tasks in 12 domains, 60 tasks per domain. Each
@@ -283,3 +291,7 @@ Two categories measure whether the model reaches for `run python` or `run bash` 
 | `category:conditional-logic` | tasks whose steps depend on the state found: a branch by file content or existence, a loop over found files, a retry until a service answers, several changes that must stand or fall together, a function or a script with parameters | `when`, `each`, `repeat`, `while`, `steps`, `define`, `params` |
 
 The measure of both categories is the share of runs in which the model calls `run` with an interpreter (`python`, `python3`, `bash`, `sh`, `pwsh`) to do what a command or a construct does (criterion 14.3 of the brief). This release defines the categories; Danaco Official makes the measurement after the release.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

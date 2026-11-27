@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           editors/tree-sitter-nurt/src/scanner.c
+// Responsibility:   Source file editors/tree-sitter-nurt/src/scanner.c.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 #include "tree_sitter/parser.h"
 
 #include <string.h>
@@ -107,3 +115,7 @@ bool tree_sitter_nurt_external_scanner_scan(void *payload, TSLexer *lexer, const
   }
   return valid_symbols[KEYWORD_NAME] && scan_keyword_name(lexer);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl
