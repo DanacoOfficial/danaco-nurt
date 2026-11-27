@@ -1092,6 +1092,18 @@ fn windows_and_macos_programs_are_built_without_a_shell() {
 }
 
 #[test]
+fn a_passwd_line_keeps_the_colon_of_a_drive_letter_in_the_home_directory() {
+    use super::accounts::parse_passwd;
+    let unix = parse_passwd("ann:x:1001:1001:Ann,,,:/srv/ann:/bin/bash").unwrap();
+    assert_eq!(unix.home.as_deref(), Some("/srv/ann"));
+    assert_eq!(unix.shell.as_deref(), Some("/bin/bash"));
+    let drive = parse_passwd("ann:x:1001:1001:Ann:C:\\homes\\ann:/bin/bash").unwrap();
+    assert_eq!(drive.home.as_deref(), Some("C:\\homes\\ann"));
+    assert_eq!(drive.shell.as_deref(), Some("/bin/bash"));
+    assert!(parse_passwd("ann:x:1001:1001:Ann:/srv/ann").is_none());
+}
+
+#[test]
 fn outputs_of_the_system_programs_are_parsed() {
     use super::accounts::{parse_dscl, parse_locked, parse_net_user, parse_passwd};
     use super::groups::{parse_dscl_group, parse_group_line, parse_net_localgroup};
@@ -1165,6 +1177,7 @@ fn every_command_has_a_stage_and_a_plan() {
 /// Tests on a real Linux machine as root, run by the coordinator on the pool
 /// machine. Every test removes what it created: accounts and groups carry the
 /// prefix `nurt-test-`, loop devices are detached and files are deleted.
+#[cfg(target_os = "linux")]
 mod system {
     use std::path::PathBuf;
 
