@@ -223,6 +223,15 @@ public sealed class ConformanceCaseTests
         string library = TestSupport.Variable(TestSupport.LibraryVariable)
             ?? Inconclusive<string>(TestSupport.LibraryVariable + " does not name a build of libnurt");
         var options = new NurtClientOptions { Backend = BackendKind.Library, LibraryPath = library };
+        await using (var probe = new NurtClient(options))
+        {
+            JsonElement info = await probe.InfoAsync();
+            if (info.TryGetProperty("features", out JsonElement features)
+                && features.EnumerateArray().Any(feature => feature.GetString() == "stub"))
+            {
+                Inconclusive<string>("the stub of libnurt answers only recorded calls; the cases need an engine");
+            }
+        }
 
         await RunRepositoryCasesAsync(new BindingCaseRunner(BackendKind.Library, () => options));
     }

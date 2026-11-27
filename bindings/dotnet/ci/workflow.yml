@@ -98,6 +98,7 @@ jobs:
           NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt_ffi.so
           NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
           NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance
+          NURT_STUB_DIR: ${{ github.workspace }}/crates/nurt-ffi/tests/fixtures/stub
         run: dotnet test Danaco.Nurt.sln -c Release --logger "console;verbosity=normal"
 
   pack:
