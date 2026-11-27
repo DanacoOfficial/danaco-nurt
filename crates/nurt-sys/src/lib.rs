@@ -13,6 +13,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 pub mod accounts;
+pub mod admin;
 pub mod cim;
 mod common;
 pub mod console;
@@ -52,7 +53,7 @@ use nurt_contracts::stage::{StageImpl, StageRegistrar};
 ///
 /// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
 /// nurt_sys::register(&mut stages)?;
-/// assert_eq!(stages.len(), 20);
+/// assert_eq!(stages.len(), 38);
 /// assert_eq!(stages[0].descriptor().command, "processes");
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```
@@ -71,6 +72,7 @@ pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
     system
         .into_iter()
         .chain(services::stages())
+        .chain(admin::stages())
         .chain([Arc::new(cim::WindowsCim::new()) as Arc<dyn StageImpl>])
         .chain(package::stages(&packages))
         .try_for_each(|stage| registrar.register(stage))

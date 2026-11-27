@@ -13,7 +13,7 @@ use crate::catalog::{self, Command};
 use crate::table::{self, Coverage, CoverageTable, FORMAT};
 
 /// Commands of the catalog.
-const COMMANDS: usize = 148;
+const COMMANDS: usize = 166;
 /// Commands with at least one row that changes data.
 const CHANGING_COMMANDS: usize = 73;
 /// Commands whose rows only read.

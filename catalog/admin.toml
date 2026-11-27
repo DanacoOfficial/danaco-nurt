@@ -126,3 +126,541 @@ summary = "CIM namespace."
 name = "properties"
 type = "list<text>"
 summary = "Properties to return; all when omitted."
+
+[[command]]
+name = "accounts.create"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a user account."
+reversibility_note = "Undo removes the account and keeps its home directory."
+external = { kind = "system_program", programs = ["useradd", "sysadminctl", "net"], note = "Accounts are created with useradd on Linux, sysadminctl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "uid"
+type = "int"
+summary = "Numeric identifier; the system chooses one when omitted."
+
+[[command.param]]
+name = "shell"
+type = "text"
+summary = "Login shell."
+
+[[command.param]]
+name = "home"
+type = "text"
+summary = "Home directory."
+
+[[command.param]]
+name = "groups"
+type = "list<text>"
+summary = "Groups other than the primary one."
+
+[[command.param]]
+name = "comment"
+type = "text"
+summary = "Comment or full name."
+
+[[command.param]]
+name = "system"
+type = "bool"
+default = "false"
+summary = "Create a system account without a home directory."
+
+[[command.param]]
+name = "create_home"
+type = "bool"
+default = "true"
+summary = "Create the home directory."
+
+[[command]]
+name = "accounts.modify"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Change the shell, home, groups, comment or lock state of an account."
+reversibility_note = "Undo restores the recorded values of the fields that changed."
+external = { kind = "system_program", programs = ["usermod", "dscl", "net"], note = "Accounts are changed with usermod on Linux, dscl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "shell"
+type = "text"
+summary = "New login shell."
+
+[[command.param]]
+name = "home"
+type = "text"
+summary = "New home directory."
+
+[[command.param]]
+name = "groups"
+type = "list<text>"
+summary = "Complete list of groups other than the primary one."
+
+[[command.param]]
+name = "comment"
+type = "text"
+summary = "New comment or full name."
+
+[[command.param]]
+name = "lock"
+type = "bool"
+summary = "Lock the account when true and unlock it when false."
+
+[[command]]
+name = "accounts.remove"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove a user account."
+reversibility_note = "Undo creates the account again with its identifier, shell, groups and comment; the home directory returns with the journal."
+external = { kind = "system_program", programs = ["userdel", "sysadminctl", "net"], note = "Accounts are removed with userdel on Linux, sysadminctl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "keep_home"
+type = "bool"
+default = "false"
+summary = "Keep the home directory; otherwise it is removed through the journal."
+
+[[command]]
+name = "accounts.password"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Set the password of an account."
+reversibility_note = "The previous password is not recorded."
+external = { kind = "system_program", programs = ["chpasswd", "dscl", "powershell"], note = "The password is passed to chpasswd on its standard input on Linux, and in an environment variable of Set-LocalUser on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "value"
+type = "text"
+position = 2
+required = true
+secret = true
+summary = "New password; masked in the journal and the report."
+
+[[command]]
+name = "groups.create"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a group."
+external = { kind = "system_program", programs = ["groupadd", "dseditgroup", "net"], note = "Groups are created with groupadd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "gid"
+type = "int"
+summary = "Numeric identifier; the system chooses one when omitted."
+
+[[command.param]]
+name = "system"
+type = "bool"
+default = "false"
+summary = "Create a system group."
+
+[[command]]
+name = "groups.remove"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove a group."
+reversibility_note = "Undo creates the group again with its identifier and members."
+external = { kind = "system_program", programs = ["groupdel", "dseditgroup", "net"], note = "Groups are removed with groupdel on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command]]
+name = "groups.add_member"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Add an account to a group."
+external = { kind = "system_program", programs = ["gpasswd", "dseditgroup", "net"], note = "Members are added with gpasswd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "member"
+type = "text"
+position = 2
+required = true
+summary = "Account to add."
+
+[[command]]
+name = "groups.remove_member"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove an account from a group."
+external = { kind = "system_program", programs = ["gpasswd", "dseditgroup", "net"], note = "Members are removed with gpasswd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "member"
+type = "text"
+position = 2
+required = true
+summary = "Account to remove."
+
+[[command]]
+name = "mount"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Mount a device or volume."
+reversibility_note = "Undo unmounts the target; the edit of /etc/fstab is restored by the journal."
+external = { kind = "system_program", programs = ["mount", "mountvol"], note = "Mounts use mount on Linux and macOS and mountvol on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Device, volume or source of the mount."
+
+[[command.param]]
+name = "target"
+type = "text"
+position = 2
+required = true
+summary = "Mount point: a directory, or a drive letter or folder on Windows."
+
+[[command.param]]
+name = "type"
+type = "text"
+summary = "File system type; detected by the system when omitted."
+
+[[command.param]]
+name = "options"
+type = "list<text>"
+summary = "Mount options."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also write the mount to /etc/fstab (Linux); the file is journaled."
+
+[[command]]
+name = "unmount"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Unmount a mount point."
+reversibility_note = "Undo mounts the recorded device with its type and options."
+external = { kind = "system_program", programs = ["umount", "mountvol"], note = "Unmounts use umount on Linux and macOS and mountvol on Windows." }
+
+[[command.param]]
+name = "target"
+type = "text"
+position = 1
+required = true
+summary = "Mount point."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also remove the mount from /etc/fstab (Linux); the file is journaled."
+
+[[command]]
+name = "sysctl.set"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Set a kernel parameter."
+reversibility_note = "Undo sets the recorded value; the file is restored by the journal."
+os = ["linux", "macos"]
+external = { kind = "system_program", programs = ["sysctl"], note = "Parameters are read and set with sysctl." }
+
+[[command.param]]
+name = "key"
+type = "text"
+position = 1
+required = true
+summary = "Name of the parameter, for example net.ipv4.ip_forward."
+
+[[command.param]]
+name = "value"
+type = "text | int"
+position = 2
+required = true
+summary = "New value."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also write the value to /etc/sysctl.d/90-nurt.conf (Linux); the file is journaled."
+
+[[command]]
+name = "modules.load"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Load a kernel module."
+reversibility_note = "Undo unloads the module."
+os = ["linux"]
+external = { kind = "system_program", programs = ["modprobe", "lsmod"], note = "Modules are listed with lsmod and loaded with modprobe." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Module name."
+
+[[command.param]]
+name = "params"
+type = "list<text>"
+summary = "Module parameters as name=value."
+
+[[command]]
+name = "modules.unload"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Unload a kernel module."
+reversibility_note = "Undo loads the module."
+os = ["linux"]
+external = { kind = "system_program", programs = ["modprobe", "lsmod"], note = "Modules are listed with lsmod and unloaded with modprobe -r." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Module name."
+
+[[command]]
+name = "power.restart"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Restart the system now or at a given time."
+reversibility_note = "A scheduled restart is undone by power.cancel; one without at or delay runs at once and is irreversible."
+external = { kind = "system_program", programs = ["shutdown"], note = "The system is restarted with the program shutdown." }
+
+[[command.param]]
+name = "at"
+type = "instant"
+summary = "Time of the restart; converted to a delay with the clock of the engine."
+
+[[command.param]]
+name = "delay"
+type = "duration"
+summary = "Time until the restart; rounded up to whole minutes on Linux and macOS."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message shown to the logged-in users."
+
+[[command]]
+name = "power.shutdown"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Shut down the system now or at a given time."
+reversibility_note = "A scheduled shutdown is undone by power.cancel; one without at or delay runs at once and is irreversible."
+external = { kind = "system_program", programs = ["shutdown"], note = "The system is shut down with the program shutdown." }
+
+[[command.param]]
+name = "at"
+type = "instant"
+summary = "Time of the shutdown; converted to a delay with the clock of the engine."
+
+[[command.param]]
+name = "delay"
+type = "duration"
+summary = "Time until the shutdown; rounded up to whole minutes on Linux and macOS."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message shown to the logged-in users."
+
+[[command]]
+name = "power.cancel"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Cancel a scheduled restart or shutdown."
+reversibility_note = "A cancelled schedule is not restored."
+external = { kind = "system_program", programs = ["shutdown", "pkill"], note = "The schedule is cancelled with shutdown -c on Linux, shutdown /a on Windows and by stopping shutdown on macOS." }
+
+[[command]]
+name = "disks.partition"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create, delete or resize a partition."
+reversibility_note = "Irreversible; the preview lists the device, its partitions, file systems, mount points and the size of the data that is lost."
+external = { kind = "system_program", programs = ["parted", "lsblk", "diskutil", "powershell"], note = "Partitions are changed with parted on Linux, diskutil on macOS and the storage cmdlets on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Disk device such as /dev/sdb, or the number of the disk on Windows."
+
+[[command.param]]
+name = "action"
+type = "enum(create|delete|resize)"
+required = true
+values = ["create", "delete", "resize"]
+summary = "Change to make."
+
+[[command.param]]
+name = "number"
+type = "int"
+summary = "Number of the partition to delete or resize."
+
+[[command.param]]
+name = "start"
+type = "size"
+summary = "Start of a new partition; 1 MiB when omitted."
+
+[[command.param]]
+name = "size"
+type = "size"
+summary = "Size of a new or resized partition; the rest of the disk when omitted for create."
+
+[[command.param]]
+name = "fs_type"
+type = "text"
+summary = "File system type hint of a new partition."
+
+[[command]]
+name = "disks.format"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a file system on a device."
+reversibility_note = "Irreversible; the preview lists the device, its partitions, file systems, mount points and the size of the data that is lost."
+external = { kind = "system_program", programs = ["mkfs", "lsblk", "diskutil", "powershell"], note = "File systems are created with mkfs on Linux, diskutil on macOS and Format-Volume on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Partition or disk such as /dev/sdb1, or a drive letter such as D: on Windows."
+
+[[command.param]]
+name = "fs"
+type = "enum(ext4|xfs|btrfs|vfat|ntfs|exfat)"
+required = true
+values = ["ext4", "xfs", "btrfs", "vfat", "ntfs", "exfat"]
+summary = "File system."
+
+[[command.param]]
+name = "label"
+type = "text"
+summary = "Label of the file system."

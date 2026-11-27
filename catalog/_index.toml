@@ -3,7 +3,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 
 format = "nurt-catalog-index/1"
-total = 149
+total = 167
 
 [[file]]
 name = "core"
@@ -56,8 +56,8 @@ commands = 11
 [[file]]
 name = "admin"
 file = "admin.toml"
-summary = "System services, the registry provider and CIM."
-commands = 6
+summary = "System services, accounts, groups, mounts, kernel parameters, power, disks, the registry provider and CIM."
+commands = 24
 
 [[file]]
 name = "package"

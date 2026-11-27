@@ -19,6 +19,7 @@
 //! | `start`, `stop` | state before | the opposite command |
 //! | `enable`, `disable` | start type before | the opposite command |
 //! | `restart` | none | irreversible |
+//! | `accounts.*`, `groups.*`, `mount`, `unmount`, `sysctl.set`, `modules.*`, `power.*`, `disks.*` | states before and after of the account, group, mount point, parameter or module | the inverse of `nurt_sys::admin::inverse` |
 
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
@@ -171,7 +172,28 @@ pub fn derive_with(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -
         "package.install" | "package.remove" | "package.upgrade" => derive_packages(report, offers),
         "start" | "stop" | "enable" | "disable" => derive_services(report),
         "restart" => Derived::Irreversible("a restart has no inverse".to_owned()),
-        _ => Derived::None,
+        _ => derive_administration(report),
+    }
+}
+
+/// Inverse of an administration command (accounts, groups, mounts, kernel,
+/// power, disks); the states that the report recorded decide the programs.
+fn derive_administration(report: &Report) -> Derived {
+    let changes: Vec<(&str, Option<&str>, Option<&str>)> = report
+        .changes
+        .iter()
+        .map(|change| {
+            (
+                change.path.as_str(),
+                change.before.as_deref(),
+                change.after.as_deref(),
+            )
+        })
+        .collect();
+    match nurt_sys::admin::inverse(&report.kind, &changes) {
+        None | Some(nurt_sys::admin::Inverse::None) => Derived::None,
+        Some(nurt_sys::admin::Inverse::Programs(programs)) => Derived::Programs(programs),
+        Some(nurt_sys::admin::Inverse::Irreversible(reason)) => Derived::Irreversible(reason),
     }
 }
 
@@ -591,6 +613,42 @@ mod tests {
             &[("service:cron", Some("manual"), Some("automatic"))],
         );
         assert!(matches!(derive(&report), Derived::Irreversible(_)));
+    }
+
+    #[test]
+    fn administration_commands_derive_their_inverse_from_the_recorded_states() {
+        let created = report(
+            "accounts.create",
+            &[(
+                "account:nurt-test-a",
+                None,
+                Some("{\"groups\":[],\"comment\":\"\",\"locked\":false}"),
+            )],
+        );
+        assert_eq!(
+            programs(derive(&created)),
+            ["accounts.remove name: \"nurt-test-a\" keep_home: true"]
+        );
+        let mounted = report(
+            "mount",
+            &[("mount:/mnt/x", None, Some("{\"device\":\"/dev/loop1\"}"))],
+        );
+        assert_eq!(programs(derive(&mounted)), ["unmount target: \"/mnt/x\""]);
+        let tuned = report(
+            "sysctl.set",
+            &[("sysctl:vm.swappiness", Some("60"), Some("10"))],
+        );
+        assert_eq!(
+            programs(derive(&tuned)),
+            ["sysctl.set key: \"vm.swappiness\" value: \"60\""]
+        );
+        let formatted = report(
+            "disks.format",
+            &[("disk:/dev/loop1", Some("[]"), Some("file system ext4"))],
+        );
+        assert!(matches!(derive(&formatted), Derived::Irreversible(_)));
+        let unchanged = report("accounts.create", &[]);
+        assert_eq!(derive(&unchanged), Derived::None);
     }
 
     #[test]

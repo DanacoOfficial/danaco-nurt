@@ -40,6 +40,24 @@ change made with `write` can be undone.
 | `enable` | change | `service` to `effect` | irreversible | [enable](../commands/enable.md) |
 | `disable` | change | `service` to `effect` | irreversible | [disable](../commands/disable.md) |
 | `windows.cim` | source | none to `cim_object` | read | [windows.cim](../commands/windows.cim.md) |
+| `accounts.create` | change | none to `effect` | reversible_if_preserved | [accounts.create](../commands/accounts.create.md) |
+| `accounts.modify` | change | none to `effect` | reversible_if_preserved | [accounts.modify](../commands/accounts.modify.md) |
+| `accounts.remove` | change | none to `effect` | reversible_if_preserved | [accounts.remove](../commands/accounts.remove.md) |
+| `accounts.password` | change | none to `effect` | irreversible | [accounts.password](../commands/accounts.password.md) |
+| `groups.create` | change | none to `effect` | reversible_if_preserved | [groups.create](../commands/groups.create.md) |
+| `groups.remove` | change | none to `effect` | reversible_if_preserved | [groups.remove](../commands/groups.remove.md) |
+| `groups.add_member` | change | none to `effect` | reversible_if_preserved | [groups.add_member](../commands/groups.add_member.md) |
+| `groups.remove_member` | change | none to `effect` | reversible_if_preserved | [groups.remove_member](../commands/groups.remove_member.md) |
+| `mount` | change | none to `effect` | reversible_if_preserved | [mount](../commands/mount.md) |
+| `unmount` | change | none to `effect` | reversible_if_preserved | [unmount](../commands/unmount.md) |
+| `sysctl.set` | change | none to `effect` | reversible_if_preserved | [sysctl.set](../commands/sysctl.set.md) |
+| `modules.load` | change | none to `effect` | reversible_if_preserved | [modules.load](../commands/modules.load.md) |
+| `modules.unload` | change | none to `effect` | reversible_if_preserved | [modules.unload](../commands/modules.unload.md) |
+| `power.restart` | change | none to `effect` | reversible_if_preserved | [power.restart](../commands/power.restart.md) |
+| `power.shutdown` | change | none to `effect` | reversible_if_preserved | [power.shutdown](../commands/power.shutdown.md) |
+| `power.cancel` | change | none to `effect` | irreversible | [power.cancel](../commands/power.cancel.md) |
+| `disks.partition` | change | none to `effect` | irreversible | [disks.partition](../commands/disks.partition.md) |
+| `disks.format` | change | none to `effect` | irreversible | [disks.format](../commands/disks.format.md) |
 
 ## Records
 
@@ -113,9 +131,29 @@ the service manager is reported as `E_SERVICE`.
 | `restart` | [X] | macOS only: services are restarted through `launchctl` |
 | `enable` | [X] | macOS only: services are enabled through `launchctl` |
 | `disable` | [X] | macOS only: services are disabled through `launchctl` |
+| `accounts.create` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.modify` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.remove` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.password` | [X] | the system program of the operating system named on the page of the command |
+| `groups.create` | [X] | the system program of the operating system named on the page of the command |
+| `groups.remove` | [X] | the system program of the operating system named on the page of the command |
+| `groups.add_member` | [X] | the system program of the operating system named on the page of the command |
+| `groups.remove_member` | [X] | the system program of the operating system named on the page of the command |
+| `mount` | [X] | the system program of the operating system named on the page of the command |
+| `unmount` | [X] | the system program of the operating system named on the page of the command |
+| `sysctl.set` | [X] | the system program of the operating system named on the page of the command |
+| `modules.load` | [X] | the system program of the operating system named on the page of the command |
+| `modules.unload` | [X] | the system program of the operating system named on the page of the command |
+| `power.restart` | [X] | the system program of the operating system named on the page of the command |
+| `power.shutdown` | [X] | the system program of the operating system named on the page of the command |
+| `power.cancel` | [X] | the system program of the operating system named on the page of the command |
+| `disks.partition` | [X] | the system program of the operating system named on the page of the command |
+| `disks.format` | [X] | the system program of the operating system named on the page of the command |
 
 The [X] marker names a component of the operating system that a command
-starts as a program. macOS offers no public interface for these operations, so `launchctl` is the
+starts as a program. The commands for accounts, groups, mounts, kernel
+parameters, power and disks start the programs of the operating system on
+every system; the page of each command names them. macOS offers no public interface for these operations, so `launchctl` is the
 one component of the operating system that the commands of this group start. They start it through the process interface and report it in the check of
 the program. Linux and Windows use system interfaces and start no program. When `launchctl` is missing on macOS, the
 command fails with `E_EXTERNAL_MISSING`.
@@ -164,3 +202,38 @@ windows.cim "Win32_OperatingSystem" properties: ["Caption", "Version"]
 
 [Group system](system.md) lists processes and ports. [Group schedule](schedule.md)
 runs programs at set times. `stop` of the core group stops services.
+
+## Accounts, groups, mounts, kernel, power and disks
+
+The commands `accounts.create`, `accounts.modify`, `accounts.remove`,
+`accounts.password`, `groups.create`, `groups.remove`, `groups.add_member`,
+`groups.remove_member`, `mount`, `unmount`, `sysctl.set`, `modules.load`,
+`modules.unload`, `power.restart`, `power.shutdown`, `power.cancel`,
+`disks.partition` and `disks.format` change the system through its own
+programs and are sources of one `effect` record per changed target. Every one
+of them reads the state it changes first, reports `unchanged` when the system
+already has the requested state, and records the state before and after as
+JSON documents in `before` and `after` of the target (`account:<name>`,
+`group:<name>`, `mount:<path>`, `sysctl:<key>`, `module:<name>`,
+`power:schedule`, `disk:<device>`). `undo` derives the inverse command from
+those states:
+
+| Command | Undo |
+|---|---|
+| `accounts.create` | `accounts.remove` with `keep_home: true` |
+| `accounts.remove` | `accounts.create` with the recorded values; the home directory returns with the journal |
+| `accounts.modify` | `accounts.modify` with the recorded values |
+| `accounts.password` | irreversible |
+| `groups.create`, `groups.remove` | pairwise; a removed group returns with its members |
+| `groups.add_member`, `groups.remove_member` | pairwise |
+| `mount`, `unmount` | pairwise; `/etc/fstab` is restored by the journal |
+| `sysctl.set` | `sysctl.set` with the previous value; the file of `persistent` is restored by the journal |
+| `modules.load`, `modules.unload` | pairwise |
+| `power.restart`, `power.shutdown` | `power.cancel` when scheduled; irreversible when immediate |
+| `power.cancel`, `disks.partition`, `disks.format` | irreversible |
+
+The commands accept `privilege` like every changing command; the executor
+runs a call with `privilege: elevated` in the elevated process, and `undo`
+runs the inverse through the same backend. `disks.partition` and
+`disks.format` refuse a mounted partition and list in their preview the
+partitions, file systems, mount points and the size of the data that is lost.

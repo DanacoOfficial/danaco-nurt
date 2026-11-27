@@ -16,7 +16,7 @@
 # [[scenario]] end-to-end scenario with the tests that implement it; `gap`
 #              describes the part that no test covers yet.
 #
-# The static test `matrix_covers_all_36_commands` checks that every command
+# The static test `matrix_covers_all_54_commands` checks that every command
 # has a case on every system that runs it and an `os_only` case on every
 # other system, and that every named test exists.
 
@@ -754,6 +754,155 @@ crate = "nurt-programs"
 test = "reads_catalog_named_by_its_index_and_reports_errors_with_location"
 
 # Scenarios
+
+# Administration commands of accounts, groups, mounts, kernel, power and disks.
+
+[[case]]
+command = "accounts.create"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "an_account_is_created_with_useradd_and_undone_by_remove"
+
+[[case]]
+command = "accounts.modify"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "modify_records_both_states_and_undo_restores_the_recorded_values"
+
+[[case]]
+command = "accounts.remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "remove_is_undone_by_create_with_the_recorded_identity"
+
+[[case]]
+command = "accounts.password"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_password_goes_to_standard_input_and_is_irreversible"
+
+[[case]]
+command = "groups.create"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "groups_are_created_changed_and_removed_pairwise"
+
+[[case]]
+command = "groups.remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "groups_are_created_changed_and_removed_pairwise"
+
+[[case]]
+command = "groups.add_member"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "groups_are_created_changed_and_removed_pairwise"
+
+[[case]]
+command = "groups.remove_member"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "groups_are_created_changed_and_removed_pairwise"
+
+[[case]]
+command = "mount"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_mount_is_undone_by_unmount_and_back"
+
+[[case]]
+command = "unmount"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_mount_is_undone_by_unmount_and_back"
+
+[[case]]
+command = "sysctl.set"
+level = "native"
+systems = ["linux", "macos"]
+crate = "nurt-sys"
+test = "a_kernel_parameter_is_undone_to_its_previous_value"
+
+[[case]]
+command = "sysctl.set"
+level = "os_only"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "a_kernel_parameter_is_checked_and_compared"
+
+[[case]]
+command = "modules.load"
+level = "native"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "modules_are_loaded_and_unloaded_pairwise"
+
+[[case]]
+command = "modules.load"
+level = "os_only"
+systems = ["windows", "macos"]
+crate = "nurt-sys"
+test = "modules_are_loaded_and_unloaded_pairwise"
+
+[[case]]
+command = "modules.unload"
+level = "native"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "modules_are_loaded_and_unloaded_pairwise"
+
+[[case]]
+command = "modules.unload"
+level = "os_only"
+systems = ["windows", "macos"]
+crate = "nurt-sys"
+test = "modules_are_loaded_and_unloaded_pairwise"
+
+[[case]]
+command = "power.restart"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_scheduled_restart_is_undone_by_cancel_and_an_immediate_one_is_irreversible"
+
+[[case]]
+command = "power.shutdown"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_scheduled_restart_is_undone_by_cancel_and_an_immediate_one_is_irreversible"
+
+[[case]]
+command = "power.cancel"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "cancel_needs_a_schedule_and_a_second_schedule_needs_a_cancel"
+
+[[case]]
+command = "disks.partition"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "the_preview_of_a_disk_change_lists_the_layout_and_the_data_lost"
+
+[[case]]
+command = "disks.format"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "a_format_names_the_file_system_label_and_device"
 
 [[scenario]]
 name = "e2e_linux_cron_restart"

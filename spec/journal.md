@@ -350,6 +350,17 @@ Operations outside the file system are undone by inverse operations:
 | `start`, `stop` (services) | previous state | the opposite command |
 | `enable`, `disable` | previous start type | the opposite command with the recorded start type |
 | `restart`, `stop` of a process, `run` | none | irreversible; the report states `irreversible` before the change |
+| `accounts.create` | absent before | `accounts.remove` with `keep_home: true` |
+| `accounts.modify` | shell, home, groups, comment and lock state before and after | `accounts.modify` with the recorded values of the fields that changed |
+| `accounts.remove` | the whole state of the account; the home directory goes through the journal | `accounts.create` with the recorded identifier, shell, home, groups and comment, and `accounts.modify` for a locked account; the journal restores the home directory |
+| `accounts.password` | none | irreversible |
+| `groups.create`, `groups.remove` | absent before; identifier and members | pairwise; a removed group returns with `groups.add_member` of its members |
+| `groups.add_member`, `groups.remove_member` | members before and after | the opposite command |
+| `mount`, `unmount` | absent before; device, type and options | pairwise; an edit of `/etc/fstab` is a file of the journal |
+| `sysctl.set` | previous value | `sysctl.set` with that value; the file of `persistent: true` is a file of the journal |
+| `modules.load`, `modules.unload` | loaded or not | the opposite command |
+| `power.restart`, `power.shutdown` | schedule | `power.cancel` for a scheduled action; irreversible when the action runs at once |
+| `power.cancel`, `disks.partition`, `disks.format` | none | irreversible; the preview of a disk change lists the data that is lost |
 
 Files changed by a program started with `run` and `privilege: elevated` are not
 preserved; the entry is irreversible and the report says so.
