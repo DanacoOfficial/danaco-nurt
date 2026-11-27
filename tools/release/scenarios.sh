@@ -5,8 +5,9 @@
 #
 # Functional scenarios of the release check.
 #
-# Repeats the scenarios T01 to T19 of the 0.1.0 verification and the scenario
-# 2.11 (`options.base` of `nurt serve`) against a built executable. Every
+# Repeats the scenarios T01 to T19 of the 0.1.0 verification, the elevated
+# scenarios T20 (Linux, needs sudo without a password) and T21 (Windows, needs an
+# elevated console) and the scenario 2.11 (`options.base` of `nurt serve`) against a built executable. Every
 # scenario runs in its own empty directory with its own HOME, XDG_STATE_HOME
 # and XDG_CONFIG_HOME. The directories lie under $TMPDIR, so they share the
 # journal of that volume, as scenario T01 requires.
@@ -342,6 +343,38 @@ scn_T19() {
   ok "preview and execution agree (\"$preview\"); undo restores the tree"
 }
 
+scn_T20() {
+  local target="/etc/nurt-scenario-T20.conf" number
+  [ "$(uname -s)" = "Linux" ] || skip "needs Linux"
+  command -v sudo > /dev/null 2>&1 || skip "needs sudo"
+  sudo -n true > /dev/null 2>&1 || skip "needs sudo without a password"
+  sudo -n rm -f "$target"
+  n "write \"$target\" text: \"a=1\\n\" mode: overwrite privilege: elevated"
+  [ "$RC" -eq 0 ] || fail "elevated write ended with $RC"
+  [ -f "$target" ] || fail "elevated write did not create the file"
+  [ "$(stat -c %U "$target")" = "root" ] || fail "the file is not owned by root"
+  case "$OUT" in *elevated*sudo* | *sudo*elevated*) ;; *) fail "the report does not state the elevation and the backend" ;; esac
+  number="$(op_number)"
+  [ -n "$number" ] || fail "the report has no operation number"
+  n "undo $number"
+  [ "$RC" -eq 0 ] || fail "undo of the elevated entry ended with $RC"
+  [ ! -e "$target" ] || { sudo -n rm -f "$target"; fail "undo did not remove the file"; }
+  ok "elevated write through sudo, entry $number undone through the backend"
+}
+
+scn_T21() {
+  local target number
+  case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) ;; *) skip "needs Windows" ;; esac
+  target="C:/Program Files/nurt-scenario-T21.txt"
+  n "write \"$target\" text: \"a\" mode: overwrite privilege: elevated"
+  [ "$RC" -eq 0 ] || fail "elevated write into Program Files ended with $RC"
+  number="$(op_number)"
+  n "undo $number"
+  [ "$RC" -eq 0 ] || fail "undo of the elevated entry ended with $RC"
+  [ ! -e "$target" ] || fail "undo did not remove the file"
+  ok "elevated write into Program Files with the self backend, entry $number undone"
+}
+
 scn_2_11() {
   mkdir -p "$PWD/cfg"
   printf 'a = 1\n' > "$PWD/cfg/c.toml"
@@ -379,7 +412,7 @@ PY
 
 # --- runner ------------------------------------------------------------------
 
-scenarios="T01 T02 T03 T04 T05 T06 T07 T08 T09 T10 T11 T12 T13 T14 T15 T16 T17 T18 T19 2.11"
+scenarios="T01 T02 T03 T04 T05 T06 T07 T08 T09 T10 T11 T12 T13 T14 T15 T16 T17 T18 T19 T20 T21 2.11"
 if [ -n "${NURT_SCENARIO_ONLY:-}" ]; then scenarios="$NURT_SCENARIO_ONLY"; fi
 
 for id in $scenarios; do

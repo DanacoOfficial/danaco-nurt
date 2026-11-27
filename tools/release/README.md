@@ -7,7 +7,7 @@ Scripts that build, check and verify a release. They run from any directory and 
 
 | Script | Purpose |
 |---|---|
-| `scenarios.sh <nurt> <results-dir>` | Repeats the functional scenarios T01–T19 and 2.11 against a built executable. |
+| `scenarios.sh <nurt> <results-dir>` | Repeats the functional scenarios T01–T21 and 2.11 against a built executable. |
 | `build-release.sh <version> <output-dir> [--sign <gnupg-home> <key-id>]` | Builds, packs, checksums and optionally signs the release archives. |
 | `clean-linux-check.sh <archive.tar.gz>` | Runs a Linux archive in a container of a minimal image. |
 | `scenario_table.py <results-file>` | Renders the result lines of `scenarios.sh` as a table; used by `scenarios.sh`. |

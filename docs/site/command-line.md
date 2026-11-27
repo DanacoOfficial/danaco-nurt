@@ -13,7 +13,7 @@ order: 5
 nurt -V | --version
 nurt -h | --help
 nurt <program>
-nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N] [--cursor C] [--verbosity V] <program>
+nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N] [--cursor C] [--verbosity V] [--privilege P] [--as-user NAME] <program>
 nurt script <file.nurt> [--preview]
 nurt check <file.nurt | -e '<program>'>
 nurt fmt <file.nurt> [--variant a|b|c]

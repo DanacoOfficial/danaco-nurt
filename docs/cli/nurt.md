@@ -24,7 +24,7 @@ Without arguments the executable starts the interactive session.
 | `--version` | flag | | Print the version with the build data, the copyright and the license. |
 | `-h`, `--help` | flag | | Print the usage. As the first argument after the name of a subcommand it prints the usage of that subcommand and ends with exit code 0, without running it. |
 
-The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
+The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`, `--privilege`, `--as-user`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
 
 ## Output and colour
 
@@ -52,7 +52,7 @@ Syntax:
 
 ```
 nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N]
-          [--cursor C] [--verbosity V] <program>
+          [--cursor C] [--verbosity V] [--privilege P] [--as-user NAME] <program>
 ```
 
 | Parameter | Type | Default | Meaning |
@@ -64,6 +64,8 @@ nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N]
 | `--limit` | integer 1 to 5000 | 50 | Records per page. |
 | `--cursor` | text | none | Read a further page of an earlier result; no program is given. |
 | `--verbosity` | `quiet`, `normal`, `detailed` | `normal` | Level of detail. |
+| `--privilege` | `account`, `elevated`, `auto` | `privilege.default` | Rights of the operation. |
+| `--as-user` | account name | none | Account that runs the operation (Linux and macOS). |
 
 Result: the rendered result of the program; with `--json` the response document. Exit code: see `exit-codes.md`.
 
@@ -82,7 +84,7 @@ Runs a script file. Each pipeline of the file is its own operation. A first line
 Syntax:
 
 ```
-nurt script <file | -> [--preview] [--json | --format F] [--limit N] [--verbosity V]
+nurt script <file | -> [--preview] [--json | --format F] [--limit N] [--verbosity V] [--privilege P] [--as-user NAME]
 ```
 
 The file `-` is the standard input. The options are those of `exec`.

@@ -22,9 +22,19 @@ package.remove <names>... [name: value]...
 
 Configuration files are handled by the default behaviour of the manager. Dependencies that are no longer needed stay installed.
 
-The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; the command never calls `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
+The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; with `privilege: elevated` the call runs through an elevation backend (`sudo`, `doas`, `run0`, or in the same process when Nurt is the administrator), and the command itself never writes `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
 
 A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and the end of its error output. The effect is reported as executed in that case, because the manager may have changed packages before it failed.
+
+## Privilege
+
+apt, dnf, pacman and zypper need the administrator; write `privilege: elevated` on the stage.
+
+```nurt
+package.remove ["jq"] privilege: elevated
+```
+
+`undo` of the entry installs the recorded version again, when the repository still offers it.
 
 ## Parameters
 
