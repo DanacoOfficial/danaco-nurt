@@ -1,3 +1,14 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           editors/tree-sitter-nurt/.gitattributes
+# Responsibility:   Attributes of the generated files of the tree-sitter grammar.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 src/** linguist-generated
 src/scanner.c -linguist-generated
 variant-b/src/** linguist-generated
@@ -7,3 +18,7 @@ variant-c/src/scanner.c -linguist-generated
 test/corpus/golden-*.txt linguist-generated
 variant-b/test/corpus/golden-*.txt linguist-generated
 variant-c/test/corpus/golden-*.txt linguist-generated
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl
