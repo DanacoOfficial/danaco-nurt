@@ -146,7 +146,7 @@ fn frontend() -> Result<FixtureFrontend> {
 fn find_stage() -> serde_json::Value {
     json!({
         "t": "stage", "name": "find", "effect": "read", "phase": "source",
-        "args": [{"name": "path", "value": {"t": "path", "v": DATA_DIR}}]
+        "args": [{"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs(DATA_DIR)}}]
     })
 }
 
@@ -212,7 +212,7 @@ impl ReadStage for Find {
             if let Ok(stat) = fs.metadata(&abs, Follow::NoFollow) {
                 records.push(
                     Record::new(RecordKind::Entry)
-                        .with("path", Value::Path(path.to_owned()))
+                        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
                         .with(
                             "size",
                             Value::Int(i64::try_from(stat.size).unwrap_or(i64::MAX)),

@@ -43,6 +43,12 @@ fn nurt(args: &[&str], stdin: &str) -> Output {
     child.wait_with_output().unwrap()
 }
 
+/// `path` as a text literal of the language: `/` separators, which a text
+/// takes without escapes on every system.
+fn quoted(path: &std::path::Path) -> String {
+    format!("\"{}\"", path.display().to_string().replace('\\', "/"))
+}
+
 fn stdout(output: &Output) -> String {
     String::from_utf8(output.stdout.clone()).unwrap()
 }
@@ -101,7 +107,8 @@ fn help_option_after_a_subcommand_prints_its_usage_and_succeeds() {
 
 #[test]
 fn program_with_the_front_end_prints_a_valid_json_response() {
-    let output = nurt(&["--format", "json", "find", "\"/srv\""], "");
+    let dir = tempfile::tempdir().unwrap();
+    let output = nurt(&["--format", "json", "find", &quoted(dir.path())], "");
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     let response: Response = serde_json::from_str(&stdout(&output)).unwrap();
@@ -364,7 +371,7 @@ fn read_of_a_key_uses_the_document_service() {
     let home = tempfile::tempdir().unwrap();
     let document = home.path().join("settings.json");
     std::fs::write(&document, "{\"server\": {\"port\": 8080}}\n").unwrap();
-    let program = format!("read \"{}\" key: \"server.port\"", document.display());
+    let program = format!("read {} key: \"server.port\"", quoted(&document));
     let output = nurt(&[program.as_str()], "");
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let text = stdout(&output);
@@ -455,7 +462,8 @@ fn protocol_server_rejects_invalid_arguments() {
 
 #[test]
 fn session_reads_programs_from_a_pipe() {
-    let output = nurt(&["repl"], "find \"/srv\"\nexit\n");
+    let dir = tempfile::tempdir().unwrap();
+    let output = nurt(&["repl"], &format!("find {}\nexit\n", quoted(dir.path())));
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     assert!(!stderr(&output).contains("E_UNSUPPORTED"));
@@ -858,13 +866,13 @@ fn a_misspelt_changing_command_is_offered_and_not_run() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("a.txt");
     std::fs::write(&file, "x").unwrap();
-    let program = format!("remvoe \"{}\"", file.display());
+    let program = format!("remvoe {}", quoted(&file));
     let output = nurt(&[&program], "");
     assert_eq!(output.status.code(), Some(1), "{}", combined(&output));
     let text = combined(&output);
     assert!(text.contains("E_AMBIGUOUS"), "{text}");
     assert!(
-        text.contains(&format!("remove \"{}\"", file.display())),
+        text.contains(&format!("remove {}", quoted(&file))),
         "{text}"
     );
     assert!(file.exists());
@@ -876,7 +884,7 @@ fn a_misspelt_changing_command_is_offered_and_not_run() {
 fn a_misspelt_reading_command_is_corrected_and_run() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.txt"), "x").unwrap();
-    let program = format!("lsit \"{}\"", dir.path().display());
+    let program = format!("lsit {}", quoted(dir.path()));
     let output = nurt(&[&program], "");
     assert_eq!(output.status.code(), Some(0), "{}", combined(&output));
     assert!(
@@ -944,18 +952,8 @@ fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_comma
             "params": {"name": "nurt", "arguments": {"program": program}}
         })
     };
-    writeln!(
-        input,
-        "{}",
-        call(2, format!("remvoe \"{}\"", file.display()))
-    )
-    .unwrap();
-    writeln!(
-        input,
-        "{}",
-        call(3, format!("lsit \"{}\"", dir.path().display()))
-    )
-    .unwrap();
+    writeln!(input, "{}", call(2, format!("remvoe {}", quoted(&file)))).unwrap();
+    writeln!(input, "{}", call(3, format!("lsit {}", quoted(dir.path())))).unwrap();
     input.flush().unwrap();
     let offered = reply_of(&mut lines, 2).to_string();
     assert!(offered.contains("E_AMBIGUOUS"), "{offered}");

@@ -231,7 +231,10 @@ fn removal_deletes_the_found_entries_and_reports_the_changes() {
     assert_eq!(removed["status"], "ok", "{removed}");
     assert_eq!(deletions(removed), 2);
     assert!(removed.get("op").is_some());
-    assert_eq!(paths(report(&messages, 3)), ["/data/a.log"]);
+    assert_eq!(
+        paths(report(&messages, 3)),
+        [nurt_testkit::paths::abs("/data/a.log")]
+    );
     assert_eq!(counted(report(&messages, 4)), [0]);
     assert_eq!(journal.committed().len(), 1);
     assert!(!fs.exists(&nurt_testkit::vfs::test_path("/data/b.log").unwrap()));

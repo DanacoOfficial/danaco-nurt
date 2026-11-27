@@ -642,7 +642,7 @@ mod tests {
             (Function::History, Value::Null),
             (Function::History, json!({"limit": 5})),
             (Function::Space, Value::Null),
-            (Function::Space, json!("/srv")),
+            (Function::Space, json!(nurt_testkit::paths::abs("/srv"))),
         ] {
             let outputs = call(&backend, function, input);
             assert_eq!(outputs[0]["error"]["code"], "E_UNSUPPORTED");
