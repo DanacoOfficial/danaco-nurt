@@ -590,7 +590,7 @@ impl Binder<'_> {
             .params
             .iter()
             .any(|p| p.ty.contains_scalar(ScalarType::NamedExpression));
-        if !expression_param {
+        if !expression_param && name != "preview" {
             self.issue(
                 "E_UNKNOWN_PARAM",
                 format!("{} has no parameter {name}", spec.name),

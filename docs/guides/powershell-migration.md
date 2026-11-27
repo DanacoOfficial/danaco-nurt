@@ -56,6 +56,13 @@ The corrections translate single cmdlets. The constructs of a script are written
 | `do { … } until (…)` | `repeat until: … every: 5s limit: 2m { … }` |
 | `break`, `continue` | `break`, `continue` inside a loop |
 | `A; B; C` with changes that must stand or fall together | `steps { A  B  C }` |
+
+## Script parameters
+
+A script declares its parameters with `params`; `-WhatIf` becomes `preview`, as in this example.
+
+| PowerShell | Nurt |
+|---|---|
 | `function F($Dir, $Keep = 7) { … }` | `define F(dir: path, keep: int = 7) { … }`; a call is `F("/x", keep: 14)` |
 | `param([string]$Dir, [int]$Days = 30, [switch]$Dry)` | `params { dir: path  days: int = 30  dry: bool = false }`; a switch is a `bool` written without a value (`dry`) |
 | `$LASTEXITCODE`, `$?` | `exit_code` and the fields of a `let` bound to `run` |

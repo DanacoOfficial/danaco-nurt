@@ -19,6 +19,8 @@ const LITERAL_WORDS: &[&str] = &["true", "false", "null"];
 /// Checks the programs in `text`, one program per line, and returns one
 /// message for each name the catalog does not know.
 ///
+/// Lines that only open or close a construct (`steps {`, `}`) are skipped.
+///
 /// Lines that start with `|>` continue the previous line and are checked as
 /// stages. Words that follow `@name` references and expressions are not
 /// checked.
@@ -42,9 +44,18 @@ const LITERAL_WORDS: &[&str] = &["true", "false", "null"];
 #[must_use]
 pub fn check_program(catalog: &Catalog, text: &str) -> Vec<String> {
     let mut problems = Vec::new();
+    let mut declarations = false;
     for line in text.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        if declarations {
+            declarations = line != "}";
+            continue;
+        }
+        if line == "params {" {
+            declarations = true;
+            continue;
+        }
+        if line.is_empty() || line.starts_with('#') || is_construct_frame(line) {
             continue;
         }
         for stage in split_stages(line) {
@@ -52,6 +63,20 @@ pub fn check_program(catalog: &Catalog, text: &str) -> Vec<String> {
         }
     }
     problems
+}
+
+/// Whether the line only opens or closes a construct (`steps {`, `} otherwise {`,
+/// `}`); the pipelines inside a construct are checked line by line.
+fn is_construct_frame(line: &str) -> bool {
+    if line == "}" || line.starts_with("} ") {
+        return true;
+    }
+    let first = line.split_whitespace().next().unwrap_or_default();
+    line.ends_with('{')
+        && matches!(
+            first,
+            "steps" | "when" | "each" | "while" | "repeat" | "define" | "otherwise"
+        )
 }
 
 fn check_stage(catalog: &Catalog, stage: &str, problems: &mut Vec<String>) {
@@ -81,7 +106,7 @@ fn check_stage(catalog: &Catalog, stage: &str, problems: &mut Vec<String>) {
             continue;
         };
         let Some(param) = spec.param(name) else {
-            if !STAGE_CALL_PARAMETERS.contains(&name) {
+            if name != "preview" && !STAGE_CALL_PARAMETERS.contains(&name) {
                 problems.push(format!("command `{}` has no parameter `{name}`", spec.name));
             }
             continue;

@@ -46,12 +46,28 @@ fn block_after(text: &str, start: &str) -> String {
         .join("\n")
 }
 
+/// Whether a line opens a construct (`steps {`, `when … {`, `params {`): the
+/// conversion of variants covers pipelines, and the constructs have their own
+/// tests of the language.
+fn opens_construct(line: &str) -> bool {
+    let first = line.split_whitespace().next().unwrap_or_default();
+    line.trim_end().ends_with('{')
+        && matches!(
+            first,
+            "steps" | "when" | "each" | "while" | "repeat" | "define" | "params"
+        )
+}
+
 fn guide_programs(text: &str) -> Vec<String> {
     let mut programs = Vec::new();
     let mut current: Option<Vec<&str>> = None;
     for line in text.lines() {
         match current.take() {
-            Some(program) if line.starts_with("```") => programs.push(program.join("\n")),
+            Some(program) if line.starts_with("```") => {
+                if !program.iter().any(|line| opens_construct(line)) {
+                    programs.push(program.join("\n"));
+                }
+            }
             Some(mut program) => {
                 program.push(line);
                 current = Some(program);

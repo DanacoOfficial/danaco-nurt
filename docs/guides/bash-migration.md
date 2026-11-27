@@ -109,7 +109,7 @@ params {
 remove @dir
 ```
 
-## Administration
+## Administration of accounts, mounts and the kernel
 
 | Bash | Nurt |
 |---|---|
@@ -124,10 +124,20 @@ remove @dir
 | `passwd NAME` | `accounts.password name: "NAME"`; the password comes from a secret reference of the engine, never from the program |
 | `mount [-t T] [-o O1,O2] DEVICE TARGET`, `umount TARGET` | `mount device: "DEVICE" target: "TARGET" type: "T" options: ["O1", "O2"]`, `unmount target: "TARGET"` |
 | `sysctl -w KEY=VALUE` (one key per call) | `sysctl.set key: "KEY" value: "VALUE"` |
+
+## Modules and firewall
+
+| Bash | Nurt |
+|---|---|
 | `modprobe MODULE [PARAM…]`, `modprobe -r MODULE`, `rmmod MODULE` | `modules.load name: "MODULE" params: […]`, `modules.unload name: "MODULE"` |
 | `ufw allow or deny PORT[/PROTO]`, `ufw allow from SOURCE to any port PORT proto PROTO` | `firewall.allow` or `firewall.deny` with `port: PORT protocol: "PROTO" source: "SOURCE"` |
 | `firewall-cmd [--zone=Z] --add-port=PORT/PROTO`, `--remove-port=…` | `firewall.allow port: PORT protocol: "PROTO" zone: "Z"`, `firewall.remove …` |
 | `nft add rule … input or output tcp or udp dport PORT accept or drop`, `iptables -A INPUT or OUTPUT -p tcp or udp --dport PORT -j ACCEPT or DROP [-s SOURCE]` | `firewall.allow` or `firewall.deny` with `port: PORT protocol: "tcp" direction: "in"` or `"out"` |
+
+## Routes, name servers, clock, power and disks
+
+| Bash | Nurt |
+|---|---|
 | `ip route add DEST via GW dev IF metric N`, `ip route del DEST` | `network.route_add destination: "DEST" gateway: "GW" interface: "IF" metric: N`, `network.route_remove destination: "DEST"` |
 | `resolvectl dns IF SERVER…` | `network.dns_set interface: "IF" servers: ["SERVER", …]` |
 | `timedatectl set-timezone ZONE`, `date -s "TIME"` | `clock.timezone_set "ZONE"`, `clock.set "TIME"` |
