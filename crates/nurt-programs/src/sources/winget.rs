@@ -21,7 +21,7 @@
 //! The tracking database is a record of what was installed, not of what is
 //! installed: the package manager keeps the row of a removed package and one
 //! row per version of an upgraded one. A row is therefore reported only when
-//! the system confirms it, as [`installed_row`] describes.
+//! the system confirms it, as the function `installed_row` describes.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
