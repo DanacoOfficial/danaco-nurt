@@ -10,8 +10,8 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/build-downloads.mjs && astro build && node scripts/build-search.mjs",
-    "build:site": "node scripts/build-downloads.mjs && astro build",
+    "build": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs && astro build && node scripts/build-search.mjs",
+    "build:site": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs && astro build",
     "build:search": "node scripts/build-search.mjs",
     "preview": "astro preview",
     "check:i18n": "node scripts/check-i18n.mjs",
@@ -21,8 +21,9 @@
     "fonts": "python3 scripts/build_fonts.py $FONT_SOURCE src/assets/fonts",
     "icons": "node scripts/build-icons.mjs",
     "downloads": "node scripts/build-downloads.mjs",
-    "predev": "node scripts/build-downloads.mjs",
-    "training": "python3 scripts/build_training_packs.py"
+    "predev": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs",
+    "training": "python3 scripts/build_training_packs.py",
+    "sync": "node scripts/sync-repository-files.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.4.3",

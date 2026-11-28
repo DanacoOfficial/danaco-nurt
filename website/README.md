@@ -18,6 +18,7 @@ All commands run in the directory `website/`. Node.js 22.12 or later is required
 | `npm run dev` | serves the site with reloading at `http://localhost:4321/` |
 | `npm run build` | packs the downloads, builds the site into `dist/` and writes the search index into `dist/pagefind/` |
 | `npm run build:site` | packs the downloads and builds the site without the search index |
+| `npm run sync` | copies the installers and the JSON schemas of the repository into `public/` (`/install.sh`, `/install.ps1`, `/schema/`) |
 | `npm run downloads` | packs the downloads into `public/downloads/` and writes their manifest |
 | `npm run training -- --nurt <nurt> --nurt-bench <nurt-bench>` | rebuilds the training packages in `training/` from the repository |
 | `npm run build:search` | writes the search index of an existing `dist/` |
@@ -49,7 +50,17 @@ Every internal address of the site passes through `withBase` in `src/lib/urls.ts
 
 Mounting the site means publishing the content of `dist/` at the chosen address. For the subdomain, `dist/` is the document root of `nurt.danaco-group.pl`. For the path, `dist/` is served under `/nurt/` of `www.danaco-group.pl`. The server must serve `index.html` for a directory address, serve `404.html` with status 404 for a missing address, and may cache everything under `_assets/` without limit, because those file names carry a content hash.
 
-## 3. Structure
+## 3. Publication
+
+The site is published at `https://nurt.danaco-group.pl/` (`SITE_MODE=subdomain`, the default). The subdomain suits the site for four reasons: the installers, the identifiers of the JSON schemas and the quick install commands already use that origin; the site has its own security headers, which a path of the corporate site could not carry; it is released independently of the corporate site; and its addresses (`/`, `/pl/`, `/docs/`) stay the same wherever it is served.
+
+`npm run build` produces `dist/`, which holds the whole site: the pages, `_assets/`, `pagefind/`, `downloads/`, `install.sh`, `install.ps1` and `schema/`. A release is a copy of `dist/` in `environments/production/releases/<date>-<version>/` of the project directory of the product on the server; the symbolic link `environments/production/current` points to the release in service, and the web server reads the files through it. Returning to an earlier release is the change of that link.
+
+The server needs the following rules for the site. Every address of a directory serves its `index.html`; a missing address answers 404 with `404.html`; `_assets/` and `downloads/` may be cached without limit because their names carry a hash or a version; HTML, `install.sh` and `install.ps1` are revalidated on every request; the policy of the content allows scripts and styles of the site itself, inline scripts of the pages and WebAssembly of the search (`script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`).
+
+The corporate site `www.danaco-group.pl` introduces the product on the page `danaco-nurt.html`, which links to this site.
+
+## 4. Structure
 
 | Path | Content |
 |---|---|
@@ -79,29 +90,29 @@ Mounting the site means publishing the content of `dist/` at the chosen address.
 | `scripts/` | build and check tools |
 | `public/` | files published as they are: icons, the social card, the downloads of the brand |
 
-## 4. Documentation import
+## 5. Documentation import
 
 The pages under `/docs/` are not copied into this directory. `src/lib/docs/loader.ts` reads `docs/` and `spec/` of the repository at build time, strips the file headers, rewrites relative links to site addresses or to the repository, and gives every page a link to its source file. The site and the repository therefore cannot disagree. The documentation is English only; the Polish interface links to the English pages.
 
 Links into the repository point at the revision named by `sourceRef` in `config/site.ts`. Set it to the tag of the release when the release is published.
 
-## 5. Downloads and training packages
+## 6. Downloads and training packages
 
 `scripts/build-downloads.mjs` runs before every site build. It packs the directories named in `config/downloads.json` into ZIP archives in `public/downloads/` and writes `public/downloads/manifest.json` with the size, the number of files and the SHA-256 sum of every download. The identity archives are packed from `branding/` of the repository and the training archives from `training/`; the archives are not committed. The entries of an archive are sorted and carry the date of `archiveDate`, so the same sources give the same archive. Pages show a group of downloads with `<Downloads group="identity" />` or `<Downloads group="training" />`.
 
 The training packages in `training/` are committed. `scripts/build_training_packs.py` rebuilds them with the executables `nurt` and `nurt-bench` of one release: it takes the candidates of `nurt-bench pairs`, sends every program to the method `check` of `nurt serve`, and writes the accepted pairs, their chat and tool-call forms, the tool definitions of every format and the documentation corpus. `training/README.md` describes the formats.
 
-## 6. Numbers
+## 7. Numbers
 
 `src/data/facts.ts` holds three kinds of numbers. Counted numbers (commands, crates, specification documents, benchmark tasks, training pairs, tool definition formats, integration examples) are read from the repository by every build. Stated numbers quote a document of the repository. Measured numbers quote a recorded run and carry its release, platform and date in their source line; they change only when a new run is recorded.
 
-## 7. Motion
+## 8. Motion
 
 The motion layer is optional for the reader. A script in the head sets the class `motion` on the document only when the reader has not asked for reduced motion; every animation rule in `src/styles/motion.css` applies under that class. Without scripts, without WebGL or with reduced motion the site shows the same content at rest: the studio render replaces the live mark, and the terminal session is shown complete.
 
 The three-dimensional mark (`src/scripts/motion/mark-scene.ts`) is built from the path data of the identity, loads only on pages that contain it, and renders only while it is in view and the tab is visible.
 
-## 8. Regenerating derived files
+## 9. Regenerating derived files
 
 | File | Command | Source |
 |---|---|---|
@@ -110,7 +121,7 @@ The three-dimensional mark (`src/scripts/motion/mark-scene.ts`) is built from th
 | `src/components/brand/brand-data.ts` | `python3 scripts/build_brand_data.py <identity pack>` | the mark and lockups of the production identity 1.0.0 |
 | `public/brand/`, `src/assets/brand/` | `python3 scripts/sync_brand_assets.py <identity pack> public src/assets` | the downloads, renders and mockups of the identity |
 
-## 9. Licences of third-party parts
+## 10. Licences of third-party parts
 
 | Part | Licence |
 |---|---|
