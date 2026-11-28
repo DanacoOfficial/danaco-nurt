@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::review::collect
+// Responsibility:   Changed files of a review: the two sides of the scope or the range, the untracked files, and the canonical hunks of each text file.
+// Dependencies:     bstr, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Changed files of a review: the two sides of the scope or the range, the
 //! untracked files, and the canonical hunks of each text file.
 
@@ -429,3 +437,7 @@ fn load(
         canonical: pair.canonical,
     }))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

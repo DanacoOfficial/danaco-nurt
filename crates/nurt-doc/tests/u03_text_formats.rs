@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u03_text_formats.rs
+// Responsibility:   Changes to property and environment documents through the document handle.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Changes to property and environment documents through the document
 //! handle: replaced, created and removed values, other lines kept in order,
 //! comments kept and refused changes.
@@ -133,3 +141,7 @@ fn a_variable_is_removed_and_the_others_keep_their_values() {
     let error = handle.remove(&key("A")).unwrap_err();
     assert_eq!(error.code, ErrorCode::KeyNotFound);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

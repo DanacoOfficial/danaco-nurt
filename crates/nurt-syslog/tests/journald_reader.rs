@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syslog/tests/journald_reader.rs
+// Responsibility:   Queries of the journal store over files produced by the test writer.
+// Dependencies:     journal_writer, nurt_contracts, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -1201,3 +1209,7 @@ fn files_renamed_after_an_unclean_shutdown_are_read() {
     );
     assert!(notices.is_empty(), "{notices:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

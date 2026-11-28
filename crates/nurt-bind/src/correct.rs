@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::correct
+// Responsibility:   Correction of names, values and literals during binding.
+// Dependencies:     nurt_contracts, nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Correction of names, values and literals during binding.
 //!
 //! When a [`Corrector`] is present, a name or a literal that does not fit
@@ -15,7 +23,7 @@
 
 use std::cell::OnceCell;
 
-use nurt_contracts::ast::{Expr, Ref, Span, Stage};
+use nurt_contracts::ast::{Arg, Expr, Ref, Span, Stage};
 use nurt_contracts::bound::BoundExpr;
 use nurt_contracts::config::CorrectionConfig;
 use nurt_contracts::error::ErrorCode;
@@ -26,7 +34,7 @@ use nurt_correct::distance::{EXPECTED_LIMIT, NameEntry, NameIndex, NameKind, Opt
 use nurt_correct::lexical::Rule;
 use nurt_correct::lexical::paths::{EscapePlace, LiteralFix, normalize_path, read_escapes_at};
 use nurt_correct::policy::{Class, MODE_PARAMS, is_effecting};
-use nurt_correct::record::{Correction, CorrectionKind, RuleId};
+use nurt_correct::record::{Correction, CorrectionKind, RuleFamily, RuleId};
 use nurt_correct::tables::Tables;
 use nurt_correct::types::{self, Outcome, TypeTarget, Written};
 use nurt_correct::values::{self, FUNCTIONS, Match};
@@ -117,6 +125,17 @@ fn escape_place(ty: &ParamType) -> EscapePlace {
 /// Change of the surface tree that writes a correction into the program.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Change {
+    /// The program list of a `run` loses the elevation program in front of
+    /// it: the argument at `index` is replaced and `extra` is appended to the
+    /// arguments of the stage.
+    Elevate {
+        /// Position of the argument that holds the program list.
+        index: usize,
+        /// The list without the elevation program and its options.
+        command: Expr,
+        /// Call parameters written on the stage.
+        extra: Vec<Arg>,
+    },
     /// The name of the stage with the span.
     Command(String),
     /// The name of the named argument with the span.
@@ -304,6 +323,109 @@ impl<'a> Binder<'a> {
         result
     }
 
+    /// Corrects `run ["sudo", ...]` (also `doas` and `run0`) into the same
+    /// `run` without the elevation program, with `privilege: elevated`, or
+    /// `as_user` for `-u NAME`. Returns the stage as corrected.
+    pub(crate) fn elevated_run(&mut self, stage: &Stage) -> Option<Stage> {
+        self.active()?;
+        if stage.name != "run" {
+            return None;
+        }
+        let index = stage
+            .args
+            .iter()
+            .position(|arg| arg.name.is_none() || arg.name.as_deref() == Some("command"))?;
+        let Expr::List { items, .. } = &stage.args[index].value else {
+            return None;
+        };
+        let text = |expr: &Expr| match expr {
+            Expr::Text { v, .. } => Some(v.clone()),
+            _ => None,
+        };
+        let program = text(items.first()?)?;
+        let name = program.rsplit(['/', '\\']).next().unwrap_or(&program);
+        if !matches!(name, "sudo" | "doas" | "run0") {
+            return None;
+        }
+        let mut rest = &items[1..];
+        let mut user: Option<String> = None;
+        while let Some(word) = rest.first().and_then(text) {
+            if word == "--" {
+                rest = &rest[1..];
+                break;
+            }
+            if !word.starts_with('-') {
+                break;
+            }
+            if matches!(word.as_str(), "-u" | "--user") {
+                user = Some(rest.get(1).and_then(text)?);
+                rest = &rest[2..];
+            } else if let Some(value) = word.strip_prefix("--user=") {
+                user = Some(value.to_owned());
+                rest = &rest[1..];
+            } else if matches!(
+                word.as_str(),
+                "-n" | "--non-interactive" | "-H" | "-k" | "--no-ask-password"
+            ) {
+                rest = &rest[1..];
+            } else {
+                return None;
+            }
+        }
+        if rest.is_empty() {
+            return None;
+        }
+        let command = Expr::List {
+            items: rest.to_vec(),
+            span: None,
+        };
+        let (key, value, shown) = match &user {
+            Some(user) => (
+                "as_user",
+                Expr::Text {
+                    v: user.clone(),
+                    span: None,
+                },
+                format!("as_user: {}", quoted(user)),
+            ),
+            None => (
+                "privilege",
+                Expr::Ident {
+                    v: "elevated".to_owned(),
+                    span: None,
+                },
+                "privilege: elevated".to_owned(),
+            ),
+        };
+        let extra = vec![Arg {
+            name: Some(key.to_owned()),
+            value,
+            span: None,
+        }];
+        let correction = Correction::new(
+            RuleId::new(RuleFamily::Bash, 28)?,
+            Class::Certain,
+            program,
+            shown,
+            CorrectionKind::Habit,
+        );
+        let mut applied = Applied::new(
+            correction,
+            stage.span,
+            Change::Elevate {
+                index,
+                command: command.clone(),
+                extra: extra.clone(),
+            },
+        );
+        applied.effecting = true;
+        self.record(applied);
+        let mut changed = stage.clone();
+        changed.args[index].value = command;
+        changed.args.extend(extra);
+        Some(changed)
+    }
+
     /// Looks up the command of a stage, correcting its name.
     pub(crate) fn spec(&mut self, stage: &Stage) -> Result<&'a StageSpec, BindError> {
         if let Some(spec) = self.catalog.command(&stage.name) {
@@ -340,8 +462,33 @@ impl<'a> Binder<'a> {
             self.catalog
                 .commands()
                 .iter()
-                .map(|command| NameEntry::name(command.name.clone(), NameKind::Command)),
+                .map(|command| NameEntry::name(command.name.clone(), NameKind::Command))
+                .chain(
+                    self.functions
+                        .iter()
+                        .map(|function| NameEntry::name(function.name.clone(), NameKind::Command)),
+                ),
         );
+        let nearest = nearest_first(
+            tie,
+            expected(&stage.name, &index, NameKind::Command, EXPECTED_LIMIT),
+        );
+        let function = nearest
+            .first()
+            .is_some_and(|name| self.functions.iter().any(|function| &function.name == name));
+        if function {
+            return Err(BindError::new(
+                ErrorCode::UnknownName,
+                format!(
+                    "unknown function `{}`; define it with `define` before the call",
+                    stage.name
+                ),
+            )
+            .at(stage.span)
+            .found(stage.name.clone())
+            .expected(&nearest)
+            .help("syntax"));
+        }
         Err(BindError::new(
             ErrorCode::UnknownCommand,
             format!(
@@ -351,10 +498,7 @@ impl<'a> Binder<'a> {
         )
         .at(stage.span)
         .found(stage.name.clone())
-        .expected(&nearest_first(
-            tie,
-            expected(&stage.name, &index, NameKind::Command, EXPECTED_LIMIT),
-        ))
+        .expected(&nearest)
         .help("commands"))
     }
 
@@ -803,3 +947,7 @@ mod tests {
         assert_eq!(quoted("/srv/app"), "\"/srv/app\"");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

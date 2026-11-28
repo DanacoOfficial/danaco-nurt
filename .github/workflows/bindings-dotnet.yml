@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           .github/workflows/bindings-dotnet.yml
+# Responsibility:   Configuration or workflow definition of .github/workflows/bindings-dotnet.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 name: dotnet-binding
 
 on:
@@ -61,9 +69,15 @@ jobs:
         with:
           global-json-file: bindings/dotnet/global.json
       - name: Build
-        run: dotnet build Binding.sln -c Release
+        run: dotnet build Danaco.Nurt.sln -c Release
       - name: Test
-        run: dotnet test Binding.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
+        env:
+          # The directory below /run/user for the session artifacts of the test
+          # host cannot be opened on the ubuntu-24.04-arm runner (errno 22) and
+          # its permission check ends a successful run with exit code 1. The
+          # results and the coverage are written to TestResults.
+          VSTEST_DISABLE_ARTIFACTS_DIRECTORY_VERIFICATION: "1"
+        run: dotnet test Danaco.Nurt.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.os == 'ubuntu-latest'
         with:
@@ -89,8 +103,9 @@ jobs:
         env:
           NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt_ffi.so
           NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
-          NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance/bindings
-        run: dotnet test Binding.sln -c Release --logger "console;verbosity=normal"
+          NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance
+          NURT_STUB_DIR: ${{ github.workspace }}/crates/nurt-ffi/tests/fixtures/stub
+        run: dotnet test Danaco.Nurt.sln -c Release --logger "console;verbosity=normal"
 
   pack:
     needs: [version, test]
@@ -197,3 +212,7 @@ jobs:
         with:
           name: dotnet-packages
           path: ${{ runner.temp }}/packages/*
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

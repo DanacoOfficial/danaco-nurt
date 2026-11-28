@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           crates/jaq-json/Cargo.toml
+# Responsibility:   Configuration or catalog data of crates/jaq-json/Cargo.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Vendored from jaq-json 2.0.3 (https://github.com/01mf02/jaq), MIT license; see
 # LICENSE and NOTICE in this directory. The only change to the upstream
 # source is the limit on the length of a repeated string (`"x" * n`), see
@@ -38,3 +46,7 @@ num-traits = { version = "0.2.19", default-features = false }
 ryu = "1.0.20"
 self_cell = "1.2.0"
 serde_core = { version = "1.0.81", default-features = false, features = ["alloc"], optional = true }
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::symbols::records
+// Responsibility:   Conversion of symbols to `symbol` records.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conversion of symbols to `symbol` records.
 //!
 //! A `symbol` record places `line` and `column` at the name of the symbol and
@@ -260,3 +268,7 @@ mod tests {
         assert_eq!(without.signature, None);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

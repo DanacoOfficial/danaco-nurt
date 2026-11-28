@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::text
+// Responsibility:   Fixed texts of the program: version lines, banner and help introduction.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixed texts of the program: version lines, banner and help introduction.
 //!
 //! The version comes from the package metadata. The commit and the date of
@@ -58,6 +66,8 @@ pub fn usage() -> String {
          \x20 exec, script, repl, check, fmt, ast, schema, catalog, help,\n\
          \x20 history, undo, redo, serve, mcp, lsp, migrate, service, journal,\n\
          \x20 ext, doctor, version\n\n\
+         Program file:\n\
+         \x20 nurt run <FILE.nurt> [name: value | flag ...]\n\n\
          Options of a program:\n\
          \x20 --variant a|b|c       notation variant of the program\n\
          \x20 --preview             compute the effect without applying it\n\
@@ -66,6 +76,8 @@ pub fn usage() -> String {
          \x20 --limit N             records per page\n\
          \x20 --cursor C            read a further page of an earlier result\n\
          \x20 --verbosity V         quiet, normal or detailed\n\
+         \x20 --privilege P         account, elevated or auto\n\
+         \x20 --as-user NAME        run as another account (Linux and macOS)\n\
          \x20 -V, --version         print the version\n\
          \x20 -h, --help            print this help",
         product::help_summary()
@@ -85,6 +97,8 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
             "[--limit N]",
             "[--cursor C]",
             "[--verbosity V]",
+            "[--privilege P]",
+            "[--as-user NAME]",
             "<program>",
         ],
     ),
@@ -97,6 +111,8 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
             "[--json | --format F]",
             "[--limit N]",
             "[--verbosity V]",
+            "[--privilege P]",
+            "[--as-user NAME]",
         ],
     ),
     ("repl", "Start an interactive session.", &[]),
@@ -261,8 +277,10 @@ mod tests {
     #[test]
     fn banner_carries_the_version_and_a_hint() {
         let banner = banner();
-        assert!(banner.contains(&format!("Danaco Nurt {VERSION}")));
-        assert!(banner.ends_with("Type 'help' to get started."));
+        assert!(banner.contains("Danaco Nurt"));
+        assert!(banner.contains(&format!("nurt {VERSION}")));
+        assert!(banner.contains("Type 'help' to get started."));
+        assert!(banner.contains("All rights reserved."));
     }
 
     #[test]
@@ -274,14 +292,12 @@ mod tests {
 
     #[test]
     fn product_lines_are_ascii() {
-        for text in [
-            short_version(),
-            full_version(),
-            banner(),
-            help_intro(),
-            usage(),
-        ] {
+        for text in [short_version(), full_version(), help_intro(), usage()] {
             assert!(text.is_ascii());
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::review::tests
+// Responsibility:   Path, rule and line of every finding, in report order.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::sync::Arc;
 
 use nurt_contracts::error::ErrorCode;
@@ -436,7 +444,7 @@ fn errors_come_before_warnings_and_message_findings_name_the_root() {
 #[test]
 fn a_bare_repository_has_no_working_tree_to_review() {
     let dir = tempfile::tempdir().unwrap();
-    gix::init_bare(dir.path()).unwrap();
+    crate::testutil::init_bare_isolated(dir.path()).unwrap();
     let review = ReviewRequest::new(dir.path());
     let error = run_review(&review, &context(None)).unwrap_err();
     assert_eq!(error.code(), ErrorCode::GitUnsupported);
@@ -500,3 +508,7 @@ fn request_from_args_reads_the_parameters_of_the_catalog() {
         ErrorCode::InvalidValue
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

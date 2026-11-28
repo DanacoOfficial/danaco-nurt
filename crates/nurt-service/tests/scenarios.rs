@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-service/tests/scenarios.rs
+// Responsibility:   End-to-end scenarios of the background service on the running system.
+// Dependencies:     nurt_contracts, nurt_sched, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! End-to-end scenarios of the background service on the running system.
 //!
 //! Every scenario is ignored by default and checks its precondition before it
@@ -586,3 +594,7 @@ mod windows {
         assert!(Manifest::read(&paths.install_manifest()).unwrap().is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-text/tests/diff_unified.rs
+// Responsibility:   Unified rendering compared with output of GNU `diff -u` 3.12.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Unified rendering compared with output of GNU `diff -u` 3.12.
 //!
 //! Each expected text was produced by `LC_ALL=C diff -U<context> --label a
@@ -117,3 +125,7 @@ fn matches_gnu_when_identical_end_stops_a_slide() {
     let expected = "--- a\n+++ b\n@@ -1,3 +1,3 @@\n-a\n \n a\r\n\\ No newline at end of file\n+a\r\n\\ No newline at end of file\n";
     assert_eq!(render("a\n\na\r", "\n a\na\r", 3, true), expected);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

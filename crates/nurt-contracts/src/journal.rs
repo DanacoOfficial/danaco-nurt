@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::journal
+// Responsibility:   Operation journal: the only path for changing user data.
+// Dependencies:     schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Operation journal: the only path for changing user data.
 //!
@@ -47,7 +54,7 @@ use crate::env::WallTime;
 use crate::error::{Error, ErrorCode, Result};
 use crate::fs::{
     AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
-    ProviderSnapshot, ProviderValue, VolumeId, VolumeInfo, WriteHandle,
+    ProviderSnapshot, ProviderValue, SpecialNode, VolumeId, VolumeInfo, WriteHandle,
 };
 use crate::report::{Correction, Irreversible, IrreversibleEntry};
 
@@ -548,6 +555,13 @@ pub enum Mutation {
         /// Permission bits.
         mode: u32,
     },
+    /// Create a named pipe or a device node.
+    CreateNode {
+        /// Kind of the entry and its device numbers.
+        node: SpecialNode,
+        /// Permission bits set exactly; `None` leaves the umask in effect.
+        mode: Option<u32>,
+    },
     /// Create a symbolic link or junction.
     CreateLink {
         /// Link target as stored in the link.
@@ -722,6 +736,38 @@ pub trait MutationTx: Send + Sync {
     /// for transactions without targets, at commit.
     fn op(&self) -> Option<OpId>;
 
+    /// Allows [`MutationTx::preserve`] after the first change.
+    ///
+    /// A control construct that changes the world in several steps forms one
+    /// entry: each step declares and preserves its targets directly before it
+    /// changes them, and one commit or one rollback closes them all. The
+    /// previous state of every target is still durable before its first
+    /// change. A transaction that does not support the mode ignores the call
+    /// and keeps refusing `preserve` after a change.
+    fn allow_incremental(&mut self) {}
+
+    /// Marks the present state of the transaction. Until
+    /// [`MutationTx::release_savepoint`] or [`MutationTx::rollback_to_savepoint`]
+    /// a failing change restores only the targets changed since the mark and
+    /// leaves the transaction usable, so that a loop with `atomic: false` keeps
+    /// the iterations completed before a failure inside one entry. A
+    /// transaction without savepoints ignores the call and rolls back
+    /// everything on a failure.
+    fn savepoint(&mut self) {}
+
+    /// Drops the savepoint: the changes since the mark stay.
+    fn release_savepoint(&mut self) {}
+
+    /// Restores the targets changed since the savepoint and drops it; the
+    /// changes made before the mark stay.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_ROLLBACK_FAILED` when a target cannot be restored.
+    fn rollback_to_savepoint(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Declares targets and preserves their previous state before any change.
     ///
     /// Precondition: no change has been applied in this transaction. Indexes
@@ -827,7 +873,8 @@ pub trait MutationTx: Send + Sync {
 /// use nurt_contracts::fs::AbsPath;
 /// use nurt_contracts::journal::{Expect, FileOp, Mutation, TargetAction};
 ///
-/// let path = AbsPath::new("/home/user/notes.txt").unwrap();
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// let path = AbsPath::new(format!("{root}/home/user/notes.txt")).unwrap();
 /// let op = FileOp::write(path, b"new text".to_vec()).expect(Expect::Absent);
 /// assert_eq!(op.target.action, TargetAction::Modify);
 /// assert_eq!(op.target.expect, Expect::Absent);
@@ -927,6 +974,17 @@ impl FileOp {
     #[must_use]
     pub fn create_dir(path: AbsPath, mode: u32) -> Self {
         Self::new(path, TargetAction::Create, Mutation::CreateDir { mode }).expect(Expect::Absent)
+    }
+
+    /// Creates a named pipe or a device node.
+    #[must_use]
+    pub fn create_node(path: AbsPath, node: SpecialNode, mode: Option<u32>) -> Self {
+        Self::new(
+            path,
+            TargetAction::Create,
+            Mutation::CreateNode { node, mode },
+        )
+        .expect(Expect::Absent)
     }
 
     /// Creates a symbolic link or a junction.
@@ -1814,3 +1872,7 @@ pub trait Admission: Send + Sync {
     /// Liveness of the space service.
     fn liveness(&self) -> ServiceLiveness;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

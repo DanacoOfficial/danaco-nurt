@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-lspclient::provider
+// Responsibility:   Semantic analysis of the code group backed by the server pool.
+// Dependencies:     lsp_types, nurt_code, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Semantic analysis of the code group backed by the server pool.
 //!
 //! [`LspProvider`] implements [`SemanticProvider`]. Each request acquires the
@@ -1323,3 +1331,7 @@ mod tests {
         assert_eq!(error.kind, SemanticErrorKind::TimedOut);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::sys::backend
+// Responsibility:   [`MacosFs`]: the file system interface on macOS.
+// Dependencies:     nurt_contracts, rustix, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! [`MacosFs`]: the file system interface on macOS.
 
 use std::fs::File;
@@ -15,10 +23,10 @@ use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, ExtendedMeta, FileKind, FileLock, FileMeta, Follow, Fs,
     FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialKind, SpecialNode, TxScope,
+    VolumeId, VolumeInfo, WriteHandle,
 };
-use rustix::fs::{Access, AtFlags, CWD, FlockOperation, Mode, OFlags, RenameFlags};
+use rustix::fs::{Access, AtFlags, CWD, FileType, FlockOperation, Mode, OFlags, RenameFlags};
 use rustix::io::Errno;
 use sha2::{Digest, Sha256};
 
@@ -114,6 +122,26 @@ fn std_kind(kind: std::fs::FileType) -> FileKind {
 impl Fs for MacosFs {
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
         stat_path(path.as_path(), follow, "metadata").map(|stat| file_meta(&stat))
+    }
+
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let stat = stat_path(path.as_path(), Follow::NoFollow, "special_node")?;
+        let numbers = (
+            rustix::fs::major(stat.st_rdev),
+            rustix::fs::minor(stat.st_rdev),
+        );
+        Ok(match FileType::from_raw_mode(stat.st_mode) {
+            FileType::Fifo => Some(SpecialNode::fifo()),
+            FileType::CharacterDevice => {
+                Some(SpecialNode::device(SpecialKind::Char, numbers.0, numbers.1))
+            }
+            FileType::BlockDevice => Some(SpecialNode::device(
+                SpecialKind::Block,
+                numbers.0,
+                numbers.1,
+            )),
+            _ => None,
+        })
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -435,6 +463,84 @@ impl FsWrite for MacosFs {
         tree::remove_tree(path, parallelism)
     }
 
+    fn create_node(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        const OP: &str = "create_node";
+        let (file_type, device) = match node.kind {
+            SpecialKind::Fifo => (FileType::Fifo, 0),
+            SpecialKind::Char => (
+                FileType::CharacterDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            SpecialKind::Block => (
+                FileType::BlockDevice,
+                rustix::fs::makedev(node.major, node.minor),
+            ),
+            _ => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    OP,
+                    Some(path.as_path()),
+                ));
+            }
+        };
+        let to_mode = |bits: u32| Mode::from_bits_truncate(bits.try_into().unwrap_or_default());
+        let context = if node.kind == SpecialKind::Fifo {
+            ErrnoContext::Plain
+        } else {
+            ErrnoContext::Privileged
+        };
+        let created = to_mode(mode.unwrap_or(0o666));
+        // rustix has no `mknodat` on macOS, so the node is made with `mknod`.
+        let name = std::ffi::CString::new(std::os::unix::ffi::OsStrExt::as_bytes(
+            path.as_path().as_os_str(),
+        ))
+        .map_err(|_| FsError::new(FsErrorKind::InvalidPath, OP, Some(path.as_path())))?;
+        let kind_bits = match file_type {
+            FileType::Fifo => libc::S_IFIFO,
+            FileType::CharacterDevice => libc::S_IFCHR,
+            _ => libc::S_IFBLK,
+        };
+        let dev = libc::dev_t::try_from(device).unwrap_or_default();
+        let made = retry(|| {
+            // SAFETY: `name` is a valid C string that lives through the call.
+            let code = unsafe {
+                libc::mknod(
+                    name.as_ptr(),
+                    kind_bits | libc::mode_t::from(created.bits()),
+                    dev,
+                )
+            };
+            if code == 0 {
+                Ok(())
+            } else {
+                Err(rustix::io::Errno::from_raw_os_error(
+                    std::io::Error::last_os_error()
+                        .raw_os_error()
+                        .unwrap_or(libc::EIO),
+                ))
+            }
+        });
+        made.map_err(|errno| sys_error(errno, context, OP, path.as_path()))?;
+        if let Some(exact) = mode {
+            retry(|| {
+                rustix::fs::chmodat(
+                    CWD,
+                    path.as_path(),
+                    to_mode(exact),
+                    AtFlags::SYMLINK_NOFOLLOW,
+                )
+            })
+            .map_err(plain(OP, path))?;
+        }
+        Ok(())
+    }
+
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {
         let mode = Mode::from_bits_truncate(mode.try_into().unwrap_or_default());
         retry(|| rustix::fs::mkdirat(CWD, path.as_path(), mode)).map_err(plain("create_dir", path))
@@ -539,3 +645,7 @@ impl FsWrite for MacosFs {
             .map_err(|error| io_error(&error, ErrnoContext::Plain, OP, path.as_path()))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

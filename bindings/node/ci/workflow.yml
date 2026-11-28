@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/node/ci/workflow.yml
+# Responsibility:   Configuration or workflow definition of bindings/node/ci/workflow.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 name: node-binding
 
 on:
@@ -86,7 +94,7 @@ jobs:
           deno-version: v2.x
       - if: matrix.runtime == 'deno'
         name: Smoke test in Deno
-        run: deno run --allow-read --allow-env --allow-run test/runtime-smoke.mjs
+        run: deno run --allow-read --allow-env --allow-run --allow-sys=uid,gid test/runtime-smoke.mjs
 
   conformance:
     runs-on: ubuntu-latest
@@ -232,3 +240,7 @@ jobs:
           name: npm-packages
           path: ${{ runner.temp }}/packages/*.tgz
           if-no-files-found: error
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/stages_docs.rs
+// Responsibility:   Pages of the record stages in `docs/commands`: structure and examples.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pages of the record stages in `docs/commands`: structure and examples.
 //!
 //! Every `nurt example` block of a page is the `program` of a conformance
@@ -39,7 +47,12 @@ const SECTIONS: [&str; 8] = [
 ];
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn page(command: &str) -> String {
@@ -134,3 +147,7 @@ fn every_example_runs_as_documented() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

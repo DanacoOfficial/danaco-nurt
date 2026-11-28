@@ -5,6 +5,13 @@ order: 8
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/configuration.md -->
+<!-- Responsibility:   Documents Configuration. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Configuration
 
 The format is `nurt-config/1`. The complete list of keys with types and defaults is in the [specification](../../spec/configuration.md); the schema is printed by `nurt schema config`.
@@ -49,3 +56,7 @@ Later levels override earlier ones:
 | `output.language` | `NURT_LANGUAGE` | `"en"` | language of `help`, `describe`, the messages of errors and the notes of a result (`en` or `pl`); codes and programs are never translated |
 | `output.color` | `NURT_COLOR` | `"auto"` | colors for a person |
 | `session.id` | `NURT_SESSION` | none | session identifier in the journal |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::store
+// Responsibility:   Journal store: construction, shared context and services.
+// Dependencies:     nurt_contracts, nurt_fs, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Journal store: construction, shared context and services.
 //!
 //! [`Journal`] is assembled by [`JournalBuilder`] from the file system, the
@@ -687,6 +695,77 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Condvar, Mutex, OnceLock};
     use std::time::{Duration, Instant};
 
+    /// `path` in the language form of [`AbsPath`] (`/` separators), the form
+    /// in which the tests name paths in the log and in fault needles.
+    fn language(path: &Path) -> String {
+        AbsPath::new(path).map_or_else(
+            |_| path.to_string_lossy().into_owned(),
+            |path| path.to_language_string(),
+        )
+    }
+
+    /// On Windows the identity, the link count and the attributes of
+    /// `path` from the system back end, which `std::fs::Metadata` does not
+    /// report; elsewhere `meta` unchanged.
+    #[cfg(windows)]
+    fn system_meta(path: &Path, follow: Follow, meta: FileMeta) -> FileMeta {
+        let Ok(path) = AbsPath::new(path) else {
+            return meta;
+        };
+        match nurt_fs::system_fs().metadata(&path, follow) {
+            Ok(system) => FileMeta {
+                links: system.links,
+                file_id: system.file_id,
+                windows_attributes: system.windows_attributes,
+                ..meta
+            },
+            Err(_) => meta,
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn system_meta(_path: &Path, _follow: Follow, meta: FileMeta) -> FileMeta {
+        meta
+    }
+
+    /// Runs `op` again after a sharing violation on Windows, where a virus
+    /// scanner or an indexer keeps a new file open for a moment, with the
+    /// schedule of the system back end.
+    fn shared<T>(mut op: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+        #[cfg(windows)]
+        {
+            let policy = nurt_fs::windows::retry::RetryPolicy::new(
+                nurt_fs::windows::retry::DEFAULT_SHARING_RETRY,
+            );
+            for delay in policy.delays() {
+                match op() {
+                    Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                        std::thread::sleep(delay);
+                    }
+                    other => return other,
+                }
+            }
+        }
+        op()
+    }
+
+    /// Identity of the file at `path`: the inode number on Unix, the file
+    /// index of the system back end on Windows.
+    #[cfg(unix)]
+    fn path_ino(path: &Path) -> u64 {
+        file_ino(&std::fs::metadata(path).unwrap())
+    }
+
+    /// Identity of the file at `path`: the inode number on Unix, the file
+    /// index of the system back end on Windows.
+    #[cfg(not(unix))]
+    fn path_ino(path: &Path) -> u64 {
+        let path = AbsPath::new(path).unwrap();
+        nurt_fs::system_fs()
+            .metadata(&path, Follow::Follow)
+            .map_or(0, |meta| meta.file_id.low)
+    }
+
     /// Returns the inode number on Unix and zero elsewhere.
     #[cfg(unix)]
     pub(crate) fn file_ino(meta: &std::fs::Metadata) -> u64 {
@@ -1007,7 +1086,7 @@ pub(crate) mod test_support {
 
         /// Assigns an account identifier to the file at `path`.
         pub(crate) fn set_sid(&self, path: &AbsPath, sid: &str) {
-            let ino = file_ino(&std::fs::metadata(path.as_path()).unwrap());
+            let ino = path_ino(path.as_path());
             self.state().sids.insert(ino, sid.to_owned());
         }
 
@@ -1035,14 +1114,14 @@ pub(crate) mod test_support {
             let mut entry = op.to_owned();
             for path in paths {
                 entry.push(' ');
-                entry.push_str(&path.to_string_lossy());
+                entry.push_str(&language(path));
             }
             state.log.push(entry);
             let position = state.faults.iter().position(|fault| {
                 fault.op == op
                     && paths
                         .iter()
-                        .any(|path| path.to_string_lossy().contains(&fault.needle))
+                        .any(|path| language(path).contains(&fault.needle))
             });
             if let Some(position) = position {
                 let fault = state.faults[position].clone();
@@ -1112,7 +1191,7 @@ pub(crate) mod test_support {
             } else {
                 FileKind::Special
             };
-            Ok(FileMeta {
+            let meta = FileMeta {
                 kind,
                 size: meta.len(),
                 mode: meta_mode(&meta),
@@ -1129,7 +1208,8 @@ pub(crate) mod test_support {
                     high: 0,
                 },
                 windows_attributes: 0,
-            })
+            };
+            Ok(system_meta(path, follow, meta))
         }
 
         /// Applies writes registered for the file that was at `registered`
@@ -1206,7 +1286,7 @@ pub(crate) mod test_support {
                     .set_modified(std::time::UNIX_EPOCH + Duration::from_nanos(nanos))
                     .map_err(|error| fs_error("apply_meta", self.path.as_path(), &error))?;
             }
-            let ino = file_ino(&self.file.metadata().unwrap());
+            let ino = path_ino(self.path.as_path());
             let mut state = self.fs.state();
             if state.transfer_sid
                 && let Some(sid) = &meta.account_sid
@@ -1463,7 +1543,7 @@ pub(crate) mod test_support {
                     Some(to.as_path()),
                 ));
             }
-            std::fs::rename(from.as_path(), to.as_path())
+            shared(|| std::fs::rename(from.as_path(), to.as_path()))
                 .map_err(|error| fs_error("rename", from.as_path(), &error))
         }
 
@@ -1593,6 +1673,18 @@ pub(crate) mod test_support {
             std::fs::remove_dir_all(path.as_path())
                 .map_err(|error| fs_error("remove_tree", path.as_path(), &error))?;
             Ok(RemoveStats::default())
+        }
+
+        #[cfg(target_os = "linux")]
+        fn create_node(
+            &self,
+            scope: &TxScope,
+            path: &AbsPath,
+            node: nurt_contracts::fs::SpecialNode,
+            mode: Option<u32>,
+        ) -> FsResult<()> {
+            self.record("create_node", &[path.as_path()])?;
+            nurt_fs::linux::LinuxFs::new().create_node(scope, path, node, mode)
         }
 
         fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {
@@ -2072,3 +2164,7 @@ pub(crate) mod test_support {
         missing
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

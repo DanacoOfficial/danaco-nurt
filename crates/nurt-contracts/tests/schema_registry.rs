@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/schema_registry.rs
+// Responsibility:   Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/` and that the schemas accept and reject the expected documents.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/`
 //! under its naming convention, that every schema compiles with the other
 //! published schemas as resources, and that the schemas of catalog query
@@ -20,7 +28,12 @@ use serde_json::{Value, json};
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
 
 fn directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas")
 }
 
 fn file_name(name: &str) -> String {
@@ -239,7 +252,12 @@ fn response_schema_equals_the_response_definition_of_the_request_schema() {
 #[test]
 fn golden_responses_match_the_response_schema() {
     let validator = validator("response");
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/request/response");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/request/response");
     let mut checked = 0;
     for entry in fs::read_dir(&dir).unwrap() {
         let path = entry.unwrap().path();
@@ -439,3 +457,7 @@ fn rpc_schema_names_every_published_schema() {
     let published: BTreeSet<&str> = schema::ALL.iter().map(|(name, _)| *name).collect();
     assert_eq!(named, published);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

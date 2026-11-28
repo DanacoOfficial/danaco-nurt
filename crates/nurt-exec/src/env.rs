@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec::env
+// Responsibility:   Environment of one execution.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_testkit, nurt_types, rayon
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Environment of one execution.
 
 use std::fmt;
@@ -85,6 +93,9 @@ pub struct ExecEnv {
     pub pool: Option<Arc<ThreadPool>>,
     /// Hash of the executed program, reported in [`nurt_contracts::stage::Event::ExecStarted`].
     pub ast_hash: Option<String>,
+    /// Values of the parameters of the script, in declaration order, bound
+    /// before the run.
+    pub params: Vec<(String, nurt_contracts::bound::BoundExpr)>,
     /// Seed of `random()` and `uuid()`; entropy of the process when absent.
     pub seed: Option<u64>,
     extensions: Vec<ExtensionInstaller>,
@@ -141,6 +152,7 @@ impl ExecEnv {
             state_dir: None,
             pool: None,
             ast_hash: None,
+            params: Vec::new(),
             seed: None,
             extensions: Vec::new(),
         }
@@ -230,6 +242,13 @@ impl ExecEnv {
     #[must_use]
     pub fn with_ast_hash(mut self, hash: impl Into<String>) -> Self {
         self.ast_hash = Some(hash.into());
+        self
+    }
+
+    /// Sets the values of the parameters of the script.
+    #[must_use]
+    pub fn with_params(mut self, params: Vec<(String, nurt_contracts::bound::BoundExpr)>) -> Self {
+        self.params = params;
         self
     }
 
@@ -404,3 +423,7 @@ mod tests {
         assert!(format!("{env:?}").contains("sha256:00"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

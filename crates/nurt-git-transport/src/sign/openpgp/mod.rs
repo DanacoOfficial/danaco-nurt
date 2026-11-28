@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::openpgp
+// Responsibility:   OpenPGP signatures made and checked by GnuPG.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! OpenPGP signatures made and checked by GnuPG.
 //!
 //! The program named by `gpg.openpgp.program` or `gpg.program` (default
@@ -403,6 +411,11 @@ fn execute(
     cwd: &Path,
     stdin: Vec<u8>,
 ) -> Result<ProgramOutcome> {
+    let args = if msys_build(runner, program, cwd) {
+        args.into_iter().map(msys_path).collect()
+    } else {
+        args
+    };
     let mut spec = ProgramSpec::new(program, args, cwd);
     spec.stdin = ProgramInput::Bytes(stdin);
     spec.timeout_ms = Some(TIMEOUT_MS);
@@ -484,8 +497,46 @@ fn scratch_dir() -> Result<tempfile::TempDir> {
         .map_err(|source| io_error(&std::env::temp_dir(), &source))
 }
 
+/// Whether `program` is an MSYS build, as the GnuPG that comes with Git for
+/// Windows: its directory holds `msys-2.0.dll`. Such a program reads an
+/// absolute path in the form `/c/dir` and takes `C:\\dir` and `C:/dir` for
+/// relative paths.
+fn msys_build(runner: Runner<'_>, program: &str, cwd: &Path) -> bool {
+    cfg!(windows)
+        && runner
+            .host
+            .resolve_program(program, cwd)
+            .ok()
+            .and_then(|path| path.parent().map(|dir| dir.join("msys-2.0.dll").is_file()))
+            .unwrap_or(false)
+}
+
+/// `arg` in the form an MSYS program reads when it is an absolute Windows
+/// path (`C:\\dir` and `C:/dir` become `/c/dir`); other arguments unchanged.
+fn msys_path(arg: String) -> String {
+    let bytes = arg.as_bytes();
+    let absolute = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'/' | b'\\');
+    if absolute {
+        let drive = char::from(bytes[0]).to_ascii_lowercase();
+        format!("/{drive}{}", arg[2..].replace('\\', "/"))
+    } else {
+        arg
+    }
+}
+
+/// Path argument of `gpg`; on Windows with `/` separators, which both the
+/// native GnuPG and the MSYS build that comes with Git for Windows read,
+/// while the MSYS build takes a path with `\\` for a relative one.
 fn path_arg(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
+    let text = path.to_string_lossy();
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text.into_owned()
+    }
 }
 
 /// Reads the first line of a passphrase file, as `gpg` does; the file must
@@ -642,6 +693,29 @@ mod tests {
         assert_eq!(good.status, SignatureStatus::Good);
     }
 
+    /// Home directory argument of the `gpg` found on the path, in the form
+    /// of an MSYS build when the first `gpg` there is one.
+    fn test_home_arg(home: &Path) -> String {
+        let msys = std::env::var_os("PATH").is_some_and(|paths| {
+            std::env::split_paths(&paths)
+                .find(|dir| dir.join("gpg.exe").is_file())
+                .is_some_and(|dir| dir.join("msys-2.0.dll").is_file())
+        });
+        if msys {
+            msys_path(path_arg(home))
+        } else {
+            path_arg(home)
+        }
+    }
+
+    #[test]
+    fn msys_paths_name_the_drive_as_a_directory() {
+        assert_eq!(msys_path(r"C:\Users\user b".to_owned()), "/c/Users/user b");
+        assert_eq!(msys_path("D:/keys/home".to_owned()), "/d/keys/home");
+        assert_eq!(msys_path("--batch".to_owned()), "--batch");
+        assert_eq!(msys_path("C:".to_owned()), "C:");
+    }
+
     /// Runs `gpg` with `home` as its home directory, as the tests need a key
     /// that only GnuPG can generate.
     #[allow(
@@ -651,7 +725,7 @@ mod tests {
     fn gpg(home: &Path, args: &[&str]) -> std::process::Output {
         let output = Command::new("gpg")
             .arg("--homedir")
-            .arg(home)
+            .arg(test_home_arg(home))
             .args(["--batch", "--no-tty", "--pinentry-mode", "loopback"])
             .args(args)
             .output()
@@ -729,7 +803,7 @@ mod tests {
         drop(
             Command::new("gpgconf")
                 .arg("--homedir")
-                .arg(home)
+                .arg(test_home_arg(home))
                 .args(["--kill", "gpg-agent"])
                 .output(),
         );
@@ -927,3 +1001,7 @@ mod tests {
         assert_eq!(error.data().problem.as_deref(), Some("program_failed"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

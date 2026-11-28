@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::merge::driver
+// Responsibility:   Content merge drivers: the built-in drivers of `gix-merge` and the detection of drivers configured as programs (`merge.<name>.driver`).
+// Dependencies:     bstr, gix_merge, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Content merge drivers: the built-in drivers of `gix-merge` and the
 //! detection of drivers configured as programs (`merge.<name>.driver`).
 //!
@@ -190,3 +198,7 @@ fn not_run(driver: &ExternalDriver, path: &BStr) -> NotableEntry {
     ));
     note
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

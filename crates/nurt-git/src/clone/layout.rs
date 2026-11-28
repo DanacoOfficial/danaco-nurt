@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::clone::layout
+// Responsibility:   Files of a new clone that `git clone` writes itself: the configuration, `packed-refs`, `HEAD`, the branch and its reflogs.
+// Dependencies:     bstr, gix, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Files of a new clone that `git clone` writes itself: the configuration,
 //! `packed-refs`, `HEAD`, the branch and its reflogs.
 //!
@@ -273,8 +281,15 @@ pub(super) fn stored_url(url: &str) -> Result<String> {
         return Ok(stored);
     }
     if Path::new(url).is_absolute() {
+        // Git for Windows stores a local path with `/` separators.
+        let url = if cfg!(windows) {
+            url.replace('\\', "/")
+        } else {
+            url.to_owned()
+        };
         let trimmed = url.trim_end_matches('/');
-        return Ok(if trimmed.is_empty() { url } else { trimmed }.to_owned());
+        let kept = trimmed.is_empty() || trimmed.ends_with(':');
+        return Ok(if kept { url.as_str() } else { trimmed }.to_owned());
     }
     match url.find(':') {
         Some(colon) if colon > 1 && !url[..colon].contains('/') => Ok(url.to_owned()),
@@ -307,6 +322,7 @@ pub(super) struct Layout<'a> {
     url: String,
     core: Option<String>,
     committer: Option<Signature>,
+    links: bool,
 }
 
 impl<'a> Layout<'a> {
@@ -319,7 +335,15 @@ impl<'a> Layout<'a> {
             url: url.to_owned(),
             core: None,
             committer: None,
+            links: true,
         }
+    }
+
+    /// Whether the configuration outside the repository enables symbolic
+    /// links (`core.symlinks`); without it, `git` for Windows records
+    /// `symlinks = false` in a new repository and checks links out as files.
+    pub(super) fn set_links(&mut self, enabled: bool) {
+        self.links = enabled;
     }
 
     /// Identity written to the reflogs.
@@ -337,7 +361,7 @@ impl<'a> Layout<'a> {
             None => {
                 let text = std::fs::read_to_string(&path)
                     .map_err(|failure| error_io(&path, &failure.to_string()))
-                    .map(|text| without_defaults(&text))?;
+                    .map(|text| as_git_writes(&text, self.links))?;
                 self.core = Some(text.clone());
                 text
             }
@@ -462,6 +486,23 @@ const DEFAULT_SETTINGS: [&str; 3] = [
     "logallrefupdates = false",
 ];
 
+/// The `core` section as `git` writes it into a new repository: `\n` line
+/// ends on every system, without the settings of [`DEFAULT_SETTINGS`] and,
+/// on Windows, with `symlinks = false` unless `links` is set.
+fn as_git_writes(text: &str, links: bool) -> String {
+    let mut text = without_defaults(&text.replace("\r\n", "\n"));
+    let recorded = text
+        .lines()
+        .any(|line| line.trim_start().starts_with("symlinks"));
+    if cfg!(windows) && !links && !recorded {
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str("\tsymlinks = false\n");
+    }
+    text
+}
+
 /// The configuration without the settings of [`DEFAULT_SETTINGS`].
 fn without_defaults(text: &str) -> String {
     text.split_inclusive('\n')
@@ -554,8 +595,14 @@ mod tests {
 
     #[test]
     fn stored_url_requires_absolute_local_paths() {
-        assert_eq!(stored_url("/srv/up/").unwrap(), "/srv/up");
-        assert_eq!(stored_url("/").unwrap(), "/");
+        assert_eq!(
+            stored_url(nurt_testkit::paths::abs("/srv/up/").as_str()).unwrap(),
+            nurt_testkit::paths::abs("/srv/up").as_str()
+        );
+        assert_eq!(
+            stored_url(nurt_testkit::paths::abs("/").as_str()).unwrap(),
+            nurt_testkit::paths::abs("/").as_str()
+        );
         let error = stored_url("relative/up").unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert!(stored_url("").is_err());
@@ -744,3 +791,7 @@ mod tests {
         assert_eq!(head.commit(), Some(id(9)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

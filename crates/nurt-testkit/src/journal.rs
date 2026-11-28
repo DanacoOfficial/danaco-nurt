@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-testkit::journal
+// Responsibility:   Pass-through and restoring journals and test admission.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pass-through and restoring journals and test admission.
 //!
 //! [`NoopJournal`] implements [`JournalStore`] and [`MutationTx`] with the
@@ -908,6 +916,7 @@ fn mutation_name(mutation: &Mutation) -> &'static str {
         Mutation::Remove => "remove",
         Mutation::Rename => "rename",
         Mutation::CreateDir { .. } => "create_dir",
+        Mutation::CreateNode { .. } => "create_node",
         Mutation::CreateLink { .. } => "create_link",
         Mutation::CreateHardLink { .. } => "create_hard_link",
         Mutation::SetMeta(_) => "set_meta",
@@ -928,7 +937,10 @@ fn allowed(action: &TargetAction, mutation: &Mutation) -> bool {
     );
     let creates_entry = matches!(
         mutation,
-        Mutation::CreateDir { .. } | Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
+        Mutation::CreateDir { .. }
+            | Mutation::CreateNode { .. }
+            | Mutation::CreateLink { .. }
+            | Mutation::CreateHardLink { .. }
     );
     match action {
         TargetAction::Create => {
@@ -1136,7 +1148,15 @@ impl NoopTx<'_> {
             Expect::Unchecked => true,
             Expect::Absent => self.meta(path)?.is_none(),
             Expect::Etag(tag) => match self.fs().etag(path, Follow::NoFollow) {
-                Ok(current) => current.matches(tag),
+                Ok(current) => {
+                    current.matches(tag)
+                        && match tag.hash {
+                            Some(expected) => {
+                                self.fs().content_hash(path).map_err(convert)? == expected
+                            }
+                            None => true,
+                        }
+                }
                 Err(error) if error.kind == FsErrorKind::NotFound => false,
                 Err(error) => return Err(convert(error)),
             },
@@ -1429,6 +1449,9 @@ impl NoopTx<'_> {
                 _ => Err(self.misuse("rename for a target not declared as rename")),
             },
             Mutation::CreateDir { mode } => fs.create_dir(&scope, path, *mode).map_err(convert),
+            Mutation::CreateNode { node, mode } => {
+                fs.create_node(&scope, path, *node, *mode).map_err(convert)
+            }
             Mutation::CreateLink { target, kind } => {
                 fs.create_link(&scope, target, path, *kind).map_err(convert)
             }
@@ -1896,3 +1919,7 @@ impl Admission for TestAdmission {
         self.liveness
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

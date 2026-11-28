@@ -1,12 +1,19 @@
 ---
 command: windows.cim
-group: admin
-summary: Query CIM instances through WMI on Windows.
+group: administration
+summary: Query CIM instances through WMI on Windows, or call a method of the selected instances with invoke.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/windows.cim.md -->
+<!-- Responsibility:   Documents windows.cim. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # windows.cim
 
@@ -54,6 +61,7 @@ the key properties of the class, WMI does not report the object path and
 The rest of the pipeline may limit the number of records, for example with
 `first`; the query then stops reading after that number of instances.
 
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -62,22 +70,29 @@ The rest of the pipeline may limit the number of records, for example with
 | `where` | `text` | none | WQL condition on instance properties. |
 | `namespace` | `text` | `"root/cimv2"` | CIM namespace. |
 | `properties` | `list<text>` | none | Properties to return; all when omitted. |
+| `invoke` | `text` | none | Method to call on every selected instance, or on the class when where is omitted (static methods such as Win32_Process.Create). |
+| `arguments` | `map<any>` | none | Input parameters of the method by name: text, int or bool values. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| default | `none` | `cim_object` |
+| default | `none` | `cim_object`, `effect` |
 
 ## Effect
 
 | Property | Value |
 |---|---|
-| Category | `source` |
+| Category | `change` |
 | Effect | `read` |
 | Reversibility | `read` |
 | Implementation | `builtin` |
+| Reversibility conditions | A query only reads. A call with invoke is irreversible unless the method has a documented opposite (StartService and StopService, Enable and Disable, Pause and Resume), which undo calls on the same instances. |
 | Operating systems | `windows` |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `invoke` | `external` | `irreversible` | Applies when invoke is given. |
 
 ## Examples
 
@@ -105,6 +120,18 @@ Find processes by name and keep the command lines.
 windows.cim "Win32_Process" where: "Name = 'svchost.exe'" properties: ["ProcessId", "CommandLine"] |> first 5
 ```
 
+Stop a service; `undo` starts it again.
+
+```nurt example
+windows.cim "Win32_Service" where: "Name = 'Spooler'" invoke: "StopService" privilege: elevated
+```
+
+Start a process through the static method of the class.
+
+```nurt example
+windows.cim "Win32_Process" invoke: "Create" arguments: {"CommandLine": "notepad.exe"} privilege: elevated
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -113,9 +140,37 @@ windows.cim "Win32_Process" where: "Name = 'svchost.exe'" properties: ["ProcessI
 | `E_INVALID_VALUE` | A class, property or namespace is not a CIM name, the condition is malformed, or WMI rejected the query. | Correct the name or the condition. |
 | `E_NOT_FOUND` | The class or the namespace does not exist. | Check the class name and the namespace. |
 | `E_PRIVILEGE` | Reading the namespace requires the `administrator` privilege. | Run the console as an administrator. |
+| `E_STAGE_FAILED` | The method returned a `ReturnValue` other than 0; `return_value` holds it. | Read the documentation of the method for the code. |
 | `E_LIMIT` | The query returns more instances than a stage may hold. | Narrow the query with `where`. |
 | `E_IO` | WMI or COM failed; `os_error` holds the `HRESULT`. | Check that the WMI service is running. |
 
 ## Related
 
 `services`, `host`, `processes`, `disks`.
+
+## Notes
+
+With `invoke` the command calls the method of the class instead of reading.
+`where` selects the instances that receive the call; without `where` the
+method of the class is called, as for the static method `Create` of
+`Win32_Process`. `arguments` holds the input parameters of the method by name;
+a value is text, an integer or a boolean. `invoke` and the names in
+`arguments` must be CIM names. The call is an effect of the program: a preview
+reads the selected instances and shows the call without making it, and a
+method that returns a `ReturnValue` other than 0 ends the call with
+`E_STAGE_FAILED`; the effect record holds `return_value`.
+
+A call is a change of the target `cim:<class>.<method>`. The call is
+irreversible unless the class documents an opposite method, which `undo` calls
+on the same instances; a call without `where` has no instances to repeat the
+opposite on, so it stays irreversible.
+
+| Class | Method | Opposite |
+|---|---|---|
+| `Win32_Service` | `StartService`, `StopService` | each other |
+| `Win32_NetworkAdapter`, `Win32_PnPEntity` | `Enable`, `Disable` | each other |
+| `Win32_Printer` | `Pause`, `Resume` | each other |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/differential_walk.rs
+// Responsibility:   Differential tests of the walker against `fd`.
+// Dependencies:     nurt_contracts, support_corpus, support_diff, support_walk
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of the walker against `fd`.
 
 #![cfg(all(feature = "differential", unix))]
@@ -200,3 +208,7 @@ fn hidden_entries_are_included_by_default_unlike_fd() {
     );
     assert_same("default walk equals fd with hidden entries", &nurt, &hidden);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

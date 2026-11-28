@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/logs.md -->
+<!-- Responsibility:   Documents logs. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # logs
 
@@ -158,6 +165,15 @@ Read the events of all timer units:
 logs unit: "*.timer" level: debug
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the kept events first and then
+continues the query from the cursor of the last event, so that parts neither
+overlap nor skip events that arrive later.
+
+```text
+shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -180,3 +196,7 @@ logs unit: "*.timer" level: debug
 `services` lists the services whose `unit` names `logs` accepts. `filter`,
 `group` and `sort` process the `log_event` records further. The `system` group
 page lists the other commands of the group.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

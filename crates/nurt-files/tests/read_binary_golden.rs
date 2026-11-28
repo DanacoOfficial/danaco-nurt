@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/read_binary_golden.rs
+// Responsibility:   Examples of the reference page of `read` for PDF documents, images, hexadecimal dumps and compressed files, run on a virtual file system.
+// Dependencies:     nurt_archive, nurt_contracts, nurt_testkit, read_binary_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of the reference page of `read` for PDF documents, images,
 //! hexadecimal dumps and compressed files, run on a virtual file system.
 
@@ -95,7 +103,7 @@ fn last_line_of_a_compressed_log() {
             .decompressed_from
             .as_ref()
             .map(|from| from.as_str().to_owned()),
-        Some("/var/log/app.log.gz".to_owned())
+        Some(nurt_testkit::paths::abs("/var/log/app.log.gz"))
     );
 }
 
@@ -114,3 +122,7 @@ fn header_of_an_image() {
     assert_eq!((image.width, image.height), (Some(64), Some(32)));
     assert!(image.data.is_none());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

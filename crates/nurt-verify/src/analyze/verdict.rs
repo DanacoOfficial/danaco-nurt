@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::analyze::verdict
+// Responsibility:   Ordering of findings, counts, verdict and selection of the findings returned to the caller.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Ordering of findings, counts, verdict and selection of the findings
 //! returned to the caller.
 
@@ -180,3 +188,7 @@ pub(crate) fn select<'a>(findings: &'a [Finding], filter: &Filter) -> (Vec<&'a F
         .collect();
     (page, total)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

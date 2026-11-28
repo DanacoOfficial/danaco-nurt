@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/tests/test_types.py
+# Responsibility:   Script test_types.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Agreement of ``nurt.types`` with the JSON schemas and the golden files of ``spec``."""
 
 from __future__ import annotations
@@ -87,6 +95,7 @@ class TypesTest(unittest.TestCase):
             self.skipTest("spec/schemas is not available outside the repository")
         generator = load_generator()
         _, current = generator.strip_header((support.PACKAGE_DIR / "src" / "nurt" / "types.py").read_text("utf-8"))
+        current, _ = generator.strip_footer(current)
         self.assertEqual(current, generator.render(SCHEMAS), "run tools/gen_types.py")
 
     def test_golden_reports_conform_to_report_type(self) -> None:
@@ -118,3 +127,7 @@ class TypesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

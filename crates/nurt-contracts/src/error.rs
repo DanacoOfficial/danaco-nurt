@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::error
+// Responsibility:   Stable error codes and the error structure of the language.
+// Dependencies:     schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Stable error codes and the error structure of the language.
 //!
@@ -434,6 +441,9 @@ error_codes! {
     /// An argument of a call cannot be passed without changing its meaning,
     /// for example a NUL character in a process argument.
     Arg = "E_ARG", [Bind, Apply], Arg;
+    /// A continuation read by `next` has expired or was removed by the limits
+    /// of `[continuation]`; `next_steps` holds the call that produced it.
+    ContinuationExpired = "E_CONTINUATION_EXPIRED", [Read], Arg;
     /// A program required by the command is not installed; `fix` shows how
     /// to install it.
     ExternalMissing = "E_EXTERNAL_MISSING", [Bind, Apply], Ok;
@@ -496,7 +506,9 @@ error_codes! {
     NotFound = "E_NOT_FOUND", [Read, Apply], Io;
     /// The target is in use; the processes holding it are listed.
     InUse = "E_IN_USE", [Read, Apply], Io;
-    /// The operation requires a privilege the account does not have.
+    /// The operation needs privileges that are not available: no elevation
+    /// backend, or the system denied the elevation to the account; `backend`
+    /// lists the tried backends and `next_steps` the way forward.
     Privilege = "E_PRIVILEGE", [Read, Apply], Io;
     /// Not enough space on the volume.
     NoSpace = "E_NO_SPACE", [Read, Apply], Io;
@@ -1028,3 +1040,7 @@ impl JsonSchema for Error {
         generator.subschema_for::<ErrorData>()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

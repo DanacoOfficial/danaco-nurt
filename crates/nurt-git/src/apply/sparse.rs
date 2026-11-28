@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply::sparse
+// Responsibility:   Sparse checkout: which paths of the index have a working tree file.
+// Dependencies:     bstr, gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Sparse checkout: which paths of the index have a working tree file.
 //!
 //! With `core.sparseCheckout` set, the patterns of `info/sparse-checkout`
@@ -233,3 +241,7 @@ mod tests {
         assert!(includes(&Sparse::Off, "any/path"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

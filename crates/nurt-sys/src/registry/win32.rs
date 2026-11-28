@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::registry::win32
+// Responsibility:   Registry back end over the Win32 registry functions.
+// Dependencies:     nurt_contracts, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Registry back end over the Win32 registry functions.
 //!
 //! Keys are opened with `REG_OPTION_OPEN_LINK`, so a symbolic link key is
@@ -565,3 +573,7 @@ fn denied(key: &KeyPath) -> FsError {
 fn language(key: &KeyPath) -> Box<Path> {
     Path::new(&key.to_language_string()).into()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

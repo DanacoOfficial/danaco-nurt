@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u11_index.rs
+// Responsibility:   Tests of the symbol index.
+// Dependencies:     nurt_contracts, nurt_testkit, u11_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the symbol index: refresh by size and modification time,
 //! storage in the state directory, the limits `code.index_max_files` and
 //! `code.file_bytes_max`, listings with and without the file listing
@@ -29,6 +37,7 @@ use nurt_contracts::report::Notable;
 use nurt_contracts::services::ExcludePreset;
 use nurt_contracts::stage::{ExecCtx, Limits};
 use nurt_testkit::hash::sha256;
+use nurt_testkit::paths::{abs, abs_path};
 use nurt_testkit::vfs::test_path;
 
 use u11_support::{ROOT, Workspace, args, config_with_max_files, run_symbols, text};
@@ -42,7 +51,7 @@ fn registry() -> &'static Registry {
 }
 
 fn root() -> PathBuf {
-    PathBuf::from(ROOT)
+    abs_path(ROOT)
 }
 
 fn project() -> Workspace {
@@ -86,13 +95,13 @@ fn first_refresh_parses_every_listed_file() {
     assert_eq!(
         paths,
         [
-            Path::new("/repo/api/api.go"),
-            Path::new("/repo/src/main.rs"),
-            Path::new("/repo/tools/util.py"),
+            &abs_path("/repo/api/api.go"),
+            &abs_path("/repo/src/main.rs"),
+            &abs_path("/repo/tools/util.py"),
         ]
     );
     assert_eq!(symbol_names(&index), ["Serve", "main", "helper"]);
-    assert_eq!(index.root(), Path::new(ROOT));
+    assert_eq!(index.root(), &root());
 }
 
 #[test]
@@ -150,7 +159,7 @@ fn files_no_longer_listed_are_removed() {
     let workspace = project();
     let ctx = workspace.ctx();
     let options = IndexOptions::from_ctx(&ctx);
-    let mut index = SymbolIndex::new(ROOT);
+    let mut index = SymbolIndex::new(root());
     let all = [workspace.path("api/api.go"), workspace.path("src/main.rs")];
     let stats = index.refresh(&ctx, registry(), &all, &options).unwrap();
     assert_eq!(stats.parsed, 2);
@@ -166,11 +175,11 @@ fn files_no_longer_listed_are_removed() {
 fn index_is_kept_in_the_state_directory_between_executions() {
     let workspace = project();
     index(&workspace.ctx());
-    let stored = index_file(workspace.state.path(), Path::new(ROOT));
+    let stored = index_file(workspace.state.path(), &root());
     assert!(stored.is_file(), "{}", stored.display());
     assert!(stored.starts_with(workspace.state.path().join("code-index")));
     let later = workspace.ctx();
-    let reopened = SymbolIndex::open(&later, registry(), Path::new(ROOT));
+    let reopened = SymbolIndex::open(&later, registry(), &root());
     assert_eq!(reopened.files().len(), 3);
     let (_, stats) = index(&later);
     assert_eq!(stats.reused, 3);
@@ -180,18 +189,18 @@ fn index_is_kept_in_the_state_directory_between_executions() {
 #[test]
 fn unreadable_stored_index_is_rebuilt() {
     let workspace = project();
-    let stored = index_file(workspace.state.path(), Path::new(ROOT));
+    let stored = index_file(workspace.state.path(), &root());
     std::fs::create_dir_all(stored.parent().unwrap()).unwrap();
     std::fs::write(&stored, b"{ not an index").unwrap();
     let ctx = workspace.ctx();
     assert!(
-        SymbolIndex::open(&ctx, registry(), Path::new(ROOT))
+        SymbolIndex::open(&ctx, registry(), &root())
             .files()
             .is_empty()
     );
     let (_, stats) = index(&ctx);
     assert_eq!(stats.parsed, 3);
-    let reopened = SymbolIndex::open(&ctx, registry(), Path::new(ROOT));
+    let reopened = SymbolIndex::open(&ctx, registry(), &root());
     assert_eq!(reopened.files().len(), 3);
 }
 
@@ -200,7 +209,7 @@ fn index_of_another_root_is_ignored() {
     let workspace = project();
     let ctx = workspace.ctx();
     index(&ctx);
-    let stored = index_file(workspace.state.path(), Path::new(ROOT));
+    let stored = index_file(workspace.state.path(), &root());
     let other = index_file(workspace.state.path(), Path::new("/elsewhere"));
     std::fs::copy(&stored, &other).unwrap();
     let reopened = SymbolIndex::open(&ctx, registry(), Path::new("/elsewhere"));
@@ -246,7 +255,7 @@ fn symbol_search_reports_a_truncated_index() {
         .iter()
         .find(|entry| entry.code == Notable::SourceUnavailable)
         .expect("a source_unavailable note");
-    assert_eq!(note.path.as_deref(), Some(ROOT));
+    assert_eq!(note.path.as_deref(), Some(abs(ROOT).as_str()));
     assert!(
         note.detail
             .as_deref()
@@ -279,7 +288,7 @@ fn content_hash_equals_the_file_system_digest() {
     let source = read_source(&ctx, &path).unwrap();
     assert_eq!(source.etag, content_hash(MAIN_RS.as_bytes()));
     assert_eq!(source.etag, sha256(MAIN_RS.as_bytes()));
-    let absolute = test_path(&path.to_string_lossy()).unwrap();
+    let absolute = test_path(&format!("{ROOT}/src/main.rs")).unwrap();
     assert_eq!(
         workspace.test.fs().content_hash(&absolute).unwrap(),
         source.etag
@@ -427,7 +436,7 @@ fn concurrent_writes_leave_one_complete_index() {
         }
         for _ in 0..CONCURRENT_ROUNDS {
             barrier.wait();
-            let seen = SymbolIndex::open(&small_ctx, registry(), Path::new(ROOT));
+            let seen = SymbolIndex::open(&small_ctx, registry(), &root());
             assert!(
                 seen.files() == small_index.files() || seen.files() == large_index.files(),
                 "a reader saw a partial index of {} files",
@@ -435,7 +444,7 @@ fn concurrent_writes_leave_one_complete_index() {
             );
         }
     });
-    let stored = SymbolIndex::open(&small_ctx, registry(), Path::new(ROOT));
+    let stored = SymbolIndex::open(&small_ctx, registry(), &root());
     assert!(stored.files() == small_index.files() || stored.files() == large_index.files());
     let leftovers: Vec<_> = std::fs::read_dir(shared.path().join("code-index"))
         .unwrap()
@@ -455,6 +464,10 @@ fn concurrent_refreshes_of_one_root_agree() {
         [left.join().unwrap(), right.join().unwrap()]
     });
     assert_eq!(results[0].files(), results[1].files());
-    let stored = SymbolIndex::open(&first, registry(), Path::new(ROOT));
+    let stored = SymbolIndex::open(&first, registry(), &root());
     assert_eq!(stored.files(), results[0].files());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

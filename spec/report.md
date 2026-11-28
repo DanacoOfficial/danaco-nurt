@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/report.md -->
+<!-- Responsibility:   Documents Effect report and request envelope. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Effect report and request envelope
 
 | Format | Schema | Rust types |
@@ -43,6 +51,10 @@ name never appears in the output of a program.
 | `kind` | text, required | the changing command, or the source command of a reading program (`replace`, `remove`, `run`, `find`); `request` for envelope errors detected before any program is known |
 | `op` | integer from 1 | journal entry of the operation; absent for reading programs, previews and changing programs without targets |
 | `ran` | text | canonical text of the program that ran; present only when corrections were applied |
+| `elevated` | `true` | present only when the operation ran with elevated rights |
+| `backend` | `self`, `broker`, `sudo`, `doas`, `run0` | elevation backend that ran the operation; present only with `elevated` |
+| `as_user` | text | account the operation ran as, when the call gave `as_user` |
+| `elevation_reason` | `permission_denied`, `elevated_entry` | why the operation was elevated without being asked to: `privilege: auto` repeated the stage after a denial, or `undo` or `redo` of an elevated entry was sent to a backend |
 | `ast_hash` | `sha256:<64 hex>` | hash of the syntax tree, see `syntax-tree.md` |
 | `result_file` | path | file holding the full result (UTF-8) when the result was written to a file (`save_to` or `output.results_dir`) |
 | `corrections` | list | corrections applied to the program text: `id`, `rule` (`L`, `T`, `V`, `B` or `P` and two digits), `class` (`C`, `S`, `F`, `P`), `at` (`line`, `column`, `length`), `from`, `to`, `kind`, `alternatives` |
@@ -61,7 +73,41 @@ name never appears in the output of a program.
 | `irreversible` | non-empty list | irreversible effects, section 7 |
 | `error` | object | error of the language, section 8 |
 | `next_cursor` | text | cursor of the next page; absent on the last page |
+| `continuation` | object | what a shortened response leaves out and how `next` reads it, section 2.1 |
 | `timing` | object | `parse_ms`, `read_ms`, `plan_ms`, `apply_ms` (verbosity `detailed`) |
+| `parts` | list | the parts of a control construct in order, section 2.1 |
+| `parts_total` | integer | number of parts when `parts` is shortened to the first 200 |
+
+### 2.1 Parts of a control construct
+
+A program that holds a control construct (`when`, `each`, `repeat`, `while`,
+`steps`, a call of a function) is one operation and one journal entry; `op`
+is the number of the entry and `kind` the word of the construct. The report
+lists the parts in order in `parts`, each with:
+
+| Member | Meaning |
+|---|---|
+| `at` | place of the part: `when`, `when.branch[2]`, `each.iteration[3]`, `steps.step[1]`, `call rotate.step[2]` |
+| `kind` | `branch` (the chosen branch), `iteration`, `step`, `loop` (the totals of a loop) |
+| `condition` | value of the condition of the chosen branch; `false` when no branch ran |
+| `branch` | number of the chosen branch from 1; the `otherwise` branch is one past the last condition |
+| `command` | command whose effect the step reports |
+| `targets` | number of targets the part changed |
+| `ok` | `false` for the part that failed |
+| `rolled_back` | the effects of the part were rolled back (parts that failed or were undone by the failure of a later part) |
+| `irreversible` | the effects of the part cannot be rolled back; they are listed in `irreversible` |
+| `error` | code of the error that ended the part |
+| `iterations` | number of iterations of a `loop` part |
+| `op` | journal entry of an iteration of a loop with `atomic: false` |
+| `note` | remark: the limit ended the loop, a preview plans one iteration |
+
+When a part fails the whole construct is rolled back: the status is
+`rolled_back`, `error.details.restored` lists what was restored and
+`error.details.not_rolled_back` lists the parts the catalog marks irreversible.
+`parallel: N` of `each` reads every iteration twice, once to find its targets and once to run it, and compares paths by components, both separators and without regard to case; only the reading and planning of the iterations run at the same time, their changes are applied one at a time inside the one transaction. It runs iterations at the same time only when their targets are disjoint, found by planning every iteration before the start; otherwise the iterations run in order and the `loop` part says so in `note`. With `preview: true` a `repeat` or a `while` plans one iteration (the number of iterations is known only by running, `note` says so) and an `each` plans every iteration; the status is `planned`, `changes` lists the effects of
+every part and nothing is changed. A loop with `atomic: false` keeps the
+iterations completed before a failure, each in its own entry (`op` of the
+part); the report names the failed iteration.
 
 Records (`exec`, `job`, `test`, `analysis`, `git`, `records.header` and
 `records.rows`) appear in their JSON form defined by the value and record
@@ -72,6 +118,33 @@ field; a new domain adds a new optional field of the same kind.
 Fields marked `x-nurt-volatile` in the schema (`op`, `result_file`,
 `next_cursor`, `timing`) differ between runs of the same program and are
 ignored when reports are compared.
+
+### 2.1 Continuation of a shortened response
+
+Every response that leaves out lines, records, bytes or the end of long lines
+carries the field `continuation`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | text | short identifier, `c1`, `c2`, … within the session of the console |
+| `unit` | `lines`, `records`, `bytes` | unit of the parts |
+| `shown` | int | units in the responses given so far |
+| `remaining` | int | units not yet given; `-1` when not known in advance (a query that continues after a cursor, such as `logs`) |
+| `cut_lines` | int | lines of the shown part that were shortened by `max_line` or `max_chars` |
+
+The one-line text of the response ends with `more: next` when the
+continuation is the latest one and with `more: next c3` otherwise. The
+command `next` returns the next part and never computes the result again.
+The notices `truncated_lines` and `limit_reached` stay and gain the optional
+field `continuation`: the identifier (`c3`) of the continuation of the
+response, absent when nothing continues. The sentence `read_hint` of
+the record `exec` no longer exists: the spool file of a run stays, its path
+stays in the record (`output_file`, `stdout_file`, `stderr_file`) and the
+continuation reads the lines left out of that file. A result that is a
+selection of lines (`show: errors`) is continued from the first line of the
+file. Kept results are bound by the keys `continuation.max_age`,
+`continuation.max_count` and `continuation.max_size`; a continuation that
+expired ends with `E_CONTINUATION_EXPIRED`.
 
 ## 3. Status
 
@@ -287,6 +360,10 @@ Exactly one input is given:
 | `cursor` | cursor of a further page of an earlier result; reading a page never runs a changing program again |
 | `accept` | identifier of a candidate from an earlier `E_AMBIGUOUS` error |
 
+The member `params` accompanies `program` or `ast`: an object with the values of the parameters declared by the program with `params { … }`. A value is typed JSON or, as the command line passes it, text that the declared type reads (`"7"` for `int`, `"10mb"` for `size`). A name that is not declared is `E_UNKNOWN_PARAM` with the nearest names, a missing required parameter is `E_MISSING_PARAM` and a value of the wrong type is `E_TYPE`; every error lists the declaration and nothing has run.
+
+A condition of a construct is checked at binding against the types declared by the output record of the source command: a use of a field that no value of its type satisfies is `E_TYPE` with `effect_applied: false`. Fields typed `any` or `json` are the only exception and are checked when the condition is evaluated. A stage that may change the world (`may_affect`) and takes its action from a value that is not a literal is `E_TYPE` at binding in a condition.
+
 Options (`options`) are shared by every command. An absent option takes its
 value from the configuration, and without a configured value from the default
 below. Options of the call override the configuration.
@@ -380,3 +457,7 @@ against the published schema and against the schema generated from the Rust
 types, and survives JSON and CBOR round trips unchanged. The generated schemas
 are kept as approved snapshots in `golden/report/schema/` and
 `golden/request/schema/`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

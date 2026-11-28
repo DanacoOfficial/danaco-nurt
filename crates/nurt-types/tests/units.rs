@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-types/tests/units.rs
+// Responsibility:   Text forms of sizes, durations, instants and ranges.
+// Dependencies:     jiff, nurt_contracts, proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Text forms of sizes, durations, instants and ranges.
 
 // Assertions unwrap results whose failure is the failure of the test.
@@ -421,3 +429,7 @@ proptest! {
         prop_assert!(integer_digits <= 4, "{}", text);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

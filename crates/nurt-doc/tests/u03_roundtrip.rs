@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u03_roundtrip.rs
+// Responsibility:   Edits of TOML, INI, property and environment documents checked by the harness.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Edits of TOML, INI, property and environment documents checked by the
 //! harness: every document opens with its bytes kept, setting the current
 //! value changes no byte, and every accepted change stays within the lines
@@ -27,7 +35,12 @@ use nurt_doc::registry::{DocFormat, DocOptions, Registry};
 use nurt_doc::testing::{HarnessOperation, HarnessOptions, Summary, run_corpus};
 
 fn data() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
 }
 
 /// Harness operations for formats whose values are text.
@@ -297,3 +310,7 @@ fn unsupported_constructs_match_the_recorded_counts() {
         serde_json::to_string_pretty(&actual).unwrap()
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

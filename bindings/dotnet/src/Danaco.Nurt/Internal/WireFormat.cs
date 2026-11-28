@@ -1,8 +1,16 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/Internal/WireFormat.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/Internal/WireFormat.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -31,6 +39,7 @@ internal static class WireFormat
             Ast = request.Ast,
             Cursor = request.Cursor,
             Accept = request.Accept,
+            Params = Parameters(request.Parameters),
             Options = Options(options, client),
         };
         return JsonSerializer.SerializeToUtf8Bytes(envelope, WireJsonContext.Default.RequestEnvelope);
@@ -91,6 +100,33 @@ internal static class WireFormat
         Session = options?.Session ?? client.Session,
         Language = options?.Language ?? client.Language,
         Script = options?.Script,
+        Privilege = PrivilegeName(options?.Privilege),
+        AsUser = options?.AsUser,
+    };
+
+    private static Dictionary<string, JsonElement>? Parameters(IReadOnlyDictionary<string, JsonElement>? parameters)
+    {
+        if (parameters is null)
+        {
+            return null;
+        }
+
+        var copy = new Dictionary<string, JsonElement>();
+        foreach (KeyValuePair<string, JsonElement> parameter in parameters)
+        {
+            copy[parameter.Key] = parameter.Value;
+        }
+
+        return copy;
+    }
+
+    private static string? PrivilegeName(Privilege? privilege) => privilege switch
+    {
+        null => null,
+        Privilege.Account => "account",
+        Privilege.Elevated => "elevated",
+        Privilege.Auto => "auto",
+        _ => throw new ArgumentOutOfRangeException(nameof(privilege), privilege, "unknown privilege"),
     };
 
     private static string? FormatName(OutputFormat? format) => format switch
@@ -121,3 +157,7 @@ internal static class WireFormat
         _ => throw new ArgumentOutOfRangeException(nameof(diff), diff, "unknown diff mode"),
     };
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

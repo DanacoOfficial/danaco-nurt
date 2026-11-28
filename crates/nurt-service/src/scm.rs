@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service::scm
+// Responsibility:   Start of the service by the Windows service control manager.
+// Dependencies:     nurt_contracts, windows_service
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Start of the service by the Windows service control manager.
 //!
 //! [`dispatch`] connects to the service control manager. When the process
@@ -146,3 +154,7 @@ fn service_main(_arguments: Vec<OsString>) {
     };
     *OUTCOME.lock().unwrap_or_else(PoisonError::into_inner) = Some(outcome);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

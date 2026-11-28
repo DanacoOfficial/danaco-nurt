@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::os::unix
+// Responsibility:   Process trees of Unix systems: a new session and process group per run.
+// Dependencies:     libc, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process trees of Unix systems: a new session and process group per run.
 //!
 //! The main process becomes the leader of a new session before `exec`, so
@@ -112,8 +120,12 @@ impl ChildSetup {
             let hard = soft.saturating_add(ceil_seconds(limits.kill_grace).max(1));
             (to_rlim(soft), to_rlim(hard))
         });
+        // macOS rejects `RLIMIT_AS` with `EINVAL`, so the bound exists only on
+        // Linux; elsewhere the supervisor measures the resident memory.
         let address_space = match (limits.max_memory, membership.enforces_memory()) {
-            (Some(bytes), false) => Some(to_rlim(bytes.saturating_mul(ADDRESS_SPACE_FACTOR))),
+            (Some(bytes), false) if cfg!(target_os = "linux") => {
+                Some(to_rlim(bytes.saturating_mul(ADDRESS_SPACE_FACTOR)))
+            }
             _ => None,
         };
         Self {
@@ -457,6 +469,12 @@ impl Tree {
         if error.raw_os_error() == Some(libc::ESRCH) {
             return Ok(());
         }
+        // macOS answers `EPERM` instead of `ESRCH` for a group whose members
+        // have ended and wait to be collected; the group belongs to the account
+        // that created it, so the answer means that nothing is left to signal.
+        if cfg!(target_os = "macos") && error.raw_os_error() == Some(libc::EPERM) {
+            return Ok(());
+        }
         Err(io_error("signal the program", &error))
     }
 }
@@ -621,7 +639,7 @@ mod tests {
         };
         let membership = Membership::prepare(&limits);
         let setup = ChildSetup::new(&limits, &membership);
-        if membership.enforces_memory() {
+        if membership.enforces_memory() || !cfg!(target_os = "linux") {
             assert_eq!(setup.address_space, None);
         } else {
             assert_eq!(setup.address_space, Some(to_rlim(u64::MAX)));
@@ -664,3 +682,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

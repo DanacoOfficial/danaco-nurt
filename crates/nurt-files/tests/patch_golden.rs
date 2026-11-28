@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/patch_golden.rs
+// Responsibility:   Examples of `docs/commands/patch.md`, run on the virtual file system with the recording journal, and the validation of patched text.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of `docs/commands/patch.md`, run on the virtual file system
 //! with the recording journal, and the validation of patched text.
 
@@ -468,3 +476,7 @@ fn warn_reports_a_new_error_and_off_skips_the_check() {
     assert!(test.events().take().is_empty());
     assert_eq!(read(&test, "/srv/app/README.md"), b"Version 1.1.0.\n");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

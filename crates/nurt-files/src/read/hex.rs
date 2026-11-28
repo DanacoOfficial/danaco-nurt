@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::read::hex
+// Responsibility:   Hexadecimal dump of content in the layout of `xxd`.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Hexadecimal dump of content in the layout of `xxd`.
 //!
 //! Each row shows the offset of its first byte as at least eight lowercase
@@ -342,3 +350,7 @@ mod tests {
         assert_eq!(row_count(33), 3);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

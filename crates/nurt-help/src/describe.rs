@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::describe
+// Responsibility:   Generator of the description layers.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Generator of the description layers.
 //!
 //! The layers are generated from the catalog and the documentation, never
@@ -556,7 +564,7 @@ const GROUP_NOTES: &[(&str, &str, &str)] = &[
         "Formaty: zip tar (gz zst xz bz2) 7z jar whl apk. Wpisy poza into są pomijane i raportowane.",
     ),
     (
-        "admin",
+        "administration",
         "Registry paths such as \"registry:/HKCU/Software/X\" work in list, find, read, write, remove, copy and move.",
         "Ścieżki rejestru, na przykład \"registry:/HKCU/Software/X\", działają w list, find, read, write, remove, copy i move.",
     ),
@@ -643,7 +651,11 @@ const GROUP_EXAMPLES: &[(&str, &str)] = &[
         r#"processes name: "node" |> filter memory > 500mb |> select pid name memory"#,
     ),
     ("system", "disks |> filter free < 10gib"),
-    ("admin", r#"services name: "nginx" |> restart"#),
+    ("administration", r#"services name: "nginx" |> restart"#),
+    (
+        "administration",
+        r#"accounts.create "deploy" groups: ["docker"] privilege: elevated"#,
+    ),
     ("package", r#"package.install ["jq"] manager: apt"#),
     (
         "network",
@@ -910,3 +922,7 @@ mod tests {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

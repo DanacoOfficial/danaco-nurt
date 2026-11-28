@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::fsutil
+// Responsibility:   File system helpers: byte-exact copies of case directories, scenario writes and directory walks.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! File system helpers: byte-exact copies of case directories, scenario
 //! writes and directory walks.
 
@@ -97,6 +105,11 @@ pub fn remove_entry(path: &Path) -> Result<()> {
     };
     if meta.is_dir() {
         fs::remove_dir_all(path).map_err(io_error("remove directory", path))
+    } else if meta.file_type().is_symlink() {
+        // Windows removes a link to a directory as a directory.
+        fs::remove_file(path)
+            .or_else(|_| fs::remove_dir(path))
+            .map_err(io_error("remove", path))
     } else {
         fs::remove_file(path).map_err(io_error("remove", path))
     }
@@ -325,3 +338,7 @@ mod tests {
         assert_eq!(relative_key(root, &root.join("a").join("b")), "a/b");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/report_schema.rs
+// Responsibility:   Schemas of the effect report.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Schemas of the effect report.
 //!
 //! The published schema is maintained by hand and is stricter than the schema
@@ -25,7 +33,9 @@ use nurt_contracts::report::{
 use serde_json::Value;
 
 /// Property names that would tell whether, until when or how an operation
-/// can be undone, or expose the state of a journal entry.
+/// can be undone, or expose the state of a journal entry. The name
+/// `remaining` is not in the list: `continuation.remaining` counts the units
+/// of a shortened result that `next` has not given yet.
 const UNDO_WINDOW_FIELDS: &[&str] = &[
     "undo",
     "undoable",
@@ -44,7 +54,6 @@ const UNDO_WINDOW_FIELDS: &[&str] = &[
     "deadline_utc",
     "ttl",
     "time_left",
-    "remaining",
     "after_ops",
     "after_seconds",
     "journal_state",
@@ -55,7 +64,12 @@ const UNDO_WINDOW_FIELDS: &[&str] = &[
 ];
 
 fn spec_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec")
 }
 
 fn read_json(path: &Path) -> Value {
@@ -333,3 +347,7 @@ fn published_schema_rejects_malformed_reports() {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

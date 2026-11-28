@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::spawn
+// Responsibility:   Resolution of programs, arguments, environment and input of a run.
+// Dependencies:     env, nurt_contracts, resolve, windows_cmd
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Resolution of programs, arguments, environment and input of a run.
 //!
 //! A command is turned into a [`SpawnRequest`] without a shell. The program is
@@ -285,3 +293,7 @@ pub(crate) fn text_literal(text: &str) -> String {
     literal.push('"');
     literal
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

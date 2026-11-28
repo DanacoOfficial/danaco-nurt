@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           catalog/core.toml
+# Responsibility:   Configuration or catalog data of catalog/core.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog/1"
 group = "core"
@@ -1459,7 +1466,7 @@ effect = "local"
 implementation = "builtin"
 input = ["none"]
 output = ["effect"]
-summary = "Create files, directories, links, junctions or temporary entries."
+summary = "Create files, directories, links, junctions, named pipes, device nodes or temporary entries."
 
 [[command.param]]
 name = "path"
@@ -1470,10 +1477,10 @@ summary = "Paths to create; with temporary, the directory of the new entry."
 
 [[command.param]]
 name = "type"
-type = "enum(file|directory|link|junction)"
+type = "enum(file|directory|link|junction|fifo|device)"
 required = true
-values = ["file", "directory", "link", "junction"]
-summary = "Kind of entry; there is no default."
+values = ["file", "directory", "link", "junction", "fifo", "device"]
+summary = "Kind of entry; there is no default. fifo (named pipe) and device (device node) exist on Linux and macOS; a device needs privilege elevated."
 
 [[command.param]]
 name = "target"
@@ -1504,6 +1511,27 @@ type = "enum(skip|error|touch)"
 default = "skip"
 values = ["skip", "error", "touch"]
 summary = "Behaviour when the entry exists; touch updates its modification time."
+
+[[command.param]]
+name = "kind"
+type = "enum(char|block)"
+values = ["char", "block"]
+summary = "Kind of device node for type device."
+
+[[command.param]]
+name = "major"
+type = "int"
+summary = "Major device number for type device."
+
+[[command.param]]
+name = "minor"
+type = "int"
+summary = "Minor device number for type device."
+
+[[command.param]]
+name = "mode"
+type = "text"
+summary = "Permission bits of a fifo or device node in octal, for example \"0660\"; the default is 0666 reduced by the umask."
 
 [[command]]
 name = "attributes"
@@ -1972,6 +2000,42 @@ default = "false"
 summary = "Include the changes and differences of each operation."
 
 [[command]]
+name = "next"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["any"]
+summary = "Read the next part of a shortened result."
+
+[[command.param]]
+name = "id"
+type = "int | field | text"
+position = 1
+default_note = "the latest continuation"
+summary = "Continuation to read, `c3`; also a count (`next 200`) or the words `all` and `full`."
+
+[[command.param]]
+name = "count"
+type = "int | field | text"
+position = 2
+default_note = "the size of the first response"
+summary = "Units in the part."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Read everything that is left."
+
+[[command.param]]
+name = "full_lines"
+type = "bool"
+default = "false"
+summary = "Read the lines of the last shown part that were cut, whole."
+
+[[command]]
 name = "undo"
 category = "journal"
 reversibility = "reversible"
@@ -2090,3 +2154,7 @@ name = "examples"
 type = "int"
 default = "3"
 summary = "Number of examples shown."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

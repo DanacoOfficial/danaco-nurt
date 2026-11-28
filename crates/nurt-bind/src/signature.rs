@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::signature
+// Responsibility:   Binding of one stage to its command signature.
+// Dependencies:     nurt_contracts, nurt_correct
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding of one stage to its command signature.
 //!
 //! Positional arguments are named in the order of the form, every parameter
@@ -12,7 +20,10 @@
 use std::collections::BTreeMap;
 
 use nurt_contracts::ast::{Arg, Expr, Stage};
-use nurt_contracts::bound::{BoundArg, BoundExpr, BoundMapEntry, BoundStage, Phase};
+use nurt_contracts::bound::{
+    BoundArg, BoundExpr, BoundMapEntry, BoundStage, Phase, STAGE_CALL_PARAMETERS,
+};
+use nurt_contracts::envelope::Privilege;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::Category;
 use nurt_contracts::spec::{FormSpec, IoSpec, Os, ParamSpec, ParamType, ScalarType, StageSpec};
@@ -122,20 +133,53 @@ impl<'a> Binder<'a> {
 
     fn bind_command(&mut self, stage: &Stage, flow: &Flow) -> Result<Vec<Bound>, BindError> {
         let spec = self.spec(stage)?;
+        let elevated = self.elevated_run(stage);
+        let stage = elevated.as_ref().unwrap_or(stage);
+        let (stripped, call) = call_parameters(stage, spec)?;
+        let stage = stripped.as_ref().unwrap_or(stage);
+        let mut bound = self.bind_signature(stage, spec, flow)?;
+        if let Some(last) = bound.last_mut() {
+            last.stage.args.extend(call);
+        }
+        Ok(bound)
+    }
+
+    fn bind_signature(
+        &mut self,
+        stage: &Stage,
+        spec: &StageSpec,
+        flow: &Flow,
+    ) -> Result<Vec<Bound>, BindError> {
         self.check_os(spec, stage)?;
+        let (previewless, preview) = split_preview(stage, spec);
+        let stage = previewless.as_ref().unwrap_or(stage);
         let (input, form) = select(spec, flow).ok_or_else(|| input_error(spec, flow, stage))?;
         let accepted = Accepted::new(spec, form);
         let collects_names = named_expression_param(spec).is_some();
         let corrected = self.correct_params(stage, spec, &accepted.names, collects_names);
         let stage = corrected.as_ref().unwrap_or(stage);
+        let flagged = expand_flags(stage, spec);
+        let stage = flagged.as_ref().unwrap_or(stage);
         let written = self.assign(stage, spec, form, &accepted)?;
         if let Some(form) = form
             && input.is_none()
             && let Some(target) = form.expand.as_deref()
         {
-            return self.expand(stage, spec, form, &written, target);
+            return self.expand(stage, spec, form, &written, (target, preview.as_ref()));
         }
-        let args = self.arguments(stage, spec, form, &written)?;
+        let mut args = self.arguments(stage, spec, form, &written)?;
+        if let Some(preview) = preview {
+            let value = self.value(
+                &preview,
+                &ParamType::Scalar(ScalarType::Bool),
+                Place {
+                    command: &spec.name,
+                    param: PREVIEW,
+                    per_record: false,
+                },
+            )?;
+            args.push(BoundArg::given(PREVIEW, value));
+        }
         let effect = effect_of(spec, &args, &input);
         let waits = waits_of(spec, &args);
         Ok(vec![Bound {
@@ -179,7 +223,7 @@ impl<'a> Binder<'a> {
         spec: &StageSpec,
         form: &FormSpec,
         written: &[Option<Written<'_>>],
-        target: &str,
+        (target, preview): (&str, Option<&Expr>),
     ) -> Result<Vec<Bound>, BindError> {
         self.arguments(stage, spec, Some(form), written)?;
         let mut head_args = Vec::new();
@@ -203,6 +247,13 @@ impl<'a> Binder<'a> {
                 "the catalog has no `{EXPANSION_HEAD}` command for the source form of `{}`",
                 spec.name
             )));
+        }
+        if let Some(preview) = preview {
+            rest_args.push(Arg {
+                name: Some(PREVIEW.to_owned()),
+                value: preview.clone(),
+                span: preview_span(preview),
+            });
         }
         let head = Stage {
             name: EXPANSION_HEAD.to_owned(),
@@ -693,6 +744,72 @@ fn list_element(ty: &ParamType) -> &ParamType {
         .unwrap_or(ty)
 }
 
+/// Takes the call parameters `privilege` and `as_user` out of a stage.
+///
+/// The parameters apply to the whole call, like the options of the request,
+/// and are accepted on every command that does not declare a parameter of
+/// the same name. The stage without them is returned when there were any,
+/// together with their bound values, which follow the parameters of the
+/// signature.
+fn call_parameters(
+    stage: &Stage,
+    spec: &StageSpec,
+) -> Result<(Option<Stage>, Vec<BoundArg>), BindError> {
+    let is_call = |arg: &Arg| {
+        arg.name.as_deref().is_some_and(|name| {
+            STAGE_CALL_PARAMETERS.contains(&name) && !spec.params.iter().any(|p| p.name == name)
+        })
+    };
+    if !stage.args.iter().any(is_call) {
+        return Ok((None, Vec::new()));
+    }
+    let mut rest = stage.clone();
+    rest.args.retain(|arg| !is_call(arg));
+    let mut bound: Vec<BoundArg> = Vec::new();
+    for arg in stage.args.iter().filter(|arg| is_call(arg)) {
+        let name = arg.name.as_deref().unwrap_or_default();
+        if bound.iter().any(|known| known.name == name) {
+            return Err(given_twice(spec, name, arg));
+        }
+        let word = match &arg.value {
+            Expr::Ident { v, .. } | Expr::Text { v, .. } => v.as_str(),
+            _ => return Err(call_value_error(spec, name, arg, "a word or a text")),
+        };
+        if name == "privilege" && !Privilege::ALL.iter().any(|value| value.as_str() == word) {
+            return Err(call_value_error(
+                spec,
+                name,
+                arg,
+                "account, elevated or auto",
+            ));
+        }
+        if name == "as_user" && word.is_empty() {
+            return Err(call_value_error(spec, name, arg, "the name of an account"));
+        }
+        bound.push(BoundArg {
+            name: name.to_owned(),
+            value: if name == "privilege" {
+                BoundExpr::Enum { v: word.to_owned() }
+            } else {
+                BoundExpr::Text { v: word.to_owned() }
+            },
+            default: false,
+            span: arg.span,
+        });
+    }
+    Ok((Some(rest), bound))
+}
+
+fn call_value_error(spec: &StageSpec, name: &str, arg: &Arg, expected: &str) -> BindError {
+    BindError::new(
+        ErrorCode::InvalidValue,
+        format!("`{name}` of `{}` takes {expected}", spec.name),
+    )
+    .at(arg.span)
+    .found(name.to_owned())
+    .help(spec.name.clone())
+}
+
 /// Joins the arguments written for a parameter into one named argument.
 fn named_arg(name: &str, given: &Written<'_>) -> Arg {
     let first = given.args.first().and_then(|(_, arg)| arg.span);
@@ -881,6 +998,89 @@ fn os_name(os: Os) -> &'static str {
     }
 }
 
+/// Source range of an expression, when it has one.
+fn preview_span(expr: &Expr) -> Option<nurt_contracts::ast::Span> {
+    crate::cast::expr_span(expr)
+}
+
+/// Name of the parameter every change accepts, besides its own.
+const PREVIEW: &str = "preview";
+
+/// Takes `preview` out of the arguments of a command that has no parameter of
+/// that name: `remove preview`, `remove preview: true` and
+/// `remove preview: @dry` compute the effect of that stage without applying
+/// it. Returns the stage without the argument and the value written.
+fn split_preview(stage: &Stage, spec: &StageSpec) -> (Option<Stage>, Option<Expr>) {
+    if spec.param(PREVIEW).is_some() {
+        return (None, None);
+    }
+    let Some(index) = stage
+        .args
+        .iter()
+        .position(|arg| match (&arg.name, &arg.value) {
+            (Some(name), _) => name == PREVIEW,
+            (None, Expr::Ident { v, .. }) => v == PREVIEW,
+            _ => false,
+        })
+    else {
+        return (None, None);
+    };
+    let mut rest = stage.clone();
+    let arg = rest.args.remove(index);
+    let value = match arg.name {
+        Some(_) => arg.value,
+        None => Expr::Bool {
+            v: true,
+            span: arg.span,
+        },
+    };
+    (Some(rest), Some(value))
+}
+
+/// Reads a parameter of type `bool` written without a value as `true`:
+/// `remove preview` is `remove preview: true`. A word that names a `bool`
+/// parameter that is not written otherwise, and that is no value of an
+/// enumeration parameter of the command, is the parameter; the long form
+/// stays valid and `false` is always written out.
+fn expand_flags(stage: &Stage, spec: &StageSpec) -> Option<Stage> {
+    let named: Vec<&str> = stage
+        .args
+        .iter()
+        .filter_map(|arg| arg.name.as_deref())
+        .collect();
+    let mut changed: Option<Stage> = None;
+    for (index, arg) in stage.args.iter().enumerate() {
+        let (None, Expr::Ident { v, span }) = (&arg.name, &arg.value) else {
+            continue;
+        };
+        let is_flag = spec
+            .param(v)
+            .is_some_and(|param| matches!(param.ty, ParamType::Scalar(ScalarType::Bool)));
+        let is_value = spec.params.iter().any(|param| match &param.ty {
+            ParamType::Enum(values) => values.contains(v),
+            _ => false,
+        });
+        let repeated = changed
+            .as_ref()
+            .map_or(&stage.args, |changed| &changed.args)
+            .iter()
+            .any(|other| other.name.as_deref() == Some(v.as_str()));
+        if !is_flag || is_value || repeated || named.contains(&v.as_str()) {
+            continue;
+        }
+        let edited = changed.get_or_insert_with(|| stage.clone());
+        edited.args[index] = Arg {
+            name: Some(v.clone()),
+            value: Expr::Bool {
+                v: true,
+                span: *span,
+            },
+            span: arg.span,
+        };
+    }
+    changed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -939,3 +1139,7 @@ mod tests {
         assert_eq!(converted(BoundExpr::Null, &ty), BoundExpr::Null);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

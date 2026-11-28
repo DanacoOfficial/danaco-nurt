@@ -1,3 +1,14 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-pdf-extract
+// Responsibility:   Extract the text from a pdf at `path` and return a `String` with the results.
+// Dependencies:     adobe_cmap_parser, encoding_rs, euclid, log, lopdf, unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // pdf-extract 0.12.1, https://github.com/jrmuizel/pdf-extract, MIT license
 // (see LICENSE-MIT in this directory and the NOTICE file of the repository).
 // Copyright (c) Jeff Muizelaar and the contributors of pdf-extract.
@@ -2432,3 +2443,7 @@ fn output_doc_inner<'a>(page_num: u32, object_id: ObjectId, doc: &'a Document, p
     output.end_page()?;
     Ok(())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

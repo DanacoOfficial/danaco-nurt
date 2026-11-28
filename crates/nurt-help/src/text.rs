@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::text
+// Responsibility:   Fixed texts of the help and of the description layers, in English and Polish.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixed texts of the help and of the description layers, in English and
 //! Polish. Command lines, parameters, codes and record fields are generated
 //! from the catalog and never translated.
@@ -113,6 +121,50 @@ const PROGRAM: Block = Block {
     ],
 };
 
+/// The control constructs of the language, one paragraph each.
+const CONSTRUCTS: Block = Block {
+    header_en: Some("CONSTRUCTS"),
+    header_pl: Some("KONSTRUKCJE"),
+    programs: false,
+    lines: &[
+        Line {
+            priority: 0,
+            en: r#"when COND { … } otherwise when COND { … } otherwise { … } — one branch runs; COND is bool: == != < and or not, `exists "/p"`, `(find "/d" |> count) > 0`, `exit_code`."#,
+            pl: r#"when COND { … } otherwise when COND { … } otherwise { … } — wykonuje się jedna gałąź; COND to bool: == != < and or not, `exists "/p"`, `(find "/d" |> count) > 0`, `exit_code`."#,
+        },
+        Line {
+            priority: 1,
+            en: r#"each (find "/d" glob: "*.log") as f { remove f.path } — the block runs per record in order (f.path, f.name); options parallel: N, atomic: false."#,
+            pl: r#"each (find "/d" glob: "*.log") as f { remove f.path } — blok wykonuje się dla każdego rekordu po kolei (f.path, f.name); opcje parallel: N, atomic: false."#,
+        },
+        Line {
+            priority: 1,
+            en: "repeat until: COND every: 5s limit: 2m { … } runs, then tests (E_LIMIT if never met); while COND limit: 20 { … } tests first and ends normally at the limit; default loop.max_iterations 10000, loop.max_time 10m; break, continue.",
+            pl: "repeat until: COND every: 5s limit: 2m { … } wykonuje, potem sprawdza (E_LIMIT, gdy nigdy); while COND limit: 20 { … } sprawdza najpierw i kończy normalnie na limicie; domyślnie loop.max_iterations 10000, loop.max_time 10m; break, continue.",
+        },
+        Line {
+            priority: 1,
+            en: "steps { PIPELINE … } — several changes in one call, one per line; let passes results on. All or nothing; one undo reverses all.",
+            pl: "steps { POTOK … } — kilka zmian w jednym wywołaniu, po jednej w wierszu; let przekazuje wyniki dalej. Wszystko albo nic; jedno undo cofa całość.",
+        },
+        Line {
+            priority: 1,
+            en: r#"define name(dir: path, keep: int = 7) { … } then name("/x", keep: 14) — typed parameters with defaults; the body sees only its parameters (@dir); the last statement is the result; recursion up to function.max_depth 64."#,
+            pl: r#"define name(dir: path, keep: int = 7) { … } potem name("/x", keep: 14) — typowane parametry z domyślnymi; ciało widzi tylko swoje parametry (@dir); wynikiem jest ostatnia instrukcja; rekurencja do function.max_depth 64."#,
+        },
+        Line {
+            priority: 1,
+            en: r#"params { dir: path  days: int = 30  dry: bool = false } first in a file: `nurt run f.nurt dir: "/x" dry`. A bool without a value is true (remove preview); false is written out."#,
+            pl: r#"params { dir: path  days: int = 30  dry: bool = false } na początku pliku: `nurt run f.nurt dir: "/x" dry`. Wartość bool bez wartości to true (remove preview); false zapisuje się jawnie."#,
+        },
+        Line {
+            priority: 1,
+            en: "Each construct is one journal entry, typed before any effect; preview: true shows the branch and every iteration.",
+            pl: "Każda konstrukcja to jeden wpis dziennika, sprawdzany pod względem typów przed skutkiem; preview: true pokazuje gałąź i każdy przebieg.",
+        },
+    ],
+};
+
 const RULES: Block = Block {
     header_en: Some("RULES"),
     header_pl: Some("ZASADY"),
@@ -161,7 +213,7 @@ const RULES: Block = Block {
     ],
 };
 
-pub(crate) const HEAD: &[Block] = &[INTRO, PROGRAM, RULES];
+pub(crate) const HEAD: &[Block] = &[INTRO, PROGRAM, CONSTRUCTS, RULES];
 
 /// Heading of the command section of the core layer.
 pub(crate) const COMMANDS_LEGEND: Line = Line {
@@ -189,11 +241,18 @@ const CALLS: Block = Block {
     header_en: None,
     header_pl: None,
     programs: false,
-    lines: &[Line {
-        priority: 2,
-        en: "CALL PARAMETERS: preview (only targets and effect), base (directory for relative paths), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
-        pl: "PARAMETRY WYWOŁANIA: preview (tylko cele i skutek), base (katalog dla ścieżek względnych), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
-    }],
+    lines: &[
+        Line {
+            priority: 2,
+            en: "CALL PARAMETERS: preview (only targets and effect), base (directory for relative paths), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
+            pl: "PARAMETRY WYWOŁANIA: preview (tylko cele i skutek), base (katalog dla ścieżek względnych), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
+        },
+        Line {
+            priority: 2,
+            en: "A shortened result ends with `more: next`; call `next` for the next part.",
+            pl: "Skrócony wynik kończy się `more: next`; wywołaj `next`, aby pobrać następną część.",
+        },
+    ],
 };
 
 const EXAMPLES: Block = Block {
@@ -447,3 +506,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

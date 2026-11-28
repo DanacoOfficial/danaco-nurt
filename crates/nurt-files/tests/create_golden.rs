@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/create_golden.rs
+// Responsibility:   Examples of `docs/commands/create.md`, run on the virtual file system.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of `docs/commands/create.md`, run on the virtual file system.
 
 // Test code unwraps results so that a failure aborts the test with the original error.
@@ -169,3 +177,7 @@ fn creates_a_temporary_file() {
     assert_eq!(test.fs().read_file(&path).unwrap(), b"");
     assert_every_change_declared(&test);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

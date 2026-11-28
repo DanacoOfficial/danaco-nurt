@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/exec.rs
+// Responsibility:   Execution of plans with mock commands on a virtual file system and a recording journal; `assert`, `verify` and `count` are the record stages of the crate.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of plans with mock commands on a virtual file system and a
 //! recording journal; `assert`, `verify` and `count` are the record stages
 //! of the crate.
@@ -59,7 +67,7 @@ fn descriptor(command: &str, source: bool, input: InputKinds) -> StageDescriptor
 
 fn entry(path: &str, size: i64) -> Record {
     Record::new(RecordKind::Entry)
-        .with("path", Value::Path(path.to_owned()))
+        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
         .with("size", Value::Int(size))
 }
 
@@ -467,6 +475,7 @@ fn pipeline(head: Option<&str>, stages: Vec<BoundStage>) -> PipelinePlan {
             name: name.to_owned(),
             fields: Vec::new(),
         }),
+        call: None,
         stages: stages
             .into_iter()
             .zip(offset..)
@@ -646,7 +655,8 @@ fn writes_many_targets_in_one_transaction() {
     let steps: Vec<ExecStep> = operation.timings.iter().map(|timing| timing.step).collect();
     assert_eq!(steps, [ExecStep::Plan, ExecStep::Apply]);
     for file in &files {
-        assert_eq!(world.content(file), format!("written {file}").into_bytes());
+        let written = format!("written {}", nurt_testkit::paths::abs(file));
+        assert_eq!(world.content(file), written.into_bytes());
     }
 }
 
@@ -778,7 +788,8 @@ fn passing_verification_keeps_the_effect() {
     );
     assert!(outcome.is_ok(), "{:?}", outcome.error);
     assert_eq!(outcome.status, ReportStatus::Ok);
-    assert_eq!(world.content(&file), format!("written {file}").into_bytes());
+    let written = format!("written {}", nurt_testkit::paths::abs(&file));
+    assert_eq!(world.content(&file), written.into_bytes());
     let steps: Vec<ExecStep> = outcome
         .last()
         .unwrap()
@@ -1192,3 +1203,7 @@ fn record_of_a_foreign_kind_is_a_type_error() {
     assert_eq!(error.code(), ErrorCode::Type);
     assert_eq!(world.begins(), 0);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::package::index::scoop
+// Responsibility:   Scoop bucket manifests (`buckets/<bucket>/bucket/*.json`).
+// Dependencies:     nurt_programs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Scoop bucket manifests (`buckets/<bucket>/bucket/*.json`).
 //!
 //! Buckets are read below the account root and the global root of Scoop.
@@ -77,3 +85,7 @@ fn manifest(path: &Path, bucket: &str) -> Option<IndexEntry> {
         ..IndexEntry::default()
     })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

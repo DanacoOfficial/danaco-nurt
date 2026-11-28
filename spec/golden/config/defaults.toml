@@ -113,6 +113,11 @@ shrink_ratio = 0.5
 per_file_repl = 100
 targets_high = 500
 
+[continuation]
+max_age = "1h"
+max_count = 50
+max_size = "256mib"
+
 [text]
 legacy_encodings = ["windows-1250", "ibm852", "iso-8859-2", "windows-1252"]
 new_file_line_ending = "lf"
@@ -121,6 +126,13 @@ new_file_line_ending = "lf"
 max_records = 5000000
 max_file_bytes_text = "1gib"
 # The key threads defaults to the number of processor cores.
+
+[loop]
+max_iterations = 10000
+max_time = "10m"
+
+[function]
+max_depth = 64
 
 [fs]
 sharing_retry_ms = 2000
@@ -215,3 +227,8 @@ level = "warn"
 [session]
 # The key id is not set by default.
 ttl = "1d"
+
+[privilege]
+# The keys backends and group default to the values of the system.
+default = "account"
+allowed = true

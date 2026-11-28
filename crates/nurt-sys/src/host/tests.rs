@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::host::tests
+// Responsibility:   System tree with `os-release`, `meminfo`, `uptime` and `stat`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -412,7 +420,12 @@ fn param(
 fn catalog_signatures_match_frozen() {
     use crate::{accounts, environment, open_files};
 
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog/system.toml");
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog/system.toml");
     let catalog: toml::Value = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let expected = [
         (
@@ -526,3 +539,7 @@ fn it_host_matches_uname_id_differential() {
     found.sort_unstable();
     assert_eq!(found, expected);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

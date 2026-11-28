@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::record
+// Responsibility:   Records of jobs and finished runs.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Records of jobs and finished runs.
 
 use std::path::Path;
@@ -137,7 +145,6 @@ pub(crate) fn exec_record(request: &RunRequest, result: &RunResult, platform: Pl
             .clone()
             .filter(|found| !found.first.is_empty()),
         digest: digest(request, result),
-        read_hint: output.read_hint.clone(),
     }
 }
 
@@ -204,3 +211,7 @@ pub(crate) fn tool_result(
         op: result.op,
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

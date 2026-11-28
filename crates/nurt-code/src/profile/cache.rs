@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::profile::cache
+// Responsibility:   Profile cache in the state directory of the engine.
+// Dependencies:     serde, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Profile cache in the state directory of the engine.
 //!
 //! A cached profile is used while it is younger than [`CACHE_TTL_NS`], the
@@ -181,3 +189,7 @@ mod tests {
         assert!(a.starts_with("/state/code/profile"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

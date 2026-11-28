@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::archive
+// Responsibility:   Read-only provider exposing archive contents as paths.
+// Dependencies:     nurt_contracts, nurt_testkit, proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Read-only provider exposing archive contents as paths.
 //!
 //! An address names an archive file and a path inside it, separated by the
@@ -93,8 +101,10 @@ impl ArchiveAddress {
     /// use nurt_fs::archive::ArchiveAddress;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let address = ArchiveAddress::parse("archive:/srv/a.zip!/dir/file.txt")?;
-    /// assert_eq!(address.archive.as_path(), std::path::Path::new("/srv/a.zip"));
+    /// # let root = if cfg!(windows) { "C:" } else { "" };
+    /// let address = ArchiveAddress::parse(&format!("archive:{root}/srv/a.zip!/dir/file.txt"))?;
+    /// let archive = format!("{root}/srv/a.zip");
+    /// assert_eq!(address.archive.as_path(), std::path::Path::new(&archive));
     /// assert_eq!(address.inner, ["dir", "file.txt"]);
     /// # Ok(())
     /// # }
@@ -868,7 +878,7 @@ mod tests {
     use crate::mem::MemFs;
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     fn provider_with(name: &str, bytes: &[u8]) -> ArchiveProvider {
@@ -877,8 +887,21 @@ mod tests {
         ArchiveProvider::new(Arc::new(fs))
     }
 
+    /// Address of a test archive; an absolute path in POSIX form gets the
+    /// root of `nurt_testkit::paths`.
     fn address(text: &str) -> ArchiveAddress {
-        ArchiveAddress::parse(text).expect("address")
+        let rooted = |path: &str| {
+            if path.starts_with('/') {
+                nurt_testkit::paths::abs(path)
+            } else {
+                path.to_owned()
+            }
+        };
+        let text = match text.strip_prefix("archive:") {
+            Some(rest) => format!("archive:{}", rooted(rest)),
+            None => rooted(text),
+        };
+        ArchiveAddress::parse(&text).expect("address")
     }
 
     fn zip_bytes(method: zip::CompressionMethod, members: &[(&str, &[u8])]) -> Vec<u8> {
@@ -1224,3 +1247,7 @@ mod tests {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

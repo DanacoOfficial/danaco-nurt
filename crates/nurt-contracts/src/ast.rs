@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::ast
+// Responsibility:   Surface syntax tree `nurt-ast/1`.
+// Dependencies:     flow, schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Surface syntax tree `nurt-ast/1`.
 //!
@@ -50,12 +57,16 @@ use std::fmt;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 
+mod flow;
+
+pub use flow::{Branch, Define, Each, FLOW_KINDS, Jump, Param, Params, Repeat, Steps, When, While};
+
 /// Name of the surface tree format.
 pub const AST_FORMAT: &str = "nurt-ast/1";
 
 /// Format version written into the member `"nurt"` of a surface tree by this
 /// version of the contract.
-pub const AST_VERSION: &str = "1.0";
+pub const AST_VERSION: &str = "1.1";
 
 /// Media type of a surface tree encoded as JSON.
 pub const AST_MEDIA_TYPE_JSON: &str = "application/vnd.nurt.ast+json; v=1";
@@ -85,9 +96,10 @@ pub const KEYWORDS: [&str; 8] = ["let", "true", "false", "null", "and", "or", "n
 /// Node kinds of the surface tree: the admissible values of the member `"t"`.
 ///
 /// A reader reports node kinds outside this list with `E_AST_VERSION`.
-pub const SURFACE_KINDS: [&str; 23] = [
+pub const SURFACE_KINDS: [&str; 32] = [
     "let", "pipeline", "stage", "ref", "text", "ident", "regex", "int", "num", "size", "dur",
     "bool", "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub",
+    "when", "each", "repeat", "while", "break", "continue", "steps", "define", "params",
 ];
 
 /// Free-form metadata of a tree document.
@@ -140,6 +152,24 @@ pub enum Statement {
     Let(Let),
     /// A pipeline.
     Pipeline(Pipeline),
+    /// Conditional, `when … { … } otherwise { … }`.
+    When(When),
+    /// Loop over records, `each … as name { … }`.
+    Each(Each),
+    /// Loop with a condition after the body, `repeat until: … { … }`.
+    Repeat(Repeat),
+    /// Loop with a condition before the body, `while … { … }`.
+    While(While),
+    /// Ends the innermost loop.
+    Break(Jump),
+    /// Starts the next iteration of the innermost loop.
+    Continue(Jump),
+    /// Several changes in one call, `steps { … }`.
+    Steps(Steps),
+    /// Definition of a function, `define name(…) { … }`.
+    Define(Define),
+    /// Parameters of a script, `params { … }`.
+    Params(Params),
 }
 
 /// Named result: `let recent = find … |> filter …`.
@@ -809,3 +839,7 @@ mod tagged {
             .collect())
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

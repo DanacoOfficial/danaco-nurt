@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/package.remove.md -->
+<!-- Responsibility:   Documents package.remove. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # package.remove
 
@@ -22,9 +29,17 @@ package.remove <names>... [name: value]...
 
 Configuration files are handled by the default behaviour of the manager. Dependencies that are no longer needed stay installed.
 
-The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; the command never calls `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
+The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; with `privilege: elevated` the call runs through an elevation backend (`sudo`, `doas`, `run0`, or in the same process when Nurt is the administrator), and the command itself never writes `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
 
 A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and the end of its error output. The effect is reported as executed in that case, because the manager may have changed packages before it failed.
+
+**Privilege.** apt, dnf, pacman and zypper need the administrator; write `privilege: elevated` on the stage.
+
+```nurt
+package.remove ["jq"] privilege: elevated
+```
+
+`undo` of the entry installs the recorded version again, when the repository still offers it.
 
 ## Parameters
 
@@ -83,3 +98,7 @@ package.remove "vim" "nano"
 ## Related
 
 `package.list`, `package.search`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

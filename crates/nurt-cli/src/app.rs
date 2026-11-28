@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::app
+// Responsibility:   Entry of the command line: input and output streams, engine source and the dispatcher of invocations.
+// Dependencies:     nurt_contracts, nurt_core
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Entry of the command line: input and output streams, engine source and
 //! the dispatcher of invocations.
 
@@ -14,6 +22,7 @@ use nurt_core::{Engine, EngineConfig, EngineError};
 
 use crate::args::{self, Invocation};
 use crate::commands;
+use crate::elevated;
 use crate::exit;
 use crate::integrations;
 use crate::output::Style;
@@ -63,6 +72,22 @@ pub trait EngineSource {
     /// Returns the error of the engine, for example an invalid configuration.
     fn open(&self) -> Result<Engine, EngineError>;
 
+    /// Opens the engine of the hidden subcommand `elevated-exec`, which runs
+    /// with the identity of the administrator. With an `owner` the engine
+    /// writes the journal of that account; without one it keeps the journal of
+    /// its own account. By default it is the engine of [`open`](Self::open).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the engine, for example an invalid configuration.
+    fn open_elevated(
+        &self,
+        owner: Option<&nurt_core::ElevatedOwner>,
+    ) -> Result<Engine, EngineError> {
+        let _ = owner;
+        self.open()
+    }
+
     /// The host of the engine.
     fn host(&self) -> Arc<dyn Host>;
 }
@@ -75,6 +100,21 @@ pub struct SystemEngine;
 impl EngineSource for SystemEngine {
     fn open(&self) -> Result<Engine, EngineError> {
         Engine::open(EngineConfig::system().with_frontend(integrations::frontend()))
+    }
+
+    fn open_elevated(
+        &self,
+        owner: Option<&nurt_core::ElevatedOwner>,
+    ) -> Result<Engine, EngineError> {
+        let config = EngineConfig::system().with_frontend(integrations::frontend());
+        match owner {
+            Some(owner) => Engine::open(config.with_account_journal(nurt_core::AccountJournal {
+                uid: owner.uid,
+                gid: owner.gid,
+                state_dir: std::path::PathBuf::from(&owner.state_dir),
+            })),
+            None => Engine::open(config),
+        }
     }
 
     fn host(&self) -> Arc<dyn Host> {
@@ -160,6 +200,9 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
 /// The protocol servers of `serve` and `mcp` own the standard output of the process, so
 /// it is started here; every other invocation runs through [`run`].
 pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> ExitCode {
+    if args.first().map(String::as_str) == Some(nurt_core::elevation::ELEVATED_EXEC) {
+        return ExitCode::from(elevated::run(io, source));
+    }
     if let Invocation::Subcommand {
         name: "serve",
         args: rest,
@@ -399,3 +442,7 @@ mod tests {
         assert!(SystemEngine.host().env_var("NURT_UNSET_VARIABLE").is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

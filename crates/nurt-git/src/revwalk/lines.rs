@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::revwalk::lines
+// Responsibility:   Differences of two file contents by lines.
+// Dependencies:     bstr, gix_imara_diff
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differences of two file contents by lines: changed blocks, line counts,
 //! hunks of the unified format and the movement of a line range from a
 //! file to its previous version.
@@ -352,3 +360,7 @@ mod tests {
         assert_eq!(map_to_old(&removal, 0..0), (0..0, false));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

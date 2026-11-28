@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::system
+// Responsibility:   Clock and host of the running process, read from the operating system.
+// Dependencies:     nurt_contracts, nurt_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Clock and host of the running process, read from the operating system.
 //!
 //! [`EngineConfig::system`](crate::EngineConfig::system) assembles them with an
@@ -18,6 +26,13 @@ use nurt_contracts::stage::{CancelReason, CancelToken};
 const SLEEP_SLICE: Duration = Duration::from_millis(10);
 const BOOT_ID_FILE: &str = "/proc/sys/kernel/random/boot_id";
 const UNKNOWN: &str = "unknown";
+
+/// Whether the output code page of the console of this process is UTF-8. On a
+/// system other than Windows the answer is `false`.
+#[must_use]
+pub fn console_output_is_utf8() -> bool {
+    nurt_sys::console::output_is_utf8()
+}
 
 /// Clock of the running process.
 ///
@@ -197,3 +212,7 @@ mod tests {
         assert!(!host.info().architecture.is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

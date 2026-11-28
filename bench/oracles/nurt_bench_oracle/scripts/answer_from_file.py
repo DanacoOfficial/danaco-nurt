@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bench/oracles/nurt_bench_oracle/scripts/answer_from_file.py
+# Responsibility:   Script answer_from_file.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Checks that the final answer contains a value recorded in a file.
 
 Used when the expected answer is known only at run time, for example the
@@ -44,3 +52,7 @@ def check(
     if not value or re.search(rf"(?<![\w.]){re.escape(value)}(?![\w.])", answer) is None:
         return {"completed": False, "failures": [f"answer does not contain {value!r}"]}
     return {"completed": True, "failures": []}
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

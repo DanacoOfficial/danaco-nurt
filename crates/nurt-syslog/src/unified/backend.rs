@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syslog::unified::backend
+// Responsibility:   Interface between the reader and a log store of the unified log.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface between the reader and a log store of the unified log.
 //!
 //! [`UnifiedBackend`] is the only part of the reader that calls the operating
@@ -104,3 +112,7 @@ pub trait UnifiedBackend: Sync {
     /// store, other [`BackendError`] values when it cannot be opened.
     fn items<'a>(&'a self, request: &EntryRequest) -> Result<Self::Items<'a>, BackendError>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

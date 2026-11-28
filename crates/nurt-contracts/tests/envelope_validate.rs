@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/envelope_validate.rs
+// Responsibility:   Rules of the request envelope and the response checked by the Rust types.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rules of the request envelope and the response checked by the Rust types.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
@@ -251,3 +259,7 @@ fn error_messages_name_the_rule() {
             .contains("9000")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

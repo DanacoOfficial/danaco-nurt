@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/lex_context.rs
+// Responsibility:   Context of `/` chosen by the parser and the spacing of `+` and `-`.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Context of `/` chosen by the parser and the spacing of `+` and `-`.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
@@ -146,3 +154,7 @@ fn never_joins_a_sign_with_a_number() {
     let number = lexer.next(LexContext::Value).unwrap();
     assert_eq!((number.kind, number.range), (TokenKind::Number, 1..4));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

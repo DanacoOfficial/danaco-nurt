@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt/tests/contract.rs
+// Responsibility:   Envelopes of the client agree with the contract types of `nurt-request/1` and `nurt-response/1`.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Envelopes of the client agree with the contract types of
 //! `nurt-request/1` and `nurt-response/1`.
 
@@ -16,9 +24,13 @@ use nurt_contracts::envelope as contract;
 use serde_json::{Value, json};
 
 fn golden(directory: &str) -> Vec<PathBuf> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden")
-        .join(directory);
+    let root = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden")
+    .join(directory);
     let mut files: Vec<PathBuf> = fs::read_dir(&root)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -136,3 +148,7 @@ fn golden_reports_expose_error_and_cursor() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

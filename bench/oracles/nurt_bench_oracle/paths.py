@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bench/oracles/nurt_bench_oracle/paths.py
+# Responsibility:   Script paths.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Path patterns of task files.
 
 ``*`` matches within one path segment, ``**`` matches any number of
@@ -75,3 +83,7 @@ def ancestors(path: str) -> list[str]:
     """Returns the parent directories of a relative path, outermost first."""
     parts = path.split("/")
     return ["/".join(parts[:depth]) for depth in range(1, len(parts))]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

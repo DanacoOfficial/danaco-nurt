@@ -5,6 +5,13 @@ order: 2
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/installation.md -->
+<!-- Responsibility:   Documents Installation. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Installation
 
 Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The executable has no runtime dependencies.
@@ -21,7 +28,7 @@ Danaco Nurt is one executable for each operating system: `nurt` on Linux and mac
 
 | Channel | Identifier |
 |---|---|
-| GitHub release | `github.com/DanacoOfficial/nurt` |
+| GitHub release | `github.com/DanacoOfficial/danaco-nurt` |
 | Container image | `ghcr.io/danacoofficial/nurt` |
 | winget | `Danaco.Nurt` |
 | NuGet (library binding) | `Danaco.Nurt` |
@@ -65,6 +72,7 @@ The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` o
 | Program, Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
 | Program, Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
 | C library, Linux and macOS, directory `nurt-lib-<version>-<target>/` | `libnurt.so.1` or `libnurt.1.dylib`, `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
+| C library, Linux musl, directory `nurt-lib-<version>-<target>/` | `libnurt.a` (static), `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
 | C library, Windows, files at the top level | `nurt.dll`, `nurt.h`, `LICENSE`, `NOTICE` |
 
 The C library archives are published for the targets that have a library; the installers `install.sh` and `install.ps1` install the program archive only.
@@ -76,7 +84,7 @@ The directory `doc/` holds this documentation as a site that works offline; open
 The build needs a Rust toolchain installed with rustup and a C compiler. The toolchain version is pinned in `rust-toolchain.toml`.
 
 ```text
-git clone https://github.com/DanacoOfficial/nurt.git
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
 cd nurt
 cargo build --release --locked
 ```
@@ -94,3 +102,7 @@ The command prints the version, the copyright line and the license; the format i
 ## License
 
 The product is licensed under the Apache License, Version 2.0. Distributions include the `NOTICE` file. See [Compatibility](compatibility.md) for the use of the name.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

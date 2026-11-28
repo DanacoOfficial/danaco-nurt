@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::search::hit
+// Responsibility:   Results of a search: hits, matches, context lines and counters.
+// Dependencies:     bstr, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Results of a search: hits, matches, context lines and counters.
 
 use std::borrow::Cow;
@@ -174,6 +182,15 @@ impl<'a> Hit<'a> {
         Cow::Owned(lines.collect::<Vec<_>>().join("\n"))
     }
 
+    /// Text of the lines joined by `\n`, none of them shortened.
+    #[must_use]
+    pub fn full_text(&self) -> String {
+        self.lines()
+            .map(|line| String::from_utf8_lossy(line).into_owned())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Whether [`Hit::text`] shortens a line.
     #[must_use]
     pub fn is_truncated(&self) -> bool {
@@ -343,3 +360,7 @@ fn render_line(bytes: &[u8], max_line: Option<usize>, focus: usize) -> Cow<'_, s
 fn omission(count: usize) -> String {
     format!("[{count} characters omitted]")
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

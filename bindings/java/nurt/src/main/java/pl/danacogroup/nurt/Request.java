@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt/src/main/java/pl/danacogroup/nurt/Request.java
+// Responsibility:   Source file bindings/java/nurt/src/main/java/pl/danacogroup/nurt/Request.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt;
 
 import java.time.Duration;
@@ -124,10 +132,30 @@ public final class Request {
         }
     }
 
+    /** Rights with which an operation runs. */
+    public enum Privilege {
+        /** The rights of the account; the default. */
+        ACCOUNT,
+        /** The rights of the administrator. */
+        ELEVATED,
+        /** The rights of the account, with one elevated repetition after {@code E_PERMISSION} or {@code E_PRIVILEGE}. */
+        AUTO;
+
+        /**
+         * Name in JSON documents.
+         *
+         * @return the name in lower case
+         */
+        public String wire() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
     private final String inputName;
     private final Object input;
     private Variant variant;
     private final Map<String, Object> options = new LinkedHashMap<>();
+    private Map<String, Object> params;
 
     private Request(String inputName, Object input) {
         this.inputName = inputName;
@@ -344,6 +372,39 @@ public final class Request {
     }
 
     /**
+     * Rights with which the operation runs.
+     *
+     * @param privilege the rights
+     * @return this request
+     */
+    public Request privilege(Privilege privilege) {
+        return option("privilege", privilege.wire());
+    }
+
+    /**
+     * Account that runs the operation on Linux and macOS; implies elevation
+     * for the switch.
+     *
+     * @param account the account
+     * @return this request
+     */
+    public Request asUser(String account) {
+        return option("as_user", account);
+    }
+
+    /**
+     * Values of the parameters of a script that starts with {@code params { ... }},
+     * by name: typed JSON values, or text that the declared type reads.
+     *
+     * @param values the values by name
+     * @return this request
+     */
+    public Request params(Map<String, Object> values) {
+        this.params = new LinkedHashMap<>(Objects.requireNonNull(values, "values"));
+        return this;
+    }
+
+    /**
      * The envelope as a JSON object.
      *
      * @return a new mutable map
@@ -354,6 +415,9 @@ public final class Request {
         envelope.put(inputName, input);
         if (variant != null) {
             envelope.put("variant", variant.wire());
+        }
+        if (params != null) {
+            envelope.put("params", new LinkedHashMap<>(params));
         }
         if (!options.isEmpty()) {
             envelope.put("options", new LinkedHashMap<>(options));
@@ -375,3 +439,7 @@ public final class Request {
         return toJson();
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

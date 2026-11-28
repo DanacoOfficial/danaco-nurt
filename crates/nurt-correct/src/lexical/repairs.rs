@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::lexical::repairs
+// Responsibility:   Repair policy of the tolerant parser for the rules `L08` to `L15`.
+// Dependencies:     nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Repair policy of the tolerant parser for the rules `L08` to `L15`.
 //!
 //! [`LexicalRepairs`] answers a parse failure with at most one repair per
@@ -630,3 +638,7 @@ mod tests {
         assert_eq!(delimiters("r\"abc"), (2, "\"".to_owned()));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

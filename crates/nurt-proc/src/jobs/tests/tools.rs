@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::tests::tools
+// Responsibility:   Background jobs of tool runs and the final records built by the finishers of the test and analysis commands.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Background jobs of tool runs and the final records built by the
 //! finishers of the test and analysis commands.
 
@@ -159,3 +167,7 @@ fn a_tool_run_waited_for_to_its_end_has_no_final_record() {
     assert_eq!(file.final_record, None);
     assert_eq!(file.request.0.kind, RunKind::Test);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

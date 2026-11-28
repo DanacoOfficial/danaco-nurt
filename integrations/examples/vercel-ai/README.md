@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/examples/vercel-ai/README.md -->
+<!-- Responsibility:   Documents Vercel AI SDK. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Vercel AI SDK
 
 `generateText` with the `nurt` tool built from the neutral `json-schema` definition.
@@ -26,3 +34,7 @@ npm test
 ```
 
 The test uses `MockLanguageModelV2` from `ai/test`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

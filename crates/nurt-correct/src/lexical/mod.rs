@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::lexical
+// Responsibility:   Lexical correction rules.
+// Dependencies:     front, rules
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Lexical correction rules.
 //!
 //! The rules `L01` to `L24` correct the notation of a program: names, quotes,
@@ -8,7 +16,7 @@
 //! rule has one certainty class (see [`RULES`]). Rules that need the type of
 //! an argument place (`L01`, `L02`, `L05`, `L06`, `L19`, `L22`, `L23`, `L24`
 //! and the joining of units for `L17`) are functions called by the binder;
-//! the other rules run in [`front`], from the program text to a surface tree.
+//! the other rules run in [`mod@front`], from the program text to a surface tree.
 //!
 //! Rules apply to names and syntax only. The bytes of literals, numbers, the
 //! stages that select targets, the kind of a changing stage, the parameters of
@@ -62,3 +70,7 @@ pub trait CatalogView {
     /// the given position, counted from 0.
     fn can_take_argument(&self, command: &str, position: usize, shape: ArgumentShape) -> bool;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

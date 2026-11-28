@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::language
+// Responsibility:   Language front end assembled from the language crates.
+// Dependencies:     nurt_bind, nurt_catalog, nurt_contracts, nurt_correct, nurt_help, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Language front end assembled from the language crates.
 //!
 //! [`LanguageFrontend`] implements [`Frontend`] over `nurt-syntax` (parsing and
@@ -124,6 +132,16 @@ fn unquoted(topic: &str) -> &str {
 }
 
 impl Frontend for LanguageFrontend {
+    fn bind_params(
+        &self,
+        declared: &[nurt_contracts::bound::BoundParam],
+        given: Option<&serde_json::Map<String, serde_json::Value>>,
+        config: &Config,
+    ) -> Result<Vec<(String, nurt_contracts::bound::BoundExpr)>, Error> {
+        nurt_bind::bind_params(&self.bind_catalog, &bind_context(config), declared, given)
+            .map_err(nurt_bind::BindError::into_error)
+    }
+
     fn parse(
         &self,
         text: &str,
@@ -323,3 +341,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

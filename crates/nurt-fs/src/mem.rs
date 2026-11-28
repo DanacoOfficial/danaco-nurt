@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::mem
+// Responsibility:   Deterministic in-memory file system implementing the mutating interface.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Deterministic in-memory file system implementing the mutating interface.
 //!
 //! [`MemFs`] implements [`Fs`] and [`FsWrite`] with the reference semantics
@@ -43,7 +51,8 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let fs = MemFs::new()?;
-//! let path = AbsPath::new("/data/note.txt")?;
+//! # let root = if cfg!(windows) { "C:" } else { "" };
+//! let path = AbsPath::new(format!("{root}/data/note.txt"))?;
 //! fs.seed_file(&path, b"hello")?;
 //! let mut text = String::new();
 //! fs.open_read(&path)?.read_to_string(&mut text)?;
@@ -2978,7 +2987,7 @@ mod tests {
     }
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     fn read(fs: &MemFs, path: &str) -> Vec<u8> {
@@ -3672,7 +3681,7 @@ mod tests {
         fs.mark_hidden(&s, &p("/backup")).expect("hide");
         let hidden = fs.metadata(&p("/backup"), Follow::NoFollow).expect("meta");
         assert_ne!(hidden.windows_attributes & FILE_ATTRIBUTE_SYSTEM, 0);
-        fs.create_link(&s, Path::new("/"), &p("/junction"), LinkKind::Junction)
+        fs.create_link(&s, p("/").as_path(), &p("/junction"), LinkKind::Junction)
             .expect("junction");
         assert_eq!(
             kind(fs.create_link(&s, Path::new("rel"), &p("/j2"), LinkKind::Junction)),
@@ -3965,3 +3974,7 @@ mod tests {
         assert!(format!("{:?}", MemFs::builder()).starts_with("MemFsBuilder"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

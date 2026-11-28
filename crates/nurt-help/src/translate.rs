@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::translate
+// Responsibility:   Polish texts of the messages, notes and irreversible effects of a report.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Polish texts of the messages, notes and irreversible effects of a report.
 //!
 //! The messages of the commands are written in English at the place where an
@@ -67,6 +75,9 @@ pub fn error_text(code: ErrorCode) -> Option<&'static str> {
             "instrukcji SQL nie można przygotować lub wykonać albo zmienia dane bez write: true"
         }
         ErrorCode::Arg => "argumentu nie można przekazać bez zmiany jego znaczenia",
+        ErrorCode::ContinuationExpired => {
+            "kontynuacja wygasła, została usunięta albo żadna nie jest przechowywana"
+        }
         ErrorCode::ExternalMissing => "program wymagany przez polecenie nie jest zainstalowany",
         ErrorCode::ExternalFailed => {
             "program zewnętrzny używany przez polecenie zakończył się błędem lub złamał protokół"
@@ -610,3 +621,7 @@ mod tests {
         assert_eq!(report, before);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

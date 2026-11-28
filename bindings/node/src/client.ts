@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/node/src/client.ts
+// Responsibility:   Source file bindings/node/src/client.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
@@ -14,6 +22,7 @@ import { locateAddon, NativeChannel } from "./native.js";
 import { toResponse, type Response } from "./response.js";
 import type {
   Ast,
+  CatalogSelection,
   DescribeOptions,
   NurtEvent,
   NurtOptions,
@@ -155,7 +164,7 @@ export class Nurt extends EventEmitter {
 
   /** Corrects program text and returns the canonical program and the corrections. */
   async correct(program: string, variant: Variant = "a"): Promise<JsonObject> {
-    return objectResult(await this.#call("correct", { program, variant }), "correct");
+    return withCorrectedProgram(objectResult(await this.#call("correct", { program, variant }), "correct"), program);
   }
 
   /** Returns a further page of an earlier result. */
@@ -177,8 +186,11 @@ export class Nurt extends EventEmitter {
     return textResult(await this.#query("help", compact({ topic })), "help");
   }
 
-  /** Returns the command catalog, or a part of it. */
-  async catalog(what?: string): Promise<JsonObject> {
+  /**
+   * Returns the command catalog, or the group or the command that `what`
+   * selects: `{ group: "core" }` or `{ command: "list" }`.
+   */
+  async catalog(what?: CatalogSelection): Promise<JsonObject> {
     return objectResult(await this.#query("catalog", compact({ what })), "catalog");
   }
 
@@ -403,18 +415,35 @@ function objectResult(result: unknown, method: string): JsonObject {
 
 /**
  * Reads the result of `describe`: the member `description` of the server, or
- * the value itself from the library. A value that is not text is returned as
- * its JSON text.
+ * the value itself from the library. The description is text or an object
+ * with the member `text`; any other value is returned as its JSON text.
  */
 function descriptionText(result: unknown): string {
   const description = isObject(result) && result["description"] !== undefined ? result["description"] : result;
   if (typeof description === "string") {
     return description;
   }
+  if (isObject(description) && typeof description["text"] === "string") {
+    return description["text"];
+  }
   if (description === undefined || description === null) {
     throw new NurtError("NURT_E_INTERNAL", "the server returned an invalid result for describe");
   }
   return JSON.stringify(description);
+}
+
+/**
+ * Names the corrected text in the result of `correct`. The server answers with
+ * the corrected tree, the corrections and, when a correction was applied, the
+ * canonical text as `ran`; a program that needed no correction is its own
+ * corrected text. A result that has a `program` or no tree stays as it is.
+ */
+function withCorrectedProgram(result: JsonObject, program: string): JsonObject {
+  if (result["program"] !== undefined || result["ast"] === undefined) {
+    return result;
+  }
+  const ran = result["ran"];
+  return { ...result, program: typeof ran === "string" ? ran : program };
 }
 
 function textResult(result: unknown, method: string): string {
@@ -450,3 +479,7 @@ function clientVersion(): string {
     return UNKNOWN_VERSION;
   }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

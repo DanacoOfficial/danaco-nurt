@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::analyze::analyzers::ruff
+// Responsibility:   Parsers of `ruff check --output-format=json` and `ruff format --check`.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsers of `ruff check --output-format=json` and `ruff format --check`.
 
 use std::path::Path;
@@ -97,3 +105,7 @@ fn is_error_code(code: &str) -> bool {
 pub(crate) fn parse_format(output: &ToolOutput, dir: &Path) -> Vec<Finding> {
     file_list_findings(TOOL, output, dir, Some(&UNFORMATTED))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

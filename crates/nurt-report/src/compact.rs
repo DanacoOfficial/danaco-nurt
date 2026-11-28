@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-report::compact
+// Responsibility:   Renderer of the compact format: one record per line, no headings.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Renderer of the compact format: one record per line, no headings.
 
 use nurt_contracts::envelope::Verbosity;
@@ -52,7 +60,21 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
         report
             .next_cursor
             .as_ref()
+            .filter(|_| report.continuation.is_none())
             .map(|cursor| format!("next {}", pair("cursor", cursor))),
+    );
+    lines.extend(
+        report
+            .continuation
+            .as_ref()
+            .map(|continuation| object_line("continuation", continuation)),
+    );
+    lines.extend(
+        report
+            .continuation
+            .as_ref()
+            .filter(|continuation| continuation.has_more())
+            .map(nurt_contracts::continuation::Continuation::more_text),
     );
     lines.extend(
         report
@@ -237,3 +259,7 @@ mod tests {
         assert_eq!(flatten(&value), "a:1,2,b:x");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

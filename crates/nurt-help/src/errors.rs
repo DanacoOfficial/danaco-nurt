@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::errors
+// Responsibility:   Meanings and fixes of the error codes, and the help reference attached to an error.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Meanings and fixes of the error codes, and the help reference attached
 //! to an error.
 
@@ -170,13 +178,18 @@ pub const NOTES: &[ErrorNote] = &[
     ),
     note(
         ErrorCode::Sql,
-        "an SQL statement cannot be prepared or executed, or changes data without write: true",
-        "fix the statement or give write: true",
+        "an SQL statement cannot be prepared or executed, or changes data with write: false",
+        "fix the statement or remove write: false",
     ),
     note(
         ErrorCode::Arg,
         "an argument cannot be passed without changing its meaning",
         "remove the character the error names",
+    ),
+    note(
+        ErrorCode::ContinuationExpired,
+        "the continuation read by next expired or was removed, or none is kept",
+        "run the call from next_steps again",
     ),
     note(
         ErrorCode::ExternalMissing,
@@ -700,3 +713,7 @@ mod tests {
         assert_eq!(help_reference(&error), "help: help");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

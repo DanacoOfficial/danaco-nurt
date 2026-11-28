@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::stage::command
+// Responsibility:   Executor implementation of `git.stage`.
+// Dependencies:     bstr, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Executor implementation of `git.stage`.
 
 use std::path::Path;
@@ -342,11 +350,22 @@ mod tests {
 
     #[test]
     fn absolute_paths_outside_the_working_tree_are_rejected() {
-        let root = Path::new("/srv/repo");
-        assert_eq!(relative_path(root, "/srv/repo/a/b.txt").unwrap(), "a/b.txt");
-        assert_eq!(relative_path(root, "/srv/repo").unwrap(), ".");
+        let root = &nurt_testkit::paths::abs_path("/srv/repo");
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/srv/repo/a/b.txt").as_str()).unwrap(),
+            "a/b.txt"
+        );
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/srv/repo").as_str()).unwrap(),
+            "."
+        );
         assert_eq!(relative_path(root, "dir/x").unwrap(), "dir/x");
-        let error = relative_path(root, "/srv/other/x").unwrap_err();
+        let error =
+            relative_path(root, nurt_testkit::paths::abs("/srv/other/x").as_str()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("invalid_path"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

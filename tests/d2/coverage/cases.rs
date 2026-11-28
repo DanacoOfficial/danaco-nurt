@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/cases.rs
+// Responsibility:   Registry of the coverage cases: every case is one test function, tied to the rows of the coverage table it exercises.
+// Dependencies:     Rows, Variant
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Registry of the coverage cases: every case is one test function, tied to
 //! the rows of the coverage table it exercises.
 //!
@@ -180,6 +188,7 @@ coverage_cases! {
     redo_is_undone_and_redone => Table(&[("redo", None)]), Plain, journal_rows::redo_is_undone_and_redone;
     redo_paths_is_undone_and_redone => Table(&[("redo", None)]), Plain, journal_rows::redo_paths_is_undone_and_redone;
     help_changes_nothing => Table(&[("help", None)]), Plain, procedure::round_trip;
+    next_changes_nothing => Table(&[("next", None)]), Plain, procedure::round_trip;
     set_existing_is_undone_and_redone => Table(&[("set", None)]), Plain, procedure::round_trip;
     set_values_is_undone_and_redone => Table(&[("set", None)]), Plain, procedure::round_trip;
     set_create_is_undone_and_redone => Table(&[("set", Some("create"))]), Plain, procedure::round_trip;
@@ -370,6 +379,34 @@ coverage_cases! {
     analyze_format_stdin_is_undone_and_redone => Table(&[("analyze.format", None)]), Plain, procedure::round_trip;
     analyze_format_inplace_is_undone_or_marked_irreversible => Table(&[("analyze.format", Some("in_place"))]), Plain, procedure::round_trip;
     analyze_tools_changes_nothing => Table(&[("analyze.tools", None)]), Plain, procedure::round_trip;
+    firewall_rules_changes_nothing => Table(&[("firewall.rules", None)]), Plain, procedure::round_trip;
+    firewall_allow_is_undone_and_redone => Table(&[("firewall.allow", None)]), Plain, procedure::round_trip;
+    firewall_deny_is_undone_and_redone => Table(&[("firewall.deny", None)]), Plain, procedure::round_trip;
+    firewall_remove_is_undone_and_redone => Table(&[("firewall.remove", None)]), Plain, procedure::round_trip;
+    network_route_add_is_undone_and_redone => Table(&[("network.route_add", None)]), Plain, procedure::round_trip;
+    network_route_remove_is_undone_and_redone => Table(&[("network.route_remove", None)]), Plain, procedure::round_trip;
+    network_dns_set_is_undone_and_redone => Table(&[("network.dns_set", None)]), Plain, procedure::round_trip;
+    clock_timezone_set_is_undone_and_redone => Table(&[("clock.timezone_set", None)]), Plain, procedure::round_trip;
+    clock_ntp_is_undone_and_redone => Table(&[("clock.ntp", None)]), Plain, procedure::round_trip;
+    clock_set_is_marked_irreversible => Table(&[("clock.set", None)]), Plain, procedure::round_trip;
+    accounts_create_is_marked_irreversible => Table(&[("accounts.create", None)]), Plain, procedure::round_trip;
+    accounts_modify_is_marked_irreversible => Table(&[("accounts.modify", None)]), Plain, procedure::round_trip;
+    accounts_remove_is_undone_or_marked_irreversible => Table(&[("accounts.remove", None)]), Plain, procedure::round_trip;
+    accounts_password_is_marked_irreversible => Table(&[("accounts.password", None)]), Plain, procedure::round_trip;
+    groups_create_is_marked_irreversible => Table(&[("groups.create", None)]), Plain, procedure::round_trip;
+    groups_remove_is_marked_irreversible => Table(&[("groups.remove", None)]), Plain, procedure::round_trip;
+    groups_add_member_is_marked_irreversible => Table(&[("groups.add_member", None)]), Plain, procedure::round_trip;
+    groups_remove_member_is_marked_irreversible => Table(&[("groups.remove_member", None)]), Plain, procedure::round_trip;
+    mount_is_undone_or_marked_irreversible => Table(&[("mount", None)]), Plain, procedure::round_trip;
+    unmount_is_undone_or_marked_irreversible => Table(&[("unmount", None)]), Plain, procedure::round_trip;
+    sysctl_set_is_undone_or_marked_irreversible => Table(&[("sysctl.set", None)]), Plain, procedure::round_trip;
+    modules_load_is_marked_irreversible => Table(&[("modules.load", None)]), Plain, procedure::round_trip;
+    modules_unload_is_marked_irreversible => Table(&[("modules.unload", None)]), Plain, procedure::round_trip;
+    power_restart_is_marked_irreversible => Table(&[("power.restart", None)]), Plain, procedure::round_trip;
+    power_shutdown_is_marked_irreversible => Table(&[("power.shutdown", None)]), Plain, procedure::round_trip;
+    power_cancel_is_marked_irreversible => Table(&[("power.cancel", None)]), Plain, procedure::round_trip;
+    disks_partition_is_marked_irreversible => Table(&[("disks.partition", None)]), Plain, procedure::round_trip;
+    disks_format_is_marked_irreversible => Table(&[("disks.format", None)]), Plain, procedure::round_trip;
     save_to_new_file_is_undone_and_redone => Common("save_to"), Plain, journal_rows::save_to_new_file_is_undone_and_redone;
     save_to_existing_file_is_undone_and_redone => Common("save_to"), Plain, journal_rows::save_to_existing_file_is_undone_and_redone;
     save_to_of_changing_command_joins_its_entry => Common("save_to"), Plain, journal_rows::save_to_of_changing_command_joins_its_entry;
@@ -379,3 +416,7 @@ coverage_cases! {
     validation_failure_rolls_back_without_new_entry => Common("validate"), Plain, journal_rows::validation_failure_rolls_back_without_new_entry;
     if_match_mismatch_rolls_back_without_new_entry => Common("validate"), Plain, journal_rows::if_match_mismatch_rolls_back_without_new_entry;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

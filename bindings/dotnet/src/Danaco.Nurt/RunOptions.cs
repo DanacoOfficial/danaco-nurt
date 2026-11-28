@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/RunOptions.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/RunOptions.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
 using System.Collections.Generic;
@@ -55,9 +62,19 @@ public sealed class RunOptions
     /// <summary>Script mode: several pipelines, each its own operation (<c>script</c>).</summary>
     public bool? Script { get; init; }
 
+    /// <summary>Rights of the operation (<c>privilege</c>); <see langword="null"/> keeps the configured default, <see cref="Nurt.Privilege.Account"/>.</summary>
+    public Privilege? Privilege { get; init; }
+
+    /// <summary>Account that runs the operation on Linux and macOS (<c>as_user</c>); implies elevation for the switch.</summary>
+    public string? AsUser { get; init; }
+
     /// <summary>
     /// Raises <see cref="NurtLanguageException"/> when the response carries an error of the
     /// language, instead of returning the response. Not sent to Danaco Nurt.
     /// </summary>
     public bool ThrowOnLanguageError { get; init; }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

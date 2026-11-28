@@ -1,0 +1,14 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           branding.svg.background-paper -->
+<!-- Responsibility:   Danaco Nurt ground: Light. -->
+<!-- Dependencies:     none. -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          production identity 1.0.0, release 0.1.1 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="Danaco Nurt ground: Light"><title>Danaco Nurt ground: Light</title><defs><radialGradient id="vignette" cx="0.5" cy="0.45" r="0.85"><stop offset="0.55" stop-color="#F6F7F8"/><stop offset="1" stop-color="#EDEEEF"/></radialGradient></defs><rect width="1920" height="1080" fill="#F6F7F8"/><rect width="1920" height="1080" fill="url(#vignette)"/></svg>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/harness/services.rs
+// Responsibility:   Services of the journal under test and their assembly.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_journal, nurt_space, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Services of the journal under test and their assembly.
 //!
 //! The journal store is built by `JournalBuilder` over the file system of the
@@ -103,6 +111,15 @@ pub(crate) fn bind(
         audit.add_internal_root(dir);
     }
     audit.add_internal_root(volumes.state_dir().clone());
+    for root in volumes.roots() {
+        let volume = raw.volume(root).expect("volume of a fixture root is known");
+        if matches!(
+            evaluate_eligibility(&volume, &options.journal),
+            Eligibility::Inactive(_)
+        ) {
+            audit.add_unjournaled_root(root.clone());
+        }
+    }
     let fs: Arc<dyn FsWrite> = audit.clone();
 
     let catalog = Arc::new(JournalCatalog::default());
@@ -160,16 +177,27 @@ pub(crate) fn bind(
     Bound { journal, audit }
 }
 
+/// Name of the journal directory on the host system: the configured name,
+/// with the suffix `.noindex` that the journal adds on macOS.
+pub(crate) fn journal_dir_name(config: &JournalConfig) -> String {
+    if cfg!(target_os = "macos") && !config.dir_name.ends_with(".noindex") {
+        format!("{}.noindex", config.dir_name)
+    } else {
+        config.dir_name.clone()
+    }
+}
+
 /// Journal directory of every volume: the directory of the configured name
 /// at the mount point, where the journal anchors it.
 fn journal_dirs(fs: &dyn Fs, roots: &[AbsPath], config: &JournalConfig) -> Vec<AbsPath> {
+    let name = journal_dir_name(config);
     roots
         .iter()
         .map(|root| {
             fs.volume(root)
                 .expect("volume of a fixture root is known")
                 .mount
-                .join_name(&config.dir_name)
+                .join_name(&name)
                 .expect("journal directory name is a single component")
         })
         .collect()
@@ -437,3 +465,7 @@ impl ProviderWrite for ValueProvider {
         Ok(())
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

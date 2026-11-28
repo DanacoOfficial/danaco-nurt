@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/go/schema_test.go
+// Responsibility:   Source file bindings/go/schema_test.go.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 package nurt
 
@@ -103,6 +110,7 @@ func TestRequestTypesMatchSchema(t *testing.T) {
 	opts := s.Defs["options"].Properties
 	expectSame(t, "verbosity", []string{string(VerbosityQuiet), string(VerbosityNormal), string(VerbosityDetailed)}, opts["verbosity"].Enum)
 	expectSame(t, "diff", []string{string(DiffNone), string(DiffStat), string(DiffUnified)}, opts["diff"].Enum)
+	expectSame(t, "privilege", []string{string(PrivilegeAccount), string(PrivilegeElevated), string(PrivilegeAuto)}, opts["privilege"].Enum)
 	expectSame(t, "response", jsonNames(Response{}), keys(s.Defs["response"].Properties))
 	expectSame(t, "rendered", jsonNames(Rendered{}), keys(s.Defs["rendered"].Properties))
 	expectSame(t, "rendered format", []string{string(FormatText), string(FormatMarkdown), string(FormatCompact)}, s.Defs["rendered"].Properties["format"].Enum)
@@ -120,3 +128,7 @@ func TestReportTypesMatchSchema(t *testing.T) {
 	}
 	expectSame(t, "report status", statuses, s.Defs["status"].Enum)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

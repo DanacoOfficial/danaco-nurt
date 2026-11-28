@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/integrators/tool-calls.md -->
+<!-- Responsibility:   Documents Tool calls. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Tool calls
 
 ## Arguments and request
@@ -66,3 +74,7 @@ A result longer than `limit` records ends with `report.next_cursor`. The next pa
 ```
 
 Reading a page never runs a changing program again. A host that collects all pages calls `page` (`nurt serve`) or repeats the call until `next_cursor` is absent. `max_chars` limits the length of single text fields; `save_to` writes the full result to a file instead of the response.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

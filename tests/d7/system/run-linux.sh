@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           tests/d7/system/run-linux.sh
+# Responsibility:   Runs the cross-system tests of the system, log, network, schedule, service and program crates on Linux.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Runs the cross-system tests of the system, log, network, schedule, service
 # and program crates on Linux.
 #
@@ -40,6 +48,7 @@ had_system_unit=0
 
 # Removes the service units that an interrupted run of the service scenarios
 # left behind; units that existed before the run stay.
+# shellcheck disable=SC2329 # runs through the trap below
 cleanup() {
   if [[ $had_user_unit == 0 && -e $user_unit ]]; then
     systemctl --user disable --now nurt-service.service >/dev/null 2>&1 || true
@@ -72,7 +81,8 @@ counts() {
 }
 
 run_suite() {
-  local suite=$1 log="$out/test-$suite.log" status=0 args run_ignored
+  local suite=$1
+  local log="$out/test-$suite.log" status=0 args run_ignored
   : >"$log"
   case $suite in
     container) args=() run_ignored=default ;;
@@ -104,3 +114,7 @@ for suite in ${suites//,/ }; do
 done
 printf ']}\n' >>"$out/summary.json"
 exit "$result"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

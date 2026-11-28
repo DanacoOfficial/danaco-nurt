@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/vscode/scripts/test-copy-grammar.sh
+# Responsibility:   Tests copy-grammar.sh with grammar files in a temporary directory.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Tests copy-grammar.sh with grammar files in a temporary directory.
 
 set -uo pipefail
@@ -49,3 +57,7 @@ expect 'rejects a grammar with another scope name' \
   copy_fails_with "$work/other.json" "$work/out3/nurt.tmLanguage.json" 'does not declare the scope source.nurt'
 
 ((failures == 0))
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

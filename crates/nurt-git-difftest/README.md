@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           crates/nurt-git-difftest/README.md -->
+<!-- Responsibility:   Documents nurt-git-difftest. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt-git-difftest
 
 Differential tests of the `git.*` commands of Danaco Nurt against the `git`
@@ -279,3 +287,7 @@ The test `no_process` fails when the source of `nurt-git`, `nurt-git-ops` or
 `nurt-git-transport` outside the hook modules and unit tests names
 `std::process::Command`, and when these crates depend on `git2`,
 `libgit2-sys`, `openssl-sys`, `curl` or `curl-sys`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

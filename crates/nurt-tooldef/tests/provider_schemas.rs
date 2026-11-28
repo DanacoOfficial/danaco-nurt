@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-tooldef/tests/provider_schemas.rs
+// Responsibility:   Rendered definitions against the schemas of the platforms.
+// Dependencies:     common, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rendered definitions against the schemas of the platforms.
 //!
 //! Every format is rendered with the core group, with an optional group,
@@ -246,3 +254,7 @@ fn every_format_names_the_tool_nurt() {
         assert_eq!(name, &Value::from("nurt"), "{format}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

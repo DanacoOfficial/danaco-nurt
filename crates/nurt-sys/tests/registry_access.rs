@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sys/tests/registry_access.rs
+// Responsibility:   The registry as the file commands see it ([`RegistryAccess`]), on the in-memory registry.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The registry as the file commands see it ([`RegistryAccess`]), on the
 //! in-memory registry: records of values and keys, listings with the path
 //! below the listed key, and the provider keys that changes declare.
@@ -190,3 +198,7 @@ fn address_reads_a_path_as_the_requested_kind_without_requiring_it_to_exist() {
         ErrorCode::InvalidValue
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

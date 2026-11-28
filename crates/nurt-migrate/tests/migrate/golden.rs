@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-migrate/tests/migrate/golden.rs
+// Responsibility:   Mixed scripts compared byte for byte with the expected program file and reports.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Mixed scripts compared byte for byte with the expected program file and
 //! reports.
 //!
@@ -22,7 +30,12 @@ const REGENERATE_VARIABLE: &str = "NURT_REGENERATE_MIGRATE";
 const DATA_DIRECTORY: &str = "../../tests/d1/migrate";
 
 pub(crate) fn data_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(DATA_DIRECTORY)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(DATA_DIRECTORY)
 }
 
 fn regenerate() -> bool {
@@ -201,3 +214,7 @@ fn powershell_mixed_script_matches_expected_output() {
         );
     check_script("powershell-mixed", "ps1", ScriptLanguage::PowerShell, &mock);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

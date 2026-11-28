@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::ctx
+// Responsibility:   Retention over the shared context of the journal store.
+// Dependencies:     nurt_contracts, nurt_fs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Retention over the shared context of the journal store.
 //!
 //! [`CtxStore`] gives retention access to the journal directories and the
@@ -22,8 +30,8 @@ use nurt_contracts::fs::{
     ScopePurpose,
 };
 use nurt_contracts::journal::{
-    BeginRequest, EntryState, ExpiryReason, FileOp, InactiveReason, OpId, OpKind, PreserveMode,
-    ServiceLiveness, UndoneCause, apply_ops,
+    BeginRequest, Eligibility, EntryState, ExpiryReason, FileOp, InactiveReason, OpId, OpKind,
+    PreserveMode, ServiceLiveness, UndoneCause, apply_ops,
 };
 use nurt_fs::failpoint::FailPoint;
 
@@ -349,6 +357,10 @@ fn read_error(error: ReadError) -> Option<Error> {
 }
 
 impl RetentionStore for CtxStore<'_> {
+    fn account_id(&self) -> Option<String> {
+        Some(self.0.state.account_id())
+    }
+
     fn config_layers(&self) -> Vec<ConfigLayer> {
         self.0.limits.layers()
     }
@@ -368,12 +380,18 @@ impl RetentionStore for CtxStore<'_> {
             Err(error) => return Err(error.into()),
         };
         let space = self.0.fs.space(&info.id)?;
+        let inactive = if self.0.admission.liveness() == ServiceLiveness::Down {
+            Some(InactiveReason::ServiceDown)
+        } else if let Eligibility::Inactive(reason) = self.0.admission.eligibility(&info) {
+            Some(reason)
+        } else {
+            None
+        };
         Ok(Some(VolumeFacts {
             mount: info.mount,
             capacity: space.total,
             free: space.available,
-            inactive: (self.0.admission.liveness() == ServiceLiveness::Down)
-                .then_some(InactiveReason::ServiceDown),
+            inactive,
         }))
     }
 
@@ -405,18 +423,21 @@ impl RetentionStore for CtxStore<'_> {
         let fs = self.fs();
         let commits = Commits::new(self.0);
         let mut entries = Vec::new();
+        let ops_dir = layout.ops_dir()?;
         for op in layout::entries(fs, &layout)? {
-            let entry = layout.entry(op)?;
-            let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
-                Ok(record) => (record.state, commits.rolled_back(op, &record)),
-                Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
+            let entry = EntryLayout::new(ops_dir.join_name(&layout::entry_name(op))?);
+            // The manifest is read first: an entry directory without a usable
+            // manifest is skipped, so its state file is never opened.
+            let manifest = match manifest::read_manifest(fs, &entry.manifest()?) {
+                Ok(manifest) => manifest,
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
                     None => continue,
                 },
             };
-            let manifest = match manifest::read_manifest(fs, &entry.manifest()?) {
-                Ok(manifest) => manifest,
+            let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
+                Ok(record) => (record.state, commits.rolled_back(op, &record)),
+                Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
                     None => continue,
@@ -729,7 +750,7 @@ mod tests {
     const LOCK_TIMEOUT: Duration = Duration::from_millis(20);
 
     fn mount(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     fn state_dir() -> AbsPath {
@@ -1682,3 +1703,7 @@ mod durability_tests {
         assert!(CtxStore(&ctx).entries(&volume).unwrap().is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

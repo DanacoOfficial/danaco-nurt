@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::yaml::style
+// Responsibility:   Layout of new block content: indentation step, placement of lists under keys, line break, and the columns where new content of a node starts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Layout of new block content: indentation step, placement of lists under
 //! keys, line break, and the columns where new content of a node starts.
 //!
@@ -222,3 +230,7 @@ mod tests {
         assert_eq!(separated(&model, 0, "v".to_owned()), "v");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

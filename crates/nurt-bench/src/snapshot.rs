@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bench::snapshot
+// Responsibility:   File trees in the format `nurt-fs-snapshot/1`.
+// Dependencies:     base64, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! File trees in the format `nurt-fs-snapshot/1`.
 //!
 //! A snapshot lists entries with paths relative to a root directory. The
@@ -592,3 +600,7 @@ mod tests {
         assert!(inline.contains_key("empty"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

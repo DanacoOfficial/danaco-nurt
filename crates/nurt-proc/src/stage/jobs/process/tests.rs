@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::jobs::process::tests
+// Responsibility:   Tests of `stop`, `suspend` and `resume` on process records, with child processes of the test program.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of `stop`, `suspend` and `resume` on process records, with child
 //! processes of the test program.
 
@@ -55,7 +63,6 @@ fn execute(kind: Kind, processes: Vec<Process>, extra: Vec<(&str, Value)>) -> Re
     })
 }
 
-#[cfg(unix)]
 fn word(value: &str) -> Value {
     Value::Enum(value.to_owned())
 }
@@ -295,3 +302,56 @@ mod unix {
         assert_eq!(error.code(), ErrorCode::Unsupported);
     }
 }
+
+#[cfg(windows)]
+mod windows {
+    use std::process::{Command, Stdio};
+    use std::thread::sleep;
+    use std::time::{Duration, Instant as Clock};
+
+    use nurt_contracts::value::Instant;
+
+    use super::*;
+    use crate::spawn::testing::fixture_path;
+    use crate::stage::jobs::process::system::Handle;
+
+    #[test]
+    fn suspend_holds_the_process_and_resume_lets_it_end() {
+        let mut child = Command::new(fixture_path())
+            .args(["exit-with", "0", "1500"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        let handle = Handle::open(pid).unwrap().unwrap();
+        let record = Process {
+            pid: u64::from(pid),
+            name: "proc_fixture".to_owned(),
+            started: Instant::from_unix_nanos(handle.started().unwrap_or(0)),
+            ..Process::default()
+        };
+        let suspended = execute(Kind::Suspend, vec![record.clone()], Vec::new()).unwrap();
+        assert_eq!(suspended[0].action.as_deref(), Some("suspend"));
+        assert_eq!(suspended[0].after, Some(word("stopped")));
+        // The program ends by itself after 1.5 seconds unless it is held.
+        sleep(Duration::from_secs(3));
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "the suspended process ended"
+        );
+        let resumed = execute(Kind::Resume, vec![record], Vec::new()).unwrap();
+        assert_eq!(resumed[0].action.as_deref(), Some("resume"));
+        assert_eq!(resumed[0].after, Some(word("running")));
+        let deadline = Clock::now() + Duration::from_secs(10);
+        while child.try_wait().unwrap().is_none() {
+            assert!(Clock::now() < deadline, "the resumed process did not end");
+            sleep(Duration::from_millis(50));
+        }
+    }
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ext::wire
+// Responsibility:   JSON form of records and arguments passed to extensions.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON form of records and arguments passed to extensions.
 //!
 //! A record is the object `{"kind": "<record kind>", "fields": {...}}` with
@@ -156,3 +164,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/go/request.go
+// Responsibility:   Source file bindings/go/request.go.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 package nurt
 
@@ -72,6 +79,10 @@ type Request struct {
 	Cursor string `json:"cursor,omitempty"`
 	// Accept selects a candidate of an earlier E_AMBIGUOUS error.
 	Accept string `json:"accept,omitempty"`
+	// Params holds the values of the parameters of a script that starts with
+	// `params { ... }`, by name: typed JSON, or text that the declared type
+	// reads.
+	Params map[string]any `json:"params,omitempty"`
 	// Options are the call options.
 	Options Options `json:"options"`
 
@@ -79,6 +90,22 @@ type Request struct {
 	// error of the response as a *LanguageError, together with the response.
 	FailOnLanguageError bool `json:"-"`
 }
+
+// Privilege selects the rights with which an operation runs.
+type Privilege string
+
+// Privilege values.
+const (
+	// PrivilegeAccount runs the operation with the rights of the account; it
+	// is the default.
+	PrivilegeAccount Privilege = "account"
+	// PrivilegeElevated runs the operation with the rights of the
+	// administrator.
+	PrivilegeElevated Privilege = "elevated"
+	// PrivilegeAuto runs the operation with the rights of the account and
+	// repeats it once, elevated, after E_PERMISSION or E_PRIVILEGE.
+	PrivilegeAuto Privilege = "auto"
+)
 
 // Options are the call options shared by every command. A zero field takes
 // its value from the configuration or the built-in default.
@@ -117,6 +144,12 @@ type Options struct {
 	Language string `json:"language,omitempty"`
 	// Script runs several pipelines, each as its own operation.
 	Script bool `json:"script,omitempty"`
+	// Privilege selects the rights of the operation; empty keeps the
+	// configured default, which is PrivilegeAccount.
+	Privilege Privilege `json:"privilege,omitempty"`
+	// AsUser is the account that runs the operation (Linux and macOS); it
+	// implies elevation for the switch.
+	AsUser string `json:"as_user,omitempty"`
 }
 
 // MarshalJSON encodes the options, writing Timeout in the duration syntax
@@ -167,3 +200,7 @@ type DescribeQuery struct {
 	// Language is "en" or "pl"; empty uses the language of the client.
 	Language string `json:"language,omitempty"`
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

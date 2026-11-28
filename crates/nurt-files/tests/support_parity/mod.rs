@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/support_parity/mod.rs
+// Responsibility:   Data model and validation of the parity scenario files.
+// Dependencies:     serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Data model and validation of the parity scenario files.
 
 // Each test target links a different subset of the model.
@@ -794,3 +802,7 @@ fn parse_size(text: &str) -> Option<(u32, u32)> {
     let (width, height) = text.split_once('x')?;
     Some((width.parse().ok()?, height.parse().ok()?))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::revwalk::fixture
+// Responsibility:   Repositories with exact histories for tests, written object by object without an external program, and an execution context of test doubles.
+// Dependencies:     gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Repositories with exact histories for tests, written object by object
 //! without an external program, and an execution context of test doubles.
 
@@ -50,7 +58,7 @@ impl Fixture {
     /// An empty repository.
     pub(crate) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = crate::testutil::init_isolated(dir.path()).unwrap();
         std::fs::write(dir.path().join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
         let root = gix::path::realpath(dir.path()).unwrap();
         Self {
@@ -215,7 +223,7 @@ impl Fixture {
     }
 
     fn head_commit(&self) -> Option<ObjectId> {
-        let repo = gix::open(self.dir.path()).ok()?;
+        let repo = crate::testutil::open_isolated(self.dir.path()).ok()?;
         repo.head_id().ok().map(gix::Id::detach)
     }
 
@@ -523,3 +531,7 @@ impl CodeService for LineCode {
         unsupported()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

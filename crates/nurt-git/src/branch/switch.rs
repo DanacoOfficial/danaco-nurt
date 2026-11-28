@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::branch::switch
+// Responsibility:   Creating and checking out a branch with `git.branch create: … switch: true`.
+// Dependencies:     bstr, gix_hash, gix_ref, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Creating and checking out a branch with `git.branch create: … switch: true`.
 
 use std::path::Path;
@@ -199,7 +207,7 @@ mod tests {
         let action_of = |suffix: &str| {
             changes
                 .iter()
-                .find(|change| change.path.as_str().ends_with(suffix))
+                .find(|change| change.path.as_str().replace('\\', "/").ends_with(suffix))
                 .map(|change| change.action)
         };
         assert_eq!(action_of("repo/p"), Some(ChangeAction::Modify));
@@ -213,3 +221,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

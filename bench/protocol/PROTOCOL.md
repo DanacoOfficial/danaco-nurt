@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bench/protocol/PROTOCOL.md -->
+<!-- Responsibility:   Documents nurt-bench protocol. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt-bench protocol
 
 Protocol version 1.0.0. This document defines how `nurt-bench` compares
@@ -352,3 +360,7 @@ The protocol version is `version` of [`protocol.toml`](protocol.toml) and is
 recorded in every run. A change of the system message, of a tool definition,
 of the limits or of the analysis methods changes the version; results of
 different versions are not pooled.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/search.md -->
+<!-- Responsibility:   Documents search. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # search
 
@@ -202,6 +209,14 @@ List the files with matches, the files with the most matches first.
 search /\brun\b|\bmain\b/ "." output: files sort: count
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 212  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -222,3 +237,7 @@ search /\brun\b|\bmain\b/ "." output: files sort: count
 ## Related
 
 `find`, `read`, `lines`, `replace`, `help skill: "text-editing"`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

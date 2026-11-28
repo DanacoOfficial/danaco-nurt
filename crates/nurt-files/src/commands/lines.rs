@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::lines
+// Responsibility:   The `lines` command: the lines of a file, or of input content, as `line` records.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `lines` command: the lines of a file, or of input content, as `line`
 //! records.
 //!
@@ -342,7 +350,11 @@ struct FileLines {
 
 impl FileLines {
     fn from_file(ctx: &ExecCtx, file: TextFile, range: Range) -> Self {
-        let etag = record_etag(ctx, &file.path, file.etag(), None);
+        let mut tag = file.meta.etag();
+        if ctx.demand().etag {
+            tag.hash = Some(file.hash);
+        }
+        let etag = etag_text(&tag);
         Self {
             cr_only: splits_at_cr(&file.text),
             offsets: OffsetMapper::for_file(&file.encoding),
@@ -877,3 +889,7 @@ mod tests {
         assert_eq!(stages().len(), 1);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::runner
+// Responsibility:   Runner of scenarios: preparation, the two sides, comparison, undo and the summary of a run.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Runner of scenarios: preparation, the two sides, comparison, undo and the
 //! summary of a run.
 //!
@@ -29,7 +37,7 @@ use crate::compare::{DifferenceReport, Sides, compare};
 use crate::corpus::{self, Corpus, REPO_DIR};
 use crate::error::{DifftestError, Result, io_error, scenario_error};
 use crate::fsutil::{self, Entry};
-use crate::git::{GitEnv, GitProgram, expect_exit, join_args};
+use crate::git::{GLOBAL_CONFIG, GitEnv, GitProgram, expect_exit, join_args};
 use crate::journal::{self, RecordingJournal, UndoResult};
 use crate::normalize::{Normalizer, RepoState, SERVER_PLACEHOLDER};
 use crate::process::ScenarioProcessHost;
@@ -135,7 +143,7 @@ impl CaseDirs {
             std::fs::create_dir_all(dir).map_err(io_error("create directory", dir))?;
         }
         let config = dirs.home.join(".gitconfig");
-        std::fs::write(&config, b"").map_err(io_error("write", &config))?;
+        std::fs::write(&config, GLOBAL_CONFIG).map_err(io_error("write", &config))?;
         Ok(dirs)
     }
 }
@@ -220,6 +228,8 @@ fn move_addresses(side: &Path, base: &Path, from: &str, to: &str) -> Result<()> 
         }
         if LOCATION_FILES.contains(&name) {
             moved = moved.replace(base.as_ref(), side_dir.as_ref());
+            // Git for Windows records the locations with forward slashes.
+            moved = moved.replace(&base.replace('\\', "/"), &side_dir.replace('\\', "/"));
         }
         if moved != text {
             let path = side.join(&key);
@@ -1082,3 +1092,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

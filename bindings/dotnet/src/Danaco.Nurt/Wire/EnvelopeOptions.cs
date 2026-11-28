@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/Wire/EnvelopeOptions.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/Wire/EnvelopeOptions.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -50,4 +57,14 @@ internal sealed class EnvelopeOptions
 
     [JsonPropertyName("script")]
     public bool? Script { get; set; }
+
+    [JsonPropertyName("privilege")]
+    public string? Privilege { get; set; }
+
+    [JsonPropertyName("as_user")]
+    public string? AsUser { get; set; }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

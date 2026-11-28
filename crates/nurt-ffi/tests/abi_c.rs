@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/abi_c.rs
+// Responsibility:   Interface tests in C: a test program is compiled with `clang` against `nurt.h`, linked with the shared library and run.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface tests in C: `tests/abi/c/abi_test.c` (feature `stub`) or
 //! `tests/abi/c/engine_test.c` (engine of `nurt-core`) is compiled with
 //! `clang` against `nurt.h`, linked with the shared library and run. The
@@ -93,3 +101,7 @@ fn c_program_finds_the_library_by_its_soname_with_an_empty_environment() {
         nurt_ffi::NURT_ABI_VERSION.to_string()
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::send_pack::refs
+// Responsibility:   Reference updates with reflog entries, planned as journaled file changes.
+// Dependencies:     bstr, gix, nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reference updates with reflog entries, planned as journaled file changes.
 //!
 //! Loose reference files, `packed-refs` and the files under `logs/` are
@@ -537,17 +545,21 @@ mod tests {
     #[test]
     fn reads_the_log_policy_from_configuration() {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = crate::send_pack::testing::init_isolated(dir.path(), false);
         assert_eq!(LogPolicy::of(&repo), LogPolicy::Standard);
-        let bare = gix::init_bare(dir.path().join("bare.git")).unwrap();
+        let bare = crate::send_pack::testing::init_isolated(&dir.path().join("bare.git"), true);
         assert_eq!(LogPolicy::of(&bare), LogPolicy::Existing);
         let config = dir.path().join(".git").join("config");
         let mut text = std::fs::read_to_string(&config).unwrap();
         text.push_str("[core]\n\tlogAllRefUpdates = always\n");
         std::fs::write(&config, text).unwrap();
-        let repo = gix::open(dir.path()).unwrap();
+        let repo = crate::send_pack::testing::open_isolated(dir.path());
         assert_eq!(LogPolicy::of(&repo), LogPolicy::Always);
         assert!(LogPolicy::Always.creates_log_for(b"refs/tags/v1"));
         assert!(!LogPolicy::Standard.creates_log_for(b"refs/tags/v1"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

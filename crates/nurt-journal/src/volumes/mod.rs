@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::volumes
+// Responsibility:   Journal directories of volumes: eligibility, anchor selection and the registry of the account.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Journal directories of volumes: eligibility, anchor selection and the
 //! registry of the account.
 //!
@@ -343,9 +351,14 @@ mod tests {
         let mut config = JournalConfig::default();
         let mut settings = VolumeOverride::default();
         settings.enabled = Some(true);
-        config.volume.insert("/tmp".to_owned(), settings);
+        config
+            .volume
+            .insert(nurt_testkit::paths::abs("/tmp"), settings);
         let resolved = resolve(&fs, &config, &registry, &abs("/tmp/out.o")).unwrap();
-        assert_eq!(journal_dir(&resolved), format!("/tmp/{}", expected_name()));
+        assert_eq!(
+            journal_dir(&resolved),
+            nurt_testkit::paths::abs(&format!("/tmp/{}", expected_name()))
+        );
     }
 
     #[test]
@@ -488,7 +501,10 @@ mod tests {
         )
         .unwrap();
         let dir = journal_dir(&resolved);
-        assert_eq!(dir, format!("/{}", expected_name()));
+        assert_eq!(
+            dir,
+            nurt_testkit::paths::abs(&format!("/{}", expected_name()))
+        );
 
         let scope = maintenance_scope();
         let kept = abs(&format!("{dir}/ops/tool"));
@@ -561,3 +577,7 @@ mod tests {
         assert!(journals.active().is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

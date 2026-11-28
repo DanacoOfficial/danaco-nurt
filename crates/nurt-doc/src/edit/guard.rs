@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::edit::guard
+// Responsibility:   Guards that every change of a document passes before it is accepted.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Guards that every change of a document passes before it is accepted.
 //!
 //! A format describes a change as an [`EditPlan`]: the spans of the nodes it
@@ -249,7 +257,7 @@ impl<'s> Expectation<'s> {
     ///
     /// Fails with `E_KEY_CONFLICT` or `E_KEY_NOT_FOUND` when an operation
     /// does not apply to the value, as described for
-    /// [`apply_set`](crate::value::apply_set).
+    /// [`crate::value::apply_set`].
     pub fn expected(&self) -> Result<Vec<Value>> {
         let mut documents = self.documents.clone();
         for operation in &self.operations {
@@ -653,3 +661,7 @@ mod tests {
         assert_eq!(shorter.found.as_deref(), Some(DOC_ROUND_TRIP_LOSS));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

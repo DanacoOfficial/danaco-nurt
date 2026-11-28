@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::pull::probe
+// Responsibility:   Read-only view of a repository for the checks of a pull.
+// Dependencies:     gix, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Read-only view of a repository for the checks of a pull.
 //!
 //! The repository is opened through [`GitRepo`]: no program runs, and the
@@ -426,7 +434,7 @@ pub(crate) mod tests {
     impl Fixture {
         pub(crate) fn new() -> Self {
             let dir = tempfile::tempdir().unwrap();
-            let repo = gix::init(dir.path()).unwrap();
+            let repo = nurt_git::testutil::init_isolated(dir.path()).unwrap();
             fs::write(repo.git_dir().join("HEAD"), "ref: refs/heads/main\n").unwrap();
             Self {
                 dir,
@@ -562,7 +570,7 @@ pub(crate) mod tests {
     #[test]
     fn rejects_a_bare_repository() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        nurt_git::testutil::init_bare_isolated(dir.path()).unwrap();
         let error = open(dir.path(), &test_ctx()).err().unwrap();
         assert_eq!(error.code, ErrorCode::GitUnsupported);
         assert_eq!(error.problem.as_deref(), Some("bare_repository"));
@@ -676,7 +684,8 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[cfg(unix)]
+    // APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[allow(
         clippy::disallowed_methods,
         reason = "the fixture adds an entry with a raw path by writing the index directly, outside a transaction"
@@ -755,3 +764,7 @@ pub(crate) mod tests {
         assert_eq!(repo.fork_point(tracking, unrelated).unwrap(), None);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

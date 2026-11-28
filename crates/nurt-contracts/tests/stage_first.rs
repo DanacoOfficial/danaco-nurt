@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/stage_first.rs
+// Responsibility:   A sample implementation of `first` runs on an in-memory record stream with an execution context composed of test doubles.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! A sample implementation of `first` runs on an in-memory record stream with
 //! an execution context composed of test doubles.
@@ -597,3 +604,7 @@ fn interfaces_are_thread_safe_objects() {
     assert_send::<StageInput<'static>>();
     assert_send::<StageOutput<'static>>();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bench/protocol/containers/README.md -->
+<!-- Responsibility:   Documents Container images of nurt-bench. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Container images of nurt-bench
 
 | Image | File | Tasks | Shell |
@@ -31,3 +39,7 @@ docker run --rm -e OPENAI_API_KEY -v /home/user/runs:/opt/nurt-bench/runs nurt-b
 
 A published series names the digest of the image (`docker inspect --format
 '{{.Id}}' nurt-bench-linux`).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

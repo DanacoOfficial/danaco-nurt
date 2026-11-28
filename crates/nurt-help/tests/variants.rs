@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-help/tests/variants.rs
+// Responsibility:   Examples of the help and the description layers in the syntax variants.
+// Dependencies:     nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of the help and the description layers in the syntax variants.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
@@ -46,12 +54,28 @@ fn block_after(text: &str, start: &str) -> String {
         .join("\n")
 }
 
+/// Whether a line opens a construct (`steps {`, `when … {`, `params {`): the
+/// conversion of variants covers pipelines, and the constructs have their own
+/// tests of the language.
+fn opens_construct(line: &str) -> bool {
+    let first = line.split_whitespace().next().unwrap_or_default();
+    line.trim_end().ends_with('{')
+        && matches!(
+            first,
+            "steps" | "when" | "each" | "while" | "repeat" | "define" | "params"
+        )
+}
+
 fn guide_programs(text: &str) -> Vec<String> {
     let mut programs = Vec::new();
     let mut current: Option<Vec<&str>> = None;
     for line in text.lines() {
         match current.take() {
-            Some(program) if line.starts_with("```") => programs.push(program.join("\n")),
+            Some(program) if line.starts_with("```") => {
+                if !program.iter().any(|line| opens_construct(line)) {
+                    programs.push(program.join("\n"));
+                }
+            }
             Some(mut program) => {
                 program.push(line);
                 current = Some(program);
@@ -264,3 +288,7 @@ fn overview_and_guides_follow_the_variant() {
             .contains("find(\"/srv/app\", glob: \"**/*.tmp\")\n|> remove()")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

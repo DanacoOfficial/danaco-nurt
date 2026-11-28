@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::clone
+// Responsibility:   The `git.clone` command.
+// Dependencies:     gix, nurt_contracts, nurt_git_transport, stage
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `git.clone` command.
 //!
 //! The new directory is one journal target of kind `CreateTree`: the
@@ -182,6 +190,17 @@ fn ssh_known_hosts_file(request: &CloneRequest, ctx: &ExecCtx) -> Option<PathBuf
     nurt_git_transport::ssh::SshOptions::from_ctx(ctx).nurt_known_hosts
 }
 
+/// Whether the system and global configuration enable symbolic links
+/// (`core.symlinks`); an unreadable configuration counts as not enabling
+/// them, the default of `git` for Windows.
+fn links_enabled(ctx: &ExecCtx, git_dir: &Path) -> bool {
+    let env = crate::repo::env::GitEnv::from_host(ctx.host());
+    crate::repo::config::load_outer_layers(&env, git_dir, None)
+        .ok()
+        .and_then(|config| config.boolean("core.symlinks").ok().flatten())
+        .unwrap_or(false)
+}
+
 /// Writes the repository into the created directory.
 fn populate(
     request: &CloneRequest,
@@ -202,6 +221,7 @@ fn populate(
         request.to.join(".git")
     };
     let mut layout = Layout::new(&git_dir, request.bare, stored);
+    layout.set_links(links_enabled(ctx, &git_dir));
     layout.write_config(None, None)?;
     let repo = GitRepo::open(&request.to, ctx)?;
     let network = Network::new(
@@ -418,3 +438,7 @@ fn ref_updates(refs: &[layout::Packed], head: &layout::HeadTarget) -> Vec<GitRef
     }
     updates
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

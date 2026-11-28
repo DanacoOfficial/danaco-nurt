@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           crates/nurt-correct/tables/habits_bash.toml
+# Responsibility:   Configuration or catalog data of crates/nurt-correct/tables/habits_bash.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 format = "nurt-correction-table/1"
 table = "habits_bash"
 summary = "Words that start a command written in bash notation."
@@ -11,7 +19,7 @@ summary = "Words that start a command written in bash notation."
 words = [
   "cd", "ls", "cat", "grep", "sed", "awk", "rm", "mv", "cp", "mkdir", "touch",
   "chmod", "chown", "ln", "find", "xargs", "head", "tail", "echo", "printf",
-  "tee", "export", "sudo", "for", "while", "until", "if", "case", "function",
+  "tee", "export", "sudo", "doas", "run0", "su", "for", "while", "until", "if", "case", "function",
   "test", "[", "wc", "curl", "wget", "tar", "unzip", "zip", "gzip", "gunzip",
   "ps", "df", "ss", "netstat", "lsof", "env", "printenv", "uname", "whoami",
   "hostname", "uptime", "which", "command", "kill", "diff", "sort", "uniq",
@@ -19,12 +27,18 @@ words = [
   "iconv", "dos2unix", "basename", "dirname", "git", "crontab", "at",
   "systemctl", "service", "apt", "apt-get", "brew", "date", "sleep", "time",
   "timeout", "nohup",
+  "useradd", "usermod", "userdel", "groupadd", "groupdel", "gpasswd", "passwd", "mount", "umount", "sysctl", "modprobe", "rmmod", "ufw", "firewall-cmd", "nft", "iptables", "ip", "resolvectl", "timedatectl", "shutdown", "reboot", "poweroff", "halt", "parted", "mknod", "mkfs", "mkfs.ext2", "mkfs.ext3", "mkfs.ext4", "mkfs.xfs", "mkfs.btrfs", "mkfs.vfat", "mkfs.fat", "mkfs.ntfs", "mkfs.f2fs", "mkfifo", "sqlite3",
 ]
 
 # Shell keywords and builtins without a Nurt meaning: a statement starting
 # with one of them is a habit even without other shell features.
 shell_only = [
-  "cd", "export", "sudo", "for", "while", "until", "if", "case", "function",
+  "cd", "export", "sudo", "doas", "run0", "su", "for", "while", "until", "if", "case", "function",
   "test", "[", "xargs", "nohup", "timeout", "time", "crontab", "systemctl",
   "service", "apt", "apt-get", "brew",
+  "useradd", "usermod", "userdel", "groupadd", "groupdel", "gpasswd", "passwd", "umount", "sysctl", "modprobe", "rmmod", "ufw", "firewall-cmd", "nft", "iptables", "ip", "resolvectl", "timedatectl", "shutdown", "reboot", "poweroff", "halt", "parted", "mknod", "mkfs", "mkfs.ext2", "mkfs.ext3", "mkfs.ext4", "mkfs.xfs", "mkfs.btrfs", "mkfs.vfat", "mkfs.fat", "mkfs.ntfs", "mkfs.f2fs", "mkfifo", "sqlite3",
 ]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           CHANGELOG.md -->
+<!-- Responsibility:   Documents Changelog. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Changelog
 
@@ -13,7 +20,136 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-11-26
+## [0.1.1] - 2026-11-27
+
+### Changed
+
+- The preview of `sql` lists the effects of `load_extension` and of the pragmas
+  `temp_store_directory` and `data_store_directory` as irreversible entries.
+
+### Added
+
+- `create` makes named pipes and device nodes on Linux and macOS: `type: fifo
+  mode: "0660"` and `type: device kind: char|block major: <int> minor: <int>`
+  (a device node needs `privilege: elevated`). On Windows both fail with
+  `E_OS_ONLY`. Both are journaled as created files, and `undo` removes them.
+  `info` and `list` report the types `fifo` and `device`; a device node has
+  the fields `major` and `minor`.
+- Administration of the firewall, the network and the clock (group `administration`,
+  language brief section 10): `firewall.rules`, `firewall.allow`,
+  `firewall.deny` and `firewall.remove` on nftables, firewalld and ufw (Linux),
+  pf (macOS) and the Windows Defender Firewall; `network.route_add`,
+  `network.route_remove` and `network.dns_set` (systemd-resolved,
+  `/etc/resolv.conf`, `networksetup`, the Windows interface DNS);
+  `clock.timezone_set`, `clock.ntp` and `clock.set`. Each takes
+  `privilege: elevated` and reports one `state` change of the target
+  `firewall:<rule>`, `route:<destination>`, `dns:<interface>`, `clock:timezone`
+  or `clock:ntp` with the value before and after; `undo` runs the inverse
+  derived from those values (`firewall.remove` for `firewall.allow`, the
+  previous zone, the previous servers, and so on). `clock.set` is irreversible.
+  A change that the system already holds is reported as `unchanged`.
+- `windows.cim` calls methods: `invoke: "<method>"` with `where` (the selected
+  instances) or without it (a static method of the class) and `arguments`
+  (text, int and bool values). A method with a documented opposite
+  (`StartService` and `StopService`, `Enable` and `Disable`, `Pause` and
+  `Resume`) is undone by the opposite call; any other call is irreversible.
+- Administration commands for accounts, groups, mounts, the kernel, power and
+  disks: `accounts.create`, `accounts.modify`, `accounts.remove` (`keep_home`),
+  `accounts.password` (the value is a secret and goes to standard input),
+  `groups.create`, `groups.remove`, `groups.add_member`,
+  `groups.remove_member`, `mount` and `unmount` (`persistent` edits
+  `/etc/fstab` through the journal), `sysctl.set` (`persistent` writes
+  `/etc/sysctl.d/90-nurt.conf`), `modules.load`, `modules.unload`,
+  `power.restart`, `power.shutdown` (`at`, `delay`, `message`),
+  `power.cancel`, `disks.partition` and `disks.format`. Every command reads
+  the state it changes, reports `unchanged` when nothing is to do, records the
+  state before and after, and accepts `privilege`. `undo` runs the inverse
+  command; a password, an immediate restart or shutdown, a cancelled schedule,
+  a partition change and a format are irreversible, and the preview of a disk
+  change lists the partitions, file systems, mount points and the size of the
+  data that is lost.
+
+- Translation of bash into the constructs of the language (language brief,
+  section 11): `if`, `elif`, `else`, `case`, `[ ]`, `[[ ]]` and `test` become
+  `when`; `for`, `while` and `until` become `each`, `while` and `repeat until`;
+  functions become `define` and their calls calls; `$1`, `$2`, `$@`, `shift`
+  and `getopts` of a script become `params`; `A && B && C` with changes becomes
+  `steps` (in a single call, `E_ONE_EFFECT` carries the `steps` program as its
+  first candidate, also for PowerShell); `test ... || CMD` becomes `when not`.
+  The translation of the administration programs `mkfifo`, `mknod`, `useradd`,
+  `usermod`, `userdel`, `groupadd`, `groupdel`, `gpasswd`, `passwd`, `mount`,
+  `umount`, `sysctl -w`, `modprobe`, `rmmod`, `ufw`, `firewall-cmd`, `nft`,
+  `iptables`, `ip route`, `resolvectl dns`, `timedatectl`, `date -s`,
+  `shutdown`, `reboot`, `poweroff`, `parted`, `mkfs.*` and `sqlite3` writes the
+  native commands (rules `B41` to `B44`). `nurt migrate` translates these
+  structures, declares the `params` block first and remembers the functions of
+  a script. Only `eval`, subshells, groups, the arithmetic `for`, `select`,
+  interactive input and here-documents other than `cat > file` stay without a
+  translation (`docs/guides/bash-migration.md`).
+
+### Changed
+
+- `sql` has no refusals. A statement that changes anything opens the database
+  for writing and journals the file and its `-wal`, `-shm` and `-journal` files
+  first; `write` is optional, and `write: false` keeps the call read-only.
+  `BEGIN`, `COMMIT` and `END` merge with the transaction of the call,
+  `ROLLBACK` ends it with `E_ROLLED_BACK`, `ATTACH` and `DETACH` are allowed
+  with every attached file journaled before the first change, `VACUUM INTO` is
+  journaled as a created file, `VACUUM` runs after the other statements,
+  `load_extension` is allowed (its effects are reported as unknown and
+  irreversible) and the pragmas `temp_store_directory` and
+  `data_store_directory` are allowed (reported as effects on the whole Nurt
+  process, which `undo` does not reset). The file of `ATTACH` and `VACUUM INTO`
+  is resolved like every path argument (`E_PATH_RELATIVE` without `base`),
+  `file:` URIs are read to their path, the call turns the defensive mode of
+  SQLite off when it writes, a preview lists the files of `ATTACH` and
+  `VACUUM INTO`, the other database files appear as changes of the report, and
+  the kind of each statement is read from its own text.
+- Control constructs (language brief, sections 1 to 6 and 8): `when` with
+  `otherwise when` and `otherwise`; the loops `each`, `repeat until` and
+  `while` with `break`, `continue`, `parallel`, `atomic: false`, `limit` and
+  the configuration keys `loop.max_iterations` and `loop.max_time`; `steps`
+  for several changes in one call; functions with `define` and the key
+  `function.max_depth`; script parameters with `params`, the command
+  `nurt run <file> name: value` with `--help`, and the member `params` of the
+  request. Each construct is one journal entry, all or nothing, previewed
+  without a change and checked before any effect; the report lists its
+  `parts`. A parameter of type `bool` written without a value is `true`.
+- Syntax tree version 1.1 (`nurt-ast/1` and `nurt-bound/1`): the statements
+  `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`
+  and `params` and the pipeline head `call`. Documents of version 1.0 are read
+  unchanged. The grammar is in `spec/grammar.md`.
+- Changes of the API of `nurt-syntax`: `lex::Checkpoint` is no longer `Copy`
+  (it keeps the open blocks of the lexer); `MutationTx` gains the methods
+  `allow_incremental`, `savepoint`, `release_savepoint` and
+  `rollback_to_savepoint`, with defaults that keep the old behaviour; `Request`
+  gains the member `params`; `Report` gains `parts` and `parts_total`.
+- `MutationTx::allow_incremental`: a transaction of the journal may preserve
+  further targets after its first change, so that a construct is one entry.
+
+### Added
+
+- Privilege elevation: the call parameters `privilege` (`account`, `elevated`,
+  `auto`) and `as_user`, written on a stage, given in the request or on the
+  command line (`--privilege`, `--as-user`); the elevation backends `self`,
+  `sudo`, `doas` and `run0` (the backend `broker` is reported as
+  `not_installed` until the service `nurt-elevation`); the configuration
+  section `[privilege]`; elevated entries in the journal of the account, with
+  the same numbering, whose copies the account can access, written by the
+  elevated process with the rights of the account on Linux and macOS;
+  `undo N` and `redo N` of an elevated entry through the same backend, while
+  `undo` and `redo` without a number that would restore one end with
+  `E_PRIVILEGE` and the next step `undo N privilege: elevated`; and undo of
+  elevated changes and of changes to packages and services by inverse
+  operations.
+
+### Changed
+
+- `sudo`, `doas` and `run0` in bash lines are translated into `privilege:
+  elevated` or `as_user` instead of being rejected; `sudo -i` and `su` end with
+  `E_AMBIGUOUS`.
+- `E_PRIVILEGE` means that no elevation backend ran the operation or that the
+  system denied the elevation; it carries `backend` and `next_steps`.
 
 ### Security
 
@@ -41,8 +177,39 @@ their own version numbers, described in the specification.
   `deny.toml` records the reason.
 - The lock files of the fuzz targets are regenerated.
 
+### Added
+
+- The command `next` and the field `continuation` of every shortened response:
+  a response that leaves lines, records or the end of long
+  lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`,
+  `cut_lines`) and its text ends with `more: next`; `next`, `next c3`,
+  `next 200`, `next c3 200`, `next all` and `next full` return the next part
+  from the output file of `run`, from the kept result of a reading command or
+  from the cursor of `logs`, without running the program again. The keys
+  `continuation.max_age` (`1h`), `continuation.max_count` (`50`) and
+  `continuation.max_size` (`256mib`) bound the kept results; an expired
+  continuation ends with the new error `E_CONTINUATION_EXPIRED`. The record
+  `exec` no longer has the field `read_hint`; `continuation` replaces it.
+  The default sizes of the responses are unchanged. A continuation belongs to
+  the session that made it and is allocated under a lock file, so that several
+  processes can share one state directory. When one program has several stages
+  that cut their output, the first one in program order is continued.
+
 ### Fixed
 
+- The bindings for Python, Go, Node, Java and .NET read the answers of the
+  engine in the shape it returns: `describe` returns its text from the field
+  `text` of the description, `catalog` sends the chosen group or command as
+  `what`, `correct` returns the program that ran, and a language error of
+  `describe`, `help`, `print` or `schema` ends in a language error of the
+  binding, not in an empty text or a protocol error. Each binding has tests
+  that run against the engine when `NURT_TEST_EXECUTABLE` names it.
+- The request types of the Go, .NET and Java bindings carry `params`,
+  `privilege` and `as_user`, and the test of the Python binding expects the
+  tree format 1.1 that the engine reports.
+- The tests of the journal that undo operations create their directories on
+  the disk of the build and no longer end with `E_JOURNAL_NOOP` when
+  `TMPDIR` is a tmpfs, where the journal of a volume is inactive.
 - The code review of 0.1.0 corrected the defects found in every crate of the
   workspace, the bindings, the packaging and the documentation; the main ones:
   - requests of `nurt serve` resolve relative paths against `options.base`;
@@ -62,8 +229,50 @@ their own version numbers, described in the specification.
   - `nurt schema tool` prints the tool definition for the platforms of the
     integrators, as documented;
   - `service install` writes the user unit where the service manager reads it.
+- Defects found by running the whole test suite on Windows and on real Linux
+  volumes:
+  - a file of the lower layer of an overlay belongs to the volume of the
+    overlay, so that the journal preserves it on the right volume;
+  - an entry preserved by copy keeps its permissions and times;
+  - `clone` on Windows writes the configuration as Git for Windows does (line
+    ends, `core.symlinks` from the system configuration) and stores a local
+    URL with forward slashes;
+  - credential helpers, `gpg.ssh.allowedSignersFile` and GnuPG of Git for
+    Windows (an MSYS program, which gets `/c/…` paths) work on Windows;
+  - `push` from a second worktree on Windows finds the common directory of the
+    repository;
+  - the change report of a command that writes through the journal names the
+    kind of every changed entry on Windows as well.
+  - a cancelled `sql` change stops also when the cancellation comes between
+    two statements of its transaction; before, such a cancellation was lost and
+    a statement without end kept running.
+  - concurrent refreshes of one symbol index on Windows keep the rule "the
+    last rename wins"; before, a refresh could fail to store the index while
+    another process replaced the same file.
+  - change detection by scan finds a file rewritten with the same size within
+    the timestamp granularity of the file system (ZFS, ext4 without multigrain
+    timestamps, FAT 2 s, HFS+ 1 s) and restores it on undo: a file modified
+    less than 3 s before the start of the first scan gets its content hash
+    computed in both scans, as the racy-entry rule of the Git index does. Only
+    files up to `run.preimage_copy_max` (64 MiB when unlimited) are hashed for
+    this; a larger file is still compared by metadata, so a same-size rewrite
+    of it within the timestamp granularity stays undetected.
+  - an edit, convert or compress after a read, and an `if_match` with the etag
+    of a read, refuse with `E_STALE` a file that another program rewrote with
+    the same size within the timestamp granularity of the file system: the
+    etag (`etag`) of a file whose content was read carries the SHA-256 of the
+    bytes returned, and the journal compares it with the current content. Etags
+    made from metadata only (`list`, `find`, `info`, git apply) are checked by
+    metadata as before. The etag is opaque, and its form depends on the
+    operation that made it (with or without the hash, 72 characters longer).
+    Etags without the hash are still accepted.
 
 ### Changed
+
+- The full-scale undo test of one million removed, moved, replaced or
+  extracted files allows an undo of up to six times the duration of the
+  operation (three times before); the undo of one million removed files takes
+  5.3 times the removal.
 
 - `run.spool_max` defaults to `1gib` instead of `unlimited`: a program that
   writes without end no longer fills the disk; output beyond the limit is
@@ -84,7 +293,7 @@ their own version numbers, described in the specification.
   fits in `max_bytes` (new parameter, key `output.max_bytes`, 4096 bytes, `0`
   is no limit), filled with the errors found, the end of standard error, the
   end of standard output and the beginning; a line longer than 400 characters
-  is cut and ends with `… [+N znaków]`. `dedupe` is on by default and also
+  is cut and ends with `… [+N characters]`. `dedupe` is on by default and also
   collapses lines that differ only in numbers, versions or the names after
   `Compiling` and similar words. After exit code 0, `show: auto` returns the
   last 5 lines and the field `digest` instead of the first 20 and last 40
@@ -102,14 +311,18 @@ their own version numbers, described in the specification.
 - `nurt-service` compiles for the target `x86_64-unknown-linux-musl`
   (`sched_param` and `pthread_t` differ from glibc), and the release procedure
   builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
+- The start banner of an interactive session shows the mark of Danaco Nurt in
+  half blocks (ASCII on terminals without UTF-8) in its two colours, instead of
+  the name in letters.
+- The colours of the mark in the terminal follow the production identity:
+  silver `#DDE1E6` (palette 254) and gold `#C9A15A` (palette 179).
+- The Windows executable and the documentation site use the new icon and
+  favicon.
 
 ### Known limitations
 
-- The archives are built for x86-64: Linux glibc, Linux musl (static, without
-  the library) and Windows MSVC. The code for macOS passes `cargo check` for
-  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run and no
-  macOS archive is built; no aarch64 archive is built.
-- On Windows, `suspend` and `resume` of a process return `E_UNSUPPORTED`.
+- No macOS archive is built; the code for macOS passes `cargo check` for
+  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run.
 
 ## [0.1.0] - 2026-11-22
 
@@ -190,6 +403,10 @@ First release.
   the publisher as unverified until a certificate of a public authority replaces
   it.
 
-[Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.1...main
-[0.1.1]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/DanacoOfficial/nurt/releases/tag/v0.1.0
+[Unreleased]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.1...main
+[0.1.1]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v0.1.0
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,15 +1,25 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/winget/manifests/d/Danaco/Nurt/@VERSION@/Danaco.Nurt.locale.en-US.yaml.in
+# Responsibility:   Template of the English locale manifest of Danaco Nurt for winget.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 PackageIdentifier: Danaco.Nurt
 PackageVersion: @VERSION@
 PackageLocale: en-US
 Publisher: Danaco Holding Group
 PublisherUrl: https://www.danaco-group.pl
-PublisherSupportUrl: https://github.com/DanacoOfficial/nurt/issues
+PublisherSupportUrl: https://github.com/DanacoOfficial/danaco-nurt/issues
 PackageName: Danaco Nurt
 PackageUrl: https://nurt.danaco-group.pl
 License: Apache-2.0
-LicenseUrl: https://github.com/DanacoOfficial/nurt/blob/main/LICENSE
+LicenseUrl: https://github.com/DanacoOfficial/danaco-nurt/blob/main/LICENSE
 Copyright: Copyright (c) 2026 Danaco Holding Group Sp. z o.o.
 ShortDescription: @DESCRIPTION@
 Moniker: nurt
@@ -17,6 +27,10 @@ Tags:
 - console
 - shell
 - command-line
-ReleaseNotesUrl: https://github.com/DanacoOfficial/nurt/releases/tag/v@VERSION@
+ReleaseNotesUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v@VERSION@
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

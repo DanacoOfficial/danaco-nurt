@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-lspclient/tests/u14_real_servers.rs
+// Responsibility:   Requests and `code.rename` against installed language servers.
+// Dependencies:     nurt_code, nurt_contracts, u14_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Requests and `code.rename` against installed language servers.
 //!
 //! Each test builds a small project in a temporary directory and runs
@@ -586,3 +594,7 @@ fn rust_analyzer_answers_requests_and_renames_when_in_path() {
 fn clangd_answers_requests_and_renames_when_in_path() {
     exercise(&C);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

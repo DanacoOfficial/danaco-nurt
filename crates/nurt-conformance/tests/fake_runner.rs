@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-conformance/tests/fake_runner.rs
+// Responsibility:   The runner against the fake server.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The runner against the fake server: every mandatory case passes on the
 //! conforming fake server, and every deviation of the fake server makes a
@@ -49,7 +56,12 @@ const JOBS: usize = 4;
 const TIME_LIMIT: &str = "time limit reached";
 
 fn conformance() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../conformance")
 }
 
 fn command(deviation: Option<Break>) -> String {
@@ -282,3 +294,7 @@ fn serve_reads_the_cases_from_the_environment() {
     let message: serde_json::Value = serde_json::from_str(line.trim()).unwrap();
     assert_eq!(message["result"]["ast"]["nurt"], "1.0");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

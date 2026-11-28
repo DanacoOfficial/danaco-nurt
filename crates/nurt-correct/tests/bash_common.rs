@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/bash_common.rs
+// Responsibility:   Translation of the common-command list in script mode.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of the common-command list in script mode.
 
 use std::path::PathBuf;
@@ -15,13 +23,18 @@ const MINIMUM_TRANSLATED: usize = 221;
 const SCRIPT: TranslateContext<'static> = TranslateContext {
     base: None,
     lets: &[],
+    functions: &[],
     mode: Mode::Script,
 };
 
 #[test]
 fn common_commands_translate_in_script_mode() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d1/migrate/common-500/bash.txt");
+    let path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/migrate/common-500/bash.txt");
     let text = std::fs::read_to_string(path).expect("the list of common commands");
     let mut translated = 0;
     let mut failed = Vec::new();
@@ -39,3 +52,7 @@ fn common_commands_translate_in_script_mode() {
         failed.join("\n")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

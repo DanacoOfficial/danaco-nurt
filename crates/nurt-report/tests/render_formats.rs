@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/render_formats.rs
+// Responsibility:   Rendering of reports in the four formats, the levels of detail and the response envelope.
+// Dependencies:     common, nurt_contracts, serde_json, unicode_width
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rendering of reports in the four formats, the levels of detail and the
 //! response envelope.
 
@@ -1123,3 +1131,66 @@ fn a_note_with_a_detail_keeps_its_own_text() {
     assert!(text.contains("detection_scope  changes outside /srv/app are not detected"));
     assert!(!text.contains("outside the watched directories"));
 }
+
+fn continued(older: bool) -> Report {
+    let mut report = golden_report("ok-read");
+    report.continuation = Some(nurt_contracts::continuation::Continuation {
+        id: "c3".to_owned(),
+        unit: nurt_contracts::continuation::ContinuationUnit::Records,
+        shown: 2,
+        remaining: 146,
+        cut_lines: 0,
+        older,
+    });
+    report
+}
+
+#[test]
+fn the_text_of_a_shortened_read_ends_with_the_hint_of_the_latest_continuation() {
+    let text = render(&continued(false), &RenderOptions::default());
+    let first = text.lines().next().unwrap();
+    assert!(first.ends_with("shown 2 \u{b7} more: next"), "{first}");
+}
+
+#[test]
+fn the_hint_names_the_identifier_when_a_newer_continuation_exists() {
+    let text = render(&continued(true), &RenderOptions::default());
+    assert!(
+        text.lines().next().unwrap().ends_with("more: next c3"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_response_without_records_ends_with_the_hint_on_its_own_line() {
+    let mut report = Report::new(ReportStatus::Ok, "run");
+    report.continuation = continued(false).continuation;
+    let text = render(&report, &RenderOptions::default());
+    assert_eq!(text.lines().last(), Some("more: next"), "{text}");
+}
+
+#[test]
+fn compact_and_markdown_write_the_continuation_and_the_hint() {
+    let compact = render(&continued(false), &options(OutputFormat::Compact));
+    assert!(
+        compact.contains("continuation id=c3 unit=records shown=2 remaining=146 cut_lines=0"),
+        "{compact}"
+    );
+    assert_eq!(compact.lines().last(), Some("more: next"));
+    let markdown = render(&continued(true), &options(OutputFormat::Markdown));
+    assert!(markdown.ends_with("more: next c3"), "{markdown}");
+}
+
+#[test]
+fn the_continuation_is_a_field_of_the_json_report_without_the_internal_flag() {
+    let json = render(&continued(true), &options(OutputFormat::Json));
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        value["continuation"],
+        json!({"id": "c3", "unit": "records", "shown": 2, "remaining": 146, "cut_lines": 0})
+    );
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

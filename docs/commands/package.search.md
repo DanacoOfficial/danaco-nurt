@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/package.search.md -->
+<!-- Responsibility:   Documents package.search. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # package.search
 
@@ -66,6 +73,14 @@ Show the first ten matches with their repositories.
 package.search "json" |> first 10 |> select name version source
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 330  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -77,3 +92,7 @@ package.search "json" |> first 10 |> select name version source
 ## Related
 
 `package.list`, `package.install`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

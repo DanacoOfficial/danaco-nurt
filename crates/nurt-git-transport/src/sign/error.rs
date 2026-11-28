@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::error
+// Responsibility:   Errors of signing.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Errors of signing.
 
 use std::path::Path;
@@ -67,3 +75,7 @@ pub(crate) fn io_error(path: &Path, source: &std::io::Error) -> Error {
 pub(crate) fn is_problem(error: &Error, problem: &str) -> bool {
     error.code() == ErrorCode::GitSign && error.data().problem.as_deref() == Some(problem)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

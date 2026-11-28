@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::bash::session
+// Responsibility:   Translation of shell structure.
+// Dependencies:     nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of shell structure: lists, `&&`, `||`, `;`, pipes, `cd`,
 //! assignments, prefixes (`sudo`, `time`, `timeout`, `nohup`, `env`),
 //! redirections, parameter expansions and command substitutions.
@@ -25,8 +33,24 @@ use super::{Assumption, Mode, TranslateContext, Translation, detect, engine, pro
 /// Largest number of alternatives kept for one translation.
 pub(crate) const MAX_ALTERNATIVES: usize = 3;
 
-/// Options of `sudo` that take a value.
-const PRIVILEGE_VALUE_FLAGS: &[&str] = &["-u", "-g", "--user", "--group"];
+/// Flags of the programs that elevate (`sudo`, `doas`, `run0`) that change
+/// nothing Nurt needs to know: they only keep the program from asking, from
+/// keeping the environment of the account or from refreshing a timestamp.
+const ELEVATION_PLAIN_FLAGS: &[&str] = &[
+    "-n",
+    "--non-interactive",
+    "-H",
+    "--set-home",
+    "-k",
+    "--no-ask-password",
+];
+
+/// Flags of the programs that elevate that open a shell or an interactive
+/// session instead of running one command.
+const ELEVATION_SESSION_FLAGS: &[&str] = &["-i", "--login", "-s", "--shell"];
+
+/// Flags that name the account to run as.
+const ELEVATION_USER_FLAGS: &[&str] = &["-u", "--user"];
 
 /// Deepest nesting of command prefixes and command substitutions; a deeper
 /// one is an error, so that crafted text cannot exhaust the stack.
@@ -148,7 +172,21 @@ pub(crate) fn translate(
     if context.mode == Mode::Live && !detect::is_habit(table, &tokens) {
         return None;
     }
-    Some(translate_tokens(input, &tokens, context, table))
+    Some(translate_tokens(input, &tokens, context, table, true))
+}
+
+/// Translates simple commands only: the text holds no construct of the
+/// language, so that the translation of the constructs does not recurse.
+pub(crate) fn translate_plain(
+    input: &str,
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Option<Result<Translation, Error>> {
+    let tokens = lex(input).ok()?;
+    let has_word = tokens
+        .iter()
+        .any(|token| matches!(token.kind, super::lex::PosixTokenKind::Word(_)));
+    has_word.then(|| translate_tokens(input, &tokens, context, table, false))
 }
 
 /// Translates a statement that starts with a habit word and shows no Nurt
@@ -160,7 +198,7 @@ pub(crate) fn translate_by_word(
 ) -> Option<Result<Translation, Error>> {
     let tokens = lex(input).ok()?;
     detect::is_habit_by_word(table, &tokens)
-        .then(|| translate_tokens(input, &tokens, context, table))
+        .then(|| translate_tokens(input, &tokens, context, table, true))
 }
 
 fn translate_tokens(
@@ -168,7 +206,19 @@ fn translate_tokens(
     tokens: &[super::lex::PosixToken],
     context: &TranslateContext<'_>,
     table: &BashTable,
+    constructs: bool,
 ) -> Result<Translation, Error> {
+    if constructs {
+        match construct_need(tokens, context) {
+            ConstructNeed::Hard => return super::construct::translate(input, context, table),
+            ConstructNeed::Soft => {
+                if let Ok(translation) = super::construct::translate(input, context, table) {
+                    return Ok(translation);
+                }
+            }
+            ConstructNeed::None => {}
+        }
+    }
     let session = Session::new(table, context, input);
     match syntax::parse(tokens) {
         Ok(script) => session.script(&script),
@@ -179,6 +229,85 @@ fn translate_tokens(
             &[("reason", error.message)],
         )),
     }
+}
+
+/// How much a text needs the constructs of the language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConstructNeed {
+    /// Simple commands only.
+    None,
+    /// An alternative or a list: the constructs are tried and, when they
+    /// have no translation, the simple translation reports its own error.
+    Soft,
+    /// A compound command or positional parameters of a script: only the
+    /// constructs can translate it.
+    Hard,
+}
+
+/// Whether the text holds positional parameters (`$1`, `$@`).
+fn has_positional(tokens: &[super::lex::PosixToken]) -> bool {
+    use super::lex::{PosixTokenKind, WordPart};
+    tokens.iter().any(|token| match &token.kind {
+        PosixTokenKind::Word(word) => word.parts.iter().any(|part| match part {
+            WordPart::Variable { name, .. } => {
+                name == "@"
+                    || name == "*"
+                    || name
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_digit() && c != '0')
+            }
+            _ => false,
+        }),
+        _ => false,
+    })
+}
+
+/// Whether a command of the text is a call of a function defined before.
+fn calls_function(tokens: &[super::lex::PosixToken], context: &TranslateContext<'_>) -> bool {
+    use super::lex::{Operator, PosixTokenKind};
+    if context.functions.is_empty() {
+        return false;
+    }
+    let mut at_start = true;
+    for token in tokens {
+        match &token.kind {
+            PosixTokenKind::Word(word) if at_start => {
+                if context.functions.iter().any(|f| f.name == word.raw) {
+                    return true;
+                }
+                at_start = false;
+            }
+            PosixTokenKind::Operator(
+                Operator::Semicolon | Operator::And | Operator::Or | Operator::Pipe,
+            )
+            | PosixTokenKind::Newline => at_start = true,
+            _ => at_start = false,
+        }
+    }
+    false
+}
+
+fn construct_need(
+    tokens: &[super::lex::PosixToken],
+    context: &TranslateContext<'_>,
+) -> ConstructNeed {
+    use super::lex::{Operator, PosixTokenKind};
+    if super::compound::has_compound(tokens) {
+        return ConstructNeed::Hard;
+    }
+    let operator = |wanted: Operator| {
+        tokens
+            .iter()
+            .any(|token| token.kind == PosixTokenKind::Operator(wanted))
+    };
+    if context.mode == Mode::Script && (has_positional(tokens) || calls_function(tokens, context)) {
+        return ConstructNeed::Hard;
+    }
+    if operator(Operator::Or) || (context.mode == Mode::Script && operator(Operator::And)) {
+        return ConstructNeed::Soft;
+    }
+    ConstructNeed::None
 }
 
 /// A step of a list: a pipeline with the connector before it.
@@ -610,7 +739,10 @@ impl<'a> Session<'a> {
             .literal()
             .unwrap_or_else(|| first.value.raw.clone());
         match name.as_str() {
-            "sudo" => return Err(self.privilege(simple, &words[1..], input, options)),
+            "sudo" | "doas" | "run0" => {
+                return self.elevated(&name, first.span, simple, &words[1..], input, options);
+            }
+            "su" => return Err(self.elevated_session(simple.span, &name)),
             "time" | "nohup" if words.len() > 1 => {
                 let inner = self.nested_words(simple, &words[1..], input, options)?;
                 if name == "time" {
@@ -716,44 +848,110 @@ impl<'a> Session<'a> {
         self.nested_words(simple, rest, input, &options)
     }
 
-    /// `sudo CMD`: never translated; the fix is the translation of `CMD`
-    /// without the options of `sudo`.
-    fn privilege(
+    /// `sudo CMD`, `doas CMD`, `run0 CMD`: the translation of `CMD` with the
+    /// call parameter `privilege: elevated` written on its last stage, and
+    /// `as_user: "NAME"` for `-u NAME`. An elevated session (`sudo -i`, `sudo -s`) is not a command
+    /// and ends with `E_AMBIGUOUS`.
+    fn elevated(
         &self,
+        program: &str,
+        span: Span,
         simple: &Simple,
         words: &[Located<Word>],
         input: Option<&str>,
         options: &RunOptions,
-    ) -> Error {
+    ) -> Result<Variants, Error> {
         let mut inner = words;
+        let mut user: Option<String> = None;
         while let Some((first, tail)) = inner.split_first() {
             let flag = first.value.raw.as_str();
-            if !flag.starts_with('-') {
+            if flag == "--" {
+                inner = tail;
                 break;
             }
-            inner = if PRIVILEGE_VALUE_FLAGS.contains(&flag) {
-                tail.get(1..).unwrap_or_default()
+            if !flag.starts_with('-') || flag == "-" {
+                break;
+            }
+            if ELEVATION_SESSION_FLAGS.contains(&flag) {
+                return Err(self.elevated_session(simple.span, program));
+            }
+            if let Some(name) = flag.strip_prefix("--user=") {
+                user = Some(name.to_owned());
+                inner = tail;
+            } else if ELEVATION_USER_FLAGS.contains(&flag) {
+                let Some((name, rest)) = tail.split_first() else {
+                    return Err(self.elevated_option(first.span, flag));
+                };
+                let Some(literal) = name.value.literal() else {
+                    return Err(self.elevated_option(name.span, flag));
+                };
+                user = Some(literal);
+                inner = rest;
+            } else if ELEVATION_PLAIN_FLAGS.contains(&flag) {
+                inner = tail;
             } else {
-                tail
-            };
+                return Err(self.elevated_option(first.span, flag));
+            }
         }
-        let fix = if inner.is_empty() {
-            None
-        } else {
-            self.nested_words(simple, inner, input, options)
-                .ok()
-                .map(|variants| self.program_text(&variants))
+        if inner.is_empty() {
+            return Err(self.elevated_session(simple.span, program));
+        }
+        let variants = self.nested_words(simple, inner, input, options)?;
+        let call = match &user {
+            Some(name) => named(
+                "as_user",
+                Expr::Text {
+                    v: name.clone(),
+                    span: None,
+                },
+            ),
+            None => named(
+                "privilege",
+                Expr::Ident {
+                    v: "elevated".to_owned(),
+                    span: None,
+                },
+            ),
         };
-        let error = self.error(
-            ErrorCode::Uncorrectable,
-            "privilege_elevation",
-            simple.span,
-            &[],
+        let variants = variants.map(|mut piece| {
+            if let Some(stage) = piece.stages.last_mut() {
+                append_args(stage, vec![call.clone()]);
+            }
+            piece
+        });
+        self.record(
+            "B28",
+            CorrectionClass::Certain,
+            span,
+            piece_text(variants.primary()),
+            "habit",
         );
-        match fix {
-            Some(text) => error.with_fix(text),
-            None => error,
-        }
+        Ok(variants)
+    }
+
+    /// `E_AMBIGUOUS`: an elevated session is not a command.
+    fn elevated_session(&self, span: Span, program: &str) -> Error {
+        self.error(
+            ErrorCode::Ambiguous,
+            "elevated_session",
+            span,
+            &[("program", program)],
+        )
+        .with_next_step("give the command itself with the call parameter `privilege: elevated`")
+        .with_next_step(
+            "give the account with the call parameter `as_user: \"NAME\"` to run as another account",
+        )
+    }
+
+    /// `E_UNCORRECTABLE`: a flag of an elevating program that Nurt cannot
+    /// keep.
+    fn elevated_option(&self, span: Span, flag: &str) -> Error {
+        self.error(
+            ErrorCode::Uncorrectable,
+            "elevated_option",
+            span,
+            &[("flag", flag)],
+        )
     }
 
     /// Adds run options to the translated program; they apply only to
@@ -1321,7 +1519,7 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn loop_error(&self, span: Span, keyword: &str) -> Error {
+    pub(crate) fn loop_error(&self, span: Span, keyword: &str) -> Error {
         let mut error = self.error(
             ErrorCode::Uncorrectable,
             "loop",
@@ -1466,8 +1664,20 @@ impl<'a> Session<'a> {
         };
         let names = effects.join(", ");
         let mut error = self.error(code, problem, span, &[("stages", &names)]);
-        for (variants, _) in statements {
-            error = error.with_next_step(self.program_text(variants));
+        let programs: Vec<String> = statements
+            .iter()
+            .map(|(variants, _)| self.program_text(variants))
+            .collect();
+        if code == ErrorCode::OneEffect {
+            error = error.with_candidate(Candidate {
+                rank: 1,
+                reference: None,
+                program: steps_text(&programs),
+                why: None,
+            });
+        }
+        for program in programs {
+            error = error.with_next_step(program);
         }
         error
     }
@@ -1568,6 +1778,48 @@ impl<'a> Session<'a> {
             },
         };
         Correction::try_from(written).ok()
+    }
+
+    /// Builds the translation of a program of constructs written as text:
+    /// the corrections of the session and of the translated parts, and the
+    /// tree read back from the text, so that the result always parses.
+    pub(crate) fn construct_translation(
+        &self,
+        text: String,
+        parts: Vec<Correction>,
+        assumptions: Vec<Assumption>,
+    ) -> Result<Translation, Error> {
+        let tree = nurt_syntax::parse::parse(
+            &text,
+            nurt_syntax::parse::Variant::A,
+            &nurt_syntax::parse::ParseOptions::default(),
+        )
+        .map_err(|error| {
+            Error::new(
+                ErrorCode::InternalCorrection,
+                format!("the translated program does not parse: {error}\n{text}"),
+            )
+        })?;
+        let log = self.log.borrow();
+        let mut pending: Vec<&Pending> = log.corrections.iter().collect();
+        pending.sort_by_key(|item| (item.span.line, item.span.column));
+        let mut rules: Vec<Correction> = pending
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, item)| self.correction(index, item, &[]))
+            .collect();
+        rules.extend(parts);
+        for (index, rule) in rules.iter_mut().enumerate() {
+            rule.id = format!("C{}", index + 1);
+        }
+        let mut all = log.assumptions.clone();
+        all.extend(assumptions);
+        Ok(Translation {
+            tree,
+            rules,
+            assumptions: all,
+            alternatives: Vec::new(),
+        })
     }
 
     pub(crate) fn has_effect(&self, piece: &Piece) -> bool {
@@ -1699,6 +1951,20 @@ pub(crate) fn parse_duration(text: &str) -> Option<u64> {
 
 /// Upper bound of a translated duration, far above any practical value.
 const MAX_DURATION_MILLIS: f64 = 1e15;
+
+/// The programs as the steps of one `steps` block.
+fn steps_text(programs: &[String]) -> String {
+    let mut text = String::from("steps {\n");
+    for program in programs {
+        for line in program.split('\n') {
+            text.push_str("    ");
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    text.push('}');
+    text
+}
 
 fn compound<'s>(steps: &[Step<'s>]) -> Option<(Span, &'s str)> {
     steps.iter().find_map(|step| {
@@ -1930,3 +2196,7 @@ mod tests {
         assert_eq!(names, ["a c", "b c", "a d"]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

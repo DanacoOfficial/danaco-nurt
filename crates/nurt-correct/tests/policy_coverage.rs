@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/policy_coverage.rs
+// Responsibility:   Policy helpers on whole trees: program kind, effecting commands, and the invariant check on every expression form.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Policy helpers on whole trees: program kind, effecting commands, and the
 //! invariant check on every expression form.
 
@@ -295,3 +303,7 @@ fn rejects_a_changed_statement_count() {
         Invariant::Targets
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::host
+// Responsibility:   Run hosts: runs supervised by this process and runs supervised by the detached supervisor process.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Run hosts: runs supervised by this process and runs supervised by the
 //! detached supervisor process.
 
@@ -44,7 +52,7 @@ pub(crate) struct CancelNotice {
 }
 
 /// Removes the cancel notices left in the inbox by clients that ended before
-/// they removed them. A supervisor that has just taken the lock serves no
+/// they removed them. A supervisor that has taken the lock serves no
 /// request yet, so every notice it finds belongs to a request that was
 /// answered or lost.
 pub(crate) fn remove_cancel_notices(table: &JobTable) {
@@ -348,3 +356,7 @@ fn detach(command: &mut Command) {
 
 #[cfg(not(any(unix, windows)))]
 fn detach(_command: &mut Command) {}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

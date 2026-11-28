@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-lspclient/tests/u13_jsonrpc.rs
+// Responsibility:   Tests of the JSON-RPC 2.0 message model: construction, classification, JSON form and display of identifiers and errors.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the JSON-RPC 2.0 message model: construction, classification,
 //! JSON form and display of identifiers and errors.
 
@@ -120,3 +128,7 @@ fn rejected_messages_name_the_reason() {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

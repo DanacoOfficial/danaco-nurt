@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::ssh::tests
+// Responsibility:   End-to-end tests of the SSH transport against an in-process server.
+// Dependencies:     bstr, gix_transport, nurt_contracts, nurt_testkit, russh
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! End-to-end tests of the SSH transport against an in-process server.
 //!
 //! The server runs `russh` on its own thread, listens on the loopback
@@ -1013,3 +1021,7 @@ mod unix {
         assert!(client.connect(&server.url(REPOSITORY)).is_ok());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

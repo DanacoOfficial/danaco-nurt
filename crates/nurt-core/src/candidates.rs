@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::candidates
+// Responsibility:   Correction candidates that a caller can accept.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Correction candidates that a caller can accept.
 //!
 //! When a program is ambiguous (`E_AMBIGUOUS`) or cannot be corrected safely
@@ -342,3 +350,7 @@ mod tests {
         assert!(store.accept(None, "c1", at(1)).is_ok());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

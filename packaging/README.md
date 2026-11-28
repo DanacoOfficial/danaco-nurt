@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           packaging/README.md -->
+<!-- Responsibility:   Documents Packaging. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Packaging
 
 Danaco Nurt is a command shell and language where every change can be undone. This directory holds its package definitions and installers.
@@ -27,7 +35,7 @@ Install the public signing key and the source definition, then install the packa
 ```sh
 sudo install -d /etc/apt/keyrings
 sudo curl -fsSL https://nurt.danaco-group.pl/danaco-nurt.asc -o /etc/apt/keyrings/danaco-nurt.asc
-sudo curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/nurt/main/packaging/apt-repo/nurt.sources \
+sudo curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/danaco-nurt/main/packaging/apt-repo/nurt.sources \
     -o /etc/apt/sources.list.d/nurt.sources
 sudo apt update
 sudo apt install nurt
@@ -44,7 +52,7 @@ The `Signed-By` field of `nurt.sources` restricts the key to this repository.
 | `--version VERSION` | `NURT_VERSION` | latest release |
 | `--bin-dir DIR` | `NURT_INSTALL_DIR` | `$HOME/.local/bin` |
 | `--public-key FILE\|URL` | `NURT_PUBLIC_KEY` | none |
-| | `NURT_RELEASES_URL` | `https://github.com/DanacoOfficial/nurt/releases` |
+| | `NURT_RELEASES_URL` | `https://github.com/DanacoOfficial/danaco-nurt/releases` |
 
 `install.ps1` takes `NURT_VERSION`, `NURT_INSTALL_DIR` (default `%LOCALAPPDATA%\Programs\Nurt\bin`), `NURT_NO_PATH_UPDATE` and `NURT_RELEASES_URL` from the environment, verifies the SHA-256 digest and adds the directory to the user `PATH`.
 
@@ -81,12 +89,13 @@ The library archive contains the directory `nurt-lib-<version>-<target>/` with:
 | `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | yes |
 | `LICENSE`, `NOTICE` | license texts | yes |
 
-The library is not packed for musl targets.
+On musl targets (`x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`) the library archive holds the static library instead: `--library` points to `libnurt_ffi.a`, which `pack.py` packs as `libnurt.a` next to `nurt.h`, `nurt.pc`, `LICENSE` and `NOTICE`. In `nurt.pc` of a musl archive `Libs:` is `-L${libdir} -lnurt` and `Libs.private:` lists the system libraries of a static link, so that `pkg-config --static --libs nurt` is enough to link a C program (`examples/c/hello.c` is the example; `tools/release/build-release.sh` builds and runs it). On musl the library is static (`libnurt.a`) and must not be linked into one program with another static library written in Rust.
 
-The musl archive is built with the target `x86_64-unknown-linux-musl` (`rustup target add x86_64-unknown-linux-musl`) and a C compiler for it. Without `musl-gcc`, `zig cc` works when the C compiler and the linker are set apart:
+The musl archive is built with the target `x86_64-unknown-linux-musl` (`rustup target add x86_64-unknown-linux-musl`) and `zig cc` as the C compiler of the target. The job `musl` of the workflow `release.yml` (the copy `packaging/ci/release.yml`) does exactly this and uploads the archive as the artifact `musl-archive`. The C compiler and the linker are set apart: the compiler is the script `packaging/release/zig-cc-musl.sh`, which runs `zig cc -target x86_64-linux-musl` (the executable of zig is taken from `ZIG`, `zig` by default) and drops the option `--target=...` that the `cc` crate adds; the linker is the default `cc`:
 
 ```sh
-export CC_x86_64_unknown_linux_musl=<script that runs: zig cc -target x86_64-linux-musl, without the option --target=...>
+rustup target add x86_64-unknown-linux-musl
+export CC_x86_64_unknown_linux_musl="$PWD/packaging/release/zig-cc-musl.sh"
 export CFLAGS_x86_64_unknown_linux_musl="-fno-sanitize=undefined"
 cargo build --release --target x86_64-unknown-linux-musl -p nurt-cli
 python3 -I packaging/release/pack.py --root . --version <version> --target x86_64-unknown-linux-musl \
@@ -173,3 +182,7 @@ The workflows in `ci/` are installed as `.github/workflows/packaging.yml` and `.
 | `TAP_PUSH_TOKEN` | push access to `DanacoOfficial/homebrew-tap` and `DanacoOfficial/scoop-bucket` |
 | `WINGET_PUBLISH_TOKEN` | pull requests to the winget package repository |
 | `CHOCOLATEY_API_KEY` | push to the Chocolatey community repository |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

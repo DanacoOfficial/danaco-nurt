@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/crash/support.rs
+// Responsibility:   Fixtures shared by the crash tests.
+// Dependencies:     nurt_contracts, nurt_crashfs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixtures shared by the crash tests.
 
 use std::io::{Read, Write};
@@ -80,3 +88,7 @@ pub fn overwrite(fs: &CrashFs, path: &AbsPath, content: &[u8]) -> FsResult<()> {
             )
     })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

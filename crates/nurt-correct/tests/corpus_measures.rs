@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/corpus_measures.rs
+// Responsibility:   Measures of the correction corpora at the front part of correction.
+// Dependencies:     lexical_support, nurt_contracts, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -293,3 +301,7 @@ fn every_corpus_file_is_measured() {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

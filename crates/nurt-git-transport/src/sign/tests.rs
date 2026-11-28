@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::tests
+// Responsibility:   Tests of the signing settings, of signatures inside Git objects and of OpenPGP key files.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the signing settings, of signatures inside Git objects and of
 //! OpenPGP key files.
 
@@ -468,3 +476,7 @@ fn program_signer_signs_commits_with_ssh_keys_like_the_builtin_signer() {
     sign_commit(&mut commit, &program, &ssh_config(dir.path())).expect("signed");
     assert_eq!(encode(&commit), SIGNED_COMMIT.as_bytes());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

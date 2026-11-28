@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/supervisor.md -->
+<!-- Responsibility:   Documents Job supervisor protocol. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Job supervisor protocol
 
 A run that continues in the background after the command line exits is
@@ -34,7 +42,7 @@ reader never sees a partial file and takes no lock.
    run may take before it moves to the background.
 2. When `host.lock` is free the client starts the supervisor with the command
    registered by the host application, and starts it again when the lock is
-   still free after 3 s. A supervisor that has just been started tries the lock
+   still free after 3 s. A supervisor that has been started tries the lock
    up to 10 times, 10 ms apart, so that the instant in which a client probes the
    lock does not make it give up.
 3. The supervisor takes a request by removing its file. Whoever removes the file
@@ -85,3 +93,7 @@ The cancel notice is an additional file; the protocol version stays `1`.
 |---|---|---|
 | older | newer | the client never writes a cancel notice; a cancellation after the supervisor took the request reaches the program as before, by the control request once the program has started, and the supervisor ends the tree at once when it finds the request after it recorded the process |
 | newer | older | the older supervisor ignores `*.cancel.json` files (it reads only `*.request.json`); the client removes the notice after the reply, and the cancellation reaches the program by the control request |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::commands
+// Responsibility:   Stage implementations of the journal commands.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stage implementations of the journal commands.
 //!
 //! Every stage converts the bound arguments of its catalog command into a
@@ -469,7 +477,7 @@ mod tests {
     fn resolves_relative_paths_against_the_base_option() {
         let env = testing::Env::new();
         let ctx = env.ctx_with("journal.status", |options| {
-            options.base = Some("/home/user".to_owned());
+            options.base = Some(nurt_testkit::paths::abs("/home/user"));
         });
         assert_eq!(
             super::resolve(&ctx, "docs").unwrap(),
@@ -484,7 +492,7 @@ mod tests {
     fn absolute_paths_ignore_the_base_option_and_multibyte_names_are_kept() {
         let env = testing::Env::new();
         let ctx = env.ctx_with("journal.status", |options| {
-            options.base = Some("/home/użytkownik".to_owned());
+            options.base = Some(nurt_testkit::paths::abs("/home/użytkownik"));
         });
         assert_eq!(
             super::resolve(&ctx, "docs/zażółć.txt").unwrap(),
@@ -526,3 +534,7 @@ mod tests {
         assert!(error.message.contains("journal store"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

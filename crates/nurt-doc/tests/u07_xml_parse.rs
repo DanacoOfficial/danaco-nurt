@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u07_xml_parse.rs
+// Responsibility:   Parsing of XML documents into a lossless tree: byte ranges of every syntactic part, rejection of malformed documents, key resolution and the value model.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsing of XML documents into a lossless tree: byte ranges of every
 //! syntactic part, rejection of malformed documents, key resolution and
 //! the value model.
@@ -384,3 +392,7 @@ fn node_identifiers_are_in_document_order() {
     assert_eq!(tree.parent(ids[0]), Some(tree.root()));
     assert_eq!(tree.parent(tree.root()), None);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

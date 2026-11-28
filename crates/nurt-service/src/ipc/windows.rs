@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service::ipc::windows
+// Responsibility:   Named pipe transport of the control channel on Windows.
+// Dependencies:     windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Named pipe transport of the control channel on Windows.
 //!
 //! The pipe `\\.\pipe\nurt-service-<SID>` is created with
@@ -361,3 +369,7 @@ pub(super) fn connect() -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Sen
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

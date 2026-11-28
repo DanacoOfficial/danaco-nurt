@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::processes::cpu
+// Responsibility:   Processor use of processes.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Processor use of processes.
 //!
 //! The `cpu` field is the processor use in percent of one core. Measuring the
@@ -120,3 +128,7 @@ pub(crate) fn percent(used: Duration, elapsed: Duration) -> Option<f64> {
     let value = used.as_secs_f64() / elapsed.as_secs_f64() * PERCENT;
     Some((value * PRECISION).round() / PRECISION)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::sys
+// Responsibility:   System calls of the macOS back end.
+// Dependencies:     backend, nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! System calls of the macOS back end.
 
 mod backend;
@@ -116,3 +124,7 @@ fn c_path(path: &Path, op: &str) -> FsResult<CString> {
     CString::new(path.as_os_str().as_bytes())
         .map_err(|_| FsError::new(FsErrorKind::InvalidPath, op, Some(path)))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::tests::records
+// Responsibility:   Job identifiers, record times, expiry of finished jobs and the output events of a running job.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Job identifiers, record times, expiry of finished jobs and the output
 //! events of a running job.
 
@@ -228,3 +236,7 @@ fn a_stored_request_without_a_scan_time_limit_is_still_read() {
     stored.track.timeout = None;
     assert_eq!(read.0, stored);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

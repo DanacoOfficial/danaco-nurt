@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/tests/Danaco.Nurt.Tests/SchemaConformanceTests.cs
+// Responsibility:   Source file bindings/dotnet/tests/Danaco.Nurt.Tests/SchemaConformanceTests.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
 using System.Collections.Generic;
@@ -58,6 +65,8 @@ public sealed class SchemaConformanceTests
             Session = "s1",
             Language = "pl",
             Script = true,
+            Privilege = Privilege.Auto,
+            AsUser = "deploy",
         };
 
         JsonElement envelope = EnvelopeOf(Request.FromProgram("count", NotationVariant.C), options);
@@ -76,6 +85,24 @@ public sealed class SchemaConformanceTests
     }
 
     [TestMethod]
+    public void EnvelopeWithParametersUsesTheMemberOfTheRequestSchema()
+    {
+        JsonElement schema = Schema(RequestSchema);
+        var parameters = new Dictionary<string, JsonElement>
+        {
+            ["count"] = JsonDocument.Parse("3").RootElement,
+            ["name"] = JsonDocument.Parse("\"a\"").RootElement,
+        };
+
+        JsonElement envelope = EnvelopeOf(Request.FromProgram("count", NotationVariant.C).WithParameters(parameters), null);
+
+        CollectionAssert.Contains(PropertyNames(schema), "params");
+        Assert.AreEqual(3, envelope.GetProperty("params").GetProperty("count").GetInt32());
+        Assert.AreEqual("a", envelope.GetProperty("params").GetProperty("name").GetString());
+        Assert.IsFalse(EnvelopeOf(Request.FromProgram("count", NotationVariant.C), null).TryGetProperty("params", out _));
+    }
+
+    [TestMethod]
     public void EnumeratedOptionsUseTheValuesOfTheSchema()
     {
         JsonElement schema = Schema(RequestSchema);
@@ -91,6 +118,9 @@ public sealed class SchemaConformanceTests
         CollectionAssert.AreEquivalent(
             EnumValues(declared.GetProperty("diff")),
             Enum.GetValues<DiffMode>().Select(value => SentOption(new RunOptions { Diff = value }, "diff")).ToList());
+        CollectionAssert.AreEquivalent(
+            EnumValues(declared.GetProperty("privilege")),
+            Enum.GetValues<Privilege>().Select(value => SentOption(new RunOptions { Privilege = value }, "privilege")).ToList());
         CollectionAssert.AreEquivalent(
             EnumValues(schema.GetProperty("properties").GetProperty("variant")),
             Enum.GetValues<NotationVariant>().Select(value => EnvelopeOf(Request.FromProgram("count", value), null).GetProperty("variant").GetString()).ToList());
@@ -224,3 +254,7 @@ public sealed class SchemaConformanceTests
     private static string SentOption(RunOptions options, string name) =>
         EnvelopeOf(Request.FromProgram("count"), options).GetProperty("options").GetProperty(name).GetString()!;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

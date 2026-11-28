@@ -11,7 +11,7 @@
       {
         "path": "tools/producer.py",
         "type": "file",
-        "content_utf8": "import os\r\nimport pathlib\r\nimport sys\r\nimport time\r\n\r\ntime.sleep(1.5)\r\npathlib.Path(\"data\").mkdir(exist_ok=True)\r\npathlib.Path(\"data/export.tmp\").write_text(sys.argv[2])\r\nos.replace(\"data/export.tmp\", \"data/export.csv\")\r\n"
+        "content_utf8": "import os\r\nimport pathlib\r\nimport sys\r\nimport time\r\n\r\ntime.sleep(1.5)\r\npathlib.Path(\"data\").mkdir(exist_ok=True)\r\nwith open(\"data/export.tmp\", \"w\", newline=\"\\n\") as handle:\r\n    handle.write(sys.argv[2])\r\nos.replace(\"data/export.tmp\", \"data/export.csv\")\r\n"
       }
     ]
   },

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::manifest
+// Responsibility:   Entry manifest format.
+// Dependencies:     base64, nurt_contracts, nurt_fs, proptest, serde, serde_json, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Entry manifest format.
 //!
 //! An entry part consists of the manifest `op.json` ([`Manifest`], format
@@ -1370,7 +1378,7 @@ pub(crate) mod tests {
     use crate::store::test_support::Fixture;
 
     fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     /// Manifest of a single overwrite with fixed values, used by the digest
@@ -1478,10 +1486,13 @@ pub(crate) mod tests {
     fn manifest_digest_matches_the_recorded_vector() {
         let mut manifest = sample();
         let digest = manifest.seal().unwrap();
-        assert_eq!(
-            digest.to_string(),
+        // The manifest holds absolute paths, which carry the drive on Windows.
+        let expected = if cfg!(windows) {
+            "sha256:a78c7d9cecfaee7036e880eda5d7a3c3b46ad54fb578751f3bf383ffcc94d30e"
+        } else {
             "sha256:ed4645d1180df8cd7e98424d56da0ebe5533bd629bc7342d0bd7f9ba4d5396f8"
-        );
+        };
+        assert_eq!(digest.to_string(), expected);
     }
 
     #[test]
@@ -1769,14 +1780,18 @@ pub(crate) mod tests {
         let fs = &fixture.fs;
         let scope = crate::store::scope(OpId(2), nurt_contracts::fs::ScopePurpose::Maintenance);
         let temp = fs.mount(0);
+        // The files live in a directory of their own: next to the state
+        // directory `vol-a/state` of the fixture, `STATE` names that
+        // directory on a volume that ignores letter case.
+        std::fs::create_dir(fs.path("vol-a/entry").as_path()).unwrap();
 
-        let state_path = fs.path("vol-a/STATE");
+        let state_path = fs.path("vol-a/entry/STATE");
         let record = StateRecord::rolling_back(UndoneCause::Crash);
         write_state(fs, &scope, &temp, &state_path, record).unwrap();
         assert_eq!(read_state(fs, &state_path).unwrap(), record);
         assert_eq!(fixture.read(&state_path), b"rolling_back crash\n");
 
-        let items_path = fs.path("vol-a/ITEMS");
+        let items_path = fs.path("vol-a/entry/ITEMS");
         assert_eq!(read_items(fs, &items_path).unwrap(), Items::default());
         let items = Items {
             items: vec![ItemState {
@@ -1788,14 +1803,14 @@ pub(crate) mod tests {
         write_items(fs, &scope, &temp, &items_path, &items).unwrap();
         assert_eq!(read_items(fs, &items_path).unwrap(), items);
 
-        let damaged = fs.path("vol-a/ITEMS-damaged");
+        let damaged = fs.path("vol-a/entry/ITEMS-damaged");
         fixture.write(&damaged, b"{\"items\":[]}\ncrc32 00000000\n");
         assert!(matches!(
             read_items(fs, &damaged),
             Err(ReadError::Format(FormatError::Checksum))
         ));
         assert!(matches!(
-            read_state(fs, &fs.path("vol-a/STATE-missing")),
+            read_state(fs, &fs.path("vol-a/entry/STATE-missing")),
             Err(ReadError::Fs(_))
         ));
     }
@@ -2169,3 +2184,7 @@ pub(crate) mod tests {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

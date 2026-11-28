@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-crashfs::crash
+// Responsibility:   File system model that simulates power loss.
+// Dependencies:     nurt_contracts, nurt_fs, serde, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! File system model that simulates power loss.
 //!
 //! [`CrashFs`] implements [`Fs`] and [`FsWrite`] in memory and keeps two
@@ -34,6 +42,33 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 type NodeId = u64;
+
+/// Hasher of node numbers: they are sequential integers, so one multiplication
+/// spreads them; the default keyed hash costs several times more per lookup
+/// and the model resolves a path through one lookup per component.
+#[derive(Default)]
+struct NodeHasher(u64);
+
+impl std::hash::Hasher for NodeHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.0 = (self.0.rotate_left(8) ^ u64::from(*byte)).wrapping_mul(NODE_HASH_MULTIPLIER);
+        }
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        self.0 = value.wrapping_mul(NODE_HASH_MULTIPLIER);
+    }
+}
+
+/// Odd 64-bit constant of the golden-ratio multiplicative hash.
+const NODE_HASH_MULTIPLIER: u64 = 0x9E37_79B9_7F4A_7C15;
+
+type NodeMap = HashMap<NodeId, Node, std::hash::BuildHasherDefault<NodeHasher>>;
 
 const ROOT_NODE: NodeId = 1;
 const FIRST_DEVICE: u64 = 0x0800;
@@ -361,13 +396,13 @@ struct Volume {
     live: Image,
     durable: Image,
     pending: Vec<Pending>,
-    inits: HashMap<NodeId, Node>,
+    inits: NodeMap,
     next_seq: u64,
 }
 
 #[derive(Clone, Debug)]
 struct Image {
-    nodes: HashMap<NodeId, Node>,
+    nodes: NodeMap,
     used_bytes: u64,
     used_inodes: u64,
 }
@@ -521,7 +556,7 @@ impl Op {
 
 impl Image {
     fn new(now: i64) -> Self {
-        let mut nodes = HashMap::new();
+        let mut nodes = NodeMap::default();
         nodes.insert(
             ROOT_NODE,
             Node {
@@ -538,7 +573,7 @@ impl Image {
         }
     }
 
-    fn ensure(&mut self, id: NodeId, inits: &HashMap<NodeId, Node>) -> bool {
+    fn ensure(&mut self, id: NodeId, inits: &NodeMap) -> bool {
         if self.nodes.contains_key(&id) {
             return true;
         }
@@ -587,7 +622,7 @@ impl Image {
         }
     }
 
-    fn set_entry(&mut self, at: &Entry, id: Option<NodeId>, inits: &HashMap<NodeId, Node>) {
+    fn set_entry(&mut self, at: &Entry, id: Option<NodeId>, inits: &NodeMap) {
         if !self.ensure(at.dir, inits) {
             return;
         }
@@ -630,7 +665,7 @@ impl Image {
         }
     }
 
-    fn apply(&mut self, pending: &Pending, inits: &HashMap<NodeId, Node>, torn: Option<usize>) {
+    fn apply(&mut self, pending: &Pending, inits: &NodeMap, torn: Option<usize>) {
         let seq = pending.seq;
         match &pending.op {
             Op::Write {
@@ -687,7 +722,7 @@ impl Image {
         }
     }
 
-    fn apply_entries(&mut self, op: &Op, inits: &HashMap<NodeId, Node>) {
+    fn apply_entries(&mut self, op: &Op, inits: &NodeMap) {
         match op {
             Op::Link { at, id } => self.set_entry(at, Some(*id), inits),
             Op::Unlink { at, id } => {
@@ -717,7 +752,7 @@ impl Image {
     /// A persisted rename sets the destination even when the creation of the
     /// source never reached the image; the source name is removed only while
     /// it still denotes the renamed entry.
-    fn move_entry(&mut self, from: &Entry, to: &Entry, id: NodeId, inits: &HashMap<NodeId, Node>) {
+    fn move_entry(&mut self, from: &Entry, to: &Entry, id: NodeId, inits: &NodeMap) {
         self.set_entry(to, Some(id), inits);
         if self.entry(from) == Some(id) {
             self.set_entry(from, None, inits);
@@ -863,17 +898,19 @@ impl State {
             .iter()
             .enumerate()
             .filter(|(_, volume)| path.starts_with(&volume.spec.mount))
-            .max_by_key(|(_, volume)| volume.spec.mount.as_path().components().count())
+            // Mounts that are all prefixes of one path are nested, so the
+            // longest one is the one with the most components.
+            .max_by_key(|(_, volume)| volume.spec.mount.as_path().as_os_str().len())
             .map(|(index, _)| index)
     }
 
-    fn names(mount: &AbsPath, path: &AbsPath) -> Vec<OsString> {
+    fn names<'a>(mount: &AbsPath, path: &'a AbsPath) -> Vec<&'a OsStr> {
         path.as_path()
             .strip_prefix(mount.as_path())
             .map(|rest| {
                 rest.components()
                     .filter_map(|component| match component {
-                        Component::Normal(name) => Some(name.to_os_string()),
+                        Component::Normal(name) => Some(name),
                         _ => None,
                     })
                     .collect()
@@ -901,36 +938,41 @@ impl State {
         let volume = &self.volumes[vol];
         let names = Self::names(&volume.spec.mount, path);
         let mut current = ROOT_NODE;
+        let mut current_body = volume.live.nodes.get(&current).map(|node| &node.body);
         let mut parent = None;
-        let mut prefix = volume.spec.mount.clone();
         for (index, name) in names.iter().enumerate() {
-            let Some(Body::Dir(entries)) = volume.live.nodes.get(&current).map(|node| &node.body)
-            else {
+            let Some(Body::Dir(entries)) = current_body else {
                 return Err(error(FsErrorKind::NotADirectory, op, path));
             };
             let child = *entries
-                .get(name)
+                .get(*name)
                 .ok_or_else(|| error(FsErrorKind::NotFound, op, path))?;
+            let child_body = volume.live.nodes.get(&child).map(|node| &node.body);
             let last = index + 1 == names.len();
-            if let Some(Body::Link(target, _)) =
-                volume.live.nodes.get(&child).map(|node| &node.body)
+            if let Some(Body::Link(target, _)) = child_body
                 && (!last || follow == Follow::Follow)
             {
                 let rest = names.get(index + 1..).unwrap_or_default();
+                let mut prefix = volume.spec.mount.clone();
+                for passed in names.iter().take(index) {
+                    prefix = Self::join(&prefix, passed, op, path)?;
+                }
                 let next = Self::link_path(&prefix, target, rest, op, path)?;
                 return self.resolve_depth(&next, follow, op, depth + 1);
             }
-            parent = Some(Entry {
-                dir: current,
-                name: name.clone(),
-            });
-            prefix = Self::join(&prefix, name, op, path)?;
+            parent = Some((current, index));
             current = child;
+            current_body = child_body;
         }
         Ok(Located {
             vol,
             id: current,
-            parent,
+            parent: parent.and_then(|(dir, index)| {
+                names.get(index).map(|name| Entry {
+                    dir,
+                    name: (*name).to_os_string(),
+                })
+            }),
             path: path.clone(),
         })
     }
@@ -943,7 +985,7 @@ impl State {
     fn link_path(
         dir: &AbsPath,
         target: &Path,
-        rest: &[OsString],
+        rest: &[&OsStr],
         op: &str,
         path: &AbsPath,
     ) -> FsResult<AbsPath> {
@@ -1304,7 +1346,7 @@ impl CrashFs {
                     live: image.clone(),
                     durable: image,
                     pending: Vec::new(),
-                    inits: HashMap::new(),
+                    inits: NodeMap::default(),
                     next_seq: 0,
                 }
             })
@@ -2503,7 +2545,7 @@ mod tests {
             nlink: 0,
             stamp: 0,
         };
-        let inits = HashMap::from([(id, file)]);
+        let inits: NodeMap = [(id, file)].into_iter().collect();
         let write = Pending {
             seq: 1,
             op: Op::Write {
@@ -2539,7 +2581,7 @@ mod tests {
             nlink: 0,
             stamp: 0,
         };
-        let inits = HashMap::from([(id, file)]);
+        let inits: NodeMap = [(id, file)].into_iter().collect();
         let meta_op = |seq: u64, mode: u32, now: i64| Pending {
             seq,
             op: Op::Meta {
@@ -2777,3 +2819,7 @@ mod tests {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

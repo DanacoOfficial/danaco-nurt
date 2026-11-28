@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/reference/serve-protocol.md -->
+<!-- Responsibility:   Documents `nurt serve` protocol reference (`nurt-rpc/1`). -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # `nurt serve` protocol reference (`nurt-rpc/1`)
 
 `nurt serve` runs the engine behind a JSON-RPC 2.0 server on standard input
@@ -75,9 +83,9 @@ is not processed. The server never waits for the end of the input.
 | `check` | request envelope `nurt-request/1` | check document `nurt-check/1` with the members `bound` (the bound tree), `ast_hash` (hash of the bound tree in `bound`, as in `spec/syntax-tree.md` section 6, `sha256:<hex>`; absent only when the tree is not known, never for a program given as text) and `diagnostics` |
 | `parse` | `{program: string, variant?: "a" \| "b" \| "c"}` | `{ast: nurt-ast/1, diagnostics: []}` |
 | `print` | `{ast: nurt-ast/1, variant?: "a" \| "b" \| "c"}` | `{text: string}` |
-| `correct` | `{program: string, variant?: "a" \| "b" \| "c"}` | corrected program and its corrections |
+| `correct` | `{program: string, variant?: "a" \| "b" \| "c"}` | `{ast: nurt-ast/1, corrections?: [...], ran?: string}`; `ran` is the corrected program text when the engine corrected it |
 | `page` | `{cursor: string, limit?: integer}` | response `nurt-response/1` with the next page |
-| `describe` | `{subject?: string, language?: string}` | `{description}` |
+| `describe` | `{subject?: string, language?: string}` | `{description: {text: string, tokens: integer, estimate: boolean}}`; the description of the subject is the field `text` |
 | `help` | `{topic?: string, language?: string}` | `{text: string}` |
 | `schema` | `{name: string}` | the published JSON Schema `name` |
 | `catalog` | `{what?: object \| null}` or absent | command catalog `nurt-catalog-result/1` |
@@ -227,7 +235,7 @@ Newline-delimited session (`>` sent by the client, `<` sent by the server):
 
 ```
 > {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol":"nurt-rpc/1","capabilities":{"events":true}}}
-< {"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","version":"0.1.0","abi":null,"language":null,"ast":"1.0","report":"1.0","catalog_rev":null,"features":[],"groups":[],"limits":{"max_inflight":16,"max_message_bytes":16777216}}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","version":"0.1.1","abi":null,"language":null,"ast":"1.1","report":"1.0","catalog_rev":null,"features":[],"groups":[],"limits":{"max_inflight":16,"max_message_bytes":16777216}}}
 > {"jsonrpc":"2.0","id":2,"method":"run","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}}
 < {"jsonrpc":"2.0","method":"nurt/event","params":{"seq":1,"time":"2026-11-21T09:12:00Z","request":"2","t":"exec.started"}}
 < {"jsonrpc":"2.0","method":"nurt/event","params":{"seq":2,"time":"2026-11-21T09:12:00Z","request":"2","t":"exec.finished","status":"ok","error":null}}
@@ -252,3 +260,7 @@ Content-Length: 44\r\n
 \r\n
 {"jsonrpc":"2.0","id":3,"method":"shutdown"}
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

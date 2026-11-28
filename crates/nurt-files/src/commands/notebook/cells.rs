@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::notebook::cells
+// Responsibility:   `notebook.cells`: the cells of a notebook as `cell` records.
+// Dependencies:     nurt_contracts, nurt_notebook
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `notebook.cells`: the cells of a notebook as `cell` records.
 //!
 //! Without `index`, `id` and `find`, every cell is listed as an outline: the
@@ -233,3 +241,7 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::OutOfRange);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

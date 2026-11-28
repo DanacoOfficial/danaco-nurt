@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sched/tests/module_host.rs
+// Responsibility:   The schedule module under a test host: start and stop, control requests, remote action kinds, busy runs, stopped runs and undo of a removal.
+// Dependencies:     nurt_contracts, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The schedule module under a test host: start and stop, control requests,
 //! remote action kinds, busy runs, stopped runs and undo of a removal.
 //!
@@ -529,3 +537,7 @@ fn control_requests_report_their_errors() {
     );
     assert_eq!(harness.shutdown(), ModuleHealth::Stopped);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

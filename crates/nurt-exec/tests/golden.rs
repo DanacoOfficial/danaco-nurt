@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/golden.rs
+// Responsibility:   End-to-end execution of bound programs from the golden documents.
+// Dependencies:     common, nurt_contracts, nurt_plan, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! End-to-end execution of bound programs from the golden documents: the
 //! document is planned with the catalog and executed on a virtual file
 //! system with mock sources and effects next to the record stages.
@@ -35,9 +43,13 @@ const NANOS_PER_SECOND: i64 = 1_000_000_000;
 const TEN_MINUTES: Duration = Duration::from_secs(600);
 
 fn golden(name: &str) -> BoundDocument {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden/bound")
-        .join(format!("{name}.json"));
+    let path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/bound")
+    .join(format!("{name}.json"));
     let text = std::fs::read_to_string(path).unwrap();
     serde_json::from_str(&text).unwrap()
 }
@@ -63,7 +75,10 @@ fn sized_entries(world: &World, count: u64) -> Vec<Record> {
     (0..count)
         .map(|n| {
             Record::new(RecordKind::Entry)
-                .with("path", Value::Path(format!("/srv/app/f{n}.go")))
+                .with(
+                    "path",
+                    Value::Path(nurt_testkit::paths::abs(&format!("/srv/app/f{n}.go"))),
+                )
                 .with(
                     "size",
                     Value::Size(nurt_contracts::value::Size::from_bytes(n * MEGABYTE / 10)),
@@ -114,7 +129,12 @@ fn computes_a_named_result_once() {
 fn temporary_files(world: &World) -> Vec<Record> {
     ["a.tmp", "b.tmp", "c.tmp"]
         .into_iter()
-        .map(|name| Record::new(RecordKind::Entry).with("path", Value::Path(world.file(name))))
+        .map(|name| {
+            Record::new(RecordKind::Entry).with(
+                "path",
+                Value::Path(nurt_testkit::paths::abs(&world.file(name))),
+            )
+        })
         .collect()
 }
 
@@ -208,3 +228,7 @@ fn reports_a_background_job_as_running() {
     assert_eq!(outcome.status, ReportStatus::Running);
     assert!(outcome.last().unwrap().effect.as_ref().unwrap().detached);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

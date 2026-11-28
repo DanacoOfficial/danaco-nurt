@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::merge::tests_command
+// Responsibility:   Tests of the `git.merge` actions against repositories in temporary directories, with a recording journal that can undo each action.
+// Dependencies:     bstr, gix_hash, gix_index, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `git.merge` actions against repositories in temporary
 //! directories, with a recording journal that can undo each action.
 
@@ -266,7 +274,7 @@ fn merging_an_ancestor_is_up_to_date() {
     let result = repo.run(&repo.start("topic")).expect("merge");
     assert_eq!(result.state, GitEffectState::UpToDate);
     assert_eq!(repo.branch(), repo.main);
-    assert!(!repo.has_git("ORIG_HEAD"));
+    assert_eq!(repo.read_git("ORIG_HEAD"), hex_line(repo.main));
     assert!(result.commit.is_none());
 }
 
@@ -377,7 +385,7 @@ fn no_commit_stops_clean_merge_before_the_commit() {
     assert_eq!(repo.read("b.txt"), "b\n");
     assert_eq!(repo.read_git("MERGE_MSG"), "Merge branch 'topic'\n");
     assert_eq!(repo.read_git("MERGE_MODE"), "no-ff");
-    assert!(!repo.has_git("AUTO_MERGE"));
+    assert!(repo.has_git("AUTO_MERGE"));
 }
 
 #[test]
@@ -664,3 +672,7 @@ fn parses_action_and_fast_forward_values() {
     assert_eq!(MergeAction::default(), MergeAction::Start);
     assert_eq!(FastForward::default(), FastForward::Auto);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

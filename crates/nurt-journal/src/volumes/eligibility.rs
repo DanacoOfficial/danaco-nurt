@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::volumes::eligibility
+// Responsibility:   Volume eligibility rules.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Volume eligibility rules.
 //!
 //! The journal is kept by default on local fixed volumes and on overlay
@@ -89,7 +97,7 @@ fn classify(volume: &VolumeInfo) -> VolumeClass {
 ///
 /// let volume = VolumeInfo {
 ///     id: VolumeId { dev: 41, uuid: None, subvolume: 0 },
-///     mount: AbsPath::new("/tmp").unwrap(),
+///     mount: AbsPath::new(if cfg!(windows) { "C:/tmp" } else { "/tmp" }).unwrap(),
 ///     fs_type: "tmpfs".to_owned(),
 ///     kind: VolumeKind::Memory,
 ///     features: FsFeatures { durable_metadata: true, ..FsFeatures::default() },
@@ -180,7 +188,12 @@ mod tests {
         let mut config = JournalConfig::default();
         let mut settings = VolumeOverride::default();
         settings.enabled = Some(enabled);
-        config.volume.insert(mount.to_owned(), settings);
+        let key = if mount.starts_with('/') {
+            nurt_testkit::paths::abs(mount)
+        } else {
+            mount.to_owned()
+        };
+        config.volume.insert(key, settings);
         config
     }
 
@@ -457,3 +470,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

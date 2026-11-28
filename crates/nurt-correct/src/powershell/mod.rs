@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::powershell
+// Responsibility:   Translation of commands written in PowerShell notation into Nurt programs.
+// Dependencies:     lex, nurt_contracts, table
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of commands written in PowerShell notation into Nurt
 //! programs.
 //!
@@ -388,6 +396,25 @@ fn check_one_pipeline(input: &str, statements: &[TranslatedStatement]) -> Result
     )
     .with_at(whole_input(input))
     .with_help(HELP_CORRECTIONS);
+    let whole = AstDocument::new(Program {
+        statements: statements
+            .iter()
+            .map(|statement| statement.statement.clone())
+            .collect(),
+    });
+    let mut steps = String::from("steps {\n");
+    for line in program_text(&whole).lines() {
+        steps.push_str("    ");
+        steps.push_str(line);
+        steps.push('\n');
+    }
+    steps.push('}');
+    error = error.with_candidate(Candidate {
+        rank: 1,
+        reference: None,
+        program: steps,
+        why: None,
+    });
     for statement in statements {
         match &statement.statement {
             Statement::Let(_) => lets.push(statement.statement.clone()),
@@ -474,3 +501,7 @@ fn replace_stage(tree: &AstDocument, alternative: &AlternativeStage) -> Option<A
     *slot = alternative.stage.clone();
     Some(document)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

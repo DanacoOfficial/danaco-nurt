@@ -1,7 +1,18 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/chocolatey/tools/chocolateyinstall.ps1.in
+# Responsibility:   Template of the Chocolatey installation script of Danaco Nurt.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 $ErrorActionPreference = 'Stop'
 
 $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$releaseUrl = 'https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@'
+$releaseUrl = 'https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@'
 
 if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') {
     $archive = 'nurt-@VERSION@-aarch64-pc-windows-msvc.zip'
@@ -21,3 +32,7 @@ $packageArgs = @{
 }
 
 Install-ChocolateyZipPackage @packageArgs
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

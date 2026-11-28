@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/bind_support/mod.rs
+// Responsibility:   Shared helpers of the binder tests: the reference catalog and builders of surface trees.
+// Dependencies:     nurt_contracts, nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Shared helpers of the binder tests: the reference catalog and builders of
 //! surface trees.
 
@@ -19,7 +27,13 @@ use nurt_contracts::spec::Os;
 
 /// Root of the workspace.
 pub(crate) fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..")
 }
 
 /// The reference catalog of the workspace, read once.
@@ -226,3 +240,7 @@ pub(crate) fn expected_names(error: &BindError) -> Vec<String> {
         })
         .unwrap_or_default()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

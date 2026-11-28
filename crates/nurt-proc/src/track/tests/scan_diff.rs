@@ -1,20 +1,31 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::tests::scan_diff
+// Responsibility:   Detection by scanning before and after.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection by scanning before and after.
 
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{Duration, SystemTime};
 
 use nurt_contracts::error::ErrorCode;
+use nurt_contracts::fs::{AbsPath, RACY_WINDOW};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::Tracking;
 use nurt_contracts::report::{ChangeAction, Irreversible, Notable};
 
-use super::support::{Harness, RecordingTx};
+use super::support::{DiskFs, Harness, RecordingTx};
 use crate::iface::{TrackMode, TrackSpec};
+use crate::track::scan::{Racy, Scope, Snapshot, racy_cutoff, scan};
 
 #[test]
 fn reports_every_kind_of_change() {
@@ -299,3 +310,95 @@ fn changes_made_by_a_child_process_are_detected() {
         Some(Irreversible::PreviousContentNotKept)
     );
 }
+
+/// Sets the modification time of `relative` to `time`.
+fn set_modified(h: &Harness, relative: &str, time: SystemTime) {
+    h.write_keeping_time(relative, &h.read(relative), time);
+}
+
+#[test]
+fn same_size_rewrite_with_the_modification_time_kept_is_detected_and_undone() {
+    let h = Harness::new();
+    h.write_racy("data.bin", "aaaa");
+    let kept = h.modified("data.bin");
+    let mut tx = RecordingTx::new();
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write_keeping_time("data.bin", "bbbb", kept);
+    });
+    assert_eq!(h.modified("data.bin"), kept);
+    let change = h.change(&outcome, "data.bin");
+    assert_eq!(change.action, ChangeAction::Modify);
+    assert_ne!(change.hash_before, change.hash_after);
+    tx.undo();
+    assert_eq!(h.read("data.bin"), "aaaa");
+}
+
+#[test]
+fn unchanged_racy_files_are_no_change() {
+    let h = Harness::new();
+    h.write_racy("data.bin", "aaaa");
+    let mut tx = RecordingTx::new();
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |_| {});
+    assert!(outcome.changes.is_empty());
+}
+
+#[test]
+fn only_files_inside_the_racy_window_are_hashed() {
+    let h = Harness::new();
+    h.write_racy("fresh.txt", "fresh");
+    h.write("old.txt", "old");
+    let now = SystemTime::now();
+    set_modified(&h, "old.txt", now - RACY_WINDOW - Duration::from_secs(60));
+    h.write_racy("big.bin", "0123456789");
+    let roots = [AbsPath::new(&h.root).unwrap()];
+    let ignore: Vec<String> = Vec::new();
+    let scoped = |hash, racy| {
+        scan(
+            &DiskFs,
+            Scope {
+                roots: &roots,
+                ignore: &ignore,
+                hash,
+                racy,
+                bound: None,
+            },
+        )
+        .entries
+    };
+    let rule = |max_bytes, previous| {
+        Some(Racy {
+            cutoff_ns: racy_cutoff(now),
+            max_bytes,
+            previous,
+        })
+    };
+    let hash_of = |entries: &Snapshot, name: &str| {
+        entries
+            .get(&h.path(name))
+            .and_then(|state| state.hash.clone())
+    };
+    let before = scoped(false, rule(8, None));
+    assert!(hash_of(&before, "fresh.txt").is_some());
+    assert!(hash_of(&before, "old.txt").is_none());
+    assert!(
+        hash_of(&before, "big.bin").is_none(),
+        "above the size limit"
+    );
+    assert!(hash_of(&scoped(false, None), "fresh.txt").is_none());
+    assert!(hash_of(&scoped(true, rule(8, None)), "old.txt").is_some());
+    let after = scoped(false, rule(8, Some(&before)));
+    assert!(hash_of(&after, "fresh.txt").is_some());
+    let mut unhashed = before.clone();
+    for state in unhashed.values_mut() {
+        state.hash = None;
+    }
+    let skipped = scoped(false, rule(8, Some(&unhashed)));
+    assert!(
+        hash_of(&skipped, "fresh.txt").is_none(),
+        "the scan before the run did not hash the file"
+    );
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

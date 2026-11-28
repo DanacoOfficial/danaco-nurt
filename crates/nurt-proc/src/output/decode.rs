@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::decode
+// Responsibility:   Detection and decoding of the text encoding of program output.
+// Dependencies:     encoding_rs, nurt_contracts, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection and decoding of the text encoding of program output.
 //!
 //! Spool files keep the original bytes; decoding applies to the lines of a
@@ -267,9 +275,11 @@ fn is_utf8(sample: &[u8], complete: bool) -> bool {
 }
 
 fn legacy(sample: &[u8], complete: bool) -> TextEncoding {
-    if let Some(encoding) = console_encoding() {
-        return encoding;
-    }
+    console_encoding().unwrap_or_else(|| guess(sample, complete))
+}
+
+/// Encoding guessed from the content of `sample`.
+fn guess(sample: &[u8], complete: bool) -> TextEncoding {
     let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
     detector.feed(sample, complete);
     from_encoding(detector.guess(None, chardetng::Utf8Detection::Allow))
@@ -432,9 +442,13 @@ mod tests {
         let text = "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144} \
                     \u{15b}wi\u{119}ty \u{142}\u{105}ka \u{17c}\u{f3}\u{142}w";
         let (bytes, _, _) = encoding_rs::WINDOWS_1250.encode(text);
-        let detected = detect(&bytes, true);
-        assert!(matches!(detected, TextEncoding::Legacy(_)), "{detected:?}");
-        assert_eq!(detected.decode(&bytes), text);
+        let guessed = guess(&bytes, true);
+        assert!(matches!(guessed, TextEncoding::Legacy(_)), "{guessed:?}");
+        assert_eq!(guessed.decode(&bytes), text);
+        // On Windows a console program writes in the code page of the
+        // console, which takes precedence over the guess.
+        let expected = console_encoding().unwrap_or(guessed);
+        assert_eq!(detect(&bytes, true), expected);
     }
 
     #[test]
@@ -477,3 +491,7 @@ mod tests {
         assert_eq!(TextEncoding::Utf8.decode(b"a\xffb"), "a\u{fffd}b");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

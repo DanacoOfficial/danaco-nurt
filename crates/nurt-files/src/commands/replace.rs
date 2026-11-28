@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::replace
+// Responsibility:   The `replace` command: replacement of text in files, in input lines or content, and of input matches.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `replace` command: replacement of text in files, in input lines or
 //! content, and of input matches.
 //!
@@ -1093,7 +1101,7 @@ impl<'o> Run<'o> {
         if let Some(if_match) = if_match {
             check_if_match(
                 &target.path,
-                &Observed::Present(file.meta.clone()),
+                &Observed::Present(file.meta.clone(), Some(file.hash)),
                 if_match.expected(&target.path),
             )?;
         }
@@ -2249,3 +2257,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

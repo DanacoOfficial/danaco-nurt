@@ -1,9 +1,17 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::fmt
+// Responsibility:   Formatting of program text into its canonical form (`nurt fmt`).
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Formatting of program text into its canonical form (`nurt fmt`).
 //!
-//! [`format`] parses a program, prints it with the canonical printer
+//! [`format()`] parses a program, prints it with the canonical printer
 //! ([`crate::print`]) and puts its comments back:
 //!
 //! * a comment on a line of its own stays on a line of its own before the
@@ -66,7 +74,7 @@ pub fn format(text: &str, variant: Variant) -> Result<String, SyntaxError> {
 }
 
 /// Converts program text from the variant `from` to the canonical text of
-/// the variant `to`, keeping comments as [`format`] does.
+/// the variant `to`, keeping comments as [`format()`] does.
 ///
 /// Variant C names every argument: when `to` is [`Variant::C`] and the
 /// program has positional arguments, `names` supplies their parameter names
@@ -165,6 +173,22 @@ struct Element {
     end: u32,
 }
 
+/// Lines a construct covers, so that comments inside it stay before it.
+fn construct_extent(statement: &Statement) -> Option<(u32, u32)> {
+    let span = match statement {
+        Statement::When(construct) => construct.span,
+        Statement::Each(construct) => construct.span,
+        Statement::Repeat(construct) => construct.span,
+        Statement::While(construct) => construct.span,
+        Statement::Steps(construct) => construct.span,
+        Statement::Define(construct) => construct.span,
+        Statement::Params(construct) => construct.span,
+        Statement::Break(jump) | Statement::Continue(jump) => jump.span,
+        _ => None,
+    };
+    span.map(|span| (span.line, span.end_line))
+}
+
 fn elements(document: &AstDocument) -> (Vec<Element>, Vec<Option<(u32, u32)>>) {
     let mut elements = Vec::new();
     let mut extents = Vec::with_capacity(document.program.statements.len());
@@ -172,8 +196,8 @@ fn elements(document: &AstDocument) -> (Vec<Element>, Vec<Option<(u32, u32)>>) {
         let (span, pipeline) = match node {
             Statement::Let(binding) => (binding.span, &binding.value),
             Statement::Pipeline(pipeline) => (pipeline.span, pipeline),
-            _ => {
-                extents.push(None);
+            other => {
+                extents.push(construct_extent(other));
                 continue;
             }
         };
@@ -353,3 +377,7 @@ fn push_lines(out: &mut String, lines: Option<&Vec<String>>) {
         out.push('\n');
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

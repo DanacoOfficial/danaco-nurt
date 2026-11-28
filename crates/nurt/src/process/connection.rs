@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt::process::connection
+// Responsibility:   One connection to `nurt serve`: JSON-RPC 2.0 messages, one per line.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! One connection to `nurt serve`: JSON-RPC 2.0 messages, one per line.
 //!
 //! A reader thread receives every message of the server. Responses are
@@ -611,3 +619,7 @@ mod tests {
         assert!(reply_of(&json!({"id": 1, "error": {"code": -32603}})).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

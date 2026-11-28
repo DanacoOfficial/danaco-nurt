@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/run.md -->
+<!-- Responsibility:   Documents run. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # run
 
@@ -71,7 +78,7 @@ selected by `filter` with `context` lines around each match (or, for `show:
 errors` and for `show: auto` after a failure of output longer than 20 lines,
 by the built-in error line patterns with 2 lines of context), limited to the
 first `head` and the last `tail` lines, and cut to 400 characters per line
-(the rest becomes `… [+N znaków]`). The text of all streams together then
+(the rest becomes `… [+N characters]`). The text of all streams together then
 fits in `max_bytes` bytes (4096 by default, key `output.max_bytes`, `0` is no
 limit), filled in this order: the errors found in the output of a known tool,
 the end of standard error, the end of standard output, the beginning of the
@@ -99,12 +106,16 @@ hundreds of warnings. A shorter output is returned whole and has no
 `diagnostics`. A line `error: message` without a code and a location counts as
 an error of `cargo` only when the output shows another mark of it.
 
-When the response leaves lines out or cuts lines, `read_hint` is one sentence
-with ready commands that read the rest from the output file without running
-the program again, for example `read "/state/spool/r1.out" lines: 200..260`,
-and `search /error|FAILED/ "/state/spool/r1.out"` for the lines that contain
-a word. Line numbers are those of the file, so lines collapsed by `dedupe`
-count as the lines they stand for.
+When the response leaves lines out or cuts lines, the report carries the field
+`continuation` (`id`, `unit: lines`, `shown`, `remaining`, `cut_lines`) and the
+text ends with the hint "more: next". `next` returns the lines left out from the output
+file in parts of the size of the first response, `next 200` returns 200 lines,
+`next all` everything that is left and `next full` the lines that the response
+cut, whole; the program does not run again. Line numbers are those of the
+file, so lines collapsed by `dedupe` count as the lines they stand for. A
+response that shows a selection of lines (`show: errors`) is continued from the
+first line of the file. The output file stays in the record (`output_file`,
+`stdout_file`, `stderr_file`) and can still be read with `read` and `search`.
 
 `run` waits up to `wait` for the program. A program that ends within `wait`
 yields an `exec` record. A program still running after `wait` continues as a
@@ -171,6 +182,12 @@ Every job of a run, a batch or a `retry` emits `job.started`, then
 continues in the background. The command emits no `exec.started` or
 `exec.finished`: these events enclose the whole program and come from the
 engine.
+
+**Privilege.** `privilege: elevated` runs the program with the rights of the administrator, `as_user: "NAME"` as another account; `sudo`, `doas` and `run0` are not written in the argument list (a list that starts with `sudo` is corrected into the same `run` with `privilege: elevated`). The files that the program changes are reported, but they are not preserved: the entry is irreversible, and the report says so before the change.
+
+```nurt
+run ["systemctl", "daemon-reload"] cwd: "/" privilege: elevated
+```
 
 ## Parameters
 
@@ -268,6 +285,14 @@ Fail when the program exits with a code other than zero:
 run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0
 ```
 
+A response that leaves lines out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+exit 1  3000 lines  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -287,3 +312,7 @@ run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0
 
 `jobs`, `stop`, `retry`, `suspend`, `resume`, `assert`, `verify`, `undo`,
 `test.run`, `analyze.check`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service::process
+// Responsibility:   Facts about processes and the account: liveness of a process identifier, administrator rights and, on Windows, the account SID.
+// Dependencies:     imp, nix, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Facts about processes and the account: liveness of a process
 //! identifier, administrator rights and, on Windows, the account SID.
 
@@ -211,3 +219,7 @@ mod tests {
         let _ = is_elevated();
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -7,7 +7,7 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 # B20: cd followed by a command on the same line.
-# translated: B20, B38
+# translated: B41, B20, B38
 run ["go", "test", "./..."] cwd: "/srv/app"
 # translated: B20, B38
 # assumption: the script stops at the first error; bash continues after `;`

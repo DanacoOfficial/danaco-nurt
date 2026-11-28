@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::scan
+// Responsibility:   Scan of the watched directories.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Scan of the watched directories: one entry per path with the state that
 //! reveals a change (kind, size, modification time, file identity, mode,
 //! link target and, on request, the content hash).
@@ -11,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use nurt_contracts::fs::{AbsPath, FileKind, Follow, Fs, FsErrorKind};
 use nurt_contracts::stage::CancelToken;
@@ -23,6 +31,13 @@ const MAX_SCAN_THREADS: usize = 8;
 /// Number of scanned entries between two checks of the clock and of the
 /// cancellation token inside one directory.
 const CHECK_INTERVAL: usize = 64;
+
+/// Modification times at or after the returned instant, in nanoseconds since
+/// the Unix epoch, are racy for a scan that starts at `start`; the content hash
+/// of such a file is compared in addition to its metadata.
+pub(super) fn racy_cutoff(start: SystemTime) -> i64 {
+    nurt_contracts::fs::racy_cutoff_ns(start)
+}
 
 /// Why a bounded scan ended before it listed everything.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +196,34 @@ pub(super) struct EntryState {
 /// Entries by absolute path.
 pub(super) type Snapshot = BTreeMap<PathBuf, EntryState>;
 
+/// Racy-entry rule of a scan (see the module documentation of `track`): a
+/// regular file whose modification time is at or after `cutoff_ns` and whose
+/// size does not exceed `max_bytes` gets a content hash even without
+/// `Scope::hash`. The scan after the run takes the cutoff of the scan before
+/// it and, through `previous`, hashes only the files that scan hashed and that
+/// kept their size, modification time and identity: a hash on one side only
+/// decides nothing.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Racy<'a> {
+    /// Modification times, nanoseconds since the Unix epoch, from which a file
+    /// is racy.
+    pub(super) cutoff_ns: i64,
+    /// Largest file that is hashed because it is racy.
+    pub(super) max_bytes: u64,
+    /// Snapshot of the scan before the run; `None` in that scan itself.
+    pub(super) previous: Option<&'a Snapshot>,
+}
+
+/// State of an entry in the scan before the run, as far as the racy-entry rule
+/// needs it.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Previous<'p> {
+    /// The scan before the run.
+    Before,
+    /// A later scan; the entry of the scan before the run, if there was one.
+    After(Option<&'p EntryState>),
+}
+
 /// What is scanned.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Scope<'a> {
@@ -190,6 +233,8 @@ pub(super) struct Scope<'a> {
     pub(super) ignore: &'a [String],
     /// Content hashes of files are computed.
     pub(super) hash: bool,
+    /// Racy-entry rule; `None` disables it.
+    pub(super) racy: Option<Racy<'a>>,
     /// Bounds of the scan; `None` scans everything without a limit.
     pub(super) bound: Option<&'a Bound>,
 }
@@ -241,9 +286,36 @@ impl Scanned {
     }
 }
 
+/// Whether the content hash of the file with `meta` is computed.
+fn hashes(scope: &Scope<'_>, meta: &nurt_contracts::fs::FileMeta, previous: Previous<'_>) -> bool {
+    if scope.hash {
+        return true;
+    }
+    let Some(racy) = scope.racy else {
+        return false;
+    };
+    if meta.modified_ns < racy.cutoff_ns || meta.size > racy.max_bytes {
+        return false;
+    }
+    match previous {
+        Previous::Before => true,
+        Previous::After(entry) => entry.is_some_and(|before| {
+            before.hash.is_some()
+                && before.size == meta.size
+                && before.modified_ns == meta.modified_ns
+                && before.file_id == [meta.file_id.volume, meta.file_id.low, meta.file_id.high]
+        }),
+    }
+}
+
 /// Reads the state of one entry without following links; `None` when it does
 /// not exist or cannot be read.
-pub(super) fn stat(fs: &dyn Fs, path: &AbsPath, hash: bool) -> Option<EntryState> {
+pub(super) fn stat(
+    fs: &dyn Fs,
+    path: &AbsPath,
+    scope: &Scope<'_>,
+    previous: Previous<'_>,
+) -> Option<EntryState> {
     let meta = fs.metadata(path, Follow::NoFollow).ok()?;
     let kind = match meta.kind {
         FileKind::File => Kind::File,
@@ -254,7 +326,7 @@ pub(super) fn stat(fs: &dyn Fs, path: &AbsPath, hash: bool) -> Option<EntryState
     let link = (kind == Kind::Link)
         .then(|| fs.read_link(path).ok())
         .flatten();
-    let hash = (hash && kind == Kind::File)
+    let hash = (kind == Kind::File && hashes(scope, &meta, previous))
         .then(|| fs.content_hash(path).ok().map(|digest| digest.to_string()))
         .flatten();
     Some(EntryState {
@@ -369,7 +441,8 @@ impl Work<'_> {
             let Ok(path) = AbsPath::new(dir.as_path().join(&entry.name)) else {
                 continue;
             };
-            let Some(state) = stat(self.fs, &path, self.scope.hash) else {
+            let Some(state) = stat(self.fs, &path, &self.scope, previous_of(&self.scope, &path))
+            else {
                 continue;
             };
             if state.kind == Kind::Directory {
@@ -392,12 +465,21 @@ impl Work<'_> {
     }
 }
 
+/// Entry of the scan before the run for `path`, when `scope` belongs to a
+/// later scan.
+fn previous_of<'p>(scope: &Scope<'p>, path: &AbsPath) -> Previous<'p> {
+    match scope.racy.and_then(|racy| racy.previous) {
+        None => Previous::Before,
+        Some(snapshot) => Previous::After(snapshot.get(path.as_path())),
+    }
+}
+
 /// Scans every root and everything below it, in parallel.
 pub(super) fn scan(fs: &dyn Fs, scope: Scope<'_>) -> Scanned {
     let mut scanned = Scanned::default();
     let mut pending = Vec::new();
     for root in scope.roots {
-        if let Some(state) = stat(fs, root, scope.hash) {
+        if let Some(state) = stat(fs, root, &scope, previous_of(&scope, root)) {
             if state.kind == Kind::Directory {
                 pending.push((root.clone(), state.file_id[0]));
             }
@@ -471,7 +553,7 @@ pub(super) fn refresh(
         let was_dir = snapshot
             .get(path)
             .is_some_and(|state| state.kind == Kind::Directory);
-        match stat(fs, &abs, scope.hash) {
+        match stat(fs, &abs, &scope, Previous::After(snapshot.get(path))) {
             None => remove_tree(snapshot, path),
             Some(state) if state.kind == Kind::Directory && !was_dir => {
                 remove_tree(snapshot, path);
@@ -480,6 +562,7 @@ pub(super) fn refresh(
                     fs,
                     Scope {
                         roots: &roots,
+                        racy: None,
                         ..scope
                     },
                 );
@@ -495,3 +578,7 @@ pub(super) fn refresh(
     }
     ignored
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/lexical_corpus.rs
+// Responsibility:   Lexical correction corpus: the format of every case and the result of the character normalization and token rules on the cases they decide alone.
+// Dependencies:     nurt_contracts, serde_json, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Lexical correction corpus: the format of every case and the result of the
 //! character normalization and token rules on the cases they decide alone.
 //!
@@ -152,7 +160,12 @@ impl Case {
 }
 
 fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn corpus_files(directory: &Path, out: &mut Vec<PathBuf>) {
@@ -477,3 +490,7 @@ fn double_quoted_literals(text: &str) -> Vec<String> {
     }
     literals
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

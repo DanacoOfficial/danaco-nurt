@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::jq::convert
+// Responsibility:   Conversion between language values and `jq` values.
+// Dependencies:     jaq_json, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conversion between language values and `jq` values.
 //!
 //! Numbers keep their exact form in both directions: integers outside the
@@ -218,3 +226,7 @@ mod tests {
         assert_eq!(key_text(&Val::from("k".to_owned())), "k");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

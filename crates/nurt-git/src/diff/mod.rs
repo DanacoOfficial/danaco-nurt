@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::diff
+// Responsibility:   Differences in Git format: hunks with stable identifiers, statistics, word differences, whitespace handling and moved blocks.
+// Dependencies:     canonical, command, funcname, hunk, id, lines, moved, nurt_contracts, rename, select, source, words
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differences in Git format: hunks with stable identifiers, statistics, word differences, whitespace handling and moved blocks.
 //!
 //! The line comparison and the hunk layout follow Git: the Myers algorithm
@@ -65,3 +73,7 @@ pub use source::{
     BINARY_PROBE, DiffAttr, Entry, Opened, Reader, looks_binary, mode_text, open_repository,
 };
 pub use words::{NEWLINE_MARK, word_lines};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

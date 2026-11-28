@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::tx
+// Responsibility:   Mutation transaction implementation.
+// Dependencies:     nurt_contracts, nurt_fs, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Mutation transaction implementation.
 //!
 //! Protocol of one operation:
@@ -190,6 +198,8 @@ struct Target {
     created: bool,
     copied_on_move: bool,
     observed: bool,
+    /// Restored by a rollback to a savepoint: the entry does not record it.
+    restored: bool,
     /// The previous content is kept in the manifest.
     inline: bool,
 }
@@ -269,6 +279,11 @@ pub(crate) struct Tx<'a> {
     inline_admission: Vec<(usize, u64)>,
     /// New content and directory changes not yet flushed.
     unsynced: Unsynced,
+    /// Whether `preserve` is allowed after the first change.
+    incremental: bool,
+    /// Numbers of targets declared when each open savepoint was set, the
+    /// innermost last.
+    savepoints: Vec<usize>,
 }
 
 /// Changes of a transaction whose flush is deferred to one flush of all of
@@ -447,6 +462,9 @@ fn accepts(action: &TargetAction, mutation: &Mutation, provider: bool) -> bool {
             action,
             TargetAction::Create | TargetAction::CreateTree | TargetAction::Replace
         ),
+        Mutation::CreateNode { .. } => {
+            matches!(action, TargetAction::Create | TargetAction::Replace)
+        }
         Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. } => matches!(
             action,
             TargetAction::Create | TargetAction::Link | TargetAction::Replace
@@ -505,6 +523,8 @@ impl<'a> Tx<'a> {
             inline_batch: false,
             inline_admission: Vec::new(),
             unsynced: Unsynced::default(),
+            incremental: false,
+            savepoints: Vec::new(),
         }
     }
 
@@ -532,6 +552,17 @@ impl<'a> Tx<'a> {
     fn fail(&mut self, error: Error) -> Error {
         if self.phase == Phase::Halted {
             return error;
+        }
+        if let Some(mark) = self.savepoints.last().copied() {
+            return match self.restore_from(mark) {
+                Ok(failed) if failed.is_empty() => error,
+                Ok(failed) => {
+                    self.savepoints.clear();
+                    self.phase = Phase::Failed;
+                    rollback_failed(&failed, error)
+                }
+                Err(_) => self.halt(),
+            };
         }
         let outcome = self.restore_all(UndoneCause::RolledBack);
         self.phase = Phase::Failed;
@@ -909,7 +940,19 @@ impl<'a> Tx<'a> {
             (Expect::Unchecked, _) => true,
             (Expect::Absent, current) => current.is_none(),
             (Expect::Etag(_) | Expect::Hash(_), None) => false,
-            (Expect::Etag(expected), Some(meta)) => expected.matches(&meta.etag()),
+            (Expect::Etag(expected), Some(meta)) => {
+                if !expected.matches(&meta.etag()) {
+                    false
+                } else if let Some(hash) = expected.hash {
+                    self.ctx
+                        .fs
+                        .content_hash(path)
+                        .map_err(|error| target_error(target.index(), error))?
+                        == hash
+                } else {
+                    true
+                }
+            }
             (Expect::Hash(expected), Some(_)) => {
                 let hash = self
                     .ctx
@@ -1140,6 +1183,7 @@ impl Tx<'_> {
             created: false,
             copied_on_move: false,
             observed: false,
+            restored: false,
             inline: false,
         };
         if let TargetAction::Rename { to, replace } = &spec.action {
@@ -1878,6 +1922,9 @@ impl Tx<'_> {
             Mutation::CreateDir { mode } => {
                 self.create(position, |fs, scope, path| fs.create_dir(scope, path, mode))
             }
+            Mutation::CreateNode { node, mode } => self.create(position, |fs, scope, path| {
+                fs.create_node(scope, path, node, mode)
+            }),
             Mutation::CreateLink { target, kind } => self.create(position, |fs, scope, path| {
                 fs.create_link(scope, &target, path, kind)
             }),
@@ -2627,6 +2674,35 @@ impl Tx<'_> {
 
 /// Restoration of targets (step 7).
 impl Tx<'_> {
+    /// Restores the targets from position `mark` on, in reverse order, and
+    /// returns those that could not be restored.
+    fn restore_from(&mut self, mark: usize) -> std::result::Result<Vec<TargetPath>, Fault> {
+        let mut failed = Vec::new();
+        for position in (mark.min(self.targets.len())..self.targets.len()).rev() {
+            let target = &self.targets[position];
+            let dest_changed = target.dest.as_ref().is_some_and(|d| d.moved || d.created);
+            if !target.changed && !dest_changed {
+                continue;
+            }
+            match self
+                .restore(position)
+                .and_then(|()| self.flush_restored(position))
+            {
+                Ok(()) => {}
+                Err(_) => failed.push(self.targets[position].spec.path.clone()),
+            }
+            // A target restored once is not restored again by a later rollback,
+            // and the committed entry does not list it.
+            self.targets[position].changed = false;
+            self.targets[position].restored = true;
+            if let Some(dest) = self.targets[position].dest.as_mut() {
+                dest.created = false;
+                dest.moved = false;
+            }
+        }
+        Ok(failed)
+    }
+
     fn restore_all(&mut self, cause: UndoneCause) -> std::result::Result<RollbackReport, Fault> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -2921,7 +2997,9 @@ impl Tx<'_> {
             .targets
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            .filter(|(_, t)| {
+                t.restored || (t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            })
             .map(|(position, _)| position)
             .collect();
         for position in &dropped {
@@ -3217,9 +3295,38 @@ impl MutationTx for Tx<'_> {
         self.op
     }
 
+    fn allow_incremental(&mut self) {
+        self.incremental = true;
+    }
+
+    fn savepoint(&mut self) {
+        self.savepoints.push(self.targets.len());
+    }
+
+    fn release_savepoint(&mut self) {
+        self.savepoints.pop();
+    }
+
+    fn rollback_to_savepoint(&mut self) -> Result<()> {
+        let Some(mark) = self.savepoints.pop() else {
+            return Ok(());
+        };
+        match self.restore_from(mark) {
+            Ok(failed) if failed.is_empty() => Ok(()),
+            Ok(failed) => {
+                self.phase = Phase::Failed;
+                Err(rollback_failed(
+                    &failed,
+                    Error::new(ErrorCode::RolledBack, "an iteration was rolled back"),
+                ))
+            }
+            Err(_) => Err(self.halt()),
+        }
+    }
+
     fn preserve(&mut self, targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
         self.usable()?;
-        if self.phase == Phase::Applying {
+        if self.phase == Phase::Applying && !self.incremental {
             let error = misuse("preserve was called after the first change");
             return Err(self.fail(error));
         }
@@ -3492,7 +3599,7 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::cognitive_complexity, reason = "one scenario with many checks")]
+    #[allow(clippy::cognitive_complexity)] // one scenario with many checks
     fn bulk_overwrite_keeps_small_previous_content_in_a_packed_manifest() {
         let env = Env::new();
         let count = manifest::PACKED_MIN_TARGETS + 4;
@@ -4247,7 +4354,9 @@ mod tests {
         let b = env.file("vol-a/b.txt", b"b");
         let mut tx = begin(&env.ctx, request("write"));
         let mut stale_spec = spec(&b, TargetAction::Modify);
-        stale_spec.expect = Expect::Etag(env.fixture.fs.etag(&b, Follow::NoFollow).unwrap());
+        let mut etag = env.fixture.fs.etag(&b, Follow::NoFollow).unwrap();
+        etag.hash = Some(manifest::hash_bytes(b"b"));
+        stale_spec.expect = Expect::Etag(etag);
         tx.preserve(&[spec(&a, TargetAction::Modify), stale_spec])
             .unwrap();
         tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
@@ -4491,11 +4600,13 @@ mod tests {
             .unwrap()
             .set_modified(old)
             .unwrap();
-        crate::store::test_support::set_path_mode(path.as_path(), 0o600).unwrap();
+        // Windows keeps of the permission bits only the read-only flag.
+        let mode = if cfg!(windows) { 0o444 } else { 0o600 };
+        crate::store::test_support::set_path_mode(path.as_path(), mode).unwrap();
         env.overwrite(&path, b"new");
         let written = env.fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
         assert_eq!(env.read(&path), b"new");
-        assert_eq!(written.mode & 0o777, 0o600);
+        assert_eq!(written.mode & 0o777, mode);
         assert!(written.modified_ns > 1_000_000_000_000, "{written:?}");
     }
 
@@ -4566,6 +4677,30 @@ mod tests {
         assert!(!env.fixture.exists(&path));
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_created_fifo_is_a_created_target_and_rollback_removes_it() {
+        use nurt_contracts::fs::SpecialNode;
+
+        let env = Env::new();
+        let path = env.fixture.fs.path("vol-a/pipe");
+        let mut tx = begin(&env.ctx, request("create"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Create)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Created);
+        tx.apply(
+            TargetIndex(0),
+            Mutation::CreateNode {
+                node: SpecialNode::fifo(),
+                mode: Some(0o600),
+            },
+        )
+        .unwrap();
+        let meta = std::fs::symlink_metadata(path.as_path()).unwrap();
+        assert!(std::os::unix::fs::FileTypeExt::is_fifo(&meta.file_type()));
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert!(!env.fixture.exists(&path));
+    }
+
     #[test]
     fn replacing_a_file_by_a_directory_is_rolled_back_to_the_file() {
         let env = Env::new();
@@ -4604,6 +4739,54 @@ mod tests {
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[right_hash]).unwrap();
         assert_eq!(env.read(&path), b"a");
+    }
+
+    /// Rewrites `path` with `bytes` of the same size and sets its
+    /// modification time back to `time`, as a coarse timestamp would.
+    fn foreign_rewrite_keeping_time(path: &AbsPath, bytes: &[u8], time: std::time::SystemTime) {
+        std::fs::write(path.as_path(), bytes).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(path.as_path())
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
+    fn racy_modify(env: &Env, path: &AbsPath, etag: nurt_contracts::fs::Etag) -> Result<()> {
+        let mut target = spec(path, TargetAction::Modify);
+        target.expect = Expect::Etag(etag);
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[target]).map(|_| ())
+    }
+
+    #[test]
+    fn a_hashed_etag_detects_a_same_size_rewrite_that_kept_the_modification_time() {
+        let env = Env::new();
+        let path = env.file("vol-a/racy.txt", b"aaaa");
+        let kept = std::fs::metadata(path.as_path())
+            .unwrap()
+            .modified()
+            .unwrap();
+        let mut etag = env.fixture.fs.etag(&path, Follow::NoFollow).unwrap();
+        etag.hash = Some(manifest::hash_bytes(b"aaaa"));
+        racy_modify(&env, &path, etag.clone()).unwrap();
+        foreign_rewrite_keeping_time(&path, b"bbbb", kept);
+        let error = racy_modify(&env, &path, etag).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(env.read(&path), b"bbbb");
+    }
+
+    #[test]
+    fn a_metadata_etag_of_a_file_changed_a_moment_ago_is_accepted() {
+        let env = Env::new();
+        let path = env.file("vol-a/fresh.txt", b"aaaa");
+        let future = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
+        foreign_rewrite_keeping_time(&path, b"bbbb", future);
+        let etag = env.fixture.fs.etag(&path, Follow::NoFollow).unwrap();
+        assert!(etag.hash.is_none());
+        racy_modify(&env, &path, etag).unwrap();
+        assert_eq!(env.read(&path), b"bbbb");
     }
 
     #[test]
@@ -5677,3 +5860,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

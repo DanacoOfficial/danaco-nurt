@@ -11,7 +11,7 @@
       {
         "path": "tools/slow.py",
         "type": "file",
-        "content_utf8": "import pathlib\r\nimport sys\r\nimport time\r\n\r\ndelay = {\"quick\": 0.2, \"slow\": 60}[sys.argv[1]]\r\ntime.sleep(delay)\r\npathlib.Path(\"out\").mkdir(exist_ok=True)\r\npathlib.Path(\"out/result.txt\").write_text(\"done\\n\")\r\n"
+        "content_utf8": "import pathlib\r\nimport sys\r\nimport time\r\n\r\ndelay = {\"quick\": 0.2, \"slow\": 60}[sys.argv[1]]\r\ntime.sleep(delay)\r\npathlib.Path(\"out\").mkdir(exist_ok=True)\r\nwith open(\"out/result.txt\", \"w\", newline=\"\\n\") as handle:\r\n    handle.write(\"done\\n\")\r\n"
       }
     ]
   },

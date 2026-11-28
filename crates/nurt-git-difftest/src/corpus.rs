@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::corpus
+// Responsibility:   Corpus of test repositories, generated deterministically with the `git` program.
+// Dependencies:     extended
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Corpus of test repositories, generated deterministically with the `git`
 //! program.
 //!
@@ -16,7 +24,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::error::{DifftestError, Result, io_error};
 use crate::fsutil;
-use crate::git::{GitEnv, GitProgram, IDENTITY_EMAIL, IDENTITY_NAME, expect_exit};
+use crate::git::{GLOBAL_CONFIG, GitEnv, GitProgram, IDENTITY_EMAIL, IDENTITY_NAME, expect_exit};
 use crate::scenario::Platform;
 use crate::time::ScenarioClock;
 
@@ -934,7 +942,7 @@ impl Corpus {
         let home = self.root.join(".home");
         std::fs::create_dir_all(&home).map_err(io_error("create directory", &home))?;
         let config = home.join(".gitconfig");
-        std::fs::write(&config, b"").map_err(io_error("write", &config))?;
+        std::fs::write(&config, GLOBAL_CONFIG).map_err(io_error("write", &config))?;
         let clock =
             ScenarioClock::parse(CORPUS_EPOCH).map_err(|message| DifftestError::Corpus {
                 name: recipe.name.to_owned(),
@@ -995,3 +1003,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u07_xml_corpus.rs
+// Responsibility:   Round trip over the XML corpus `tests/d5/corpus/xml/core`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round trip over the XML corpus `tests/d5/corpus/xml/core`.
 //!
 //! For every file: the tree keeps the bytes (identity), setting the current
@@ -37,9 +45,13 @@ const OPERATIONS: usize = 5;
 const MIN_FILES: usize = 300;
 
 fn data_dir(relative: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5")
-        .join(relative)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
+    .join(relative)
 }
 
 fn corpus() -> Vec<(String, String)> {
@@ -465,3 +477,7 @@ fn value_model_matches_yq_output() {
         "listed but equal: {matching_known:?}"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

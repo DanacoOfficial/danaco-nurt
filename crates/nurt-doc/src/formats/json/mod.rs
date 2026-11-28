@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::json
+// Responsibility:   JSON and JSONC documents.
+// Dependencies:     editor, handle, indexmap, layout, nurt_contracts, syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON and JSONC documents.
 //!
 //! JSON follows RFC 8259 strictly: comments, trailing commas and the
@@ -604,3 +612,7 @@ fn parse_error(text: &str, dialect: Dialect, error: &syntax::SyntaxError) -> Err
 mod corpus_tests;
 #[cfg(test)]
 mod tests;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

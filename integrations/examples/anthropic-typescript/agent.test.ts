@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           integrations/examples/anthropic-typescript/agent.test.ts
+// Responsibility:   Source file integrations/examples/anthropic-typescript/agent.test.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Tests of the example with a mock model and a mock console; no network access.
 
 import assert from "node:assert/strict";
@@ -63,3 +71,7 @@ test("drops null arguments", async () => {
   await callNurt(nurt, { cursor: "c-2", program: null, limit: null });
   assert.deepEqual(nurt.calls, [[{ cursor: "c-2" }, {}]]);
 });
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

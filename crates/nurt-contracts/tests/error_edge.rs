@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/error_edge.rs
+// Responsibility:   Stages, positions, candidates and the builder methods of the error structure, and the status of the C interface.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stages, positions, candidates and the builder methods of the error
 //! structure, and the status of the C interface.
 
@@ -322,3 +330,7 @@ fn the_error_schema_describes_the_data_structure() {
     assert!(text.contains("\"code\""), "{text}");
     assert!(text.contains("\"message\""), "{text}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

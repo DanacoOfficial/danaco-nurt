@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-notebook::ops
+// Responsibility:   Operations of the command group `notebook`.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Operations of the command group `notebook`.
 //!
 //! Each operation changes only the cells it names. Members it does not
@@ -519,3 +527,7 @@ fn validate_replace<'r>(change: &'r Replace<'_>) -> Result<Option<&'r CellRef>, 
     }
     Ok(change.target.as_ref())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

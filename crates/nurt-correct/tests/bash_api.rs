@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/bash_api.rs
+// Responsibility:   Interface of the bash translation: detection, the POSIX lexer, script mode, assumptions and the translation table as data.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface of the bash translation: detection, the POSIX lexer, script
 //! mode, assumptions and the translation table as data.
 
@@ -17,6 +25,7 @@ const HABITS_TABLE: &str = include_str!("../tables/habits_bash.toml");
 const SCRIPT: TranslateContext<'static> = TranslateContext {
     base: None,
     lets: &[],
+    functions: &[],
     mode: Mode::Script,
 };
 
@@ -54,10 +63,13 @@ fn lexer_reports_operators_redirections_and_here_documents() {
 #[test]
 fn live_translation_ignores_nurt_programs_and_hides_errors() {
     assert!(translate("remove \"/srv/app/build\"").is_none());
-    assert!(translate("sudo rm -f /srv/x").is_none());
-    let error = translate_with("sudo rm -f /srv/x", &TranslateContext::default())
-        .expect("a bash habit")
-        .expect_err("sudo is never translated");
+    assert!(translate("for ((i = 0; i < 3; i++)); do rm /srv/a; done").is_none());
+    let error = translate_with(
+        "for ((i = 0; i < 3; i++)); do rm /srv/a; done",
+        &TranslateContext::default(),
+    )
+    .expect("a bash habit")
+    .expect_err("an arithmetic loop is never translated");
     assert_eq!(error.code(), ErrorCode::Uncorrectable);
 }
 
@@ -172,6 +184,7 @@ fn working_directory_is_offered_from_base_and_never_chosen() {
     let context = TranslateContext {
         base: Some("/srv/app"),
         lets: &[],
+        functions: &[],
         mode: Mode::Script,
     };
     let error = translate_with("go build ./...", &context)
@@ -603,3 +616,7 @@ fn the_shared_loader_reads_the_bash_tables() {
     );
     assert!(tables.habits().any(|word| word == "rm"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

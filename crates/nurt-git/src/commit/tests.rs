@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::commit::tests
+// Responsibility:   Files and links of the fixture, without the object store, which keeps written objects after undo.
+// Dependencies:     bstr, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -1221,7 +1228,8 @@ fn all_leaves_out_a_socket_and_refuses_a_tracked_path_taken_by_one() {
     assert_eq!(error.data().problem.as_deref(), Some("special_file"));
 }
 
-#[cfg(unix)]
+// APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn all_follows_files_whose_names_are_not_unicode() {
     use std::os::unix::ffi::OsStrExt;
@@ -1243,3 +1251,7 @@ fn all_follows_files_whose_names_are_not_unicode() {
         assert_eq!(repo.find_object(entry.id).unwrap().data.as_slice(), content);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

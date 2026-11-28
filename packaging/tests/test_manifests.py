@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/tests/test_manifests.py
+# Responsibility:   Script test_manifests.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Structural checks of the rendered package manifests.
 
 The official schemas of winget and Scoop are applied in the CI workflow; the
@@ -22,7 +30,7 @@ from test_render import checksums_text
 VERSION = "1.4.0"
 EPOCH = "1798000000"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
-URL = re.compile(r"^https://github\.com/DanacoOfficial/nurt/releases/download/v[^/]+/nurt-[^/]+\.(zip|tar\.gz)$")
+URL = re.compile(r"^https://github\.com/DanacoOfficial/danaco-nurt/releases/download/v[^/]+/nurt-[^/]+\.(zip|tar\.gz)$")
 
 
 class RenderedManifestsTest(unittest.TestCase):
@@ -121,7 +129,7 @@ class RenderedManifestsTest(unittest.TestCase):
     def test_homebrew_formula_names_four_archives_with_digests(self):
         text = self.read("homebrew/nurt.rb")
         self.assertEqual(len(re.findall(r'sha256 "[0-9a-f]{64}"', text)), 4)
-        self.assertEqual(len(re.findall(r'url "https://github\.com/DanacoOfficial/nurt/releases/download/', text)), 4)
+        self.assertEqual(len(re.findall(r'url "https://github\.com/DanacoOfficial/danaco-nurt/releases/download/', text)), 4)
         self.assertIn('assert_match(/\\Anurt \\d/, shell_output("#{bin}/nurt version"))', text)
 
     def test_homebrew_formula_takes_the_glibc_archives_of_linux(self):
@@ -132,7 +140,7 @@ class RenderedManifestsTest(unittest.TestCase):
 
     def test_homebrew_core_formula_builds_from_source_archive(self):
         text = self.read("homebrew/core/nurt.rb")
-        self.assertIn(f'url "https://github.com/DanacoOfficial/nurt/archive/refs/tags/v{VERSION}.tar.gz"', text)
+        self.assertIn(f'url "https://github.com/DanacoOfficial/danaco-nurt/archive/refs/tags/v{VERSION}.tar.gz"', text)
         self.assertRegex(text, r'sha256 "[0-9a-f]{64}"')
         self.assertIn('depends_on "rust" => :build', text)
 
@@ -223,3 +231,7 @@ class ProductDescriptionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

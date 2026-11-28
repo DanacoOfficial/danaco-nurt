@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syslog/tests/unified_mapping.rs
+// Responsibility:   Levels, predicates and the mapping of unified log entries and log archive records to log events.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -496,3 +504,7 @@ fn unified_archive_buffer_without_conditions_keeps_every_message() {
     assert_eq!(items.len(), 2);
     assert!(ArchiveBuffer::default().into_items().is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

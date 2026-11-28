@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/catalog_coverage.rs
+// Responsibility:   Every command of the catalog binds with sample values of its required parameters, and every parameter is accepted by a form of its command.
+// Dependencies:     bind_support, nurt_contracts, nurt_correct
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -18,7 +26,7 @@ use nurt_contracts::spec::{FormSpec, IoSpec, Os, ParamType, ScalarType, StageSpe
 use nurt_correct::policy::is_effecting;
 
 /// Number of commands of the reference catalog.
-const COMMANDS: usize = 148;
+const COMMANDS: usize = 177;
 
 /// Field names tried, in order, where a parameter names a record field.
 const FIELDS: [&str; 6] = ["name", "path", "text", "pid", "id", "port"];
@@ -249,3 +257,7 @@ fn every_parameter_is_accepted_by_a_form() {
         .collect();
     assert!(unreachable.is_empty(), "{}", unreachable.join(", "));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

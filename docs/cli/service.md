@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cli/service.md -->
+<!-- Responsibility:   Documents service. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # service
 
@@ -20,6 +27,8 @@ nurt service status
 ```
 
 ## Description
+
+The privileged elevation service (`nurt service install --elevation`, `uninstall --elevation`, and its line in `nurt service status`) is not part of release 0.1.1; until it is released the elevation backend `broker` is reported as `not_installed` and elevated calls use `sudo`, `doas` or `run0`.
 
 `service` is a subcommand of the `nurt` program, not a command of the
 pipeline language. The background service hosts the free space module of the
@@ -218,3 +227,7 @@ installed: true  mode: user  running: true  linger: true  modules: {schedule: ru
 Configuration keys `service.mode`, `space.heartbeat_ms`,
 `space.heartbeat_max_age_ms` and `state.dir`; the commands of the `schedule`
 group; `services`, `logs`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::push::ssh_tests
+// Responsibility:   Pushes over SSH to a loopback `russh` server that runs `git receive-pack`.
+// Dependencies:     nurt_contracts, nurt_git_transport, russh, tokio
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pushes over SSH to a loopback `russh` server that runs `git receive-pack`.
 //!
 //! The tests need the `git` program and are ignored by default:
@@ -58,6 +66,34 @@ fn identity() -> Identity {
     }
 }
 
+/// Path of a repository in the form written after the port of an `ssh://` URL
+/// and in the remote command: `/C:/Users/user/repo.git` on Windows, the path
+/// itself elsewhere.
+fn ssh_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    if cfg!(windows) {
+        format!("/{}", text.replace('\\', "/"))
+    } else {
+        text
+    }
+}
+
+/// Path given to `git` for the path of a remote command: the drive letter of
+/// `/C:/Users/user/repo.git` loses its leading slash on Windows.
+fn local_path(remote: &str) -> &str {
+    let bytes = remote.as_bytes();
+    if cfg!(windows)
+        && bytes.len() > 2
+        && bytes[0] == b'/'
+        && bytes[1].is_ascii_alphabetic()
+        && bytes[2] == b':'
+    {
+        &remote[1..]
+    } else {
+        remote
+    }
+}
+
 /// `git` with an isolated home directory and without system configuration.
 fn git_command(home: &Path) -> Command {
     let mut command = Command::new("git");
@@ -90,7 +126,7 @@ impl Handler {
         let path = quoted.strip_prefix('\'')?.strip_suffix('\'')?;
         let mut git = git_command(&self.home);
         git.arg("receive-pack")
-            .arg(path)
+            .arg(local_path(path))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -400,7 +436,7 @@ impl Environment {
         format!(
             "ssh://{SSH_USER}@127.0.0.1:{}{}",
             self.server.port,
-            remote.git_dir().display()
+            ssh_path(remote.git_dir())
         )
     }
 }
@@ -408,7 +444,8 @@ impl Environment {
 fn linked(url: &str) -> Fixture {
     let local = Fixture::new();
     local.config(&format!(
-        "[remote \"origin\"]\n\turl = {url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
+        "[remote \"origin\"]\n\turl = {}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n",
+        url.replace('\\', "\\\\")
     ));
     local
 }
@@ -536,3 +573,7 @@ fn refuses_an_unknown_ssh_account_without_changing_the_remote() {
     assert_eq!(remote.ref_value("refs/heads/main"), None);
     assert!(tx.irreversible.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service
+// Responsibility:   Background service of Danaco Nurt.
+// Dependencies:     clock, host, install, nurt_contracts, paths, schedule, status
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Background service of Danaco Nurt.
 //!
@@ -11,9 +18,9 @@
 //! `service.sock` in the state directory or, on Windows, a named pipe of the
 //! account. The protocol is described in [`ipc::protocol`].
 //!
-//! [`install`] registers the service with systemd, launchd, the Windows
+//! [`mod@install`] registers the service with systemd, launchd, the Windows
 //! service control manager or the Windows Task Scheduler, [`uninstall`]
-//! removes it and [`status`] reports whether it is installed and running.
+//! removes it and [`mod@status`] reports whether it is installed and running.
 //!
 //! ```no_run
 //! use std::sync::Arc;
@@ -59,3 +66,7 @@ pub use install::{
 pub use paths::{ServicePaths, default_state_dir};
 pub use schedule::ScheduleService;
 pub use status::{InactiveReason, Liveness, ServiceStatus, StatusRequest, status};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

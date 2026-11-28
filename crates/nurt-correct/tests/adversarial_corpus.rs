@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/adversarial_corpus.rs
+// Responsibility:   Adversarial corpus: generation of cases whose correct reaction is no correction or `E_AMBIGUOUS`, and the checks of every case.
+// Dependencies:     nurt_contracts, serde_json, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Adversarial corpus: generation of cases whose correct reaction is no
 //! correction or `E_AMBIGUOUS`, the component check of every case, the share
 //! of ambiguous changing programs, and the format check of every correction
@@ -119,7 +127,12 @@ struct Command {
 }
 
 fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn sorted_files(directory: &Path, extension: &str) -> Vec<PathBuf> {
@@ -1598,3 +1611,7 @@ fn adversarial_corpus_has_at_least_the_required_cases() {
         "{adversarial} adversarial cases"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal
+// Responsibility:   Operation journal of Danaco Nurt.
+// Dependencies:     commands, retention, store
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Operation journal of Danaco Nurt.
 //!
@@ -29,6 +36,10 @@ pub(crate) mod retention;
 pub mod salvage;
 pub(crate) mod seq;
 pub mod store;
+/// Serves only the performance tests.
+#[cfg(feature = "testing")]
+#[doc(hidden)]
+pub mod testing;
 pub(crate) mod tx;
 pub(crate) mod undo;
 pub mod volumes;
@@ -36,3 +47,7 @@ pub mod volumes;
 pub use commands::register;
 pub use retention::resolve::ConfiguredLimits;
 pub use store::{Journal, JournalBuilder};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

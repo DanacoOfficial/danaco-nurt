@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/session.rs
+// Responsibility:   Invocations of the command line on an engine with a front end of recorded trees and virtual components.
+// Dependencies:     nurt_contracts, nurt_core, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Invocations of the command line on an engine with a front end of recorded
 //! trees and virtual components.
 
@@ -352,15 +360,19 @@ fn banner_is_printed_only_on_an_interactive_terminal() {
     let version = env!("CARGO_PKG_VERSION");
     let banner = banner_for(interactive).expect("an interactive terminal gets the banner");
     assert!(
-        banner.starts_with(" _   _  _   _  ____   _____\n"),
+        banner.starts_with("           \u{2584}\u{2588}\u{2588}\n"),
         "{banner}"
     );
-    assert!(
-        banner.ends_with(&format!(
-            "\n\nDanaco Nurt {version}\nCopyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.\nType 'help' to get started."
-        )),
-        "{banner}"
-    );
+    for text in [
+        "Danaco Nurt",
+        "Command shell and language where every change can be undone",
+        &format!("nurt {version}"),
+        "Type 'help' to get started.",
+        "Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.",
+    ] {
+        assert!(banner.contains(text), "{text}");
+    }
+    assert!(banner.ends_with("\u{2588}\u{2588}\u{2580}"), "{banner}");
     let script = Terminal {
         stdin: false,
         stdout: true,
@@ -791,3 +803,7 @@ fn editor_lines_are_created_for_an_engine_catalog() {
     let _ = EditorLines::without_history(&vocabulary);
     assert!(EditorLines::new(&vocabulary, temp.path().join("history.txt")).is_ok());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

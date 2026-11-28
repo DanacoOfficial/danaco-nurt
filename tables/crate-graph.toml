@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           tables/crate-graph.toml
+# Responsibility:   Configuration or catalog data of tables/crate-graph.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Allowed dependencies between the crates of the workspace.
 #
 # Every crate of `crates/` has an entry. A dependency on another crate of the
@@ -447,3 +455,7 @@ layer = "tool"
 area = "integration"
 summary = "Generator of the documentation site and manual pages."
 deps = ["nurt-contracts", "nurt-catalog", "nurt-help"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

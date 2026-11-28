@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ext::stage
+// Responsibility:   Commands of extensions as stage implementations.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Commands of extensions as stage implementations.
 //!
 //! [`ExtensionStage`] implements [`StageImpl`] for one `[[stage]]` entry of a
@@ -426,7 +434,13 @@ write = ["/project"]
 
     fn extension() -> InstalledExt {
         InstalledExt {
-            manifest: Manifest::parse(MANIFEST).unwrap(),
+            // The granted directory is `/project` with the root of
+            // `nurt_testkit::paths`.
+            manifest: Manifest::parse(&MANIFEST.replace(
+                "\"/project\"",
+                &format!("\"{}\"", nurt_testkit::paths::abs("/project")),
+            ))
+            .unwrap(),
             dir: "/ext/acme".into(),
         }
     }
@@ -642,3 +656,7 @@ write = ["/project"]
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

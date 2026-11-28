@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/search_golden.rs
+// Responsibility:   Examples of `docs/commands/search.md`, run on the virtual file system.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of `docs/commands/search.md`, run on the virtual file system.
 
 // Test helpers unwrap results so that a failure aborts the test with the original error.
@@ -31,9 +39,7 @@ fn project() -> (TestContext, ExecCtx) {
     let test = TestContext::new();
     for (path, content) in FILES {
         let path = test_path(path).unwrap();
-        test.fs()
-            .create_dir_all(&test_path(&parent(&path)).unwrap())
-            .unwrap();
+        test.fs().create_dir_all(&path.parent().unwrap()).unwrap();
         test.fs().write_file(&path, content.as_bytes()).unwrap();
     }
     let options = RequestOptions {
@@ -42,13 +48,6 @@ fn project() -> (TestContext, ExecCtx) {
     };
     let ctx = test.builder().options(Arc::new(options)).build();
     (test, ctx)
-}
-
-fn parent(path: &nurt_contracts::fs::AbsPath) -> String {
-    path.as_path()
-        .parent()
-        .map(|parent| parent.to_string_lossy().replace('\\', "/"))
-        .unwrap_or_default()
 }
 
 fn search(ctx: &ExecCtx, values: Vec<(&str, Value)>) -> Result<Vec<Record>> {
@@ -248,3 +247,7 @@ fn files_with_matches_sorted_by_count() {
         ]
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::pull::decide
+// Responsibility:   Choice of the integration step once the fetched heads are known.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Choice of the integration step once the fetched heads are known.
 
 use super::settings::{FfPolicy, RebaseKind, Strategy};
@@ -228,3 +236,7 @@ mod tests {
         assert_eq!(decide(&merge, &several), Ok(Action::Merge(FfPolicy::Allow)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/conventions/licensing.md -->
+<!-- Responsibility:   Documents Licensing conventions. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Licensing conventions
 
@@ -129,3 +136,7 @@ The following crates are banned in `deny.toml`:
 A pull request that adds a dependency states the crate, the version, the
 license and the reason, and updates `Cargo.lock`. Build-time tools whose
 license does not cover the produced artifacts are assessed individually.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

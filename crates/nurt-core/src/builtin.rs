@@ -1,15 +1,25 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! The commands `evaluate`, `help` and `describe`.
+//
+// Module:           nurt-core::builtin
+// Responsibility:   The commands `evaluate`, `help`, `describe` and `next`.
+// Dependencies:     nurt_contracts, nurt_help, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
+//! The commands `evaluate`, `help`, `describe` and `next`.
 //!
-//! The three commands need components that the command crates do not own:
+//! The commands need components that the command crates do not own:
 //! the expression evaluator of the execution, the help catalog and the
 //! stream of records of the whole pipeline. They are implemented here and
 //! registered by [`register`].
 
 use std::sync::Arc;
 
+use nurt_contracts::bound::BoundExpr;
+use nurt_contracts::continuation::{ContinuationSink, ResumeRunner};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{Evaluation, FieldInfo};
 use nurt_contracts::stage::{
@@ -18,6 +28,8 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Record, Value};
 use nurt_help::commands::HelpStage;
+
+use crate::continuation::{ContinuationStore, NextQuery, SessionKey};
 
 const EXPRESSION: &str = "expression";
 
@@ -157,7 +169,139 @@ impl ReadStage for Describe {
     }
 }
 
-/// Registers `evaluate`, `help` and `describe`.
+fn args_type_error() -> Error {
+    Error::new(
+        ErrorCode::InvalidValue,
+        "`id` of `next` takes a continuation identifier, a count, `all` or `full`",
+    )
+}
+
+/// `next`: the next part of a shortened result.
+///
+/// The positional identifier accepts `cN`, a count (`next 200`) and the
+/// words `all` and `full`, so that the short forms work before the language
+/// writes a bare boolean parameter as `true`.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Next;
+
+fn next_query(args: &BoundArgs) -> Result<NextQuery> {
+    let mut query = NextQuery {
+        all: args.bool("all")?.unwrap_or(false),
+        full: args.bool("full_lines")?.unwrap_or(false),
+        ..NextQuery::default()
+    };
+    for name in ["id", "count"] {
+        if let Some(word) = positional_word(args, name)? {
+            apply_word(&mut query, &word)?;
+        }
+    }
+    Ok(query)
+}
+
+/// The text of a positional argument of `next`: a value, or a bare word
+/// that the binder kept as a field name.
+fn positional_word(args: &BoundArgs, name: &str) -> Result<Option<String>> {
+    let word = match args.value(name) {
+        None | Some(Value::Null) => match args.expr(name) {
+            Some(BoundExpr::Field { name, of: None }) => name.clone(),
+            Some(BoundExpr::Int { v }) => v.to_string(),
+            Some(BoundExpr::Text { v }) => v.trim().to_owned(),
+            _ => return Ok(None),
+        },
+        Some(Value::Int(count)) => count.to_string(),
+        Some(Value::Text(word) | Value::Key(word) | Value::Enum(word)) => word.trim().to_owned(),
+        Some(_) => return Err(args_type_error()),
+    };
+    Ok((!word.is_empty()).then_some(word))
+}
+
+/// Applies one positional word: `all`, `full`, a count or an identifier.
+fn apply_word(query: &mut NextQuery, word: &str) -> Result<()> {
+    match word {
+        "all" => query.all = true,
+        "full" => query.full = true,
+        _ if word.bytes().all(|byte| byte.is_ascii_digit()) => {
+            query.count = Some(
+                word.parse::<u64>()
+                    .ok()
+                    .filter(|count| *count > 0)
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::InvalidValue,
+                            "the count must be a positive number",
+                        )
+                    })?,
+            );
+        }
+        _ if word.strip_prefix('c').is_some_and(|digits| {
+            !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+        }) =>
+        {
+            query.id = Some(word.to_owned());
+        }
+        _ => {
+            return Err(Error::new(
+                ErrorCode::InvalidValue,
+                format!("`{word}` is not a continuation identifier"),
+            )
+            .with_expected(serde_json::json!(["c1", "200", "all", "full"])));
+        }
+    }
+    Ok(())
+}
+
+impl StageImpl for Next {
+    fn descriptor(&self) -> StageDescriptor {
+        source("next")
+    }
+
+    fn check(&self, args: &BoundArgs, _ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
+        next_query(args)?;
+        Ok(StaticInfo::default())
+    }
+
+    fn as_read(&self) -> Option<&dyn ReadStage> {
+        Some(self)
+    }
+}
+
+impl ReadStage for Next {
+    fn execute<'a>(
+        &'a self,
+        args: &'a BoundArgs,
+        _input: StageInput<'a>,
+        ctx: &'a ExecCtx,
+    ) -> Result<StageOutput<'a>> {
+        let query = next_query(args)?;
+        let store = ctx.extensions().get::<ContinuationStore>().ok_or_else(|| {
+            Error::new(
+                ErrorCode::ContinuationExpired,
+                "no continuation is kept by this engine",
+            )
+        })?;
+        let runner = ctx.extensions().get::<dyn ResumeRunner>();
+        let session = ctx
+            .extensions()
+            .get::<SessionKey>()
+            .map_or_else(|| ctx.options().session.clone(), |key| key.0.clone());
+        let part = store.read(
+            &query,
+            session.as_deref(),
+            runner.as_deref(),
+            &ctx.config().continuation,
+            ctx.clock().now(),
+        )?;
+        if let (Some(request), Some(sink)) = (
+            part.continuation,
+            ctx.extensions().get::<ContinuationSink>(),
+        ) {
+            sink.push(request);
+        }
+        Ok(output(part.records))
+    }
+}
+
+/// Registers `evaluate`, `help`, `describe` and `next`.
 ///
 /// # Errors
 ///
@@ -165,7 +309,8 @@ impl ReadStage for Describe {
 pub(crate) fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
     registrar.register(Arc::new(Evaluate))?;
     registrar.register(Arc::new(HelpStage::embedded()))?;
-    registrar.register(Arc::new(Describe))
+    registrar.register(Arc::new(Describe))?;
+    registrar.register(Arc::new(Next))
 }
 
 #[cfg(test)]
@@ -311,3 +456,7 @@ mod tests {
         assert_eq!(error.code, ErrorCode::Type);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

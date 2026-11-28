@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/schema_validate.rs
+// Responsibility:   Invariants of `validate_surface`, `validate_bound` and `check_members`.
+// Dependencies:     hash_support, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Invariants of `validate_surface`, `validate_bound` and `check_members`.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
@@ -658,3 +666,7 @@ fn rejects_reserved_words_and_overlong_identifiers() {
     assert!(is_identifier(&"a".repeat(64)));
     assert!(!is_identifier(&"a".repeat(65)));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

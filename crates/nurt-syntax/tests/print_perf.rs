@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/print_perf.rs
+// Responsibility:   Printing time of a typical program, measured in release builds.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Printing time of a typical program, measured in release builds:
 //! `cargo test --release --test print_perf -- --ignored`.
 
@@ -24,7 +32,12 @@ const ROUNDS: usize = 2_000;
 #[test]
 #[ignore = "timing test; run in release builds"]
 fn prints_a_typical_program_within_budget() {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/ast");
     let mut documents = Vec::new();
     for entry in fs::read_dir(&directory).expect("golden directory") {
         let path = entry.expect("directory entry").path();
@@ -53,3 +66,7 @@ fn prints_a_typical_program_within_budget() {
     println!("print: median {median:?}, p95 {p95:?}, {printed} bytes");
     assert!(median < BUDGET, "median {median:?} exceeds {BUDGET:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

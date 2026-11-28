@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::commands::status
+// Responsibility:   Stage of the `journal.status` command: one `journal_state` record per journal volume with the effective limits and their sources.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stage of the `journal.status` command: one `journal_state` record per
 //! journal volume with the effective limits and their sources.
 
@@ -191,7 +199,10 @@ mod tests {
         let listed = read(&Status, &call(NAME, &[]), &ctx).unwrap();
         assert_eq!(listed.len(), 1);
         let state = &listed[0];
-        assert_eq!(state.get("volume"), Some(&Value::Path("/home".to_owned())));
+        assert_eq!(
+            state.get("volume"),
+            Some(&Value::Path(nurt_testkit::paths::abs("/home")))
+        );
         assert_eq!(state.get("active"), Some(&Value::Bool(true)));
         assert_eq!(state.get("entries"), Some(&Value::Int(3)));
         assert_eq!(state.get("oldest_id"), Some(&Value::Int(1)));
@@ -209,10 +220,16 @@ mod tests {
     fn a_volume_without_entries_reports_an_empty_journal() {
         let env = Env::new();
         let ctx = env.ctx(NAME);
-        let args = call(NAME, &[("volume", Value::Path("/srv".to_owned()))]);
+        let args = call(
+            NAME,
+            &[("volume", Value::Path(nurt_testkit::paths::abs("/srv")))],
+        );
         let listed = read(&Status, &args, &ctx).unwrap();
         assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].get("volume"), Some(&Value::Path("/".to_owned())));
+        assert_eq!(
+            listed[0].get("volume"),
+            Some(&Value::Path(nurt_testkit::paths::abs("/")))
+        );
         assert_eq!(listed[0].get("active"), Some(&Value::Bool(true)));
         assert_eq!(listed[0].get("entries"), Some(&Value::Int(0)));
     }
@@ -310,3 +327,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

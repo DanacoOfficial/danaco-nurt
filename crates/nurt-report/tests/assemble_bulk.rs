@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/assemble_bulk.rs
+// Responsibility:   Bulk summaries: threshold, ranking of directories and extensions, samples and determinism on large operations.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Bulk summaries: threshold, ranking of directories and extensions,
 //! samples and determinism on large operations.
 
@@ -347,3 +355,7 @@ fn directories_and_provider_targets_are_not_grouped() {
     assert_eq!(bulk.by_extension.len(), 1);
     assert_eq!(bulk.sample_head.len(), 3);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

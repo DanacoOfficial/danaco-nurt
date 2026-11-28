@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::names
+// Responsibility:   Names created by the back end.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Names created by the back end.
 
 /// Suffix of directory names that Spotlight does not index.
@@ -89,7 +97,7 @@ mod tests {
     #[test]
     fn keeps_noindex_suffix_in_journal_directory_name() {
         assert!(JOURNAL_DIR.ends_with(NOINDEX_SUFFIX));
-        let root = AbsPath::new("/Volumes/data").unwrap();
+        let root = AbsPath::for_test("/Volumes/data");
         let journal = root.join_name(JOURNAL_DIR).unwrap();
         assert_eq!(journal.file_name(), Some(OsStr::new(JOURNAL_DIR)));
         let temp = temp_name(JOURNAL_DIR, 1, 1).unwrap();
@@ -125,3 +133,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

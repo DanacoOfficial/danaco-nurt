@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::read::text
+// Responsibility:   Text content of files for `read`.
+// Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Text content of files for `read`: loading and decoding, `content`
 //! records of selected lines, conditional reads, and the outlines, symbols,
 //! document keys and notebook cells served by other command groups.
@@ -515,6 +523,7 @@ struct Rendered {
     text: String,
     lines: u64,
     shortened: u64,
+    cut: Vec<(u64, String)>,
 }
 
 fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rendered {
@@ -522,6 +531,7 @@ fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rende
         text: String::new(),
         lines: 0,
         shortened: 0,
+        cut: Vec::new(),
     };
     let width = spans
         .iter()
@@ -545,6 +555,7 @@ fn render(lines: &Lines<'_>, spans: &[LineSpan], options: &ReadOptions) -> Rende
                 Some(short) => {
                     rendered.text.push_str(&short);
                     rendered.shortened += 1;
+                    rendered.cut.push((line, content.to_owned()));
                 }
                 None => rendered.text.push_str(content),
             }
@@ -576,6 +587,19 @@ fn lines_content(
         .unwrap_or_else(|| lines.whole().into_iter().collect());
     let rendered = render(lines, &selected, options);
     if rendered.shortened > 0 {
+        let path = source.path.to_language_string();
+        crate::common::continuation::offer_cut_lines(
+            ctx,
+            rendered
+                .cut
+                .iter()
+                .map(|(no, text)| nurt_contracts::continuation::CutLine {
+                    path: path.clone(),
+                    no: *no,
+                    text: text.clone(),
+                })
+                .collect(),
+        );
         ctx.note(NotableEntry {
             count: Some(rendered.shortened),
             ..at_path(Notable::TruncatedLines, &source.path)
@@ -1981,3 +2005,7 @@ mod tests {
         assert_eq!(View::parse("tree"), None);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

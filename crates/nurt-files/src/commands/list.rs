@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::list
+// Responsibility:   `list`: the entries of a directory, and the listing shared with `find`.
+// Dependencies:     globset, nurt_contracts, nurt_testkit, unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `list`: the entries of a directory, and the listing shared with `find`.
 //!
 //! Both commands walk one directory with [`Walker`] and produce `entry`
@@ -38,7 +46,7 @@ use nurt_contracts::value::{Bytes, Record, Size, Value};
 use unicode_normalization::UnicodeNormalization;
 
 use super::file_types::TypeFilter;
-use crate::common::entry::{entry_record, link_type};
+use crate::common::entry::{add_special_node, entry_record, link_type};
 use crate::common::params::{WalkFilters, walk_filters};
 use crate::common::path::{path_arg, path_field};
 use crate::fuzzy::FuzzyQuery;
@@ -553,6 +561,7 @@ impl Collector<'_> {
 
     fn record(&self, entry: &walk::Entry, meta: &FileMeta) -> Entry {
         let mut record = entry_record(&entry.path, meta);
+        add_special_node(self.fs, &entry.path, &mut record);
         if is_link(entry.kind) {
             record.link_type = link_type(entry.kind);
             if self.link_target {
@@ -1075,7 +1084,7 @@ pub(crate) fn unknown_value(name: &str, found: &str, expected: &[&str]) -> Error
 mod tests {
     use std::time::Duration;
 
-    use nurt_contracts::fs::{FsWrite, ScopePurpose, TxScope};
+    use nurt_contracts::fs::{FsWrite, ScopePurpose, SpecialKind, SpecialNode, TxScope};
     use nurt_contracts::journal::OpId;
     use nurt_contracts::record::LinkType;
     use nurt_contracts::stage::{ArgValue, Limits};
@@ -1676,4 +1685,36 @@ mod tests {
             &entry(FileKind::Special, None)
         ));
     }
+
+    #[test]
+    fn fifos_and_devices_are_listed_with_their_type_and_numbers() {
+        let test = TestContext::new();
+        test.fs().create_dir_all(&abs("/dev")).unwrap();
+        test.fs()
+            .create_special_node(&abs("/dev/p"), SpecialNode::fifo(), 0o600)
+            .unwrap();
+        test.fs()
+            .create_special_node(
+                &abs("/dev/null"),
+                SpecialNode::device(SpecialKind::Char, 1, 3),
+                0o666,
+            )
+            .unwrap();
+        let listed = run(&test, &args("/dev", &[])).unwrap();
+        let find = |name: &str| {
+            listed
+                .entries
+                .iter()
+                .find(|entry| entry.name == name)
+                .unwrap()
+        };
+        assert_eq!(find("p").kind, EntryType::Fifo);
+        assert_eq!((find("p").major, find("p").minor), (None, None));
+        assert_eq!(find("null").kind, EntryType::Device);
+        assert_eq!((find("null").major, find("null").minor), (Some(1), Some(3)));
+    }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

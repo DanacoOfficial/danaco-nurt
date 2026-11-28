@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::common::etag
+// Responsibility:   Entity tags: text form, observed state of targets and `E_STALE`.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Entity tags: text form, observed state of targets and `E_STALE`.
 //!
 //! Records carry the entity tag of a file as text, and programs pass it back
@@ -114,14 +122,14 @@ pub enum Observed {
     Absent,
     /// The target exists; metadata of the entry itself, a link in the last
     /// component not followed.
-    Present(FileMeta),
+    Present(FileMeta, Option<ContentHash>),
 }
 
 impl Observed {
     /// Returns `true` when the target exists.
     #[must_use]
     pub fn exists(&self) -> bool {
-        matches!(self, Self::Present(_))
+        matches!(self, Self::Present(..))
     }
 
     /// Metadata of an existing target.
@@ -129,14 +137,20 @@ impl Observed {
     pub fn meta(&self) -> Option<&FileMeta> {
         match self {
             Self::Absent => None,
-            Self::Present(meta) => Some(meta),
+            Self::Present(meta, _) => Some(meta),
         }
     }
 
     /// Entity tag of an existing target.
     #[must_use]
     pub fn etag(&self) -> Option<Etag> {
-        self.meta().map(FileMeta::etag)
+        match self {
+            Self::Absent => None,
+            Self::Present(meta, hash) => Some(Etag {
+                hash: *hash,
+                ..meta.etag()
+            }),
+        }
     }
 
     /// State the journal checks immediately before the change:
@@ -146,7 +160,7 @@ impl Observed {
     pub fn expect(&self) -> Expect {
         match self {
             Self::Absent => Expect::Absent,
-            Self::Present(meta) => Expect::Etag(meta.etag()),
+            Self::Present(..) => self.etag().map_or(Expect::Absent, Expect::Etag),
         }
     }
 }
@@ -160,7 +174,7 @@ impl Observed {
 /// missing entry, for example `E_PERMISSION` or `E_IO`.
 pub fn observe(fs: &dyn Fs, path: &AbsPath) -> Result<Observed> {
     match fs.metadata(path, Follow::NoFollow) {
-        Ok(meta) => Ok(Observed::Present(meta)),
+        Ok(meta) => Ok(Observed::Present(meta, None)),
         Err(error) if error.kind == FsErrorKind::NotFound => Ok(Observed::Absent),
         Err(error) => Err(error.into()),
     }
@@ -316,3 +330,7 @@ mod tests {
         assert!(missing.message.contains("no longer exists"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

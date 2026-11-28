@@ -891,6 +891,29 @@
         }
       }
     },
+    "ContinuationConfig": {
+      "description": "Section `[continuation]`.",
+      "type": "object",
+      "properties": {
+        "max_age": {
+          "description": "Key `continuation.max_age`: a continuation older than this expires.\nDefault `1h`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1h"
+        },
+        "max_count": {
+          "description": "Key `continuation.max_count`: most continuations kept; the oldest is\nremoved first. Default `50`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 50
+        },
+        "max_size": {
+          "description": "Key `continuation.max_size`: most space of all kept results; the\noldest is removed first. Default `256mib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "256mib"
+        }
+      }
+    },
     "TextConfig": {
       "description": "Section `[text]`.",
       "type": "object",
@@ -955,6 +978,38 @@
           "format": "uint32",
           "minimum": 0,
           "default": null
+        }
+      }
+    },
+    "LoopConfig": {
+      "description": "Section `[loop]`: limits of a `repeat` or a `while` without `limit`.",
+      "type": "object",
+      "properties": {
+        "max_iterations": {
+          "description": "Key `loop.max_iterations`: largest number of iterations of a loop\nwithout `limit`; reaching it ends the loop with `E_LIMIT` in `repeat`\nand normally in `while`. Default `10000`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 10000
+        },
+        "max_time": {
+          "description": "Key `loop.max_time`: longest time of a loop without `limit`. Default\n`10m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "10m"
+        }
+      }
+    },
+    "FunctionConfig": {
+      "description": "Section `[function]`: limits of the functions defined with `define`.",
+      "type": "object",
+      "properties": {
+        "max_depth": {
+          "description": "Key `function.max_depth`: deepest nesting of calls of functions;\ndeeper recursion ends with `E_LIMIT`. From 1 to\n[`FUNCTION_DEPTH_LIMIT`]; default `64`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 64
         }
       }
     },
@@ -1601,6 +1656,61 @@
           "default": "1d"
         }
       }
+    },
+    "PrivilegeConfig": {
+      "description": "Section `[privilege]`.",
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "Key `privilege.default`: value of the call parameter `privilege` when\na call does not give it; the embedding engine may set it. Default\n`account`.",
+          "$ref": "#/$defs/Privilege",
+          "default": "account"
+        },
+        "allowed": {
+          "description": "Key `privilege.allowed`: when `false`, `elevated` and `auto` end with\n`E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch\nwith which the embedding engine applies its policy. Default `true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "backends": {
+          "description": "Key `privilege.backends`: allowed elevation backends in order of\ntrial (`self`, `broker`, `sudo`, `doas`, `run0`). Default none: the\nlist of the system, `[\"self\", \"broker\", \"sudo\", \"doas\", \"run0\"]` on\nLinux, `[\"self\", \"broker\", \"sudo\"]` on macOS and `[\"self\", \"broker\"]`\non Windows.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "group": {
+          "description": "Key `privilege.group`: group allowed to connect to the service\n`nurt-elevation`. Default none: `sudo` or `wheel` on Linux, `admin` on\nmacOS.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "Privilege": {
+      "description": "Rights with which an operation runs (call option `privilege`).",
+      "oneOf": [
+        {
+          "description": "The rights of the account that runs Nurt.",
+          "type": "string",
+          "const": "account"
+        },
+        {
+          "description": "The rights of the administrator: `root` on Linux and macOS,\n`LocalSystem` on Windows.",
+          "type": "string",
+          "const": "elevated"
+        },
+        {
+          "description": "Runs with `account`; a stage that fails with `E_PERMISSION` or\n`E_PRIVILEGE` is repeated once with `elevated` before any change is\nkept.",
+          "type": "string",
+          "const": "auto"
+        }
+      ]
     }
   },
   "title": "Config",
@@ -1755,6 +1865,15 @@
         }
       }
     },
+    "continuation": {
+      "description": "Continuation of shortened results: lifetime and space.",
+      "$ref": "#/$defs/ContinuationConfig",
+      "default": {
+        "max_age": "1h",
+        "max_count": 50,
+        "max_size": "256mib"
+      }
+    },
     "text": {
       "description": "Text encodings and line endings.",
       "$ref": "#/$defs/TextConfig",
@@ -1775,6 +1894,21 @@
         "max_records": 5000000,
         "max_file_bytes_text": "1gib",
         "threads": null
+      }
+    },
+    "loop": {
+      "description": "Limits of the loops of the language.",
+      "$ref": "#/$defs/LoopConfig",
+      "default": {
+        "max_iterations": 10000,
+        "max_time": "10m"
+      }
+    },
+    "function": {
+      "description": "Limits of the functions of the language.",
+      "$ref": "#/$defs/FunctionConfig",
+      "default": {
+        "max_depth": 64
       }
     },
     "fs": {
@@ -1948,6 +2082,16 @@
       "default": {
         "id": null,
         "ttl": "1d"
+      }
+    },
+    "privilege": {
+      "description": "Privilege elevation.",
+      "$ref": "#/$defs/PrivilegeConfig",
+      "default": {
+        "default": "account",
+        "allowed": true,
+        "backends": null,
+        "group": null
       }
     }
   }

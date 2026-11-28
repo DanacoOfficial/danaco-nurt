@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::resolve
+// Responsibility:   Resolution of effective limits from configuration levels.
+// Dependencies:     nurt_contracts, nurt_fs, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Resolution of effective limits from configuration levels.
 //!
 //! The configuration loader merges the seven levels and records the level
@@ -1210,12 +1218,12 @@ mod tests {
 
     #[test]
     fn configured_limits_combine_configuration_and_session_files() {
-        let root = AbsPath::new("/").unwrap();
+        let root = AbsPath::for_test("/");
         let fs = MemFs::builder()
             .volume(VolumeSpec::posix(root).with_capacity(500 * GIB))
             .build()
             .unwrap();
-        let state = AbsPath::new("/state").unwrap();
+        let state = AbsPath::for_test("/state");
         let sessions = state.join_name(SESSION_DIR).unwrap();
         fs.seed_dir(&state).unwrap();
         fs.seed_dir(&sessions).unwrap();
@@ -1249,7 +1257,7 @@ mod tests {
             ConfigLevel::User,
             json!({ "journal": { "max_ops": 0 } }),
         )];
-        let state = AbsPath::new("/state").unwrap();
+        let state = AbsPath::for_test("/state");
         let error = ConfiguredLimits::new(&layers, false, fs, &state)
             .err()
             .unwrap();
@@ -1274,3 +1282,7 @@ mod tests {
         assert!(RuntimeLimits::default().is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

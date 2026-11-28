@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::os::macos
+// Responsibility:   Process group measurement on macOS.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process group measurement on macOS.
 //!
 //! The kernel does not enforce an address space or resident memory limit
@@ -249,3 +257,7 @@ fn rusage(pid: libc::pid_t) -> Option<libc::rusage_info_v2> {
     // SAFETY: the call succeeded and filled the structure.
     (status == 0).then(|| unsafe { info.assume_init() })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

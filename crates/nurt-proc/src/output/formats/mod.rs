@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::formats
+// Responsibility:   Errors and warnings of known tools found in program output.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Errors and warnings of known tools found in program output.
 //!
 //! The lines of every stream pass through one [`Collector`], which offers
@@ -175,7 +183,7 @@ fn one_line(text: &str) -> String {
         return joined;
     }
     let kept: String = joined.chars().take(MAX_FIELD_CHARS).collect();
-    format!("{kept}\u{2026} [+{} znak\u{f3}w]", length - MAX_FIELD_CHARS)
+    format!("{kept}\u{2026} [+{} characters]", length - MAX_FIELD_CHARS)
 }
 
 /// Bytes of the response one listed error takes.
@@ -235,7 +243,7 @@ mod tests {
             ..ExecDiagnostic::default()
         });
         let text = &tally.listed[0].message;
-        assert!(!text.contains('\n') && text.contains("znak\u{f3}w]"));
+        assert!(!text.contains('\n') && text.contains("characters]"));
         assert!(text.chars().count() < 230);
     }
 
@@ -247,3 +255,7 @@ mod tests {
         assert!(collector.finish().is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

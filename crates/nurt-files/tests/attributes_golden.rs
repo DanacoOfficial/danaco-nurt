@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/attributes_golden.rs
+// Responsibility:   Examples of `docs/commands/attributes.md`, run on the virtual file system, and the transaction rules of the command.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of `docs/commands/attributes.md`, run on the virtual file
 //! system, and the transaction rules of the command.
 
@@ -36,7 +44,9 @@ fn stage() -> Arc<dyn StageImpl> {
 
 /// File system of the examples: a script, a text file and a small site.
 fn home() -> TestContext {
-    let test = TestContext::new();
+    // The goldens describe the permission bits of a Unix host, which a test
+    // on Windows keeps by naming the host.
+    let test = TestContext::with_host(nurt_testkit::host::TestHost::linux());
     for path in [
         "/home/user/run.sh",
         "/home/user/notes.txt",
@@ -245,3 +255,7 @@ fn a_changed_input_entry_fails_with_stale_and_changes_nothing() {
             .any(|call| matches!(call, JournalCall::Apply { .. }))
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

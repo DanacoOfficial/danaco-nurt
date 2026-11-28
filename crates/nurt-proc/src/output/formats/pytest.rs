@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::formats::pytest
+// Responsibility:   Output of `pytest`: the failure lines of the short summary, the traceback lines, the detail lines and the closing line.
+// Dependencies:     nurt_contracts, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Output of `pytest`: the lines `FAILED file::test - message` and
 //! `ERROR file::test - message` of the short summary, the traceback line
 //! `file.py:line: Exception` and the detail lines `E   text` of each failure,
@@ -173,3 +181,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

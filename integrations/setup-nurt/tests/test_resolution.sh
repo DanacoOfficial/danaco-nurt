@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/setup-nurt/tests/test_resolution.sh
+# Responsibility:   Tests for SemVer comparison, range matching and version resolution.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Tests for SemVer comparison, range matching and version resolution.
 
 set -uo pipefail
@@ -118,6 +126,7 @@ assert_eq 'resolve strips v prefix' 1.2.3 "$(resolve_version v1.2.3)"
 assert_eq 'resolve exact pre-release' 3.0.0-rc.1 "$(resolve_version 3.0.0-rc.1)"
 assert_fails 'resolve fails without a match' resolve_version '>=5.0.0'
 unavailable_listing() {
+  # shellcheck disable=SC2016 # the inner shell expands $1
   env NURT_RELEASES_URL=file:///nonexistent bash -c 'source "$1"; resolve_version latest' _ "$here/../scripts/lib.sh"
 }
 assert_fails 'resolve fails when listing is unavailable' unavailable_listing
@@ -127,3 +136,7 @@ out=$( (resolve_version '>=5.0.0') 2>&1 || true)
 assert_contains 'explains the unmatched range' "no release satisfies version '>=5.0.0'" "$out"
 
 finish_tests
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

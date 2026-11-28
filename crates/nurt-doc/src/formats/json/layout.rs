@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::json::layout
+// Responsibility:   Layout of a parsed document: line structure, indentation, separators and comment placement, used to give new content the style of its neighbours.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Layout of a parsed document: line structure, indentation, separators
 //! and comment placement, used to give new content the style of its
 //! neighbours.
@@ -318,3 +326,7 @@ pub(crate) fn comment_text(comment: &str) -> &str {
         .unwrap_or(comment)
         .trim()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

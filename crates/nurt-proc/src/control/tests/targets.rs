@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::control::tests::targets
+// Responsibility:   Signals to single processes named by identifier and start time, started by the tests and signalled through the `process` functions.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Signals to single processes named by identifier and start time, started
 //! by the tests and signalled through the `process` functions.
 
@@ -270,3 +278,7 @@ fn suspends_and_resumes_the_process() {
     wait_for(|| state_of(reference.pid) != Some('T'));
     assert!(worker.running());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

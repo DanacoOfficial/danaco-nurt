@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::search::slice
+// Responsibility:   Search of a byte slice held in memory.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Search of a byte slice held in memory.
 
 use std::mem;
@@ -115,11 +123,11 @@ impl<'s, 'h> HitSource<'s, 'h> {
         Some((start, end))
     }
 
-    fn last_line_end(&self, found: RawMatch) -> usize {
+    fn last_line_end(&mut self, found: RawMatch) -> usize {
         if self.multiline && found.end > found.start {
             line_end(self.haystack, found.end - 1)
         } else {
-            line_end(self.haystack, found.start)
+            self.scanner.line_bounds(found.start).1
         }
     }
 
@@ -276,3 +284,7 @@ where
     }
     run.emitter.finish(source.scanner.backtrack_limit_hits())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

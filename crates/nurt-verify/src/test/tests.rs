@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::test::tests
+// Responsibility:   Tests of detection, commands and output parsers.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of detection, commands and output parsers.
 
 use std::path::Path;
@@ -173,7 +181,15 @@ fn command_for_bun_selects_report_filter_bail_and_coverage() {
             "--coverage-dir=/s/cov",
         ])
     );
-    assert_eq!(planned.coverage_file.as_deref(), Some("/s/cov/lcov.info"));
+    // The file is joined to the coverage directory with the separator of
+    // the system.
+    assert_eq!(
+        planned
+            .coverage_file
+            .as_deref()
+            .map(|path| path.replace('\\', "/")),
+        Some("/s/cov/lcov.info".to_owned())
+    );
 }
 
 #[test]
@@ -736,3 +752,7 @@ fn parse_jest_rejects_malformed_report() {
 fn parse_jest_without_report_has_no_results() {
     assert!(read(Framework::Jest, "", None, Path::new("/w")).is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

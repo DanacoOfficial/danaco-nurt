@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec::eval
+// Responsibility:   Binding of bound arguments to the expression evaluator.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_types
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding of bound arguments to the expression evaluator.
 
 use std::fmt;
@@ -78,6 +86,14 @@ impl ExprBinding {
         }
     }
 
+    /// A binding for another thread: the same names, its own random source.
+    #[must_use]
+    pub fn forked(&self) -> Self {
+        let fork = Self::new();
+        *fork.names.write().unwrap_or_else(PoisonError::into_inner) = self.names();
+        fork
+    }
+
     /// Named results defined so far, by name without `@`.
     #[must_use]
     pub fn names(&self) -> Arc<Fields> {
@@ -92,6 +108,20 @@ impl ExprBinding {
 
     /// Stores the snapshot of a named result; a later definition of the same
     /// name replaces it.
+    /// Replaces every name, returning the names that were defined: a
+    /// function sees its parameters and nothing of its caller.
+    pub fn replace_names(&self, names: Fields) -> Arc<Fields> {
+        let mut current = self.names.write().unwrap_or_else(PoisonError::into_inner);
+        std::mem::replace(&mut *current, Arc::new(names))
+    }
+
+    /// Restores the names returned by [`ExprBinding::names`] or
+    /// [`ExprBinding::replace_names`]: the names defined since are dropped.
+    pub fn restore_names(&self, names: Arc<Fields>) {
+        *self.names.write().unwrap_or_else(PoisonError::into_inner) = names;
+    }
+
+    /// Defines a name for the value, replacing a name of the same spelling.
     pub fn define(&self, name: impl Into<String>, value: Value) {
         let mut names = self.names.write().unwrap_or_else(PoisonError::into_inner);
         Arc::make_mut(&mut names).insert(name.into(), value);
@@ -334,3 +364,7 @@ mod tests {
         assert_eq!(value, Some(Value::Int(9)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

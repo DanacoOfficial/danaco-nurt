@@ -1,73 +1,63 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           branding/README.md -->
+<!-- Responsibility:   Inventory of the branding folder and the rules of use of the Danaco Nurt identity. -->
+<!-- Dependencies:     IDENTITY.md and the files of this folder. -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Danaco Nurt identity
 
-This directory holds the visual identity of Danaco Nurt: the mark, the name set in type, the application icons and the guidelines. The files are written by the scripts in this directory, so every drawing follows from one construction.
+This folder holds the production identity 1.0.0 of Danaco Nurt, accepted on 2026-11-26 and shipped with release 0.1.1: the mark, the wordmark, the lockups, the grounds, the application icons, the renders, the approval boards, the print specification and the reference drawings of the terminal banner. The assets are produced from the design pack of Danaco Official and are not regenerated in this repository. `IDENTITY.md` is the specification: decisions, values, construction, rules of use.
 
 ## The mark
 
-Two identical chevrons on a grid of 96 x 96 units. The left chevron points back and is raised, the right chevron points forward and is lowered; the right one is the left one turned by 180 degrees about the centre of the grid. A step and its undo are one figure. The silver chevron is the step back, the gold chevron is the step forward, and the channel between the two parallel arms is the stream (in Polish, *nurt*).
+Two identical chevrons on a grid of 96 x 96 units. The left chevron is silver and points back, the right chevron is gold and points forward; the right one is the left one turned by 180 degrees about the centre of the grid. A step and its undo are one figure. The channel between the two parallel arms is the stream (in Polish, *nurt*).
 
-| Value | Standard drawing | Drawing for 16 pixels |
-|---|---|---|
-| Angle of the arms | 36.5 degrees | 38 degrees |
-| Stroke width | 11 | 15 |
-| Stream between the parallel arms | 5 | 8 |
-| Arm ends | cut by vertical lines | cut by vertical lines |
-| Outer corner | radius of half the stroke width | radius of half the stroke width |
+| Role | Value |
+|---|---|
+| Silver | `#DDE1E6` (221, 225, 230), 256-colour palette index 254 |
+| Gold | `#C9A15A` (201, 161, 90), palette index 179 |
+| Gold on light grounds | `#A3722A` |
+| Ink on light grounds | `#2B2F36` |
+| Graphite | `#0B0C0E` |
+| Cyan, reserved for the pipe `\|>` | `#4FD1F5`, palette index 81 |
 
-The clear space around the mark equals the stroke width. The smallest size is 24 pixels for the standard drawing and 16 pixels for the drawing for small sizes.
-
-## Colour
-
-| Name | Value | Use |
-|---|---|---|
-| Graphite | `#0B0C0E` | backgrounds, terminal |
-| Graphite soft | `#15171A` | panels |
-| Silver | `#C3C8CE` | step back, text on dark backgrounds |
-| Gold | `#D4AE6E` | step forward, accents |
-| Gold deep | `#92703E` | gold on light backgrounds (4.6 : 1 on white) |
-| Ink | `#2B2F36` | mark on light backgrounds |
-| White | `#F6F7F8` | light backgrounds, white mark |
-| Navy | `#0A1224` | tile of the blue application icon |
-| Cyan to blue | `#4FD1F5` to `#2F80ED` | gradient of the blue variant |
-
-In the terminal the banner, the prompt and the highlighting of a typed line use these colours: commands gold, the pipe `|>` silver, strings cyan. A terminal that reports 24-bit colour shows the exact values; any other terminal gets the nearest colours of the 256-colour palette (silver 250, gold 179, cyan 81).
-
-## Type
-
-The name "Danaco Nurt" is not set in a font: its nine different letters (D, a, n, c, o, N, u, r, t) are drawn in `letters.py` on the grid of the mark. They are built from straight stems and true circular arcs with one stroke width, and the ends of the strokes are cut by vertical lines, as the arms of the chevrons are. The letter u is the letter n turned by 180 degrees, as the right chevron is the left one turned by 180 degrees. "Danaco" has the stroke 0.85 and "Nurt" the stroke 1.35 of an x-height of 5.4. The letters in the files are outlines. The smallest width of a lockup is 160 pixels.
-
-The variant `-mono` of the lockups sets the name in JetBrains Mono, "Danaco" in the weight Regular and "Nurt" in the weight Bold. Code and the terminal use JetBrains Mono, headings, text and interface use Inter Display and Inter. The fonts are licensed under the SIL Open Font License 1.1.
-
-## Files
+## Inventory
 
 | Path | Content |
 |---|---|
-| `svg/mark-*.svg` | the mark for dark and light backgrounds, in black, in white, with metal gradients and in the blue of the product |
-| `svg/mark-16.svg` | the drawing for 16 pixels |
-| `svg/app-icon-*.svg` | application icons: graphite, light, blue, gold on white and the drawing for 16 pixels |
-| `svg/favicon.svg` | icon of the documentation site; it follows the colour scheme of the browser |
-| `svg/lockup-*.svg`, `svg/wordmark-*.svg` | the mark with the name, horizontal and stacked, and the name alone, in the drawn letters; the files with the suffix `-mono` set the name in JetBrains Mono |
-| `raster/nurt.ico` | icon of `nurt.exe` with the sizes 16 to 256 pixels |
-| `raster/hicolor/` | application icon in the sizes of the hicolor icon theme |
-| `raster/favicon.ico`, `raster/apple-touch-icon.png`, `raster/social-card.png` | icons of the web and the card of 1200 x 630 pixels |
-| `render/` | render of the mark in silver and gold and the Blender script that makes it |
-| `guidelines.pdf` | the identity guidelines |
+| `svg/` | mark, drawings for 16, 24 and 32 pixels, wordmark, lockups (horizontal, vertical, compact), grounds and stream tiles |
+| `raster/` | PNG copies of the vector files, `social-card.png` and `social-card@2x.png` |
+| `icons/macos/` | `nurt.icns` |
+| `icons/windows/` | `nurt.ico` (embedded in `nurt.exe`), `nurt-tile-150.png`, `nurt-tile-44.png` |
+| `icons/linux/hicolor/` | `NxN/apps/nurt.png` for 16, 22, 24, 32, 48, 64, 96, 128, 192, 256 and 512, `scalable/apps/nurt.svg`, `symbolic/apps/nurt-symbolic.svg` |
+| `icons/web/` | `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `site.webmanifest` |
+| `render/` | 3D renders and `render-metadata.json` |
+| `boards/` | the five approval boards |
+| `print/` | print specification (`print-spec.pdf`), print colour values and print geometry values; Pantone numbers are candidates until the first print |
+| `terminal/` | reference drawings of the start banner in half blocks and in ASCII, with ANSI colour samples |
+| `tokens.css`, `identity.json` | colour tokens and decided values |
 
-## Regeneration
+## Rules of use
 
-```text
-python3 -I branding/build.py
-python3 -I branding/lockup.py --font custom
-python3 -I branding/lockup.py --font "JetBrainsMono-Regular.ttf|JetBrainsMono-Bold.ttf" --suffix=-mono
-python3 -I branding/export.py
-python3 -I branding/book.py --fonts FONT_DIRECTORY --hero branding/render/nurt-hero.png
-```
-
-`build.py`, `letters.py` and `export.py` need only Python and `rsvg-convert`. `lockup.py` and `book.py` also need the package fontTools; the drawn letters need no font file, the variant `-mono` and the guidelines do. The file `crates/nurt-cli/windows/nurt.ico` is a copy of `raster/nurt.ico`, and `docs/site/favicon.svg` is a copy of `svg/favicon.svg`.
+1. Use the supplied files; do not redraw or retype the mark or the name.
+2. Dark ground: `color-dark` or `white`; light ground: `color-light` or `black`; foil: `gold`; large screen formats: `metal`.
+3. Clear space: the cap height of the wordmark in lockups, a quarter of the box height around the mark alone.
+4. Below 48 pixels use the drawings for 32, 24 and 16 pixels; never scale the main drawing below 48 pixels.
+5. The silver chevron is always left and raised, the gold chevron right and lowered; the tones are never swapped.
+6. Gold appears in tint only as the deep gold `#A3722A` on light grounds, never as text on `#F6F7F8`.
+7. Cyan is for the pipe `|>`, not for the logo.
+8. The tile of 150 pixels for Windows is used only with a dark ground declared in a manifest; without a manifest it is not shipped.
 
 ## Use of the name and the mark
 
-The names Danaco and Danaco Nurt and the marks in this directory are trademarks of Danaco Holding Group Sp. z o.o. The Apache License, Version 2.0 that covers the code does not grant rights to the names and the marks; see `docs/site/compatibility.md` for the use of the name.
+The names Danaco and Danaco Nurt and the marks in this folder are trademarks of Danaco Holding Group Sp. z o.o. The Apache License, Version 2.0 that covers the code does not grant rights to the names and the marks; see `docs/site/compatibility.md` for the use of the name.
+
+Binary files (PNG, ICO, ICNS, PDF) carry no header. The JSON, the web manifest and the reference drawings in `terminal/` are data files that must stay byte exact and carry no header.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

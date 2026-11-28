@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::volume
+// Responsibility:   Volume identity, class, capabilities and space figures.
+// Dependencies:     nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Volume identity, class, capabilities and space figures.
 //!
 //! The mount of a path is found through `stx_mnt_id` of `statx` in the
@@ -145,6 +153,13 @@ pub(super) fn volume(cache: &VolumeCache, path: &Path) -> FsResult<VolumeInfo> {
     let described = match entry {
         Some(entry) => Described::from_entry(entry),
         None => Described::from_statfs(&existing, dev)?,
+    };
+    // Overlayfs reports the device of the layer below for a file that was
+    // not copied up yet; such a file belongs to the overlay mount, whose
+    // device the mount table names, as every other entry of the overlay.
+    let dev = match entry {
+        Some(entry) if entry.fs_type == "overlay" => device_number(entry.major, entry.minor),
+        _ => dev,
     };
     let statvfs = retry(|| rustix::fs::statvfs(&existing))
         .map_err(|errno| sys_error(errno, "volume", path))?;
@@ -549,3 +564,7 @@ mod tests {
         assert_eq!(btrfs_subvolume(&stat, None), 42);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

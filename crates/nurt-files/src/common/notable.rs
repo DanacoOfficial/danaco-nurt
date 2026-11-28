@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::common::notable
+// Responsibility:   Notable entries of the effect report.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Notable entries of the effect report.
 //!
 //! Stages record unusual effects with
@@ -80,6 +88,7 @@ mod tests {
             meta: test.fs().metadata(&path, Follow::NoFollow).unwrap(),
             path,
             size: 1,
+            hash: nurt_text::hash::content_hash(b"a"),
             text: "a".to_owned(),
             encoding: TextEncoding {
                 label: label.to_owned(),
@@ -128,3 +137,7 @@ mod tests {
         assert_eq!(entries[0].detail.as_deref(), Some("cr"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

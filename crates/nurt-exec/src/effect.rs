@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec::effect
+// Responsibility:   The apply step: one journal transaction per operation.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The apply step: one journal transaction per operation.
 
 use std::time::Duration;
@@ -21,7 +29,7 @@ use nurt_contracts::record::Change;
 use nurt_contracts::report::{
     Correction, FLAG_DIRECTORY, IrreversibleEntry, NotableEntry, tree_counts,
 };
-use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ExecCtx, ExecStep};
+use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ElevatedRun, ExecCtx, ExecStep};
 use serde_json::json;
 
 use crate::flow::at_step;
@@ -39,7 +47,9 @@ const OVERWROTE_EXISTING: &str = "overwrote_existing";
 #[derive(Debug)]
 pub(crate) struct AppliedEffect {
     pub(crate) records: ResultData,
-    pub(crate) handle: OpHandle,
+    /// Handle of the committed operation; absent when the effect was applied
+    /// in the transaction of a control construct, which commits once.
+    pub(crate) handle: Option<OpHandle>,
     pub(crate) changes: Vec<Change>,
     pub(crate) notable: Vec<NotableEntry>,
     pub(crate) irreversible: Vec<IrreversibleEntry>,
@@ -85,6 +95,60 @@ impl ProgramSource<'_> {
         )
     }
 
+    /// The program of a control construct with the secret arguments of every
+    /// stage inside masked, as the journal records it.
+    pub(crate) fn construct_document(&self, statement: &BoundStatement) -> BoundDocument {
+        BoundDocument::new(
+            self.catalog_rev,
+            self.corr_rev,
+            BoundProgram {
+                statements: vec![self.masked_statement(statement)],
+            },
+        )
+    }
+
+    fn masked_statement(&self, statement: &BoundStatement) -> BoundStatement {
+        let mut statement = statement.clone();
+        self.mask_statement(&mut statement);
+        statement
+    }
+
+    fn mask_statement(&self, statement: &mut BoundStatement) {
+        match statement {
+            BoundStatement::Let(binding) => self.mask_pipeline(&mut binding.value),
+            BoundStatement::Pipeline(pipeline) => self.mask_pipeline(pipeline),
+            BoundStatement::When(construct) => {
+                for branch in &mut construct.branches {
+                    self.mask_block(&mut branch.body);
+                }
+                if let Some(body) = &mut construct.otherwise {
+                    self.mask_block(body);
+                }
+            }
+            BoundStatement::Each(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Repeat(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::While(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Steps(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Define(construct) => self.mask_block(&mut construct.body),
+            _ => {}
+        }
+    }
+
+    fn mask_block(&self, body: &mut [BoundStatement]) {
+        for statement in body {
+            self.mask_statement(statement);
+        }
+    }
+
+    fn mask_pipeline(&self, pipeline: &mut BoundPipeline) {
+        if let BoundHead::Stage(stage) = &mut pipeline.head {
+            *stage = self.masked(stage);
+        }
+        for stage in &mut pipeline.stages {
+            *stage = self.masked(stage);
+        }
+    }
+
     fn masked(&self, stage: &BoundStage) -> BoundStage {
         let mut stage = stage.clone();
         if let Some(spec) = self.registry.command(&stage.name) {
@@ -108,8 +172,12 @@ impl ProgramSource<'_> {
         bulk: bool,
         preserve_budget: Option<Duration>,
     ) -> BeginRequest {
+        let mut kind = OpKind::command(command);
+        if let Some(run) = ctx.extensions().get::<ElevatedRun>() {
+            kind.action = Some(format!("elevated:{}", run.backend));
+        }
         BeginRequest {
-            kind: OpKind::command(command),
+            kind,
             session: ctx.options().session.clone().map(SessionId),
             program,
             corrections: self.corrections.to_vec(),
@@ -157,7 +225,38 @@ pub(crate) fn apply_effect(
         .map_err(|error| at_step(error, ExecStep::Apply))?;
     Ok(AppliedEffect {
         records,
-        handle,
+        handle: Some(handle),
+        changes,
+        notable,
+        irreversible,
+        detached,
+    })
+}
+
+/// Applies an effect in the transaction of a control construct. The
+/// transaction is neither committed nor rolled back here: the construct does
+/// both once, for all its effects.
+pub(crate) fn apply_effect_in(
+    effect: &Effect,
+    args: &BoundArgs,
+    plan: EffectPlan,
+    tx: &mut dyn MutationTx,
+    ctx: &ExecCtx,
+) -> Result<AppliedEffect> {
+    let EffectOutcome {
+        output,
+        changes,
+        notable,
+        irreversible,
+        detached,
+    } = effect
+        .apply(args, plan, tx, ctx)
+        .map_err(|error| at_step(error, ExecStep::Apply))?;
+    let records = ResultData::collect(output.into(), ctx.limits().max_records)
+        .map_err(|error| at_step(error, ExecStep::Apply))?;
+    Ok(AppliedEffect {
+        records,
+        handle: None,
         changes,
         notable,
         irreversible,
@@ -195,11 +294,11 @@ pub(crate) fn rollback_failed(failed: &[TargetPath]) -> Error {
     .with_stage(ExecStep::Apply)
 }
 
-/// Text form of a target: the path of a file system entry, the JSON form of
-/// a provider key.
+/// Text form of a target: the path of a file system entry in the language
+/// form (the form of the paths of changes), the JSON form of a provider key.
 pub(crate) fn target_text(path: &TargetPath) -> String {
     match path {
-        TargetPath::Fs(path) => path.as_path().to_string_lossy().into_owned(),
+        TargetPath::Fs(path) => path.to_language_string(),
         TargetPath::Provider(key) => serde_json::to_string(key).unwrap_or_default(),
     }
 }
@@ -266,7 +365,7 @@ mod tests {
     fn outcome(path: &str, action: TargetAction, kind: FileKind) -> TargetOutcome {
         TargetOutcome {
             index: TargetIndex(0),
-            path: TargetPath::Fs(AbsPath::new(path).unwrap()),
+            path: TargetPath::Fs(AbsPath::for_test(path)),
             action,
             mode: PreserveMode::Copy,
             bytes_held: 0,
@@ -299,12 +398,12 @@ mod tests {
             outcome("/a", TargetAction::Replace, FileKind::Directory),
             outcome("/b", TargetAction::Modify, FileKind::File),
         ]);
-        let mut flagged = Change::new("/c", ChangeAction::Modify);
+        let mut flagged = Change::new(nurt_testkit::paths::abs("/c"), ChangeAction::Modify);
         flagged.flags = Some(vec![OVERWROTE_EXISTING.to_owned()]);
         let facts = change_facts(
             vec![
-                Change::new("/a", ChangeAction::Modify),
-                Change::new("/b", ChangeAction::Modify),
+                Change::new(nurt_testkit::paths::abs("/a"), ChangeAction::Modify),
+                Change::new(nurt_testkit::paths::abs("/b"), ChangeAction::Modify),
                 flagged,
             ],
             Some(&handle),
@@ -319,14 +418,14 @@ mod tests {
 
     #[test]
     fn notes_give_the_kind_and_the_content_of_a_directory_without_a_journal_target() {
-        let mut tree = Change::new("/tree", ChangeAction::Delete);
+        let mut tree = Change::new(nurt_testkit::paths::abs("/tree"), ChangeAction::Delete);
         tree.flags = Some(
             ["recursive".to_owned()]
                 .into_iter()
                 .chain(nurt_contracts::report::tree_flags(4, 2))
                 .collect(),
         );
-        let plain = Change::new("/plain", ChangeAction::Delete);
+        let plain = Change::new(nurt_testkit::paths::abs("/plain"), ChangeAction::Delete);
         let facts = change_facts(vec![tree.clone(), plain], None);
         assert_eq!(facts[0].entry, Some(FileKind::Directory));
         assert_eq!(facts[0].inside, Some((4, 2)));
@@ -385,9 +484,16 @@ mod tests {
 
     #[test]
     fn rollback_error_lists_targets() {
-        let error = rollback_failed(&[TargetPath::Fs(AbsPath::new("/x").unwrap())]);
+        let error = rollback_failed(&[TargetPath::Fs(AbsPath::for_test("/x"))]);
         assert_eq!(error.code(), ErrorCode::RollbackFailed);
-        assert_eq!(error.details["failed"], json!(["/x"]));
+        assert_eq!(
+            error.details["failed"],
+            json!([nurt_testkit::paths::abs("/x")])
+        );
         assert_eq!(error.stage(), Some(ExecStep::Apply));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

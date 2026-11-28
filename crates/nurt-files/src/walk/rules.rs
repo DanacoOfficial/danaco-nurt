@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::walk::rules
+// Responsibility:   Ignore file read in every directory.
+// Dependencies:     ignore, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
@@ -276,7 +284,7 @@ mod tests {
     const DECOMPOSED: &str = "cafe\u{301}.txt";
 
     fn frame(root: &str, source: &str, rules: &str) -> Frame {
-        let source = AbsPath::new(source).expect("absolute source");
+        let source = AbsPath::for_test(source);
         Frame {
             parent: None,
             ignore: build_rules(Path::new(root), &source, rules.as_bytes()),
@@ -310,7 +318,7 @@ mod tests {
 
     #[test]
     fn a_byte_order_mark_is_not_part_of_the_first_pattern() {
-        let source = AbsPath::new("/work/.ignore").expect("absolute source");
+        let source = AbsPath::for_test("/work/.ignore");
         let rules = build_rules(Path::new("/work"), &source, b"\xEF\xBB\xBF*.log\nbuild/\n");
         let frame = Frame {
             parent: None,
@@ -331,10 +339,10 @@ mod tests {
 
     #[test]
     fn global_rules_match_names_in_either_form() {
-        let source = AbsPath::new("/config/ignore").expect("absolute source");
+        let source = AbsPath::for_test("/config/ignore");
         let global = build_rules(Path::new(""), &source, format!("{COMPOSED}\n").as_bytes());
         let repo = Arc::new(Repo {
-            dir: AbsPath::new("/work").expect("absolute repository"),
+            dir: AbsPath::for_test("/work"),
             exclude: None,
         });
         let frame = Frame {
@@ -348,3 +356,7 @@ mod tests {
         assert!(frame.is_ignored(&path, false, global.as_ref()));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

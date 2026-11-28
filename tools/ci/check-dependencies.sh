@@ -3,6 +3,14 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/ci/check-dependencies.sh
+# Responsibility:   Dependency check of the release binaries.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Dependency check of the release binaries.
 #
 # A release binary runs on a clean system, so it may depend only on the system
@@ -57,9 +65,9 @@ fail_usage() {
 }
 
 detect_format() {
-    local file=$1 magic
-    magic=$(LC_ALL=C head -c 4 -- "$file" | od -An -tx1 | tr -d ' \n')
-    case $magic in
+    local file=$1 signature
+    signature=$(LC_ALL=C head -c 4 -- "$file" | od -An -tx1 | tr -d ' \n')
+    case $signature in
         7f454c46) echo elf ;;
         4d5a*) echo pe ;;
         *) echo unknown ;;
@@ -153,3 +161,7 @@ for file in "${files[@]}"; do
     fi
 done
 exit $status
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

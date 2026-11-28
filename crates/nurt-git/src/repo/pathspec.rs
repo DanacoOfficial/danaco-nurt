@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::repo::pathspec
+// Responsibility:   Path selection of the `git` commands: the `paths` and `exclude` parameters, and the paths a working tree may contain.
+// Dependencies:     bstr, nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Path selection of the `git` commands: the `paths` and `exclude`
 //! parameters, and the paths a working tree may contain.
 //!
@@ -55,9 +63,11 @@ const NTFS_DIRECTORY_STREAM: &str = ":$index_allocation";
 /// use std::path::Path;
 /// use nurt_git::repo::pathspec::relative_path;
 ///
-/// let root = Path::new("/work/app");
+/// # let drive = if cfg!(windows) { "C:" } else { "" };
+/// let root_text = format!("{drive}/work/app");
+/// let root = Path::new(&root_text);
 /// assert_eq!(relative_path(root, "src/./main.rs").unwrap(), "src/main.rs");
-/// assert_eq!(relative_path(root, "/work/app/docs/").unwrap(), "docs");
+/// assert_eq!(relative_path(root, &format!("{drive}/work/app/docs/")).unwrap(), "docs");
 /// assert!(relative_path(root, "../other").is_err());
 /// ```
 pub fn relative_path(root: &Path, path: &str) -> Result<BString, Error> {
@@ -355,18 +365,24 @@ mod tests {
 
     #[test]
     fn relative_paths_are_normalized_against_the_root() {
-        let root = Path::new("/r");
+        let root = &nurt_testkit::paths::abs_path("/r");
         assert_eq!(relative_path(root, "a/b/../c").unwrap(), "a/c");
         assert_eq!(relative_path(root, r"a\b").unwrap(), "a/b");
         assert_eq!(relative_path(root, ".").unwrap(), "");
-        assert_eq!(relative_path(root, "/r").unwrap(), "");
-        assert_eq!(relative_path(root, "/r/x").unwrap(), "x");
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/r").as_str()).unwrap(),
+            ""
+        );
+        assert_eq!(
+            relative_path(root, nurt_testkit::paths::abs("/r/x").as_str()).unwrap(),
+            "x"
+        );
     }
 
     #[test]
     fn paths_outside_the_root_are_rejected() {
-        let root = Path::new("/r");
-        let error = relative_path(root, "/rx/a").unwrap_err();
+        let root = &nurt_testkit::paths::abs_path("/r");
+        let error = relative_path(root, nurt_testkit::paths::abs("/rx/a").as_str()).unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidValue);
         assert_eq!(error.problem.as_deref(), Some("outside_repository"));
         assert!(relative_path(root, "a/../../b").is_err());
@@ -450,3 +466,7 @@ mod tests {
         assert!(!has_parent_component(Path::new("a/b")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/reference/c-abi.md -->
+<!-- Responsibility:   Documents C interface (libnurt). -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # C interface (libnurt)
 
 The library `libnurt` exposes the engine to C and to every language with a C
@@ -13,6 +21,11 @@ The release publishes the shared library in its own archive `nurt-lib-<version>-
 install the library as `libnurt.so` (also `libnurt.so.1`) and `libnurt.dylib`. The bindings for .NET and Java look for the name of the
 package first and for the name of the build second, so both are found; a path given in the
 options or in `NURT_LIBRARY` is used as given, whatever its name.
+
+On musl targets (`x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`) the library of the release is static: the archive `nurt-lib-<version>-<target>`
+holds `libnurt.a`, `nurt.h` and `nurt.pc`, and `pkg-config --static --libs nurt` returns every library that a static link needs. On musl the library is
+static (`libnurt.a`) and must not be linked into one program with another static library written in Rust.
+The program `examples/c/hello.c` calls `nurt_abi_check` and `nurt_version`; the release checks build and run it against the library archive.
 
 ## Versioning
 
@@ -312,3 +325,7 @@ if (nurt_exec_wait(exec, 5000, &response) == NURT_E_TIMEOUT) {
 nurt_buf_free(&response);
 nurt_exec_free(exec);
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::error
+// Responsibility:   Errors of binding.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Errors of binding.
 
 use std::fmt;
@@ -56,6 +64,13 @@ impl BindError {
     #[must_use]
     pub(crate) fn found(mut self, found: impl Into<String>) -> Self {
         self.0 = self.0.with_found(found);
+        self
+    }
+
+    /// Adds a named detail to the error.
+    #[must_use]
+    pub(crate) fn detail(mut self, name: &str, value: serde_json::Value) -> Self {
+        self.0 = self.0.with_detail(name, value);
         self
     }
 
@@ -223,3 +238,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

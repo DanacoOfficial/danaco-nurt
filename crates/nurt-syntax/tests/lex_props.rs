@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/lex_props.rs
+// Responsibility:   Properties of the lexer: lossless coverage, monotonic spans, agreement of the tolerant and the strict mode and absence of panics.
+// Dependencies:     nurt_contracts, proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Properties of the lexer: lossless coverage, monotonic spans, agreement of
 //! the tolerant and the strict mode, inverse of the canonical literal forms
 //! and absence of panics.
@@ -402,3 +410,7 @@ proptest! {
         prop_assert_eq!(duration_ms(&printed).unwrap(), milliseconds, "{}", printed);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

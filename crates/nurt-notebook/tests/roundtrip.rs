@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-notebook/tests/roundtrip.rs
+// Responsibility:   Byte-exact output of unchanged and changed notebooks.
+// Dependencies:     nurt_contracts, proptest, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Byte-exact output of unchanged and changed notebooks.
 
 // Fixtures are built with `unwrap`; invalid fixture data fails the test.
@@ -262,3 +270,7 @@ proptest! {
         prop_assert_eq!(second.render(), once);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

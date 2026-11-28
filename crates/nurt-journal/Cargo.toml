@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           crates/nurt-journal/Cargo.toml
+# Responsibility:   Configuration or catalog data of crates/nurt-journal/Cargo.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 [package]
 name = "nurt-journal"
@@ -19,6 +26,8 @@ workspace = true
 
 [features]
 failpoints = ["nurt-fs/failpoints"]
+# Setup of the performance tests in tests/perf.rs.
+testing = ["nurt-fs/conformance"]
 
 [dependencies]
 nurt-contracts = { workspace = true }
@@ -36,6 +45,12 @@ uuid = { workspace = true }
 toml_edit = { workspace = true }
 
 [dev-dependencies]
+nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
+nurt-journal = { path = ".", features = ["testing"] }
 nurt-fs = { workspace = true, features = ["conformance", "failpoints", "mutation-audit"] }
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

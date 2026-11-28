@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::sys
+// Responsibility:   Error conversion, retries and time conversion shared by the system calls of the Linux back end.
+// Dependencies:     nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Error conversion, retries and time conversion shared by the system calls
 //! of the Linux back end.
 
@@ -147,3 +155,7 @@ mod tests {
         assert_eq!((stamp.tv_sec, stamp.tv_nsec), (1, 500_000_000));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

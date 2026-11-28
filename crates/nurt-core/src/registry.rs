@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::registry
+// Responsibility:   Command registry of the engine.
+// Dependencies:     nurt_catalog, nurt_code, nurt_contracts, nurt_doc, nurt_exec, nurt_ext, nurt_files, nurt_git, nurt_git_ops, nurt_journal, nurt_net, nurt_proc, nurt_programs, nurt_sched, nurt_sys, nurt_syslog, nurt_verify
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Command registry of the engine.
 //!
 //! The registry holds the command catalog embedded in the build and the
@@ -157,3 +165,7 @@ mod tests {
         assert!(missing.is_empty(), "{missing:?}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

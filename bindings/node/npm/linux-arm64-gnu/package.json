@@ -5,7 +5,7 @@
   "homepage": "https://nurt.danaco-group.pl",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "url": "git+https://github.com/DanacoOfficial/danaco-nurt.git",
     "directory": "bindings/node/npm/linux-arm64-gnu"
   },
   "license": "Apache-2.0",

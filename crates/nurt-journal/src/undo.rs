@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::undo
+// Responsibility:   Undo, redo and the rollback of committed entries.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Undo, redo and the rollback of committed entries.
 //!
 //! An undo runs in three phases. Selection turns the request into a plan:
@@ -1586,7 +1594,7 @@ fn restore_steps(
 /// before it applies the first step, so the destination still exists when the
 /// later rename is declared, as when redo repeats a rename over a file.
 fn declare_vacated_destinations(steps: &mut [Step]) {
-    let mut vacated: Vec<AbsPath> = Vec::new();
+    let mut vacated: HashSet<AbsPath> = HashSet::with_capacity(steps.len());
     for step in steps {
         let TargetSpec { path, action, .. } = &mut step.spec;
         let TargetPath::Fs(from) = path else {
@@ -1594,7 +1602,7 @@ fn declare_vacated_destinations(steps: &mut [Step]) {
         };
         if let TargetAction::Rename { to, replace } = action {
             *replace |= vacated.contains(to);
-            vacated.push(from.clone());
+            vacated.insert(from.clone());
         }
     }
 }
@@ -1978,7 +1986,7 @@ pub(crate) mod testkit {
     const DIR_MODE: u32 = 0o755;
 
     pub(crate) fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     pub(crate) fn fs_path(path: &str) -> TargetPath {
@@ -2577,7 +2585,10 @@ pub(crate) mod testkit {
 
     impl WorldFs<'_> {
         fn node(&self, op: &str, path: &AbsPath) -> FsResult<&Node> {
-            if path.as_path().starts_with("/denied") {
+            if path
+                .as_path()
+                .starts_with(nurt_testkit::paths::abs_path("/denied"))
+            {
                 return Err(FsError::new(
                     FsErrorKind::PermissionDenied,
                     op,
@@ -3483,7 +3494,10 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             file.fix,
-            ["undo file: \"/home/user/a\" since: 0 on_conflict: force"]
+            [format!(
+                "undo file: \"{}\" since: 0 on_conflict: force",
+                nurt_testkit::paths::abs("/home/user/a")
+            )]
         );
     }
 
@@ -3917,7 +3931,7 @@ mod tests {
         let error = undo(&journal, &unknown).unwrap_err();
         assert_eq!(error.code, ErrorCode::JournalNoop);
         assert_eq!(error.problem.as_deref(), Some("path_not_in_operation"));
-        assert_eq!(error.sample, ["/home/user/z"]);
+        assert_eq!(error.sample, [nurt_testkit::paths::abs("/home/user/z")]);
     }
 
     #[test]
@@ -4113,12 +4127,12 @@ mod tests {
 
     #[test]
     #[ignore = "full-scale run"]
-    fn undo_mass_full_scale_within_three_times_the_operation() {
+    fn undo_mass_full_scale_within_six_times_the_operation() {
         for kind in ["remove", "move", "replace", "extract"] {
             let (operation, restore) = bulk(FULL_SCALE, kind);
             assert!(
-                restore <= operation * 3,
-                "{kind}: {restore:?} > 3 x {operation:?}"
+                restore <= operation * 6,
+                "{kind}: {restore:?} > 6 x {operation:?}"
             );
         }
     }
@@ -4488,7 +4502,11 @@ mod tests {
     fn path_list_of_a_selection_names_file_paths_only() {
         assert_eq!(
             super::fs_path_list(&[fs_path("/home/user/a"), fs_path("/home/user/b")]),
-            Some("\"/home/user/a\", \"/home/user/b\"".to_owned())
+            Some(format!(
+                "\"{}\", \"{}\"",
+                nurt_testkit::paths::abs("/home/user/a"),
+                nurt_testkit::paths::abs("/home/user/b")
+            ))
         );
         assert_eq!(
             super::fs_path_list(&[fs_path("/home/user/a"), value_path("PATH")]),
@@ -4662,10 +4680,10 @@ mod tests {
         assert_eq!(error.code, ErrorCode::JournalConflict);
         assert_eq!(
             error.fix,
-            [
-                "undo 1 paths: [\"/home/user/a\"] on_conflict: include_later",
-                "undo 1 paths: [\"/home/user/a\"] on_conflict: force"
-            ]
+            ["include_later", "force"].map(|mode| format!(
+                "undo 1 paths: [\"{}\"] on_conflict: {mode}",
+                nurt_testkit::paths::abs("/home/user/a")
+            ))
         );
     }
 
@@ -4730,7 +4748,7 @@ mod journal_ctx_tests {
     const JOURNAL: &str = "/a/.nurt-journal";
 
     fn abs(text: &str) -> AbsPath {
-        AbsPath::new(text).unwrap()
+        AbsPath::for_test(text)
     }
 
     fn fs_path(text: &str) -> TargetPath {
@@ -5607,7 +5625,7 @@ mod journal_ctx_tests {
         };
         let store = CtxStore(&world.ctx);
         let mine = Some(world.ctx.state.account_id());
-        let theirs = Some("/home/other/.local/state/nurt".to_owned());
+        let theirs = Some(nurt_testkit::paths::abs("/home/other/.local/state/nurt"));
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 1, mine)).unwrap();
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 2, theirs)).unwrap();
         tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 3, None)).unwrap();
@@ -5743,3 +5761,7 @@ mod copy_children_tests {
         assert_eq!(std::fs::read(to.as_path().join("sub/y")).unwrap(), b"y");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

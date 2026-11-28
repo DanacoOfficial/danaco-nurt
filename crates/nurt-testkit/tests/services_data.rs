@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-testkit/tests/services_data.rs
+// Responsibility:   Data service doubles: registered answers, unsupported inputs and scripted process details.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Data service doubles: registered answers, unsupported inputs and scripted
 //! process details.
 
@@ -473,3 +481,7 @@ fn an_empty_chunk_of_scripted_output_does_not_end_the_stream() {
     stdout.read_to_string(&mut text).unwrap();
     assert_eq!(text, "data\n");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

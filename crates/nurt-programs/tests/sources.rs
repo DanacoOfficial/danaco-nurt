@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/sources.rs
+// Responsibility:   Providers of system data and the index cache, read from synthetic files below a test root.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Providers of system data and the index cache, read from synthetic files
 //! below a test root: RPM SQLite, NDB and Berkeley DB databases, dpkg
 //! status files, the pacman database, desktop entries and manual pages.
@@ -317,7 +325,12 @@ fn dpkg_package_summary_reaches_the_card_of_its_command() {
     assert_eq!(card.summary.text, "GNU compression utilities");
     assert_eq!(card.version.as_deref(), Some("1.12-1"));
     assert_eq!(card.package.as_ref().unwrap().name, "gzip");
-    assert_eq!(card.path.as_deref(), Some("/usr/bin/gzip"));
+    // The source models a Linux system; on another system the joined path
+    // has the separator of that system.
+    assert_eq!(
+        card.path.as_deref().map(|path| path.replace('\\', "/")),
+        Some("/usr/bin/gzip".to_owned())
+    );
     assert!(card.installed);
 }
 
@@ -948,9 +961,15 @@ fn relative_xdg_directories_are_ignored() {
         PathBuf::from("/home/user/.local/share/applications")
     );
     assert!(dirs.contains(&PathBuf::from("/opt/share/applications")));
-    assert!(dirs.iter().all(|dir| dir.is_absolute()), "{dirs:?}");
+    // Rooted paths of the modelled Linux system; on Windows such a path has
+    // no drive and is not absolute.
+    assert!(dirs.iter().all(|dir| dir.has_root()), "{dirs:?}");
     assert_eq!(
         nurt_programs::index::default_cache_dir(&env),
         Some(PathBuf::from("/home/user/.cache/nurt/programs"))
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

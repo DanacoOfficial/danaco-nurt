@@ -1,8 +1,17 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::repo::tests
+// Responsibility:   Implements the module nurt-git::repo::tests.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use super::*;
 use crate::testutil::{RepoBuilder, TestHost, test_ctx, test_ctx_with};
+use nurt_contracts::env::Os;
 use nurt_contracts::error::ErrorCode;
 
 #[test]
@@ -52,13 +61,16 @@ fn separate_git_directory_is_followed_through_the_git_file() {
     std::fs::rename(fixture.path().join(".git"), &moved).unwrap();
     std::fs::write(
         fixture.path().join(".git"),
-        format!("gitdir: {}\n", moved.display()),
+        format!(
+            "gitdir: {}\n",
+            moved.display().to_string().replace('\\', "/")
+        ),
     )
     .unwrap();
     let mut config = std::fs::read_to_string(moved.join("config")).unwrap();
     config.push_str(&format!(
         "[core]\n\tworktree = {}\n",
-        fixture.path().display()
+        fixture.path().display().to_string().replace('\\', "/")
     ));
     std::fs::write(moved.join("config"), config).unwrap();
     let repo = GitRepo::discover(fixture.path(), &test_ctx()).unwrap();
@@ -248,7 +260,13 @@ fn ceiling_directories_stop_discovery() {
         .file("sub/a.txt", "1\n")
         .commit("one")
         .build();
+    let os = if cfg!(windows) {
+        Os::Windows
+    } else {
+        Os::Linux
+    };
     let host = TestHost::new("/nonexistent-home")
+        .with_os(os)
         .with_var("GIT_CEILING_DIRECTORIES", fixture.path().as_os_str());
     let error = GitRepo::discover(&fixture.path().join("sub"), &test_ctx_with(host)).unwrap_err();
     assert_eq!(error.code, ErrorCode::GitNotRepository);
@@ -262,3 +280,7 @@ fn unreadable_ownership_is_not_trusted() {
         "stat failed"
     ))));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

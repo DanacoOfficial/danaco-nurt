@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::frontend
+// Responsibility:   Language front end of the engine.
+// Dependencies:     nurt_contracts, schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Language front end of the engine.
 //!
 //! The front end turns program text into a syntax tree (parsing), corrects
@@ -166,6 +174,34 @@ pub trait Frontend: Send + Sync {
         self.help(topic, language)
     }
 
+    /// Binds the values given for the parameters of a script to the
+    /// declaration `declared`. Returns every parameter with its value, the
+    /// default for a parameter that was not given.
+    ///
+    /// # Errors
+    ///
+    /// The default implementation takes defaults only: a value given, or a
+    /// parameter without default, is `E_UNSUPPORTED`.
+    fn bind_params(
+        &self,
+        declared: &[nurt_contracts::bound::BoundParam],
+        given: Option<&serde_json::Map<String, serde_json::Value>>,
+        config: &Config,
+    ) -> Result<Vec<(String, nurt_contracts::bound::BoundExpr)>, Error> {
+        let _ = config;
+        let mut bound = Vec::with_capacity(declared.len());
+        for param in declared {
+            match (
+                &param.default,
+                given.and_then(|given| given.get(&param.name)),
+            ) {
+                (Some(default), None) => bound.push((param.name.clone(), default.clone())),
+                _ => return Err(unavailable(FRONTEND)),
+            }
+        }
+        Ok(bound)
+    }
+
     /// Corrects and binds program text.
     ///
     /// # Errors
@@ -286,7 +322,12 @@ mod tests {
 
     #[test]
     fn tree_hash_matches_the_golden_files() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+        let dir = std::path::Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("../../spec/golden/ast");
         let mut checked = 0;
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -309,3 +350,7 @@ mod tests {
         assert!(checked >= 3);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

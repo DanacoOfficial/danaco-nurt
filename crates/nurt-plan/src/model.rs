@@ -1,12 +1,22 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-plan::model
+// Responsibility:   Types of an execution plan.
+// Dependencies:     nurt_contracts, schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Types of an execution plan.
 
 use std::collections::BTreeSet;
 
 use nurt_contracts::ast::Span;
-use nurt_contracts::bound::{BoundRef, BoundStage, Phase};
+use nurt_contracts::bound::{
+    BoundCall, BoundExpr, BoundLimit, BoundParam, BoundRef, BoundStage, BoundStatement, Phase,
+};
 use nurt_contracts::kinds::{EffectKind, Reversibility};
 use nurt_contracts::report::Correction;
 use nurt_contracts::stage::{Demand, ExecStep, StageFrame};
@@ -112,7 +122,17 @@ impl Plan {
             .iter()
             .filter_map(|statement| match statement {
                 PlanStatement::Operation(operation) => Some(operation),
-                PlanStatement::Let(_) => None,
+                PlanStatement::Let(_) | PlanStatement::Construct(_) => None,
+            })
+    }
+
+    /// The control constructs at the top of the program, in order.
+    pub fn constructs(&self) -> impl Iterator<Item = &ConstructPlan> {
+        self.statements
+            .iter()
+            .filter_map(|statement| match statement {
+                PlanStatement::Construct(construct) => Some(construct.as_ref()),
+                _ => None,
             })
     }
 
@@ -122,7 +142,7 @@ impl Plan {
             .iter()
             .filter_map(|statement| match statement {
                 PlanStatement::Let(binding) => Some(binding),
-                PlanStatement::Operation(_) => None,
+                PlanStatement::Operation(_) | PlanStatement::Construct(_) => None,
             })
     }
 
@@ -144,7 +164,7 @@ impl Plan {
     pub fn stages(&self) -> Vec<&PlannedStage> {
         let mut stages = Vec::new();
         for statement in &self.statements {
-            statement.pipeline().collect_stages(&mut stages);
+            statement.collect_stages(&mut stages);
         }
         stages
     }
@@ -159,15 +179,31 @@ pub enum PlanStatement {
     Let(LetPlan),
     /// An operation: a pipeline whose result is reported.
     Operation(OperationPlan),
+    /// A control construct: a condition, a loop, `steps`, a function.
+    Construct(Box<ConstructPlan>),
 }
 
 impl PlanStatement {
-    /// The pipeline of the statement.
+    /// The pipeline of a `let` or of an operation; a control construct has
+    /// several, see [`ConstructPlan::pipelines`].
     #[must_use]
-    pub fn pipeline(&self) -> &PipelinePlan {
+    pub fn pipeline(&self) -> Option<&PipelinePlan> {
         match self {
-            Self::Let(binding) => &binding.pipeline,
-            Self::Operation(operation) => &operation.pipeline,
+            Self::Let(binding) => Some(&binding.pipeline),
+            Self::Operation(operation) => Some(&operation.pipeline),
+            Self::Construct(_) => None,
+        }
+    }
+
+    fn collect_stages<'a>(&'a self, stages: &mut Vec<&'a PlannedStage>) {
+        match self {
+            Self::Let(binding) => binding.pipeline.collect_stages(stages),
+            Self::Operation(operation) => operation.pipeline.collect_stages(stages),
+            Self::Construct(construct) => {
+                for pipeline in construct.pipelines() {
+                    pipeline.collect_stages(stages);
+                }
+            }
         }
     }
 }
@@ -209,6 +245,9 @@ pub struct PipelinePlan {
     /// a command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub head: Option<BoundRef>,
+    /// Call of a defined function that produces the input of the stages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call: Option<BoundCall>,
     /// Planned stages in program order.
     pub stages: Vec<PlannedStage>,
     /// Strongest effect of the stages, including the pipeline of `verify`.
@@ -386,6 +425,7 @@ mod tests {
     fn all_stages_lists_verify_pipeline_after_verify() {
         let check = PipelinePlan {
             head: None,
+            call: None,
             stages: vec![stage("run", ExecStep::Plan)],
             effect: EffectKind::Process,
             reversibility: Reversibility::ReversibleIfPreserved,
@@ -395,6 +435,7 @@ mod tests {
         verify.check = Some(Box::new(check));
         let pipeline = PipelinePlan {
             head: None,
+            call: None,
             stages: vec![stage("replace", ExecStep::Plan), verify],
             effect: EffectKind::Process,
             reversibility: Reversibility::ReversibleIfPreserved,
@@ -428,3 +469,171 @@ mod tests {
         );
     }
 }
+
+/// A planned branch of a `when`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct BranchPlan {
+    /// Condition, of type `bool`.
+    pub cond: BoundExpr,
+    /// Planned statements of the branch.
+    pub body: Vec<PlanStatement>,
+}
+
+/// What a control construct does.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ConstructShape {
+    /// `when … otherwise when … otherwise …`.
+    When {
+        /// Branches in order.
+        branches: Vec<BranchPlan>,
+        /// Statements that run when no condition holds.
+        otherwise: Option<Vec<PlanStatement>>,
+    },
+    /// `each … as name`.
+    Each {
+        /// Records to visit.
+        source: BoundExpr,
+        /// Name of the record of the iteration.
+        name: String,
+        /// Number of iterations that may run concurrently.
+        parallel: Option<u32>,
+        /// Whether a failure rolls back the completed iterations.
+        atomic: bool,
+        /// Statements of the body.
+        body: Vec<PlanStatement>,
+    },
+    /// `repeat until: …`.
+    Repeat {
+        /// Condition that ends the loop.
+        until: BoundExpr,
+        /// Wait between iterations in milliseconds.
+        every_ms: Option<u64>,
+        /// Limit of the loop.
+        limit: Option<BoundLimit>,
+        /// Whether a failure rolls back the completed iterations.
+        atomic: bool,
+        /// Statements of the body.
+        body: Vec<PlanStatement>,
+    },
+    /// `while …`.
+    While {
+        /// Condition that keeps the loop running.
+        cond: BoundExpr,
+        /// Limit of the loop.
+        limit: Option<BoundLimit>,
+        /// Whether a failure rolls back the completed iterations.
+        atomic: bool,
+        /// Statements of the body.
+        body: Vec<PlanStatement>,
+    },
+    /// `steps { … }`.
+    Steps {
+        /// Planned steps.
+        body: Vec<PlanStatement>,
+    },
+    /// `define name(…) { … }`.
+    Define {
+        /// Name of the function.
+        name: String,
+        /// Declared parameters.
+        params: Vec<BoundParam>,
+        /// Planned statements of the body.
+        body: Vec<PlanStatement>,
+    },
+    /// `params { … }`.
+    Params {
+        /// Declared parameters.
+        params: Vec<BoundParam>,
+    },
+    /// `break`.
+    Break,
+    /// `continue`.
+    Continue,
+}
+
+/// A planned control construct.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ConstructPlan {
+    /// Number among the operations of the program.
+    pub index: u32,
+    /// What the construct does, with its planned statements.
+    pub shape: ConstructShape,
+    /// The bound statement, recorded in the journal as the program of the
+    /// construct.
+    pub program: BoundStatement,
+    /// Strongest effect of the statements inside.
+    pub effect: EffectKind,
+    /// Weakest reversibility of the statements inside.
+    pub reversibility: Reversibility,
+    /// Source range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<Span>,
+}
+
+impl ConstructPlan {
+    /// Name of the construct as the journal records it: `when`, `each`,
+    /// `repeat`, `while`, `steps`, `define`, `params`, `break`, `continue`.
+    #[must_use]
+    pub fn name(&self) -> &'static str {
+        match self.shape {
+            ConstructShape::When { .. } => "when",
+            ConstructShape::Each { .. } => "each",
+            ConstructShape::Repeat { .. } => "repeat",
+            ConstructShape::While { .. } => "while",
+            ConstructShape::Steps { .. } => "steps",
+            ConstructShape::Define { .. } => "define",
+            ConstructShape::Params { .. } => "params",
+            ConstructShape::Break => "break",
+            ConstructShape::Continue => "continue",
+        }
+    }
+
+    /// The statements of every block of the construct, not descending into
+    /// nested constructs.
+    #[must_use]
+    pub fn blocks(&self) -> Vec<&[PlanStatement]> {
+        match &self.shape {
+            ConstructShape::When {
+                branches,
+                otherwise,
+            } => branches
+                .iter()
+                .map(|branch| branch.body.as_slice())
+                .chain(otherwise.iter().map(Vec::as_slice))
+                .collect(),
+            ConstructShape::Each { body, .. }
+            | ConstructShape::Repeat { body, .. }
+            | ConstructShape::While { body, .. }
+            | ConstructShape::Steps { body }
+            | ConstructShape::Define { body, .. } => vec![body.as_slice()],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Every pipeline of the construct, nested constructs included.
+    #[must_use]
+    pub fn pipelines(&self) -> Vec<&PipelinePlan> {
+        let mut found = Vec::new();
+        for block in self.blocks() {
+            for statement in block {
+                match statement {
+                    PlanStatement::Construct(inner) => found.extend(inner.pipelines()),
+                    other => found.extend(other.pipeline()),
+                }
+            }
+        }
+        found
+    }
+
+    /// Whether the construct, or one inside, can change the world.
+    #[must_use]
+    pub fn changes(&self) -> bool {
+        self.effect != EffectKind::Read
+    }
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,13 +1,21 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::common::entry
+// Responsibility:   `entry` records from file metadata.
+// Dependencies:     nurt_contracts, nurt_testkit, unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `entry` records from file metadata.
 //!
 //! [`entry_record`] fills the fields every listing and `info` share; fields
 //! that need further reads (link targets, hashes, content details) are set by
 //! the command that reads them.
 
-use nurt_contracts::fs::{AbsPath, FileKind, FileMeta};
+use nurt_contracts::fs::{AbsPath, FileKind, FileMeta, Fs, SpecialKind};
 use nurt_contracts::record::{Entry, EntryType, LinkType};
 use nurt_contracts::value::{Bytes, Instant, Size};
 use unicode_normalization::UnicodeNormalization;
@@ -38,6 +46,28 @@ pub fn entry_type(kind: FileKind) -> EntryType {
         FileKind::Directory => EntryType::Directory,
         FileKind::Symlink | FileKind::Junction => EntryType::Link,
         _ => EntryType::Other,
+    }
+}
+
+/// Sets the type and the device numbers of a named pipe or a device node in
+/// `entry`, read from `fs`.
+///
+/// Entries that are not special files are left as they are, and so is an
+/// entry whose kind the volume does not report.
+pub fn add_special_node(fs: &dyn Fs, path: &AbsPath, entry: &mut Entry) {
+    if entry.kind != EntryType::Other {
+        return;
+    }
+    let Ok(Some(node)) = fs.special_node(path) else {
+        return;
+    };
+    match node.kind {
+        SpecialKind::Fifo => entry.kind = EntryType::Fifo,
+        _ => {
+            entry.kind = EntryType::Device;
+            entry.major = Some(u64::from(node.major));
+            entry.minor = Some(u64::from(node.minor));
+        }
     }
 }
 
@@ -174,7 +204,7 @@ fn split_extension(name: &str) -> (Option<String>, Option<String>) {
 
 #[cfg(test)]
 mod tests {
-    use nurt_contracts::fs::{Follow, Fs};
+    use nurt_contracts::fs::{Follow, Fs, SpecialKind, SpecialNode};
     use nurt_testkit::ctx::TestContext;
 
     use super::*;
@@ -348,4 +378,58 @@ mod tests {
         assert_eq!(link_type(FileKind::File), None);
         assert_eq!(mode_text(0o40755), "0755");
     }
+
+    #[test]
+    fn fifos_and_devices_have_their_own_types_and_numbers() {
+        let test = TestContext::new();
+        let dir = abs("/dev");
+        test.fs().create_dir_all(&dir).unwrap();
+        let cases = [
+            ("/dev/p", SpecialNode::fifo(), EntryType::Fifo),
+            (
+                "/dev/c",
+                SpecialNode::device(SpecialKind::Char, 1, 3),
+                EntryType::Device,
+            ),
+            (
+                "/dev/b",
+                SpecialNode::device(SpecialKind::Block, 8, 17),
+                EntryType::Device,
+            ),
+        ];
+        for (name, node, expected) in cases {
+            let path = abs(name);
+            test.fs().create_special_node(&path, node, 0o660).unwrap();
+            let mut entry = entry_record(&path, &meta_of(&test, &path));
+            assert_eq!(entry.mode.as_deref(), Some("0660"));
+            add_special_node(test.fs().as_ref(), &path, &mut entry);
+            assert_eq!(entry.kind, expected, "{name}");
+            let numbers = (entry.major, entry.minor);
+            if expected == EntryType::Device {
+                assert_eq!(
+                    numbers,
+                    (Some(u64::from(node.major)), Some(u64::from(node.minor)))
+                );
+            } else {
+                assert_eq!(numbers, (None, None));
+            }
+        }
+    }
+
+    #[test]
+    fn other_special_entries_and_regular_files_have_no_numbers() {
+        let test = TestContext::new();
+        let path = abs("/data/socket");
+        test.fs().create_dir_all(&abs("/data")).unwrap();
+        test.fs().create_special(&path).unwrap();
+        let mut entry = entry_record(&path, &meta_of(&test, &path));
+        assert_eq!(entry.kind, EntryType::Other);
+        add_special_node(test.fs().as_ref(), &path, &mut entry);
+        assert_eq!(entry.kind, EntryType::Other);
+        assert_eq!((entry.major, entry.minor), (None, None));
+    }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

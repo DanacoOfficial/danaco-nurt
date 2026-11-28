@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_depth_limit.rs
+// Responsibility:   The depth limit of the parser and of the surface decoders agree: a program the parser accepts always encodes to a document the decoders accept.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The depth limit of the parser and of the surface decoders agree: a program
 //! the parser accepts always encodes to a document the decoders accept.
 
@@ -39,3 +47,7 @@ fn every_program_the_parser_accepts_encodes_and_decodes() {
     assert!(accepted > 20, "{accepted} accepted");
     assert!(rejected > 20, "{rejected} rejected");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

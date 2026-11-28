@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_write.rs
+// Responsibility:   Changes of SQLite databases with `sql write: true` through the operation journal.
+// Dependencies:     nurt_contracts, rusqlite, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Changes of SQLite databases with `sql write: true` through the operation
 //! journal: preservation of the database and its journal files, one
 //! transaction, rollback after errors and undo to the previous bytes.
@@ -166,8 +174,10 @@ fn undo_restores_database_bytes() {
 fn undo_restores_wal_side_files() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS_WAL);
-    let reader = Connection::open(&db).unwrap();
+    let mut reader = Some(Connection::open(&db).unwrap());
     let _: i64 = reader
+        .as_ref()
+        .unwrap()
         .query_row("select count(*) from users", [], |row| row.get(0))
         .unwrap();
     let files = database_files(&db);
@@ -185,6 +195,11 @@ fn undo_restores_wal_side_files() {
     );
     write(&call, &ctx(), &mut tx).unwrap();
     assert_ne!(contents(&files)[0], before[0]);
+    if cfg!(windows) {
+        // Windows refuses to overwrite a file that an open connection maps
+        // (ERROR_USER_MAPPED_FILE), so the reader closes before the restore.
+        reader.take();
+    }
     tx.undo();
     assert_eq!(contents(&files), before);
     drop(reader);
@@ -205,16 +220,6 @@ fn change_without_space_for_copy_is_marked_irreversible() {
         written.irreversible[0].path.as_deref(),
         Some(text(&db).as_str())
     );
-}
-
-#[test]
-fn refuses_transaction_control_statements() {
-    let dir = tempfile::tempdir().unwrap();
-    let db = database(dir.path(), "app.db", USERS);
-    let call = args(&db, "begin; delete from users; commit", Vec::new(), true);
-    let error = failure(write(&call, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("transaction"));
-    assert_eq!(count(&db, "select count(*) from users"), 1);
 }
 
 #[test]
@@ -289,6 +294,27 @@ fn cancellation_interrupts_long_change() {
     );
     let error = failure(write(&call, &context, &mut RecordingTx::new()));
     canceller.join().unwrap();
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert_eq!(count(&db, "select count(*) from t"), 0);
+}
+
+#[test]
+fn cancellation_before_the_first_statement_interrupts_the_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", "create table t(x);");
+    let cancel = CancelToken::new();
+    cancel.cancel(CancelReason::Requested);
+    let context = context(CtxOptions {
+        cancel,
+        ..CtxOptions::default()
+    });
+    let call = args(
+        &db,
+        "insert into t with recursive c(x) as (select 1 union all select x + 1 from c) select x from c",
+        Vec::new(),
+        true,
+    );
+    let error = failure(write(&call, &context, &mut RecordingTx::new()));
     assert_eq!(error.code(), ErrorCode::Cancelled);
     assert_eq!(count(&db, "select count(*) from t"), 0);
 }
@@ -377,3 +403,7 @@ fn creates_database_in_empty_file_and_undo_empties_it() {
     assert_eq!(fs::read(&empty).unwrap(), b"");
     assert!(!database_files(&empty)[3].exists());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

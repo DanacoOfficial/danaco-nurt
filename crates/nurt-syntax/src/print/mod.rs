@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::print
+// Responsibility:   Canonical printer of surface trees.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Canonical printer of surface trees.
 //!
 //! For every tree `T` that the parser can produce, parsing the printed text
@@ -61,7 +69,7 @@ pub const MAX_NESTING_DEPTH: usize = 128;
 
 /// Reason a tree has no text form that reads back as the same tree.
 ///
-/// [`print`] still prints such trees; [`try_print`] rejects them:
+/// [`print()`] still prints such trees; [`try_print`] rejects them:
 ///
 /// * A structured `key` prints as the text of its key path and reads back
 ///   as `text`;
@@ -76,9 +84,9 @@ pub const MAX_NESTING_DEPTH: usize = 128;
 /// * Negative or non-finite numbers, values outside `0..=2^53-1`, unary `-`
 ///   applied to a range, a spread outside a list, a field without a record
 ///   expression, a repeated map key and an empty program;
-/// * Positional arguments in variant C, which [`print`] writes without a
+/// * Positional arguments in variant C, which [`print()`] writes without a
 ///   name;
-/// * Nesting deeper than [`MAX_NESTING_DEPTH`]; [`print`] writes `null` in
+/// * Nesting deeper than [`MAX_NESTING_DEPTH`]; [`print()`] writes `null` in
 ///   place of the deeper nodes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -175,7 +183,7 @@ pub fn print(document: &AstDocument, variant: Variant) -> String {
     render(document, variant).0
 }
 
-/// Prints a surface tree like [`print`], rejecting trees whose text would not
+/// Prints a surface tree like [`print()`], rejecting trees whose text would not
 /// read back as the same tree.
 ///
 /// # Errors
@@ -270,3 +278,7 @@ fn render(document: &AstDocument, variant: Variant) -> (String, Option<PrintErro
     }
     (text, issue)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

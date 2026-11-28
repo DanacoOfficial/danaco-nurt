@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::diff::funcname
+// Responsibility:   Function lines: the text after `@@` in a hunk header and the boundaries used by the function context.
+// Dependencies:     regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Function lines: the text after `@@` in a hunk header and the boundaries
 //! used by the function context.
 //!
@@ -239,3 +247,7 @@ mod tests {
         assert!(builtin_patterns("unknown").is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

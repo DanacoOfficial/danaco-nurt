@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::integrity
+// Responsibility:   Manifest hashes and the hash chain.
+// Dependencies:     nurt_contracts, nurt_fs, proptest, serde, serde_json, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Manifest hashes and the hash chain.
 //!
 //! # Manifest digest
@@ -746,12 +754,12 @@ mod tests {
     fn entry_files(state: &[u8], manifest_bytes: &[u8], items: &[u8]) -> EntryCheck {
         use nurt_contracts::fs::AbsPath;
         use nurt_fs::mem::{MemFs, VolumeSpec};
-        let mount = AbsPath::new("/v").unwrap();
+        let mount = AbsPath::for_test("/v");
         let fs = MemFs::builder()
             .volume(VolumeSpec::posix(mount))
             .build()
             .unwrap();
-        let entry = EntryLayout::new(AbsPath::new("/v/ops/000000000001").unwrap());
+        let entry = EntryLayout::new(AbsPath::for_test("/v/ops/000000000001"));
         fs.seed_file(&entry.state().unwrap(), state).unwrap();
         fs.seed_file(&entry.manifest().unwrap(), manifest_bytes)
             .unwrap();
@@ -821,3 +829,7 @@ mod tests {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

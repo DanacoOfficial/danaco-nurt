@@ -234,3 +234,12 @@ expect = { report = { status = "ok", op = 2 } }
 program = 'undo ${step1/report/op}'
 expect = { report = { status = "failed", error = { code = "E_JOURNAL_CONFLICT" } } }
 fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "second" }] }
+
+[[case]]
+id = "errors/execution/next-without-continuation"
+kind = "error"
+code = "E_CONTINUATION_EXPIRED"
+summary = "`next` without a kept shortened result is an expired continuation error."
+program = 'next'
+expect = { report = { status = "failed", error = { code = "E_CONTINUATION_EXPIRED" } } }
+fs_after = "unchanged"

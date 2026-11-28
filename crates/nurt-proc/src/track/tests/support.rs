@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::tests::support
+// Responsibility:   Test doubles: a file system over a real directory, a virtual clock, a host and a journal transaction that keeps byte copies in memory.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles: a file system over a real directory, a virtual clock, a
 //! host and a journal transaction that keeps byte copies in memory and can
 //! undo the recorded changes.
@@ -11,7 +19,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use nurt_contracts::config::Config;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
@@ -509,6 +517,35 @@ impl Harness {
         fs::write(path, text).unwrap();
     }
 
+    /// Writes a file and sets its modification time back to `time`.
+    pub(super) fn write_keeping_time(&self, relative: &str, text: &str, time: SystemTime) {
+        self.write(relative, text);
+        fs::File::options()
+            .write(true)
+            .open(self.path(relative))
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
+    /// Writes a file with a modification time one hour ahead, which is racy
+    /// however long the test runs.
+    pub(super) fn write_racy(&self, relative: &str, text: &str) {
+        self.write_keeping_time(
+            relative,
+            text,
+            SystemTime::now() + Duration::from_secs(3600),
+        );
+    }
+
+    /// Modification time of a file.
+    pub(super) fn modified(&self, relative: &str) -> SystemTime {
+        fs::metadata(self.path(relative))
+            .unwrap()
+            .modified()
+            .unwrap()
+    }
+
     /// Content of a file.
     pub(super) fn read(&self, relative: &str) -> String {
         fs::read_to_string(self.path(relative)).unwrap()
@@ -567,6 +604,10 @@ impl Harness {
             .changes
             .iter()
             .find(|change| self.relative(change.path.as_str()) == relative)
-            .unwrap_or_else(|| panic!("no change of {relative}"))
+            .unwrap_or_else(|| panic!("no change of {relative}; notes: {:?}", outcome.notes))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

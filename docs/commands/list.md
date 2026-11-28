@@ -7,6 +7,13 @@ since: 0.1.0
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/list.md -->
+<!-- Responsibility:   Documents list. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # list
 
@@ -127,6 +134,14 @@ List the files of a directory changed most recently first:
 list "/home/user/app/src" type: file sort: modified order: desc
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 312  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -143,3 +158,7 @@ list "/home/user/app/src" type: file sort: modified order: desc
 
 `find` selects entries by name pattern and attributes at any depth; `info`
 describes one entry. `help skill: "files"` describes working with files.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

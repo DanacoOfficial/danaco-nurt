@@ -1,12 +1,20 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::codec_service
+// Responsibility:   Text codec service of the text commands.
+// Dependencies:     encoding_rs, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Text codec service of the text commands.
 //!
 //! [`TextCodec`] implements [`TextCodecService`] for the commands of other
 //! groups that decode or encode files: detection follows
-//! [`detect`](crate::detect), conversion follows [`codec`](crate::codec) and
-//! line endings follow [`eol`](crate::eol).
+//! [`crate::detect`], conversion follows [`crate::codec`] and
+//! line endings follow [`crate::eol`].
 
 use encoding_rs::{UTF_16BE, UTF_16LE};
 use nurt_contracts::error::Result;
@@ -332,3 +340,7 @@ mod tests {
         assert!(!codec.detect(b"text").binary);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

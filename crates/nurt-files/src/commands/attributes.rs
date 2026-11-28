@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::attributes
+// Responsibility:   The `attributes` command: permissions, account and group, times, read-only and hidden attributes, extended attributes and access control of entries.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `attributes` command: permissions, account and group, times,
 //! read-only and hidden attributes, extended attributes and access control
 //! of entries.
@@ -895,7 +903,7 @@ mod tests {
 
     #[test]
     fn every_change_goes_through_the_transaction() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         file(&test, "/data/b.txt");
         let call = args(&["/data/a.txt", "/data/b.txt"], &[(MODE, text("0600"))]);
@@ -947,7 +955,7 @@ mod tests {
 
     #[test]
     fn values_equal_to_the_current_ones_change_nothing() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         let call = args(&["/data/a.txt"], &[(MODE, text("644"))]);
         let outcome = run(&test, &call, StageInput::none()).unwrap();
@@ -964,7 +972,7 @@ mod tests {
 
     #[test]
     fn a_request_without_changes_is_rejected() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         let error = run(&test, &args(&["/data/a.txt"], &[]), StageInput::none())
             .err()
@@ -982,7 +990,7 @@ mod tests {
 
     #[test]
     fn missing_targets_fail_before_any_change() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         let call = args(&["/data/a.txt", "/data/gone.txt"], &[(MODE, text("0600"))]);
         let error = run(&test, &call, StageInput::none()).err().unwrap();
@@ -992,7 +1000,7 @@ mod tests {
 
     #[test]
     fn stale_input_entries_fail_with_stale_and_change_nothing() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         let path = abs("/data/a.txt");
         test.fs().write_file(&path, b"one").unwrap();
         let tag = etag_text(&test.fs().etag(&path, Follow::NoFollow).unwrap());
@@ -1014,7 +1022,7 @@ mod tests {
 
     #[test]
     fn current_input_entries_are_changed() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         let path = abs("/data/a.txt");
         test.fs().write_file(&path, b"one").unwrap();
         let tag = etag_text(&test.fs().etag(&path, Follow::NoFollow).unwrap());
@@ -1033,7 +1041,7 @@ mod tests {
 
     #[test]
     fn recursive_changes_reach_entries_below_and_skip_links() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/site/index.html");
         file(&test, "/site/css/main.css");
         test.fs()
@@ -1059,7 +1067,7 @@ mod tests {
 
     #[test]
     fn recursive_on_a_file_changes_the_file_only() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         let call = args(
             &["/data/a.txt"],
@@ -1072,7 +1080,7 @@ mod tests {
 
     #[test]
     fn an_entry_reached_twice_is_one_target() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/site/index.html");
         let twice = args(
             &["/site/index.html", "/site/index.html"],
@@ -1095,7 +1103,7 @@ mod tests {
 
     #[test]
     fn entries_below_that_already_match_are_counted_once() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/site/index.html");
         file(&test, "/site/css/main.css");
         let call = args(
@@ -1479,7 +1487,7 @@ mod tests {
 
     #[test]
     fn links_change_the_entry_they_resolve_to() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");
         test.fs()
             .symlink(abs("/data/a.txt").as_path(), &abs("/data/link"))
@@ -1506,10 +1514,14 @@ mod tests {
 
     #[test]
     fn an_empty_input_matches_nothing() {
-        let test = TestContext::new();
+        let test = TestContext::with_host(TestHost::linux());
         let call = BoundArgs::new(COMMAND).with(MODE, ArgValue::Value(text("0600")), false);
         let outcome = run(&test, &call, StageInput::records(RecordStream::empty())).unwrap();
         assert!(outcome.applied.is_empty());
         assert_eq!(codes(&outcome.notable), [Notable::NothingMatched]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

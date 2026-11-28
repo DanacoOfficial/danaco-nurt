@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/distance_catalog.rs
+// Responsibility:   Distance checks on the command catalog.
+// Dependencies:     toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Distance checks on the command catalog: pairs of close names, parameters
 //! and values of one command, synonyms against catalog names, and the time
 //! of a name lookup on the full comparison set.
@@ -29,7 +37,12 @@ struct Command {
 }
 
 fn catalog() -> Vec<Command> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+    let root = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog");
     let mut files: Vec<PathBuf> = std::fs::read_dir(&root)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -103,9 +116,9 @@ fn command_entries(commands: &[Command]) -> Vec<NameEntry> {
 }
 
 #[test]
-fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
+fn commands_have_one_pair_at_distance_one_and_twenty_nine_at_two() {
     let commands = catalog();
-    assert_eq!(commands.len(), 148);
+    assert_eq!(commands.len(), 177);
     let pairs = close_pairs(&command_entries(&commands), 2);
     let at = |distance| -> Vec<String> {
         pairs
@@ -114,7 +127,7 @@ fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
             .map(|pair| format!("{}-{}", pair.a, pair.b))
             .collect()
     };
-    assert_eq!(at(1), ["last-list"]);
+    assert_eq!(at(1), ["count-mount", "last-list"]);
     assert_eq!(
         at(2),
         [
@@ -132,7 +145,10 @@ fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
             "host-sort",
             "info-undo",
             "jobs-logs",
+            "modules.load-modules.unload",
+            "mount-unmount",
             "move-remove",
+            "next-set",
             "notebook.copy-notebook.ops",
             "notebook.move-notebook.remove",
             "ports-sort",
@@ -151,8 +167,8 @@ fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
 #[test]
 fn command_names_conflict_only_in_the_documented_exception() {
     let entries = command_entries(&catalog());
-    assert_eq!(check_names(&entries, &[]).len(), 1);
-    assert!(check_names(&entries, &[("list", "last")]).is_empty());
+    assert_eq!(check_names(&entries, &[]).len(), 2);
+    assert!(check_names(&entries, &[("list", "last"), ("count", "mount")]).is_empty());
 }
 
 #[test]
@@ -266,8 +282,16 @@ fn synonyms_and_habits_close_to_commands_are_documented_ties() {
 /// Synonyms and habit words at distance 1 from a command other than their
 /// target. A string at distance 1 from both is a tie and is not corrected;
 /// the written word itself resolves exactly.
-const DOCUMENTED_COMMAND_TIES: [&str; 5] =
-    ["head-read", "ren-run", "sed-set", "sl-sql", "start-stat"];
+const DOCUMENTED_COMMAND_TIES: [&str; 8] = [
+    "head-read",
+    "mount-umount",
+    "ren-run",
+    "run-run0",
+    "sed-set",
+    "sl-sql",
+    "start-stat",
+    "umount-unmount",
+];
 
 fn command_index() -> NameIndex {
     let tables = load_embedded().unwrap();
@@ -321,3 +345,7 @@ fn corrects_a_typical_program_within_one_millisecond() {
     assert!(median < TYPICAL_LIMIT, "{median:?}");
     assert!(worst < WORST_LIMIT, "{worst:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

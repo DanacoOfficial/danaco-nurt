@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_c_fuzz.rs
+// Responsibility:   Deterministic mutation test of the variant C parser.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Deterministic mutation test of the variant C parser.
 //!
 //! Every input is a reference task text of variant C changed by a short
@@ -157,7 +165,12 @@ fn assert_only_named_arguments(document: &AstDocument) {
 }
 
 fn reference_texts() -> Vec<String> {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d1/golden/ast/c");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/golden/ast/c");
     let mut paths: Vec<_> = fs::read_dir(&directory)
         .expect("variant C golden directory exists")
         .map(|entry| entry.expect("directory entry").path())
@@ -189,3 +202,7 @@ fn mutated_reference_texts_never_panic() {
     }
     assert!(accepted < INPUTS, "every mutated input was accepted");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

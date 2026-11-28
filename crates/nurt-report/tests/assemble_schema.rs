@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/assemble_schema.rs
+// Responsibility:   Assembled reports conform to the published `nurt-report/1` schema.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Assembled reports conform to the published `nurt-report/1` schema.
 //!
 //! The schema is checked by a validator of the keywords that the published
@@ -458,7 +466,12 @@ fn validator_rejects_reports_that_break_the_schema() {
 #[test]
 fn published_golden_reports_pass_the_validator() {
     let schema = Schema::report();
-    let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/report");
+    let directory = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/report");
     let mut checked = 0;
     for entry in std::fs::read_dir(&directory).unwrap() {
         let path = entry.unwrap().path();
@@ -472,3 +485,7 @@ fn published_golden_reports_pass_the_validator() {
     }
     assert!(checked > 0);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

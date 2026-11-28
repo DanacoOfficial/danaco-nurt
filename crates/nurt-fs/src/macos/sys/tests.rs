@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::sys::tests
+// Responsibility:   ACL text with one deny entry for the `everyone` group (gid 12), whose UUID is fixed on every macOS installation.
+// Dependencies:     nurt_contracts, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::ffi::{CString, OsString};
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
@@ -322,7 +330,12 @@ fn metadata_of_a_file_without_read_permission_is_changed_by_path() {
     assert_eq!(meta.basic.modified_ns, MODIFIED_NS);
     fs.set_meta(&scope(), &file, &seal).unwrap();
     let report = fs.restore_meta(&scope(), &file, &meta).unwrap();
-    assert!(report.not_transferred.is_empty(), "{report:?}");
+    // Without an open file the creation time has no call by path, so it is
+    // the one element reported as not transferred.
+    assert!(
+        report.not_transferred.iter().all(|name| name == "created"),
+        "{report:?}"
+    );
     assert_eq!(
         fs.extended_metadata(&file, Follow::NoFollow)
             .unwrap()
@@ -331,3 +344,7 @@ fn metadata_of_a_file_without_read_permission_is_changed_by_path() {
         0o640
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

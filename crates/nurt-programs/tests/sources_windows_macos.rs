@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/sources_windows_macos.rs
+// Responsibility:   Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications and macOS application bundles, read from synthetic trees below a temporary root.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications
 //! and macOS application bundles, read from synthetic trees below a
 //! temporary root. Windows and macOS paths are host paths of the trees and
@@ -918,7 +926,10 @@ fn macapp_info_plist_localized() {
     let data = load(&source, &env);
     let viewer = program(&data, "Viewer");
     assert_eq!(viewer.kind, EntryKind::App);
-    assert_eq!(viewer.path.as_deref(), Some("/Applications/Viewer.app"));
+    assert_eq!(
+        viewer.path.as_deref().map(|path| path.replace('\\', "/")),
+        Some("/Applications/Viewer.app".to_owned())
+    );
     assert_eq!(viewer.app_id.as_deref(), Some("org.example.Viewer"));
     assert_eq!(viewer.version.as_deref(), Some("2.4"));
     assert_eq!(viewer.executable.as_deref(), Some("Viewer"));
@@ -989,8 +1000,11 @@ fn macapp_binary_plist_and_nested_bundles() {
     assert_eq!(console.version.as_deref(), Some("1.1"));
     assert_eq!(console.app_name.as_ref().unwrap().text, "Console");
     assert_eq!(
-        program(&data, "Tool").path.as_deref(),
-        Some("/Applications/Suite/Tool.app")
+        program(&data, "Tool")
+            .path
+            .as_deref()
+            .map(|path| path.replace('\\', "/")),
+        Some("/Applications/Suite/Tool.app".to_owned())
     );
     assert_eq!(data.programs.len(), 2);
     assert_eq!(data.warnings.len(), 1);
@@ -1203,3 +1217,7 @@ fn winget_identifiers_may_contain_underscores() {
         Some("Vendor.My_Tool")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

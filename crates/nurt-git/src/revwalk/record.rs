@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::revwalk::record
+// Responsibility:   Records of commits: identities mapped through `.mailmap`, subject, trailers, names of references, signature format and changed files.
+// Dependencies:     bstr, gix, indexmap, nurt_contracts, nurt_git_transport
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Records of commits: identities mapped through `.mailmap`, subject,
 //! trailers, names of references, signature format and changed files.
 
@@ -536,3 +544,7 @@ signed commit
         assert_eq!(records.commit(id).unwrap().refs.unwrap(), ["HEAD", "main"]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

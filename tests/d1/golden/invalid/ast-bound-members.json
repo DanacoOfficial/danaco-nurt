@@ -1,5 +1,5 @@
 {
-  "nurt": "1.0",
+  "nurt": "1.1",
   "program": {
     "statements": [
       {
@@ -13,7 +13,7 @@
       }
     ]
   },
-  "bound": "1.0",
+  "bound": "1.1",
   "catalog_rev": "c",
   "corr_rev": "c"
 }

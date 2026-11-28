@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-service/tests/protocol.rs
+// Responsibility:   Service host over its control channel.
+// Dependencies:     nurt_contracts, nurt_sched, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Service host over its control channel: protocol, heartbeat, instance
 //! lock, module supervision and `status`, with mock modules and the schedule
 //! module of `nurt-sched`.
@@ -334,13 +342,12 @@ fn client_compat_d2_journal_inactive_rules() {
     let service = launch(modules(&space, &schedule), Options::default());
     let state_dir = service.paths.state_dir().to_owned();
     let paths = service.paths.clone();
-    let attempts = 3;
-    assert!(
-        (0..attempts).any(|_| {
-            d2_client::journal_active(&state_dir, jiff::Timestamp::now()) == Verdict::Active
-        }),
-        "the reference client must see a running service within {attempts} attempts"
-    );
+    // The reference client waits 50 ms for the answer to its ping, so a busy
+    // runner can miss it; the attempts are spaced like those of a console that
+    // asks again.
+    eventually("the reference client to see a running service", || {
+        d2_client::journal_active(&state_dir, jiff::Timestamp::now()) == Verdict::Active
+    });
     let liveness = status::liveness(
         &paths,
         status::wall_now(),
@@ -694,3 +701,7 @@ fn status_assembles_installed_running_modules() {
     assert_eq!(report.version.as_deref(), Some("0.0.9"));
     assert!(report.modules.is_empty() && report.pid.is_none());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

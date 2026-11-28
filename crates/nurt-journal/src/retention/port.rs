@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::port
+// Responsibility:   Access of retention to the journal store.
+// Dependencies:     nurt_contracts, nurt_fs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Access of retention to the journal store.
 //!
 //! Retention decides which entries expire and records tombstones; the store
@@ -137,6 +145,13 @@ pub(crate) trait RetentionStore {
     /// Returns `E_IO` when the journal directory cannot be read.
     fn entries(&self, volume: &AbsPath) -> Result<Vec<EntryFacts>>;
 
+    /// Identifier of the account that runs the retention call, compared with
+    /// `EntryFacts::account`; `None` when the store does not tell, and then
+    /// every entry counts as the account's own.
+    fn account_id(&self) -> Option<String> {
+        None
+    }
+
     /// Committed entries of the account with their step class, including
     /// entries that expired later.
     ///
@@ -227,3 +242,7 @@ pub(crate) trait RetentionStore {
     /// Returns `E_IO` when the file cannot be written.
     fn write_user_config(&self, content: &str) -> Result<OpId>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

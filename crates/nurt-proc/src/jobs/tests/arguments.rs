@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::tests::arguments
+// Responsibility:   Arguments and static checks of the job commands, and the values the commands pass on to output capture and to the running process.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Arguments and static checks of the job commands, and the values the
 //! commands pass on to output capture and to the running process.
 
@@ -497,3 +505,7 @@ fn a_retry_of_a_command_with_an_external_effect_is_irreversible() {
         Some("git push, npm publish")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

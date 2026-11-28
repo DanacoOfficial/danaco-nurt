@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/corpus_mutate.rs
+// Responsibility:   Mutation corpus: generation from valid programs and the check of name, unit and boolean correction against it.
+// Dependencies:     serde_json, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Mutation corpus: generation from valid programs and the check of name,
 //! unit and boolean correction against it.
 //!
@@ -45,7 +53,12 @@ struct Command {
 }
 
 fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn sorted_files(directory: &Path, extension: &str) -> Vec<PathBuf> {
@@ -1078,6 +1091,9 @@ impl Generator<'_> {
                     && inner.len() > 1
                     && !inner.contains([' ', '*', '?'])
                     && !inner.ends_with('/')
+                    // The target of a link is text: a link may point to a
+                    // relative path, so path rules do not apply to it.
+                    && !program[..token.start].trim_end().ends_with("target:")
             })
             .collect();
         if paths.is_empty() {
@@ -1412,3 +1428,7 @@ fn naive_rules_follow_the_documented_examples() {
     assert!(!unquoted_is_path("/srv/x"));
     assert_eq!(camel_case("line_numbers"), "lineNumbers");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

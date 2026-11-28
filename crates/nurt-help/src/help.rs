@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::help
+// Responsibility:   The `help` topics: overview, command, group, error code, guide, syntax, corrections and search.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `help` topics: overview, command, group, error code, guide, syntax,
 //! corrections and search.
 //!
@@ -883,3 +891,7 @@ pub fn group_note(catalog: &Catalog, command: &str, loaded_groups: &[&str]) -> O
         "note: group {group} is described by: help group: {group}"
     ))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

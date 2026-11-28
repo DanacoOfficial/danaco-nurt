@@ -1,15 +1,22 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           catalog/_index.toml
+# Responsibility:   Configuration or catalog data of catalog/_index.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog-index/1"
-total = 148
+total = 177
 
 [[file]]
 name = "core"
 file = "core.toml"
 summary = "Core commands for files, text, records, programs, the journal and help."
-commands = 33
+commands = 34
 
 [[file]]
 name = "documents"
@@ -54,10 +61,10 @@ summary = "Processes, ports, disks, host, environment, system logs and suspensio
 commands = 11
 
 [[file]]
-name = "admin"
-file = "admin.toml"
-summary = "System services, the registry provider and CIM."
-commands = 6
+name = "administration"
+file = "administration.toml"
+summary = "System services, accounts, groups, mounts, kernel parameters, power, disks, the registry provider, CIM, the firewall, routes, DNS and the clock."
+commands = 34
 
 [[file]]
 name = "package"
@@ -94,3 +101,7 @@ name = "verify"
 file = "verify.toml"
 summary = "Tests and code analysis through typed wrappers of test frameworks and analyzers."
 commands = 8
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

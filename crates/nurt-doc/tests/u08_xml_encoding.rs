@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u08_xml_encoding.rs
+// Responsibility:   Declared encodings of XML documents.
+// Dependencies:     nurt_contracts, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Declared encodings of XML documents: detection, decoding, encoding back
 //! to the same bytes, and character references for characters that the
 //! encoding cannot represent.
@@ -402,3 +410,7 @@ fn malformed_xml_declarations_are_rejected() {
         assert_eq!(error.code(), ErrorCode::DocParse, "{declaration}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

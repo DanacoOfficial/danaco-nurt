@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/harness/fixture.rs
+// Responsibility:   Fixture of the journal under test: volumes, the journal bound to them, a read view of the file system and a virtual clock.
+// Dependencies:     nurt_contracts, nurt_fs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixture of the journal under test: volumes, the journal bound to them, a
 //! read view of the file system and a virtual clock.
 
@@ -10,7 +18,7 @@ use std::sync::Arc;
 use nurt_contracts::config::{ConfigLevel, JournalConfig, SpaceConfig};
 use nurt_contracts::fs::{AbsPath, Fs, FsWrite};
 use nurt_contracts::journal::{
-    Expect, HistoryQuery, JournalState, JournalStore, Mutation, OpId, OperationRecord,
+    Expect, HistoryQuery, JournalState, JournalStore, Mutation, OpId, OpState, OperationRecord,
     TargetAction, TargetIndex, TargetPath, TargetSpec,
 };
 use nurt_fs::audit::AuditFs;
@@ -19,6 +27,9 @@ use super::clock::VirtualClock;
 use super::services::{self, ValueProvider};
 use super::snapshot::TreeSnapshot;
 use super::volumes::Volumes;
+
+/// File name of the retention audit log in the state directory.
+const AUDIT_LOG: &str = "journal-audit.jsonl";
 
 /// Bytes in one gibibyte.
 pub(crate) const GIB: u64 = 1 << 30;
@@ -226,13 +237,54 @@ impl Fixture {
     ///
     /// # Panics
     ///
-    /// Always. The channels are produced by components outside the journal
-    /// crate, and every test that reads one is ignored.
+    /// When the journal or the state directory cannot be read.
     pub(crate) fn channel(&self, channel: Channel) -> serde_json::Value {
-        panic!(
-            "the {} channel is not bound to the test harness",
-            channel.name()
+        match channel {
+            Channel::Events => self.events(),
+            Channel::AuditExport => self.audit_export(),
+            Channel::CInterfaceHistory => self.c_interface_history(),
+        }
+    }
+
+    /// Events of the space service: its report of every volume, and for every
+    /// expired entry the answer the journal gives about it.
+    fn events(&self) -> serde_json::Value {
+        let space = self.journal.space(None).expect("space is reported");
+        let expired: Vec<serde_json::Value> = self
+            .history()
+            .iter()
+            .filter(|record| record.state == OpState::Expired)
+            .map(|record| match self.journal.details(OpId(record.id)) {
+                Ok(details) => serde_json::json!({ "op": record.id, "details": details }),
+                Err(error) => serde_json::json!({ "op": record.id, "error": error.to_string() }),
+            })
+            .collect();
+        serde_json::json!({ "space": space, "expired": expired })
+    }
+
+    /// Audit log of retention in the state directory, one JSON value per
+    /// line; an absent log is an empty export.
+    fn audit_export(&self) -> serde_json::Value {
+        let path = self
+            .volumes
+            .state_dir()
+            .join_name(AUDIT_LOG)
+            .expect("audit log name is a single component");
+        if !self.exists(&path) {
+            return serde_json::Value::Array(Vec::new());
+        }
+        let text = String::from_utf8(self.read(&path)).expect("audit log is text");
+        serde_json::Value::Array(
+            text.lines()
+                .map(|line| serde_json::from_str(line).expect("audit record is JSON"))
+                .collect(),
         )
+    }
+
+    /// History as the C interface returns it: the object `operations` with
+    /// the records the journal lists for the default query.
+    fn c_interface_history(&self) -> serde_json::Value {
+        serde_json::json!({ "operations": self.history() })
     }
 
     /// Root of volume `index`.
@@ -316,8 +368,12 @@ impl Fixture {
 
     /// Snapshot of volume `index` without the journal directory.
     pub(crate) fn snapshot_of(&self, index: usize) -> TreeSnapshot {
-        let journal_dir = self.options.journal.dir_name.as_str();
-        TreeSnapshot::take(self.fs.as_ref(), self.volume(index), &[journal_dir])
+        let journal_dir = services::journal_dir_name(&self.options.journal);
+        TreeSnapshot::take(
+            self.fs.as_ref(),
+            self.volume(index),
+            &[journal_dir.as_str()],
+        )
     }
 
     /// Every entry of `history`, newest first.
@@ -383,3 +439,7 @@ pub(crate) fn mounted_dir(variable: &str) -> PathBuf {
     );
     dir
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

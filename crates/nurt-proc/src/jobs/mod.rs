@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs
+// Responsibility:   Run host, job table, supervisor and job events.
+// Dependencies:     nurt_contracts, record, state, store
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Run host, job table, supervisor and job events.
 
 use std::ffi::OsString;
@@ -102,3 +110,7 @@ pub(crate) fn run_host(ctx: &ExecCtx, components: Components) -> Arc<dyn RunHost
         (None, _) => Arc::new(host::LocalHost::new(components, true)),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

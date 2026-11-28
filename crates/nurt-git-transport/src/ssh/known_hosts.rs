@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::ssh::known_hosts
+// Responsibility:   Verification of SSH host keys against `known_hosts` files.
+// Dependencies:     base64, nurt_contracts, russh, sha1
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Verification of SSH host keys against `known_hosts` files.
 //!
 //! Lines have the form `[marker] hosts keytype base64 [comment]`. Host lists
@@ -939,3 +947,7 @@ mod tests {
         assert_eq!(error.data().problem.as_deref(), Some("revoked"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

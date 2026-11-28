@@ -3,6 +3,14 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/release/clean-linux-check.sh
+# Responsibility:   Clean-system check of a Linux release archive.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Clean-system check of a Linux release archive.
 #
 # Runs the archive in a container of a minimal image and checks that the
@@ -58,6 +66,8 @@ alpine_image="${NURT_ALPINE_IMAGE:-docker.io/library/alpine:latest}"
 
 # The script that runs inside the container. It receives the file name of the
 # archive and exits with 0 only when every check passed.
+# The text is the script of the container: its variables expand there.
+# shellcheck disable=SC2016
 inside='
 set -eu
 archive="/archive/$1"
@@ -104,3 +114,7 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 log "passed"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

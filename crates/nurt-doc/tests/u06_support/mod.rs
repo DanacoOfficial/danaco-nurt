@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u06_support/mod.rs
+// Responsibility:   Helpers of the YAML tests for sequences, anchors, merge keys, documents, comments and tags.
+// Dependencies:     nurt_contracts, saphyr, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Helpers of the YAML tests for sequences, anchors, merge keys, documents,
 //! comments and tags.
 
@@ -176,7 +184,12 @@ pub(crate) fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'
 
 /// Repository directory of the advanced YAML corpus.
 pub(crate) fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/yaml/advanced")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/yaml/advanced")
 }
 
 /// Every `.yaml` and `.yml` file below `dir`, sorted.
@@ -204,8 +217,12 @@ pub(crate) fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 /// of this unit (sequences, anchors, aliases, documents, comments, tags,
 /// explicit keys), from `tests/d5/data/u06/yaml-test-suite-cases.tsv`.
 pub(crate) fn suite_case_ids() -> Vec<String> {
-    let list = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5/data/u06/yaml-test-suite-cases.tsv");
+    let list = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/data/u06/yaml-test-suite-cases.tsv");
     let text = fs::read_to_string(list).expect("case list");
     text.lines()
         .filter(|line| !line.starts_with('#') && !line.starts_with("case\t"))
@@ -216,3 +233,7 @@ pub(crate) fn suite_case_ids() -> Vec<String> {
         })
         .collect()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/catalog.md -->
+<!-- Responsibility:   Documents Command catalog `nurt-catalog/1`. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Command catalog `nurt-catalog/1`
 
@@ -122,6 +129,8 @@ command. They apply to every command and are never listed in catalog files.
 | `session` | `text` | session identifier recorded in the journal |
 | `language` | `enum(en\|pl) = en` | language of help and hints; codes, fields and keywords are always English |
 | `script` | `bool = false` | script mode: several pipelines, each a separate operation |
+| `privilege` | `enum(account\|elevated\|auto) = account` | rights of the operation: the account that runs Nurt; the administrator (`root` on Linux and macOS, `LocalSystem` on Windows); or `auto`, which runs with the account and repeats the whole stage once with `elevated` when a target fails with `E_PERMISSION` or `E_PRIVILEGE` before any change is kept. The default comes from the configuration key `privilege.default`. Valid on every changing command, on `run` and on reading commands. No command is marked "never elevated" |
+| `as_user` | `text` | account that runs the operation (equivalent of `sudo -u NAME`; Linux and macOS); implies elevation for the switch; ends with `E_UNSUPPORTED` on Windows |
 
 A command may have a parameter with the name of a call parameter when its
 meaning is narrower and stated in the catalog: `run timeout:` limits one
@@ -129,6 +138,40 @@ program, while the call parameter `timeout` limits the whole program;
 `write format:` is the serialization of written records, while the call
 parameter `format` is the form of the result. The two never collide, because
 call parameters are not part of the program text.
+
+The two call parameters `privilege` and `as_user` are the exception: they may
+also be written on a stage, as named arguments, on every command that does not
+declare a parameter of the same name (`write "/etc/hosts" "..." privilege:
+elevated`, `package.install ["jq"] privilege: elevated`, `run [...] cwd: "/"
+as_user: "deploy"`). The binder takes them out of the signature, checks the
+value (`privilege` is `account`, `elevated` or `auto`, written as a word or a
+text; `as_user` is a non-empty word or text; each at most once per stage) and
+appends them to the arguments of the stage (`privilege` as an `enum` value, `as_user` as `text`) after the
+parameters of the signature, with `default: false`. A value written on a stage
+replaces the option of the request and the configuration key
+`privilege.default` for the whole call.
+
+Rule of `privilege: auto`: the call first runs with the rights of the account. When it ends with `E_PERMISSION` or `E_PRIVILEGE` and has left no operation (`op` absent: nothing was kept), the whole call is repeated once with `elevated`; the report states `elevated: true` and `elevation_reason: permission_denied`. A call that already changed something is never repeated, and a second denial is returned as it is. A stage reads the effective value from
+the options of its context: `ctx.options().privilege()` and
+`ctx.options().effective_privilege()`; the executor has already run the call
+with the rights that value names, so a stage never needs to elevate itself.
+### 2.0 `preview` on a stage and the boolean shorthand
+
+A stage that has no parameter named `preview` accepts `preview` as its last
+argument: `remove preview`, `remove preview: true` and `remove preview: @dry`
+compute the effect of that stage without applying it. The binder keeps the
+value in the bound stage as the argument `preview`; the executor plans the
+stage and reports status `planned` for its part. The call parameter `preview`
+of the envelope previews the whole program.
+
+A parameter of type `bool` written without a value is `true`: a word that
+names a `bool` parameter of the command, that is not written otherwise and
+that is not a value of an enumeration parameter of the command stands for
+`name: true`. `false` is always written out (`hidden: false`). The long form
+stays valid. The rule applies to commands, to the call of a function and to
+the parameters of a script (`nurt run file.nurt dry`). A parameter of a
+function or of a script that is not `bool`, written without a value, is
+`E_MISSING_PARAM` with the expected type.
 
 ### 2.1 Shared command parameters
 
@@ -386,6 +429,64 @@ recorded in a bound tree, which names the built-in catalog used for binding.
 The revision of the correction tables, `corr_rev`, has the same
 form.
 
+### 9.2 The command `next`
+
+`next` is a core command of category `source` that reads the next part of a
+shortened result (`spec/report.md`, section 2.1). Its parameters:
+`id` (position 1, text: `c3`, a count or the words `all` and `full`),
+`count` (position 2, int), `all` (bool) and `full_lines` (bool). The short
+forms are `next`, `next c3`, `next 200`, `next c3 200`, `next all` and
+`next full`; every short form has the same result as its long form, and
+`next |> filter …` continues the part as a pipeline. The command changes
+nothing, writes no journal entry and costs no effect in `E_ONE_EFFECT`.
+
+### 9.3 The group `administration`
+
+The file `administration.toml` holds the commands that change the system
+outside the file system, the service commands and the Windows management
+calls. Every changing command accepts `privilege` (section 2.1) and records
+the state before and after in its report, from which `undo` derives the
+inverse; a command marked `irreversible` has no inverse, and its preview
+lists what is lost. The tool description loads the group on demand under the
+name `administration`.
+
+| Command | Category | Effect | Reversibility |
+|---|---|---|---|
+| `services` | source | read | read |
+| `start` | run | external | irreversible |
+| `restart` | run | external | irreversible |
+| `enable` | change | external | irreversible |
+| `disable` | change | external | irreversible |
+| `windows.cim` | change | read | read |
+| `firewall.rules` | source | read | read |
+| `firewall.allow` | change | external | reversible |
+| `firewall.deny` | change | external | reversible |
+| `firewall.remove` | change | external | reversible |
+| `network.route_add` | change | external | reversible |
+| `network.route_remove` | change | external | reversible |
+| `network.dns_set` | change | external | reversible |
+| `clock.timezone_set` | change | external | reversible |
+| `clock.set` | change | external | irreversible |
+| `clock.ntp` | change | external | reversible |
+| `accounts.create` | change | external | reversible_if_preserved |
+| `accounts.modify` | change | external | reversible_if_preserved |
+| `accounts.remove` | change | external | reversible_if_preserved |
+| `accounts.password` | change | external | irreversible |
+| `groups.create` | change | external | reversible_if_preserved |
+| `groups.remove` | change | external | reversible_if_preserved |
+| `groups.add_member` | change | external | reversible_if_preserved |
+| `groups.remove_member` | change | external | reversible_if_preserved |
+| `mount` | change | external | reversible_if_preserved |
+| `unmount` | change | external | reversible_if_preserved |
+| `sysctl.set` | change | external | reversible_if_preserved |
+| `modules.load` | change | external | reversible_if_preserved |
+| `modules.unload` | change | external | reversible_if_preserved |
+| `power.restart` | change | external | reversible_if_preserved |
+| `power.shutdown` | change | external | reversible_if_preserved |
+| `power.cancel` | change | external | irreversible |
+| `disks.partition` | change | external | irreversible |
+| `disks.format` | change | external | irreversible |
+
 ## 10. Checks
 
 `CatalogFile::check`, `CatalogIndex::check` and `check_catalog` return the list
@@ -414,3 +515,7 @@ Within `nurt-catalog/1` the catalog only grows: new commands, new optional
 parameters whose default keeps the previous behaviour, new enumeration values
 and new optional keys. Removing or renaming a command or a parameter, changing
 a type incompatibly, or changing a default is a change of the major version.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

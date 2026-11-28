@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::powershell::script_block
+// Responsibility:   Script blocks of `Where-Object` and `ForEach-Object`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Script blocks of `Where-Object` and `ForEach-Object`.
 //!
 //! A `Where-Object` block becomes the condition of a `filter` stage when it
@@ -937,3 +945,7 @@ pub(crate) fn single_command(command: &Command) -> Option<Command> {
         _ => None,
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

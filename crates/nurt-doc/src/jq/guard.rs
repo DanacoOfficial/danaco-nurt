@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::jq::guard
+// Responsibility:   Protection of the process against filters that recurse without end.
+// Dependencies:     jaq_core
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Protection of the process against filters that recurse without end.
 //!
 //! The library that runs `jq` filters evaluates a call of a filter defined by
@@ -181,3 +189,7 @@ mod tests {
         assert!(room > STACK_BUDGET - 64 * 1024, "{room}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

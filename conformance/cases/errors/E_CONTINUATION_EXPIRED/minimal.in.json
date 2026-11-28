@@ -1,0 +1,10 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "next",
+  "error": {
+    "code": "E_CONTINUATION_EXPIRED",
+    "message": "conformance case",
+    "at": { "stage": "2" }
+  }
+}

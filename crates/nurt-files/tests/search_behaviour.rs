@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/search_behaviour.rs
+// Responsibility:   Behaviour of `search`: patterns, options, outputs, inputs, encodings and the use of the code service.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Behaviour of `search`: patterns, options, outputs, inputs, encodings and
 //! the use of the code service.
 
@@ -1161,3 +1169,7 @@ fn syntax_patterns_follow_the_given_language() {
     );
     assert_eq!(positions(&found), [(1, 1)]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

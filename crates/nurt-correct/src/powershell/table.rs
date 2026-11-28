@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::powershell::table
+// Responsibility:   The PowerShell translation table: cmdlets, parameters, variants of the translation, object properties and comparison operators.
+// Dependencies:     nurt_contracts, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The PowerShell translation table: cmdlets, parameters, variants of the
 //! translation, object properties and comparison operators.
 //!
@@ -1504,3 +1512,7 @@ mod tests {
         assert!(!param.has_prefix("Path"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

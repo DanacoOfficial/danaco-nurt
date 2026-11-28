@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::commands::records
+// Responsibility:   Conversion of journal results into records of the language.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conversion of journal results into records of the language.
 
 use nurt_contracts::fs::{AbsPath, FileKind, Follow, Fs};
@@ -338,7 +346,7 @@ mod tests {
     use super::*;
 
     fn path(text: &str) -> TargetPath {
-        TargetPath::Fs(AbsPath::new(text).unwrap())
+        TargetPath::Fs(AbsPath::for_test(text))
     }
 
     fn detail(target: &str, action: TargetAction) -> ItemDetail {
@@ -374,17 +382,17 @@ mod tests {
 
     fn tree_fs() -> nurt_fs::mem::MemFs {
         let fs = nurt_fs::mem::MemFs::builder()
-            .volume(nurt_fs::mem::VolumeSpec::posix(AbsPath::new("/").unwrap()))
+            .volume(nurt_fs::mem::VolumeSpec::posix(AbsPath::for_test("/")))
             .build()
             .unwrap();
         for dir in ["/d/tree/sub/deep", "/d/tree/empty"] {
-            fs.seed_dir(&AbsPath::new(dir).unwrap()).unwrap();
+            fs.seed_dir(&AbsPath::for_test(dir)).unwrap();
         }
-        fs.seed_file(&AbsPath::new("/d/tree/a.bin").unwrap(), b"1234")
+        fs.seed_file(&AbsPath::for_test("/d/tree/a.bin"), b"1234")
             .unwrap();
-        fs.seed_file(&AbsPath::new("/d/tree/sub/b.bin").unwrap(), b"56")
+        fs.seed_file(&AbsPath::for_test("/d/tree/sub/b.bin"), b"56")
             .unwrap();
-        fs.seed_file(&AbsPath::new("/d/tree/sub/deep/c.bin").unwrap(), b"7")
+        fs.seed_file(&AbsPath::for_test("/d/tree/sub/deep/c.bin"), b"7")
             .unwrap();
         fs
     }
@@ -423,8 +431,8 @@ mod tests {
     #[test]
     fn tree_count_gives_up_when_a_directory_is_missing() {
         let fs = tree_fs();
-        assert_eq!(count_tree(&fs, &AbsPath::new("/d/none").unwrap()), None);
-        let content = count_tree(&fs, &AbsPath::new("/d/tree/empty").unwrap()).unwrap();
+        assert_eq!(count_tree(&fs, &AbsPath::for_test("/d/none")), None);
+        let content = count_tree(&fs, &AbsPath::for_test("/d/tree/empty")).unwrap();
         assert_eq!(
             (content.files, content.directories, content.bytes),
             (0, 0, 0)
@@ -442,7 +450,7 @@ mod tests {
                 detail(
                     "/d/b.txt",
                     TargetAction::Rename {
-                        to: AbsPath::new("/d/e.txt").unwrap(),
+                        to: AbsPath::for_test("/d/e.txt"),
                         replace: false,
                     },
                 ),
@@ -456,9 +464,18 @@ mod tests {
             changes[0].hash_after,
             Some(ContentHash([1; 32]).to_string())
         );
-        assert_eq!(changes[1].path, Path::from("/d/b.txt"));
-        assert_eq!(changes[1].to, Some(Path::from("/d/b.txt")));
-        assert_eq!(changes[1].from, Some(Path::from("/d/e.txt")));
+        assert_eq!(
+            changes[1].path,
+            Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str())
+        );
+        assert_eq!(
+            changes[1].to,
+            Some(Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str()))
+        );
+        assert_eq!(
+            changes[1].from,
+            Some(Path::from(nurt_testkit::paths::abs("/d/e.txt").as_str()))
+        );
         let only = [path("/d/b.txt")];
         assert_eq!(reversals(&details, Some(&only)).len(), 1);
     }
@@ -573,22 +590,34 @@ mod tests {
     fn restored_items_are_reported_with_the_paths_of_a_creation_a_rename_and_a_delete() {
         let created = change(&outcome_of("/d/ñüé", TargetAction::CreateTree), None);
         assert_eq!(created.action, ChangeAction::Create);
-        assert_eq!(created.path, Path::from("/d/ñüé"));
+        assert_eq!(
+            created.path,
+            Path::from(nurt_testkit::paths::abs("/d/ñüé").as_str())
+        );
 
         let moved = change(
             &outcome_of(
                 "/d/a.txt",
                 TargetAction::Rename {
-                    to: AbsPath::new("/d/b.txt").unwrap(),
+                    to: AbsPath::for_test("/d/b.txt"),
                     replace: true,
                 },
             ),
             None,
         );
         assert_eq!(moved.action, ChangeAction::Rename);
-        assert_eq!(moved.path, Path::from("/d/b.txt"));
-        assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
-        assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
+        assert_eq!(
+            moved.path,
+            Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str())
+        );
+        assert_eq!(
+            moved.to,
+            Some(Path::from(nurt_testkit::paths::abs("/d/b.txt").as_str()))
+        );
+        assert_eq!(
+            moved.from,
+            Some(Path::from(nurt_testkit::paths::abs("/d/a.txt").as_str()))
+        );
 
         let mut unchanged = outcome_of("/d/a.txt", TargetAction::Delete);
         unchanged.after = None;
@@ -618,7 +647,10 @@ mod tests {
             let changes = reversals(&details, None);
             assert_eq!(changes.len(), 1, "{action:?}");
             assert_eq!(changes[0].action, reversed, "{action:?}");
-            assert_eq!(changes[0].path, Path::from("/d/a.txt"));
+            assert_eq!(
+                changes[0].path,
+                Path::from(nurt_testkit::paths::abs("/d/a.txt").as_str())
+            );
         }
     }
 
@@ -654,7 +686,10 @@ mod tests {
         let marker = marker(Irreversible::Purged, &[OpId(1)]).unwrap();
         let full = outcome(
             effect("journal.purge", EffectStatus::Ok),
-            vec![Change::new("/d/a.txt".to_owned(), ChangeAction::Delete)],
+            vec![Change::new(
+                nurt_testkit::paths::abs("/d/a.txt"),
+                ChangeAction::Delete,
+            )],
             vec![marker],
         );
         assert_eq!(full.changes.len(), 1);
@@ -686,7 +721,7 @@ mod tests {
             assert_eq!(value.get("op"), Some(&Value::Int(3)));
             assert_eq!(
                 value.get("path"),
-                Some(&Value::Path("/d/ñüé.txt".to_owned()))
+                Some(&Value::Path(nurt_testkit::paths::abs("/d/ñüé.txt")))
             );
             assert_eq!(
                 value.get("expected"),
@@ -722,3 +757,7 @@ mod tests {
         assert_eq!(target_text(&key), "env:@PATH");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

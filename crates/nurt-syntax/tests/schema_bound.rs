@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/schema_bound.rs
+// Responsibility:   Bound golden trees of `tests/d1/golden/bound/<variant>/` against the published schema `nurt-bound/1` and the invariants of `validate_bound`.
+// Dependencies:     hash_support, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Bound golden trees of `tests/d1/golden/bound/<variant>/` against the
 //! published schema `nurt-bound/1` and the invariants of `validate_bound`.
 
@@ -49,3 +57,7 @@ fn bound_golden_trees_are_rejected_by_the_surface_schema() {
         assert!(!surface.is_valid(&tree.json()), "{}", tree.path.display());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

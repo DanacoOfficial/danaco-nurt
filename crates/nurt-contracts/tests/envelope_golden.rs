@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/envelope_golden.rs
+// Responsibility:   Golden envelopes: requests in `spec/golden/request/` and responses in `spec/golden/request/response/`.
+// Dependencies:     serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Golden envelopes: requests in `spec/golden/request/` and responses in
 //! `spec/golden/request/response/`. Every file validates against the
 //! published schema, deserializes, satisfies the envelope rules and survives
@@ -19,7 +27,12 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 fn spec_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec")
 }
 
 fn read_json(path: &Path) -> Value {
@@ -187,3 +200,7 @@ fn golden_responses_satisfy_the_envelope_rules_and_round_trip() {
     }
     assert!(rendered > 0, "no golden response with rendered text");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -17,6 +17,7 @@ setup = [
   ["branch", "-q", "-D", "cptmp"],
 ]
 files = { "b.txt" = "b-later\n" }
+platforms = ["linux", "macos"]
 
 [git]
 steps = [["clean", "-fdq"], ["restore", "--source=refs/nurt/checkpoints/cp-1", "--worktree", "--", "."]]

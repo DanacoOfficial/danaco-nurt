@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/tests/Danaco.Nurt.TestServer/ScriptedServer.cs
+// Responsibility:   Source file bindings/dotnet/tests/Danaco.Nurt.TestServer/ScriptedServer.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
 using System.Collections.Concurrent;
@@ -43,6 +50,7 @@ internal sealed class ScriptedServer : IDisposable
     private readonly Stream _output;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly ConcurrentDictionary<long, TaskCompletionSource<bool>> _sleeping = new();
+    private readonly ConcurrentDictionary<long, bool> _cancelRequested = new();
     private int _cancelled;
     private int _inflight;
     private int _maxInflightObserved;
@@ -144,9 +152,11 @@ internal sealed class ScriptedServer : IDisposable
             case "cancel":
                 long target = parameters!["request_id"]!.GetValue<long>();
                 Interlocked.Increment(ref _cancelled);
+                _cancelRequested[target] = true;
                 bool running = _sleeping.TryRemove(target, out TaskCompletionSource<bool>? sleeper);
                 if (running)
                 {
+                    _cancelRequested.TryRemove(target, out _);
                     sleeper!.TrySetResult(true);
                 }
 
@@ -194,7 +204,7 @@ internal sealed class ScriptedServer : IDisposable
 
                 break;
             case "catalog":
-                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?["what"]?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "history":
                 await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?.DeepClone() }).ConfigureAwait(false);
@@ -250,6 +260,11 @@ internal sealed class ScriptedServer : IDisposable
             case "sleep":
                 var wake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _sleeping[id] = wake;
+                if (_cancelRequested.TryRemove(id, out _))
+                {
+                    wake.TrySetResult(true);
+                }
+
                 await wake.Task.ConfigureAwait(false);
                 JsonObject cancelled = Report("failed", "sleep");
                 cancelled["error"] = new JsonObject { ["code"] = "E_CANCELLED", ["message"] = "cancelled" };
@@ -376,3 +391,7 @@ internal sealed class ScriptedServer : IDisposable
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/node/src/types.ts
+// Responsibility:   Source file bindings/node/src/types.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 import type { Ast } from "./generated/nurt-ast-1.js";
 import type { Config } from "./generated/nurt-config-1.js";
 import type { Report, ReportError } from "./generated/nurt-report-1.js";
@@ -77,6 +85,14 @@ export interface StartOptions extends RunOptions {
   readonly onEvent?: ((event: NurtEvent) => void) | undefined;
 }
 
+/** Selection of {@link Nurt.catalog}: one group or one command. */
+export interface CatalogSelection {
+  /** Name of the group whose commands are returned. */
+  readonly group?: string | undefined;
+  /** Name of the command whose specification is returned. */
+  readonly command?: string | undefined;
+}
+
 /** Options of {@link Nurt.describe}. */
 export interface DescribeOptions {
   /** Description layer; default `core`. */
@@ -118,3 +134,7 @@ export interface NurtOptions {
   /** Working directory of the server. Default the current directory. */
   readonly cwd?: string | undefined;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

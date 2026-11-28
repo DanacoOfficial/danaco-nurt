@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-langserver::catalog
+// Responsibility:   Command signatures of the catalog and their descriptions.
+// Dependencies:     nurt_contracts, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Command signatures of the catalog and their descriptions.
 
 use std::fmt::Write as _;
@@ -368,3 +376,7 @@ summary = "Count the input records."
         assert_eq!(tag(Ok(Value::Null)), "");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

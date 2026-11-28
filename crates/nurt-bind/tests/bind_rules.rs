@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/bind_rules.rs
+// Responsibility:   Binding rules: signature order and defaults, casts, expansion of source forms, phases and the rule of one effect, and the errors of stage `1`.
+// Dependencies:     bind_support, nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding rules: signature order and defaults, casts, expansion of source
 //! forms, phases and the rule of one effect, and the errors of stage `1`.
 
@@ -929,3 +937,94 @@ fn fields_of_any_type_are_left_to_the_evaluation() {
         bound(&parsed(program));
     }
 }
+
+#[test]
+fn privilege_and_as_user_are_call_parameters_of_every_stage() {
+    let tree = bound(&single(
+        stage(
+            "find",
+            vec![
+                pos(text("/var/log")),
+                named("privilege", ident("elevated")),
+                named("as_user", text("deploy")),
+            ],
+        ),
+        vec![],
+    ));
+    let find = stages_of(&tree, 0)[0];
+    let signature = catalog().command("find").unwrap().params.len();
+    assert_eq!(find.args.len(), signature + 2);
+    assert_eq!(find.args[signature].name, "privilege");
+    assert_eq!(find.call_parameter("privilege"), Some("elevated"));
+    assert_eq!(find.call_parameter("as_user"), Some("deploy"));
+    assert_eq!(arg(find, "path").value, path("/var/log"));
+}
+
+#[test]
+fn a_stage_without_call_parameters_binds_as_before() {
+    let tree = bound(&single(stage("find", vec![pos(text("/var/log"))]), vec![]));
+    let find = stages_of(&tree, 0)[0];
+    assert_eq!(find.call_parameter("privilege"), None);
+    assert_eq!(find.call_parameter("as_user"), None);
+}
+
+#[test]
+fn privilege_accepts_a_text_and_every_value() {
+    for value in ["account", "elevated", "auto"] {
+        let tree = bound(&single(
+            stage(
+                "find",
+                vec![pos(text("/var/log")), named("privilege", text(value))],
+            ),
+            vec![],
+        ));
+        assert_eq!(
+            stages_of(&tree, 0)[0].call_parameter("privilege"),
+            Some(value)
+        );
+    }
+}
+
+#[test]
+fn an_unknown_privilege_is_an_invalid_value() {
+    let error = failed(&single(
+        stage(
+            "find",
+            vec![pos(text("/var/log")), named("privilege", ident("root"))],
+        ),
+        vec![],
+    ));
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+}
+
+#[test]
+fn a_call_parameter_is_given_once() {
+    let error = failed(&single(
+        stage(
+            "find",
+            vec![
+                pos(text("/var/log")),
+                named("privilege", ident("auto")),
+                named("privilege", ident("elevated")),
+            ],
+        ),
+        vec![],
+    ));
+    assert_eq!(error.code(), ErrorCode::Arity);
+}
+
+#[test]
+fn a_call_parameter_needs_a_word_or_a_text() {
+    let error = failed(&single(
+        stage(
+            "find",
+            vec![pos(text("/var/log")), named("as_user", int(4))],
+        ),
+        vec![],
+    ));
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

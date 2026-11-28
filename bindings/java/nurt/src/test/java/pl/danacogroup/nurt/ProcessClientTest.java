@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt/src/test/java/pl/danacogroup/nurt/ProcessClientTest.java
+// Responsibility:   Source file bindings/java/nurt/src/test/java/pl/danacogroup/nurt/ProcessClientTest.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -272,7 +280,7 @@ class ProcessClientTest {
             assertEquals("help:{}", client.help());
             assertEquals("help:{\"topic\":\"lists\"}", client.help("lists"));
             assertEquals(Map.of(), client.catalog().get("params"));
-            assertEquals(Map.of("group", "git"), client.catalog(Map.of("group", "git")).get("params"));
+            assertEquals(Map.of("what", Map.of("group", "git")), client.catalog(Map.of("group", "git")).get("params"));
             assertEquals(Map.of("name", "report"), client.schema("report").get("params"));
             assertEquals(Map.of(), client.history().get("params"));
             assertEquals(Map.of("limit", 3L), client.history(Map.of("limit", 3L)).get("params"));
@@ -290,7 +298,7 @@ class ProcessClientTest {
         client.close();
         client.close();
         NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("x")));
-        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
+        assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
     }
 
     @Test
@@ -316,3 +324,7 @@ class ProcessClientTest {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::edit
+// Responsibility:   The `edit` command, and the planning and writing of text changes shared with `replace` and `insert`.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `edit` command, and the planning and writing of text changes shared
 //! with `replace` and `insert`.
 //!
@@ -488,7 +496,7 @@ pub(crate) fn read_checked(
     if let Some(if_match) = if_match {
         check_if_match(
             path,
-            &Observed::Present(file.meta.clone()),
+            &Observed::Present(file.meta.clone(), Some(file.hash)),
             if_match.expected(path),
         )?;
     }
@@ -838,7 +846,7 @@ mod tests {
     use nurt_contracts::stage::ArgValue;
     use nurt_contracts::value::RegexFlags;
     use nurt_testkit::ctx::TestContext;
-    use nurt_testkit::fixtures::begin_request;
+    use nurt_testkit::fixtures::{begin_request, racy_time_ns};
     use nurt_testkit::journal::JournalCall;
 
     use super::*;
@@ -1132,6 +1140,43 @@ mod tests {
     }
 
     #[test]
+    fn a_same_size_rewrite_between_the_read_and_the_apply_fails_with_stale() {
+        let (test, path) = with_file("/data/a.txt", b"old\n");
+        let racy = racy_time_ns();
+        test.fs().set_modified(&path, racy).unwrap();
+        let ctx = test.ctx();
+        let given = args(
+            &path,
+            vec![map(&[(REPLACE, text("old")), (WITH, text("new"))])],
+        );
+        let plan = Edit.plan(&given, StageInput::none(), &ctx).unwrap();
+        test.fs().write_file(&path, b"foo\n").unwrap();
+        test.fs().set_modified(&path, racy).unwrap();
+        let mut tx = test.journal().begin(begin_request(COMMAND));
+        let error = Edit.apply(&given, plan, tx.as_mut(), &ctx).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"foo\n");
+    }
+
+    #[test]
+    fn an_etag_text_without_a_hash_is_still_accepted() {
+        let (test, path) = with_file("/data/a.txt", b"old\n");
+        let ctx = test.ctx();
+        let file = read_text(&ctx, &path, EncodingParam::Auto).unwrap();
+        let mut old_form = file.etag();
+        old_form.hash = None;
+        let text_form = etag_text(&old_form);
+        assert_eq!(parse_etag(&text_form).unwrap(), old_form);
+        let given = args(
+            &path,
+            vec![map(&[(REPLACE, text("old")), (WITH, text("new"))])],
+        )
+        .with(params::IF_MATCH, ArgValue::Value(text(&text_form)), false);
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"new\n");
+    }
+
+    #[test]
     fn if_match_with_another_tag_fails_with_stale() {
         let (test, path) = with_file("/data/a.txt", b"old\n");
         let ctx = test.ctx();
@@ -1315,3 +1360,7 @@ mod tests {
         assert!(test.journal().calls().is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

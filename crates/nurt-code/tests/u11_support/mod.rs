@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u11_support/mod.rs
+// Responsibility:   Test doubles and helpers of the syntax analysis tests.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles and helpers of the syntax analysis tests: a workspace on
 //! the virtual file system of `nurt-testkit`, a file listing service over
 //! that file system, a scripted semantic provider, stage runners and the
@@ -37,9 +45,13 @@ pub(crate) const ROOT: &str = "/repo";
 
 /// Directory of the corpus of one kind (`symbols`, `outline`, `local`).
 pub(crate) fn corpus_dir(kind: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5/code")
-        .join(kind)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/code")
+    .join(kind)
 }
 
 /// Text form of a symbol in the corpus snapshots: indentation by depth,
@@ -205,7 +217,7 @@ impl Workspace {
 
     /// Absolute path of a project file.
     pub(crate) fn path(&self, relative: &str) -> PathBuf {
-        Path::new(ROOT).join(relative)
+        nurt_testkit::paths::abs_path(&format!("{ROOT}/{relative}"))
     }
 
     /// Writes a project file.
@@ -214,7 +226,7 @@ impl Workspace {
         self.test
             .fs()
             .write_file(
-                &test_path(&path.to_string_lossy()).unwrap(),
+                &test_path(&format!("{ROOT}/{relative}")).unwrap(),
                 content.as_bytes(),
             )
             .unwrap();
@@ -237,7 +249,7 @@ impl Workspace {
     /// Context with `config`.
     pub(crate) fn ctx_with(&self, config: Config) -> ExecCtx {
         let options = RequestOptions {
-            base: Some(ROOT.to_owned()),
+            base: Some(nurt_testkit::paths::abs(ROOT)),
             ..RequestOptions::default()
         };
         self.test
@@ -282,7 +294,14 @@ pub(crate) fn word(value: &str) -> Value {
 
 /// Path argument.
 pub(crate) fn path_value(path: &Path) -> Value {
-    Value::Path(path.to_string_lossy().into_owned())
+    // A project path in POSIX form names the same entry on every system with
+    // the root of `nurt_testkit::paths`.
+    let text = path.to_string_lossy().replace('\\', "/");
+    if text.starts_with('/') {
+        Value::Path(nurt_testkit::paths::abs(&text))
+    } else {
+        Value::Path(text)
+    }
 }
 
 /// Records of a read stage.
@@ -316,7 +335,7 @@ pub(crate) fn names(symbols: &[Symbol]) -> Vec<String> {
 /// Path of a record relative to the project root.
 pub(crate) fn relative(symbol: &Symbol) -> String {
     let path = symbol.path.as_str();
-    path.strip_prefix(&format!("{ROOT}/"))
+    path.strip_prefix(&format!("{}/", nurt_testkit::paths::abs(ROOT)))
         .unwrap_or(path)
         .to_owned()
 }
@@ -534,3 +553,7 @@ pub(crate) fn server_symbol(
         detail: Some(format!("{name}()")),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

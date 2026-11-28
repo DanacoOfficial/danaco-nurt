@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::testing
+// Responsibility:   In-memory journal store and virtual clock for retention tests.
+// Dependencies:     nurt_contracts, nurt_fs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! In-memory journal store and virtual clock for retention tests.
 
 use std::collections::BTreeMap;
@@ -28,7 +36,7 @@ const NANOS_PER_SECOND: i128 = 1_000_000_000;
 
 /// Absolute path from a literal.
 pub(crate) fn mount(path: &str) -> AbsPath {
-    AbsPath::new(path).unwrap()
+    AbsPath::for_test(path)
 }
 
 /// Clock readings at `secs` seconds after [`START`] in boot `boot-a`, with
@@ -83,6 +91,7 @@ struct Inner {
     fail_at: Option<FailPoint>,
     next_op: u64,
     locks: usize,
+    account: Option<String>,
 }
 
 /// Journal store in memory.
@@ -96,6 +105,11 @@ impl MemStore {
         Self {
             inner: Mutex::new(Inner::default()),
         }
+    }
+
+    /// Sets the account that runs the retention call.
+    pub(crate) fn set_account(&self, account: &str) {
+        self.lock().account = Some(account.to_owned());
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -219,6 +233,10 @@ impl FileLock for MemLock {
 }
 
 impl RetentionStore for MemStore {
+    fn account_id(&self) -> Option<String> {
+        self.lock().account.clone()
+    }
+
     fn lock_entry(&self, volume: &AbsPath, _op: OpId) -> Result<Box<dyn FileLock>> {
         self.lock().locks += 1;
         Ok(Box::new(MemLock(volume.clone())))
@@ -340,3 +358,7 @@ impl RetentionStore for MemStore {
         Ok(op)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

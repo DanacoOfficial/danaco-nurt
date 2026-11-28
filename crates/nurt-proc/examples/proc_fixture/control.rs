@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-proc/examples/proc_fixture/control.rs
+// Responsibility:   Modes for the tests of process trees, limits, signals and suspension.
+// Dependencies:     nix, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Modes for the tests of process trees, limits, signals and suspension.
 //!
 //! | Mode | Arguments | Behaviour |
@@ -87,6 +95,7 @@ fn detach(args: &[String]) -> Option<ExitCode> {
     command.args(["silent-sleep", &millis.to_string()]);
     if !keep {
         command.stdout(Stdio::null()).stderr(Stdio::null());
+        release_inherited_output();
     }
     match command.spawn().map(|child| child.id()) {
         Ok(pid) => {
@@ -96,6 +105,29 @@ fn detach(args: &[String]) -> Option<ExitCode> {
         Err(_) => Some(ExitCode::from(CHILD_FAILED)),
     }
 }
+
+/// Keeps the output handles of this process out of the child: on Windows a
+/// child inherits every inheritable handle, so the pipe of the run would stay
+/// open in it even with its own standard handles replaced.
+#[cfg(windows)]
+#[allow(unsafe_code)] // Win32 handle calls have no safe wrapper
+fn release_inherited_output() {
+    use windows_sys::Win32::Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation};
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    };
+    for which in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: plain calls on the standard handles of this process; a
+        // failure leaves the handle as it is.
+        unsafe {
+            let handle = GetStdHandle(which);
+            SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn release_inherited_output() {}
 
 fn ignore_term(args: &[String]) -> Option<ExitCode> {
     let millis = number(args, 0)?;
@@ -178,3 +210,7 @@ fn raise(args: &[String]) -> Option<ExitCode> {
 fn raise(_args: &[String]) -> Option<ExitCode> {
     None
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

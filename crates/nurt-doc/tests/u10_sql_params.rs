@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_params.rs
+// Responsibility:   Named parameters, the authorizer and the row count of changes of `sql`.
+// Dependencies:     nurt_contracts, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Named parameters, the authorizer and the row count of changes of `sql`.
 
 #![allow(
@@ -16,7 +24,7 @@ mod u10_support;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::value::{Fields, Value};
 use u10_support::{
-    RecordingTx, args, args_map, cells, count, ctx, database, failure, read, text, write,
+    RecordingTx, args, args_map, cells, count, ctx, database, failure, literal_text, read, write,
 };
 
 /// One table with two rows.
@@ -130,18 +138,17 @@ fn fix_for_a_read_that_changes_repeats_the_map() {
         error.fix,
         [format!(
             "sql \"{}\" \"delete from items where id = :id\" params: {{\"id\": 7}} write: true",
-            text(&db)
+            literal_text(&db)
         )]
     );
 }
 
 #[test]
-fn refuses_transaction_control_in_a_change_but_allows_savepoints() {
+fn merges_transaction_control_and_allows_savepoints_in_a_change() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", ITEMS);
-    let refused = args(&db, "commit", Vec::new(), true);
-    let error = failure(write(&refused, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("transaction"));
+    let merged = args(&db, "commit", Vec::new(), true);
+    write(&merged, &ctx(), &mut RecordingTx::new()).unwrap();
     let nested = args(
         &db,
         "savepoint s; delete from items; rollback to s; release s; delete from items where id = 1",
@@ -153,10 +160,19 @@ fn refuses_transaction_control_in_a_change_but_allows_savepoints() {
 }
 
 #[test]
-fn refuses_extension_calls_in_a_change() {
+fn runs_extension_calls_in_a_change() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", ITEMS);
     let call = args(&db, "select load_extension('x')", Vec::new(), true);
     let error = failure(write(&call, &ctx(), &mut RecordingTx::new()));
-    assert_eq!(error.problem.as_deref(), Some("extension"));
+    assert_ne!(error.problem.as_deref(), Some("extension"));
+    assert!(
+        !error.message.contains("not authorized"),
+        "{}",
+        error.message
+    );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

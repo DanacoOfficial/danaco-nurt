@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::send_pack::testing
+// Responsibility:   Test support: repositories built without the `git` program, a recording journal transaction and a process host for hooks.
+// Dependencies:     gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test support: repositories built without the `git` program, a recording
 //! journal transaction and a process host for hooks.
 //!
@@ -37,6 +45,41 @@ use nurt_contracts::stage::CancelToken;
 
 use super::refs::content_hash;
 
+/// Creates a repository at `root` (bare when `bare` is set) and opens it
+/// without the configuration of the machine that runs the tests (system and
+/// global files, environment), so that a setting such as `core.autocrlf` of
+/// Git for Windows does not change what a test sees.
+pub fn init_isolated(root: &Path, bare: bool) -> gix::Repository {
+    let kind = if bare {
+        gix::create::Kind::Bare
+    } else {
+        gix::create::Kind::WithWorktree
+    };
+    let repo = gix::ThreadSafeRepository::init_opts(
+        root,
+        kind,
+        gix::create::Options::default(),
+        isolated_options(),
+    )
+    .expect("repository")
+    .to_thread_local();
+    // `git` writes `\n` line ends on every system; `gix` uses `\r\n` on
+    // Windows.
+    let config = repo.git_dir().join("config");
+    let text = std::fs::read_to_string(&config).expect("configuration is readable");
+    std::fs::write(&config, text.replace("\r\n", "\n")).expect("configuration is writable");
+    repo
+}
+
+/// Opens the repository at `root` as [`init_isolated`] does.
+pub fn open_isolated(root: &Path) -> gix::Repository {
+    gix::open_opts(root, isolated_options()).expect("open")
+}
+
+/// Options of [`open_isolated`].
+pub fn isolated_options() -> gix::open::Options {
+    gix::open::Options::isolated().with_enforced_trust(gix::sec::Trust::Full)
+}
 /// Fixed time of fixture commits.
 const FIXTURE_SECONDS: i64 = 1_700_000_000;
 
@@ -68,11 +111,7 @@ impl Fixture {
 
     /// Repository at `root`, created when absent.
     pub fn init(root: &Path, bare: bool) -> Self {
-        let repo = if bare {
-            gix::init_bare(root).expect("init bare")
-        } else {
-            gix::init(root).expect("init")
-        };
+        let repo = init_isolated(root, bare);
         let git_dir = repo.git_dir().to_path_buf();
         std::fs::write(git_dir.join("HEAD"), b"ref: refs/heads/main\n").expect("HEAD");
         Self {
@@ -94,7 +133,7 @@ impl Fixture {
 
     /// Opened repository.
     pub fn repo(&self) -> gix::Repository {
-        gix::open(&self.root).expect("open")
+        open_isolated(&self.root)
     }
 
     /// Appends configuration text to the repository configuration.
@@ -513,8 +552,23 @@ pub struct ScriptHost {
 }
 
 impl ProcessHost for ScriptHost {
+    /// The file of `program` on the path, as a real host resolves it, or the
+    /// name itself when no file is found.
     fn resolve_program(&self, program: &str, _cwd: &Path) -> Result<PathBuf> {
-        Ok(PathBuf::from(program))
+        let named = Path::new(program);
+        if named.components().count() > 1 {
+            return Ok(named.to_path_buf());
+        }
+        let suffixes: &[&str] = if cfg!(windows) { &[".exe", ""] } else { &[""] };
+        let found = std::env::var_os("PATH").and_then(|paths| {
+            std::env::split_paths(&paths).find_map(|dir| {
+                suffixes
+                    .iter()
+                    .map(|suffix| dir.join(format!("{program}{suffix}")))
+                    .find(|path| path.is_file())
+            })
+        });
+        Ok(found.unwrap_or_else(|| PathBuf::from(program)))
     }
 
     fn run_program(&self, spec: &ProgramSpec, _cancel: &CancelToken) -> Result<ProgramOutcome> {
@@ -554,3 +608,7 @@ impl ProcessHost for ScriptHost {
         panic!("services are not used")
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

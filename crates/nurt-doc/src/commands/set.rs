@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::commands::set
+// Responsibility:   The `set` stage and the removal of document keys.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `set` stage and the removal of document keys.
 //!
 //! `set` changes values at key paths of a structured document and keeps the
@@ -924,6 +932,7 @@ mod tests {
     use super::*;
     use nurt_contracts::services::{ByteRange, TextPosition, TextSpan};
     use nurt_testkit::ctx::TestContext;
+    use nurt_testkit::paths::abs;
 
     fn key(text: &str) -> KeyPath {
         KeyPath::parse(text).unwrap()
@@ -947,12 +956,18 @@ mod tests {
     fn paths_of_one_file_share_a_group_key() {
         let test = TestContext::new();
         let ctx = test.ctx();
-        assert_eq!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/./a.json"));
         assert_eq!(
-            group_key(&ctx, "/d/a.json"),
-            group_key(&ctx, "/d/x/../a.json")
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/./a.json"))
         );
-        assert_ne!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/b.json"));
+        assert_eq!(
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/x/../a.json"))
+        );
+        assert_ne!(
+            group_key(&ctx, &abs("/d/a.json")),
+            group_key(&ctx, &abs("/d/b.json"))
+        );
         assert_eq!(
             group_key(&ctx, "rel/a.json"),
             FileKey::Path(PathBuf::from("rel/a.json"))
@@ -964,20 +979,20 @@ mod tests {
         let test = TestContext::new();
         let ctx = test.ctx();
         let fs = test.fs();
-        fs.create_dir_all(&AbsPath::new("/d").unwrap()).unwrap();
-        fs.write_file(&AbsPath::new("/d/a.json").unwrap(), b"{}")
+        fs.create_dir_all(&AbsPath::for_test("/d")).unwrap();
+        fs.write_file(&AbsPath::for_test("/d/a.json"), b"{}")
             .unwrap();
-        fs.write_file(&AbsPath::new("/d/b.json").unwrap(), b"{}")
+        fs.write_file(&AbsPath::for_test("/d/b.json"), b"{}")
             .unwrap();
-        fs.symlink("/d/a.json", &AbsPath::new("/d/link.json").unwrap())
+        fs.symlink(abs("/d/a.json"), &AbsPath::for_test("/d/link.json"))
             .unwrap();
-        fs.symlink("/d", &AbsPath::new("/dir-link").unwrap())
+        fs.symlink(abs("/d"), &AbsPath::for_test("/dir-link"))
             .unwrap();
-        let direct = group_key(&ctx, "/d/a.json");
+        let direct = group_key(&ctx, &abs("/d/a.json"));
         assert!(matches!(direct, FileKey::Identity(_)));
-        assert_eq!(direct, group_key(&ctx, "/d/link.json"));
-        assert_eq!(direct, group_key(&ctx, "/dir-link/a.json"));
-        assert_ne!(direct, group_key(&ctx, "/d/b.json"));
+        assert_eq!(direct, group_key(&ctx, &abs("/d/link.json")));
+        assert_eq!(direct, group_key(&ctx, &abs("/dir-link/a.json")));
+        assert_ne!(direct, group_key(&ctx, &abs("/d/b.json")));
     }
 
     #[test]
@@ -1078,3 +1093,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

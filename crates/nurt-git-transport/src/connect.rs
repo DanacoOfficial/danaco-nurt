@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::connect
+// Responsibility:   Selection of the transport for a repository URL.
+// Dependencies:     bstr, gix_transport, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Selection of the transport for a repository URL.
 //!
 //! [`connect`] rewrites the address with the `url.<base>.insteadOf` and
@@ -461,7 +469,7 @@ mod tests {
     #[test]
     fn local_repository_opens_the_in_process_transport() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        crate::send_pack::testing::init_isolated(dir.path(), true);
         let url = format!("file://{}", dir.path().display());
         assert!(connect(&url, Direction::Fetch, &options()).is_ok());
     }
@@ -480,3 +488,7 @@ mod tests {
         assert_eq!(resolved.host(), Some("example.com"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

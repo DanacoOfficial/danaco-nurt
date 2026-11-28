@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::json::corpus_tests
+// Responsibility:   Conformance and edit runs over the JSON and JSONC corpus in `tests/d5/corpus` and the JSON Test Suite in `tests/d5/third_party/json/jsontestsuite`.
+// Dependencies:     indexmap, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conformance and edit runs over the JSON and JSONC corpus in
 //! `tests/d5/corpus` and the JSON Test Suite in
 //! `tests/d5/third_party/json/jsontestsuite`.
@@ -36,7 +44,12 @@ const SUITE_CASES: usize = 318;
 
 /// Test data of the formats: `corpus/` and `third_party/`.
 fn data_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
 }
 
 fn json_test_suite() -> PathBuf {
@@ -131,7 +144,8 @@ fn edits_every_corpus_document_inside_the_target_span() {
         let Some(text) = decode(&bytes) else { continue };
         let Ok(document) = JsonDocument::parse(text, *dialect) else {
             assert!(
-                path.to_string_lossy().contains("/i_"),
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().starts_with("i_")),
                 "{} does not parse",
                 path.display()
             );
@@ -417,3 +431,7 @@ fn add_below(model: &Value, segments: &[KeySegment], value: &Value) -> (Option<A
     }
     (Some((added, reread)), result)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

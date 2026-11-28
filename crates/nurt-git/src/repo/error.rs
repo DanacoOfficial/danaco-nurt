@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::repo::error
+// Responsibility:   Conversion of repository failures into errors of the language.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conversion of repository failures into errors of the language.
 //!
 //! Every error built here carries a stable code, a short message that says
@@ -263,7 +271,7 @@ pub fn io(path: &Path, error: &io::Error) -> Error {
 /// `E_NOT_FOUND`, denied access `E_PERMISSION`, cancellation `E_CANCELLED`,
 /// unsupported features `E_GIT_UNSUPPORTED`; anything else, including
 /// damaged repository data, is `E_IO`. I/O errors found in the cause chain
-/// are converted with [`io`].
+/// are converted with [`io()`].
 #[must_use]
 pub fn from_gix(what: &str, error: &gix::Error) -> Error {
     if let Some(io_error) = error.downcast_any_ref::<io::Error>() {
@@ -399,3 +407,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

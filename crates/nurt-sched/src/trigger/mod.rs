@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sched::trigger
+// Responsibility:   Triggers of schedules: cron expressions, intervals and single times.
+// Dependencies:     jiff, nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Triggers of schedules: cron expressions, intervals and single times.
 //!
 //! A trigger is saved in a definition as a [`TriggerDef`] in normalized form
@@ -324,3 +332,7 @@ pub fn format_local(instant: Instant, zone: &str) -> Option<String> {
     let zoned = time::timestamp(instant)?.to_zoned_datetime(zone);
     Some(zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,12 +1,19 @@
 ---
 command: services
-group: admin
+group: administration
 summary: List system or user services with their state and start type.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/services.md -->
+<!-- Responsibility:   Documents services. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # services
 
@@ -17,6 +24,8 @@ services [<name>] [name: value]...
 ```
 
 ## Description
+
+Reading the state of system units needs no rights; `start`, `stop`, `restart`, `enable` and `disable` on system units need the administrator, which `privilege: elevated` on the last stage provides (see those commands).
 
 `services` lists the services of the service manager of the system: systemd
 on Linux, the service control manager on Windows and launchd on macOS. It
@@ -96,6 +105,14 @@ Restart one service:
 services name: "nginx" |> restart
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 230  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -110,5 +127,9 @@ services name: "nginx" |> restart
 ## Related
 
 `start`, `restart`, `enable` and `disable` act on the records of `services`;
-`stop` stops them. `logs unit:` shows the log of a service. The `admin` group
+`stop` stops them. `logs unit:` shows the log of a service. The `administration` group
 page lists the other commands of the group.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

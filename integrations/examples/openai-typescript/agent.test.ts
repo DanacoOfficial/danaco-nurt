@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           integrations/examples/openai-typescript/agent.test.ts
+// Responsibility:   Source file integrations/examples/openai-typescript/agent.test.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Tests of the example with a mock model and a mock console; no network access.
 
 import assert from "node:assert/strict";
@@ -68,3 +76,7 @@ test("stops after the turn limit", async () => {
 test("reports malformed arguments to the model", async () => {
   assert.match(await callNurt(new MockNurt(), "{"), /^error: /);
 });
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

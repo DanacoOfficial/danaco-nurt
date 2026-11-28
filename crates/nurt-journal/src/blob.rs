@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::blob
+// Responsibility:   Preserved content and metadata files.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Preserved content and metadata files.
 //!
 //! A clone or copy of previous content is created under a temporary name in
@@ -216,6 +224,9 @@ pub(crate) fn copy_entry(
             }
             FileKind::File | FileKind::Special | _ => {
                 copied += fs.copy_file(scope, &from, &to)?;
+                // The copy takes the place of a rename, so it keeps the
+                // permissions, owner and times of the entry as a rename does.
+                fs.open_in_place(scope, &to)?.apply_meta(&meta)?;
             }
         }
     }
@@ -535,3 +546,7 @@ mod tests {
         assert_eq!(fs.content_hash(&source).unwrap().0, digest);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

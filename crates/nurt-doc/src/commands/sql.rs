@@ -1,12 +1,21 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::commands::sql
+// Responsibility:   The `sql` stage.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `sql` stage.
 
 use std::path::PathBuf;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::MutationTx;
+use nurt_contracts::sql_text::changes_database;
 use nurt_contracts::stage::{
     BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, ReadStage,
     RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
@@ -20,11 +29,13 @@ const COMMAND: &str = "sql";
 /// Implementation of the `sql` command, which runs SQL statements on an
 /// SQLite database file.
 ///
-/// With `write: false` the stage only reads. The database is opened
-/// read-only, and a statement that changes it fails with `E_SQL`. With
-/// `write: true` the stage is an effect. The operation journal preserves the
-/// database file and its journal files, and the statements run in one
-/// transaction.
+/// A call whose statements only read opens the database read-only. A call
+/// with a statement that changes something, or with `write: true`, is an
+/// effect: the operation journal preserves the database file and its
+/// `-wal`, `-shm` and `-journal` files first, the statements run in one
+/// transaction, and `write` is only an explicit form. `write: false` keeps
+/// the call read-only, and a statement that changes the database then fails
+/// with `E_SQL`.
 ///
 /// # Examples
 ///
@@ -125,7 +136,9 @@ impl EffectStage for SqlStage {
         sql::check_file(&request)?;
         let mut plan = EffectPlan::new();
         if request.write {
-            plan.changes.push(sql::planned_change(&request));
+            plan.changes.extend(sql::planned_changes(&request)?);
+            plan.irreversible
+                .extend(sql::planned_irreversible(&request));
         }
         Ok(plan.with_state(request))
     }
@@ -162,6 +175,7 @@ impl EffectStage for SqlStage {
             outcome.rows,
         )));
         effect.changes.push(outcome.change);
+        effect.changes.extend(outcome.others);
         effect.irreversible = outcome.irreversible;
         Ok(effect)
     }
@@ -169,14 +183,27 @@ impl EffectStage for SqlStage {
 
 fn request(args: &BoundArgs, ctx: &ExecCtx) -> Result<SqlRequest> {
     let display = path_arg(args)?;
+    let query = query_arg(args)?;
+    let write = write_arg(args)?.unwrap_or_else(|| changes_database(&query));
     Ok(SqlRequest {
         path: PathBuf::from(&display),
         display,
-        query: query_arg(args)?,
+        query,
         params: params_arg(args)?,
-        write: write_arg(args)?,
+        write,
+        base: base_dir(ctx),
         busy_timeout: ctx.config().sql.busy_timeout.as_std(),
     })
+}
+
+/// Directory against which relative files of `ATTACH` and `VACUUM INTO` are
+/// resolved: the `base` option, else `scope.base`.
+fn base_dir(ctx: &ExecCtx) -> Option<PathBuf> {
+    ctx.options()
+        .base
+        .as_deref()
+        .or(ctx.config().scope.base.as_deref())
+        .map(PathBuf::from)
 }
 
 fn path_arg(args: &BoundArgs) -> Result<String> {
@@ -202,8 +229,9 @@ fn params_arg(args: &BoundArgs) -> Result<SqlParams> {
     }
 }
 
-fn write_arg(args: &BoundArgs) -> Result<bool> {
-    Ok(args.bool("write")?.unwrap_or(false))
+/// The explicit `write`; without it the statements decide.
+fn write_arg(args: &BoundArgs) -> Result<Option<bool>> {
+    args.bool("write")
 }
 
 fn type_error(name: &str, expected: &str, found: &Value) -> Error {
@@ -215,3 +243,7 @@ fn type_error(name: &str, expected: &str, found: &Value) -> Error {
         ),
     )
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

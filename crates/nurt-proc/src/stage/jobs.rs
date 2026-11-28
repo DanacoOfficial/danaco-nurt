@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::jobs
+// Responsibility:   The `jobs`, `stop`, `retry`, `suspend` and `resume` commands and `remove` on job records, and `stop`, `suspend` and `resume` on process records.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `jobs`, `stop`, `retry`, `suspend` and `resume` commands and `remove`
 //! on job records, and `stop`, `suspend` and `resume` on process records.
 
@@ -44,3 +52,7 @@ pub(crate) fn with_components(components: &Components) -> Vec<Arc<dyn StageImpl>
         Arc::new(process::ProcessControl::new(control::Kind::Resume)),
     ]
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

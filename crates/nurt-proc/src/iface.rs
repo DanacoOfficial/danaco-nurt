@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::iface
+// Responsibility:   Interfaces between process control, output capture, change detection and job management.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interfaces between process control, output capture, change detection and
 //! job management.
 //!
@@ -267,8 +275,29 @@ pub(crate) struct RenderedOutput {
     pub(crate) notes: Vec<NotableEntry>,
     /// Errors and warnings of a recognised tool.
     pub(crate) diagnostics: Option<ExecDiagnostics>,
-    /// Sentence with the commands that read what the response leaves out.
-    pub(crate) read_hint: Option<String>,
+    /// Lines of the output file that the response leaves out or cuts.
+    pub(crate) continuation: Option<LinesContinuation>,
+}
+
+/// Lines of an output file that a response leaves out or cuts; the source of
+/// the continuation of a run.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct LinesContinuation {
+    /// Output file.
+    pub(crate) path: PathBuf,
+    /// First line of the file left out, from 1; with `last_line` the range
+    /// between the head and the tail of the response.
+    pub(crate) first_line: u64,
+    /// Last line of the file left out; one less than `first_line` when no
+    /// line is left out.
+    pub(crate) last_line: u64,
+    /// Lines of the file the response shows.
+    pub(crate) shown: u64,
+    /// Lines of the file that the response cut, by line number.
+    pub(crate) cut: Vec<u64>,
+    /// The same for the other streams of the run, read after this one.
+    #[serde(default)]
+    pub(crate) more: Vec<LinesContinuation>,
 }
 
 /// Captured output of one run, kept in spool files.
@@ -456,3 +485,7 @@ pub(crate) struct Components {
     /// Change detection.
     pub(crate) tracker: Arc<dyn ChangeTracker>,
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

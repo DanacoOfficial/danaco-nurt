@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-node::dispatch
+// Responsibility:   Operations of the engine in the JSON form used by the Node.js binding.
+// Dependencies:     nurt_contracts, nurt_core, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Operations of the engine in the JSON form used by the Node.js binding.
 
 use std::fmt;
@@ -870,3 +878,7 @@ mod tests {
         assert_eq!(finish(&handle, Some(WAIT)).unwrap(), before);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

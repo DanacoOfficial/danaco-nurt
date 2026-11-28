@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-testkit::fixtures
+// Responsibility:   Values used repeatedly by tests of effect stages.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Values used repeatedly by tests of effect stages.
 
 use nurt_contracts::bound::{BoundDocument, BoundProgram};
@@ -70,3 +78,19 @@ pub fn fs_target(path: &AbsPath, action: TargetAction) -> TargetSpec {
         size_hint: None,
     }
 }
+
+/// Modification time, in nanoseconds since the Unix epoch, that is racy
+/// (`nurt_contracts::fs::RACY_WINDOW`) however long the test runs: one hour
+/// after the present.
+#[must_use]
+pub fn racy_time_ns() -> i64 {
+    let since = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        + std::time::Duration::from_secs(3600);
+    i64::try_from(since.as_nanos()).unwrap_or(i64::MAX)
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

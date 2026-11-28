@@ -5,6 +5,13 @@ order: 7
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/journal.md -->
+<!-- Responsibility:   Documents Journal and undo. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Journal and undo
 
 The journal records every operation that changes files, together with the previous content that undo needs. The contract is in the [specification](../../spec/journal.md).
@@ -50,3 +57,7 @@ The defaults keep the last 30 operations and the operations of the last 30 minut
 ## Crash safety
 
 An operation on many targets is one journal entry. After a power loss the recovery step rolls back an entry that was not committed.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

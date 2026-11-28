@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-net::client
+// Responsibility:   HTTP client shared by the commands of the `network` group.
+// Dependencies:     address, base64, body, gate, nurt_contracts, proxy, resolve, retry, ureq, url
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! HTTP client shared by the commands of the `network` group.
 //!
 //! The client resolves names itself through a [`NameResolver`] and connects
@@ -1121,3 +1129,7 @@ mod tests {
         ExecCtx::builder(Arc::new(Fixed), Arc::new(NoEnv(info))).build()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

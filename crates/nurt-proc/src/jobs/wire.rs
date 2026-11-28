@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::wire
+// Responsibility:   Serialized form of run requests and run results.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Serialized form of run requests and run results.
 //!
 //! Job files keep the request of every run so that `retry` can repeat it, and
@@ -229,7 +237,7 @@ struct RenderedOutputDef {
     #[serde(default)]
     diagnostics: Option<ExecDiagnostics>,
     #[serde(default)]
-    read_hint: Option<String>,
+    continuation: Option<crate::iface::LinesContinuation>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -277,3 +285,7 @@ pub(crate) struct StoredRequest(#[serde(with = "RunRequestDef")] pub(crate) RunR
 /// A finished run in serialized form.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct StoredResult(#[serde(with = "RunResultDef")] pub(crate) RunResult);
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

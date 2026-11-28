@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           tables/journal-coverage.toml
+# Responsibility:   Configuration or catalog data of tables/journal-coverage.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Journal coverage table. Every command and every catalog action of the
 # categories change and run, and every journal command with an effect, has a
 # row that states how the previous content is preserved or why it is not.
@@ -492,6 +500,13 @@ exception = "Covered as run: files in the watched scope are preserved within the
 
 [[row]]
 command = "history"
+group = "core"
+changes = "Nothing; the command only reads."
+preserve = []
+coverage = "no_effect"
+
+[[row]]
+command = "next"
 group = "core"
 changes = "Nothing; the command only reads."
 preserve = []
@@ -1459,18 +1474,18 @@ changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
-# Group admin.
+# Group administration.
 
 [[row]]
 command = "services"
-group = "admin"
+group = "administration"
 changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
 [[row]]
 command = "start"
-group = "admin"
+group = "administration"
 changes = "State of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1479,7 +1494,7 @@ exception = "Service state is outside the file system."
 
 [[row]]
 command = "restart"
-group = "admin"
+group = "administration"
 changes = "State of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1488,7 +1503,7 @@ exception = "Service state is outside the file system."
 
 [[row]]
 command = "enable"
-group = "admin"
+group = "administration"
 changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1497,7 +1512,7 @@ exception = "The service manager changes its configuration itself."
 
 [[row]]
 command = "disable"
-group = "admin"
+group = "administration"
 changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1506,10 +1521,12 @@ exception = "The service manager changes its configuration itself."
 
 [[row]]
 command = "windows.cim"
-group = "admin"
-changes = "Nothing; queries do not invoke methods."
-preserve = []
-coverage = "no_effect"
+group = "administration"
+changes = "Nothing for a query; the effect of a method called with `invoke`."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A method call changes the state of the system outside the file system; a method with a documented opposite is undone by that method."
 
 # Group package.
 
@@ -1925,3 +1942,252 @@ group = "verify"
 changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
+
+# Group administration: firewall, network and clock commands.
+
+[[row]]
+command = "firewall.rules"
+group = "administration"
+changes = "Nothing; the command only reads."
+preserve = []
+coverage = "no_effect"
+
+[[row]]
+command = "firewall.allow"
+group = "administration"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The rule is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "firewall.deny"
+group = "administration"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The rule is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "firewall.remove"
+group = "administration"
+changes = "Rules of the firewall."
+preserve = ["value"]
+coverage = "full"
+note = "The removed rules are recorded in the entry and added again by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.route_add"
+group = "administration"
+changes = "Routes of the routing table."
+preserve = ["value"]
+coverage = "full"
+note = "The route is recorded in the entry and removed by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.route_remove"
+group = "administration"
+changes = "Routes of the routing table."
+preserve = ["value"]
+coverage = "full"
+note = "The removed routes are recorded in the entry and added again by the inverse command, not restored from a copy."
+
+[[row]]
+command = "network.dns_set"
+group = "administration"
+changes = "Name servers and search domains of an interface."
+preserve = ["value"]
+coverage = "full"
+note = "The previous servers and domains are recorded in the entry and set again by the inverse command; a changed `/etc/resolv.conf` is also a file target of the journal."
+
+[[row]]
+command = "clock.timezone_set"
+group = "administration"
+changes = "Time zone of the system."
+preserve = ["value"]
+coverage = "full"
+note = "The previous time zone is recorded in the entry and set again by the inverse command."
+
+[[row]]
+command = "clock.ntp"
+group = "administration"
+changes = "State of network time synchronization."
+preserve = ["value"]
+coverage = "full"
+note = "The previous state is recorded in the entry and set again by the inverse command."
+
+[[row]]
+command = "clock.set"
+group = "administration"
+changes = "Time of the system clock."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The previous reading of the clock cannot be restored."
+# Administration commands of accounts, groups, mounts, kernel, power and disks.
+
+[[row]]
+command = "accounts.create"
+group = "administration"
+changes = "State of a user account of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The account database is changed by the system programs; the previous state is recorded as the states of the report and undone by accounts.remove."
+
+[[row]]
+command = "accounts.modify"
+group = "administration"
+changes = "State of a user account of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The account database is changed by the system programs; the recorded values are restored by accounts.modify."
+
+[[row]]
+command = "accounts.remove"
+group = "administration"
+changes = "State of a user account and its home directory."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The account is recreated by accounts.create from the recorded values; the home directory is removed through the journal and restored by undo."
+
+[[row]]
+command = "accounts.password"
+group = "administration"
+changes = "Password of a user account."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The previous password is not recorded and cannot be restored."
+
+[[row]]
+command = "groups.create"
+group = "administration"
+changes = "State of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; the previous state is recorded and undone by groups.remove."
+
+[[row]]
+command = "groups.remove"
+group = "administration"
+changes = "State of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group is recreated by groups.create and groups.add_member from the recorded members."
+
+[[row]]
+command = "groups.add_member"
+group = "administration"
+changes = "Members of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; undone by groups.remove_member."
+
+[[row]]
+command = "groups.remove_member"
+group = "administration"
+changes = "Members of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; undone by groups.add_member."
+
+[[row]]
+command = "mount"
+group = "administration"
+changes = "Mount table of the system and, with persistent, /etc/fstab."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The mount is undone by unmount; the edit of /etc/fstab goes through the journal and is restored by undo."
+
+[[row]]
+command = "unmount"
+group = "administration"
+changes = "Mount table of the system and, with persistent, /etc/fstab."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The mount is restored by mount from the recorded device, type and options; the edit of /etc/fstab goes through the journal."
+
+[[row]]
+command = "sysctl.set"
+group = "administration"
+changes = "Kernel parameter and, with persistent, /etc/sysctl.d/90-nurt.conf."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The value is restored by sysctl.set from the recorded value; the edit of the file goes through the journal."
+
+[[row]]
+command = "modules.load"
+group = "administration"
+changes = "Kernel modules loaded in the running system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The kernel is changed by modprobe; undone by modules.unload."
+
+[[row]]
+command = "modules.unload"
+group = "administration"
+changes = "Kernel modules loaded in the running system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The kernel is changed by modprobe; undone by modules.load."
+
+[[row]]
+command = "power.restart"
+group = "administration"
+changes = "Power state of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A scheduled restart is undone by power.cancel; an immediate restart cannot be undone."
+
+[[row]]
+command = "power.shutdown"
+group = "administration"
+changes = "Power state of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A scheduled shutdown is undone by power.cancel; an immediate shutdown cannot be undone."
+
+[[row]]
+command = "power.cancel"
+group = "administration"
+changes = "Scheduled restart or shutdown of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A cancelled schedule is not restored."
+
+[[row]]
+command = "disks.partition"
+group = "administration"
+changes = "Partition table of a disk."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The data of a changed partition is not preserved; the preview lists the data that is lost."
+
+[[row]]
+command = "disks.format"
+group = "administration"
+changes = "File system of a device."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The data of the device is not preserved; the preview lists the data that is lost."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::sleep
+// Responsibility:   Waiting for a duration.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Waiting for a duration.
 //!
 //! The `sleep` command blocks the program for the given time. The wait is
@@ -594,7 +602,12 @@ mod tests {
     }
 
     fn frozen_entry() -> toml::Value {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/system.toml");
+        let path = format!(
+            "{}/../../catalog/system.toml",
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        );
         let text = std::fs::read_to_string(path).unwrap();
         let catalog: toml::Table = text.parse().unwrap();
         catalog["command"]
@@ -626,3 +639,7 @@ mod tests {
         assert!(params[0].get("default").is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -124,9 +124,9 @@
       "status": "impossible",
       "rules": [],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "loop",
-      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "code": "E_ONE_EFFECT",
+      "reason": "rule",
+      "problem": "the statement contains two operations",
       "fix": []
     },
     {
@@ -136,9 +136,9 @@
       "status": "impossible",
       "rules": [],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "function",
-      "problem": "definitions of functions and types have no equivalent",
+      "code": "E_ONE_EFFECT",
+      "reason": "rule",
+      "problem": "the statement contains two operations",
       "fix": []
     },
     {
@@ -224,9 +224,9 @@
       "status": "impossible",
       "rules": [],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "condition",
-      "problem": "conditional statements have no equivalent; assert checks a precondition",
+      "code": "E_ONE_EFFECT",
+      "reason": "rule",
+      "problem": "the statement contains two operations",
       "fix": []
     },
     {

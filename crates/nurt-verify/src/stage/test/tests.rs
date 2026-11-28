@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::stage::test::tests
+// Responsibility:   Tests of the test commands on recorded results.
+// Dependencies:     nurt_contracts, nurt_proc
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the test commands on recorded results.
 
 use std::path::{Path, PathBuf};
@@ -479,7 +487,12 @@ fn run_with_a_command_and_a_named_framework_runs_the_command_unchanged() {
 #[test]
 fn run_prefers_the_program_installed_in_the_project() {
     let project = tempfile::tempdir().unwrap();
-    let local = write(project.path(), "node_modules/.bin/jest", "");
+    write(project.path(), "node_modules/.bin/jest", "");
+    let local = project
+        .path()
+        .join("node_modules")
+        .join(".bin")
+        .join("jest");
     let preview = preview_of(project.path(), &[("framework", text("jest"))]);
     assert_eq!(command_of(&preview)[0], local.to_string_lossy());
 }
@@ -951,3 +964,7 @@ fn project_directories_are_kept_as_given() {
     let path: PathBuf = Path::new("/p").to_path_buf();
     assert_eq!(path.to_string_lossy(), "/p");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -6,6 +6,13 @@ commands: [run, jobs, stop, retry, assert, sleep]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/running-programs.md -->
+<!-- Responsibility:   Documents running-programs. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # running-programs
 
@@ -28,7 +35,7 @@ jobs state: running
 
 ## Output
 
-`show` selects what the result contains: `stdout`, `stderr`, `both`, `errors`, `summary` or `none`. `head` and `tail` keep the first or last lines, `filter` keeps the lines that match a pattern and `dedupe` (on by default) collapses repeated lines, also lines that differ only in numbers. The text of all streams together never exceeds `max_bytes` (4096 by default, `0` is no limit) and a line longer than 400 characters is cut. After exit code 0 the result has the last 5 lines and the field `digest`; after a failure of `cargo` or `pytest` the field `diagnostics` lists the first errors with file and line, and `read_hint` names the `read` and `search` commands that return the rest from the output file without running the program again. The `exec` record carries `exit_code`, `signal` and `timed_out`.
+`show` selects what the result contains: `stdout`, `stderr`, `both`, `errors`, `summary` or `none`. `head` and `tail` keep the first or last lines, `filter` keeps the lines that match a pattern and `dedupe` (on by default) collapses repeated lines, also lines that differ only in numbers. The text of all streams together never exceeds `max_bytes` (4096 by default, `0` is no limit) and a line longer than 400 characters is cut. After exit code 0 the result has the last 5 lines and the field `digest`; after a failure of `cargo` or `pytest` the field `diagnostics` lists the first errors with file and line, and a response that leaves lines out ends with the hint "more: next": `next` returns the lines left out from the output file without running the program again. The `exec` record carries `exit_code`, `signal` and `timed_out`.
 
 ```nurt
 run ["npm", "run", "build"] cwd: "/srv/app" show: errors tail: 40
@@ -45,3 +52,7 @@ Files that a program changes are detected only in the paths named by `watch`; th
 ```nurt
 run ["./build.sh"] cwd: "/srv/app" watch: ["/srv/app/dist"] track_changes: scan
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

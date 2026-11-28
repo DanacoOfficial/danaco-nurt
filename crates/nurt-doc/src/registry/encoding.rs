@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::registry::encoding
+// Responsibility:   Byte order mark of UTF-16 little endian.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use crate::style::UTF8_BOM;
@@ -123,3 +131,7 @@ fn encode_utf16(text: &[u8], bom: &[u8], bytes: fn(u16) -> [u8; 2]) -> Vec<u8> {
     }
     out
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

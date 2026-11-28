@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/errors.md -->
+<!-- Responsibility:   Documents Error codes. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Error codes
 
 Every error of the language has a stable code written in upper case with the prefix `E_`, a message and, where known, the stage, the position in the program and ready replacements of the program text. Errors of the stages `parse` and `bind` have no effect on the world: they describe a mistake in the program and how to correct it, never a refusal. Codes are only added within a major version of the language; the meaning of a code never changes.
@@ -81,8 +89,9 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_KEY_SYNTAX` | 1 | `NURT_E_ARG` | A key path into a document is not valid. |
 | `E_PATTERN_SYNTAX` | 1 | `NURT_E_ARG` | A syntax pattern does not parse in the target language. |
 | `E_QUERY` | 1, 2, 5 | `NURT_E_ARG` | A document query does not compile or fails to run. |
-| `E_SQL` | 1, 2, 5 | `NURT_E_ARG` | An SQL statement cannot be prepared or executed, or changes data without `write: true`. |
+| `E_SQL` | 1, 2, 5 | `NURT_E_ARG` | An SQL statement cannot be prepared or executed, or changes data with `write: false`. |
 | `E_ARG` | 1, 5 | `NURT_E_ARG` | An argument of a call cannot be passed without changing its meaning, for example a NUL character in a process argument. |
+| `E_CONTINUATION_EXPIRED` | 2 | `NURT_E_ARG` | A continuation read by `next` expired or was removed by the limits `continuation.max_age`, `continuation.max_count` or `continuation.max_size`, or none is kept; `next_steps` holds the call that produced it. |
 | `E_EXTERNAL_MISSING` | 1, 5 | `NURT_OK` | A program required by the command is not installed; `fix` shows how to install it. |
 | `E_EXTERNAL_FAILED` | 2, 5 | `NURT_OK` | An external program used by the command, such as a language server, failed or broke its protocol. |
 | `E_PROGRAM_NOT_FOUND` | 1, 5 | `NURT_OK` | A program to run was not found in the search path; `candidates` lists similar names. |
@@ -109,7 +118,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_EXISTS` | 2, 5 | `NURT_E_IO` | The target already exists. |
 | `E_NOT_FOUND` | 2, 5 | `NURT_E_IO` | The target does not exist. |
 | `E_IN_USE` | 2, 5 | `NURT_E_IO` | The target is in use; the processes holding it are listed. |
-| `E_PRIVILEGE` | 2, 5 | `NURT_E_IO` | The operation requires a privilege the account does not have. |
+| `E_PRIVILEGE` | 2, 5 | `NURT_E_IO` | The operation needs privileges that are not available: no elevation backend ran it, or the system denied the elevation to the account. Details: `backend` (the backends tried and the result of each: `not_installed`, `password_required`, `denied`, `not_administrator`, `cannot_switch_user`, `failed`), `reason` (`disabled_by_configuration` when `privilege.allowed` is `false`); `next_steps` names the way forward. |
 | `E_NO_SPACE` | 2, 5 | `NURT_E_IO` | Not enough space on the volume. |
 | `E_TIMEOUT` | 2, 5 | `NURT_E_TIMEOUT` | A time limit was reached. |
 | `E_CANCELLED` | 2, 5 | `NURT_E_CANCELLED` | The execution was cancelled. |
@@ -160,3 +169,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 A misspelt name of a command that changes the file system or a remote state, or runs a program (`remvoe "/srv/a.txt"`), is never corrected on its own. The answer is `E_AMBIGUOUS` in stage 1; nothing runs and the first of `candidates` is the program with the name written right, ready to be sent again or accepted with `accept`. A misspelt name of a command that only reads is corrected and the program runs, as are the names written in another letter case or by a synonym.
 
 A text with an escape that the language does not have (`"\d+"`, `"C:\proj\data"`) is read according to its place. In a place of a regular expression it is that expression (`search "\d+" "/srv"` runs as `search /\d+/ "/srv"`), and a text written as a Windows path (`"C:\temp\new"`) in a place of a path is that path with its backslashes as separators. These readings are probable: in a program that reads they are applied and shown, in a program that changes something the answer is `E_AMBIGUOUS` with the corrected program. In every other place an unknown escape is `E_ESCAPE` in stage 0, and `fix` lists the whole program with the text written as raw text (`r"\d"`) and, for a Windows path, with `/`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

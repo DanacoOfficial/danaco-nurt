@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/conventions/code-style.md -->
+<!-- Responsibility:   Documents Code style. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Code style
 
@@ -124,3 +131,7 @@ can be detected automatically.
 Example paths use `/home/user` and `C:/Users/user`; example domains use
 `example.com`, `example.org` and `example.net`; example IPv4 addresses use the
 documentation ranges `192.0.2.0/24`, `198.51.100.0/24` and `203.0.113.0/24`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

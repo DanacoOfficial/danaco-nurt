@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::stage
+// Responsibility:   Stage implementation interface, record streams and execution context.
+// Dependencies:     indexmap, schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Stage implementation interface, record streams and execution context.
 //!
@@ -1266,6 +1273,17 @@ pub trait PipelineRunner: Send + Sync {
     ) -> Result<StageOutput<'a>>;
 }
 
+/// Marks a run that has the rights of the administrator, given through the
+/// extensions of the context: the journal entry of such a run names the
+/// backend in its `action` (`elevated:<backend>`), so that `undo` and `redo`
+/// of the entry know that they need the same rights.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElevatedRun {
+    /// Backend that started the elevated process (`self`, `sudo`, `doas`,
+    /// `run0`).
+    pub backend: String,
+}
+
 /// Shared objects registered by type, for facilities without a dedicated
 /// accessor on [`ExecCtx`] (for example a shared thread pool or a read
 /// cache).
@@ -2484,3 +2502,7 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Type);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

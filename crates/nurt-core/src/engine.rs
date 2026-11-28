@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::engine
+// Responsibility:   The engine: one configured instance serving requests.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_exec, nurt_fs, nurt_help, nurt_lspclient, nurt_plan, nurt_proc, nurt_report, nurt_sys, nurt_testkit, schemars, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The engine: one configured instance serving requests.
 //!
 //! [`Engine::open`] assembles the configuration, the state directory, the
@@ -32,7 +40,9 @@ use std::time::Duration;
 
 use nurt_catalog::{CatalogQuery, Registry};
 use nurt_contracts::ast::{AST_VERSION, AstDocument};
-use nurt_contracts::bound::{BOUND_VERSION, BoundDocument, BoundHead, BoundStatement};
+use nurt_contracts::bound::{
+    BOUND_VERSION, BoundDocument, BoundExpr, BoundHead, BoundPipeline, BoundStatement,
+};
 use nurt_contracts::config::{CONFIG_FORMAT, Config, DurationSetting, Language as ConfigLanguage};
 use nurt_contracts::env::{Clock, Host, Os, WallTime};
 use nurt_contracts::envelope::{
@@ -43,13 +53,15 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs, RegistryAccess};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
-use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
+use nurt_contracts::report::{
+    Notable, NotableEntry, REPORT_VERSION, RecordsPage, Report, ReportPart, ReportStatus, Timing,
+};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{
     CancelReason, CancelToken, EventSink, ExecCtx, ExecStep, Extensions, Limits, StageImpl,
 };
-use nurt_contracts::value::{Record, RecordKind};
+use nurt_contracts::value::{Record, RecordKind, Value};
 use nurt_exec::{ExecEnv, Executor, OperationOutcome, Outcome, ResultData};
 use nurt_lspclient::provider::LspProvider;
 use nurt_plan::{CheckSummary, Plan, PlanOptions};
@@ -63,16 +75,24 @@ use serde_json::{Value as Json, json};
 
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
+use crate::continuation::{ContinuationStore, NotKept, Registration, SessionKey};
 use crate::cursor::{CursorStore, ProgramRef};
+use crate::elevated::Early;
+use crate::elevation::{Mark, Setup};
 use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Sequencer};
 use crate::extensions;
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
+use crate::inverse::InverseLog;
 use crate::readcache::ReadCache;
 use crate::registry::{ProcessComponents, registry_with};
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
+use nurt_contracts::continuation::{
+    ContinuationRequest, ContinuationSink, ContinuationSource, ContinuationUnit, CutLine,
+    ResumeOverride, ResumeRunner, ResumedPart,
+};
 
 /// Report kind of a request that fails the envelope rules before any program
 /// is known.
@@ -121,6 +141,7 @@ pub struct EngineConfig {
     fs: Option<Arc<dyn Fs>>,
     journal: Option<Arc<dyn JournalStore>>,
     system_journal: bool,
+    account: Option<crate::elevation::AccountJournal>,
     process_components: bool,
     system_services: bool,
     registry: Option<Arc<RegistryProvider>>,
@@ -131,6 +152,7 @@ pub struct EngineConfig {
     session: Option<String>,
     state_dir: Option<PathBuf>,
     use_state_dir: bool,
+    elevation: Setup,
 }
 
 impl fmt::Debug for EngineConfig {
@@ -156,6 +178,7 @@ impl EngineConfig {
             fs: None,
             journal: None,
             system_journal: false,
+            account: None,
             process_components: false,
             system_services: false,
             registry: None,
@@ -166,6 +189,7 @@ impl EngineConfig {
             session: None,
             state_dir: None,
             use_state_dir: true,
+            elevation: Setup::default(),
         }
     }
 
@@ -282,6 +306,44 @@ impl EngineConfig {
     pub fn with_state_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.state_dir = Some(dir.into());
         self.use_state_dir = true;
+        self
+    }
+
+    /// The journal of an account that this process, running as the
+    /// administrator, writes for it: the entries and the copies are created
+    /// with the user and the group of the account below its state directory
+    /// (Linux), while the targets are changed with the rights of the
+    /// process. The engine has no other state directory.
+    #[must_use]
+    pub fn with_account_journal(mut self, account: crate::elevation::AccountJournal) -> Self {
+        self.account = Some(account);
+        self.system_journal = true;
+        self.use_state_dir = false;
+        self.state_dir = None;
+        self
+    }
+
+    /// Executable that the elevation backends start with the subcommand
+    /// `elevated-exec`, instead of the running executable.
+    #[must_use]
+    pub fn with_elevation_executable(mut self, executable: impl Into<PathBuf>) -> Self {
+        self.elevation.executable = Some(executable.into());
+        self
+    }
+
+    /// Search path of the programs of the elevation backends (`sudo`,
+    /// `doas`, `run0`), instead of the path of the process.
+    #[must_use]
+    pub fn with_elevation_search_path(mut self, path: impl Into<std::ffi::OsString>) -> Self {
+        self.elevation.search_path = Some(path.into());
+        self
+    }
+
+    /// States whether the process has the identity of the administrator,
+    /// instead of asking the operating system.
+    #[must_use]
+    pub fn with_administrator(mut self, administrator: bool) -> Self {
+        self.elevation.administrator = Some(administrator);
         self
     }
 
@@ -419,27 +481,31 @@ impl ExecHandle {
     }
 }
 
-struct Inner {
-    clock: Arc<dyn Clock>,
-    host: Arc<dyn Host>,
-    fs: Option<Arc<dyn Fs>>,
-    journal: Option<Arc<dyn JournalStore>>,
-    registry_access: Option<Arc<dyn RegistryAccess>>,
-    frontend: Arc<dyn Frontend>,
-    services: Arc<Services>,
-    registry: Arc<Registry>,
-    catalog_rev: String,
-    loader: ConfigLoader,
-    default_config: Arc<LoadedConfig>,
-    projects: Mutex<HashMap<Option<PathBuf>, CachedConfig>>,
-    state: Option<StateDir>,
-    sessions: Sessions,
-    candidates: CandidateStore,
-    cursors: CursorStore,
-    read_cache: Arc<ReadCache>,
-    default_session: Option<SessionId>,
-    requests: AtomicU64,
-    results: AtomicU64,
+pub(crate) struct Inner {
+    pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) host: Arc<dyn Host>,
+    pub(crate) fs: Option<Arc<dyn Fs>>,
+    pub(crate) journal: Option<Arc<dyn JournalStore>>,
+    pub(crate) registry_access: Option<Arc<dyn RegistryAccess>>,
+    pub(crate) frontend: Arc<dyn Frontend>,
+    pub(crate) services: Arc<Services>,
+    pub(crate) registry: Arc<Registry>,
+    pub(crate) catalog_rev: String,
+    pub(crate) loader: ConfigLoader,
+    pub(crate) default_config: Arc<LoadedConfig>,
+    pub(crate) projects: Mutex<HashMap<Option<PathBuf>, CachedConfig>>,
+    pub(crate) state: Option<StateDir>,
+    pub(crate) sessions: Sessions,
+    pub(crate) candidates: CandidateStore,
+    pub(crate) cursors: CursorStore,
+    pub(crate) read_cache: Arc<ReadCache>,
+    pub(crate) default_session: Option<SessionId>,
+    pub(crate) continuations: Arc<ContinuationStore>,
+    pub(crate) console: Mutex<Option<String>>,
+    pub(crate) requests: AtomicU64,
+    pub(crate) results: AtomicU64,
+    pub(crate) elevation: Setup,
+    pub(crate) inverses: Option<InverseLog>,
 }
 
 /// The registry of the system on Windows; elsewhere there is none.
@@ -455,7 +521,7 @@ fn system_registry() -> Option<Arc<RegistryProvider>> {
 }
 
 /// Configuration of one project with the state of its file at load time.
-struct CachedConfig {
+pub(crate) struct CachedConfig {
     stamp: Option<FileStamp>,
     loaded: Arc<LoadedConfig>,
 }
@@ -479,11 +545,15 @@ impl FileStamp {
 }
 
 /// Request after the envelope rules, with every option set.
-struct Prepared {
-    config: Arc<LoadedConfig>,
-    options: RequestOptions,
-    session: Option<SessionId>,
-    timeout: Duration,
+#[derive(Clone)]
+pub(crate) struct Prepared {
+    pub(crate) config: Arc<LoadedConfig>,
+    pub(crate) options: RequestOptions,
+    pub(crate) session: Option<SessionId>,
+    pub(crate) timeout: Duration,
+    pub(crate) elevation: Option<Mark>,
+    /// Values given for the parameters of a script.
+    pub(crate) params: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// The engine of Danaco Nurt.
@@ -515,7 +585,7 @@ struct Prepared {
 /// ```
 #[derive(Clone)]
 pub struct Engine {
-    inner: Arc<Inner>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 impl fmt::Debug for Engine {
@@ -592,21 +662,30 @@ impl Engine {
         let windows_registry = config.registry.or_else(system_registry);
         let journal = match config.journal {
             Some(journal) => Some(journal),
-            None if config.system_journal => state
-                .as_ref()
-                .map(|state| {
+            None if config.system_journal => {
+                let root = config
+                    .account
+                    .as_ref()
+                    .map(|account| account.state_dir.clone())
+                    .or_else(|| state.as_ref().map(|state| state.root().to_path_buf()));
+                root.map(|root| {
                     crate::journal_setup::open_journal(
                         loader.layers(),
                         &loaded,
                         false,
                         Arc::clone(&config.clock),
-                        state.root(),
+                        &root,
                         windows_registry.clone(),
+                        config.account.as_ref(),
                     )
                 })
-                .transpose()?,
+                .transpose()?
+            }
             None => None,
         };
+        let inverses = state
+            .as_ref()
+            .map(|state| InverseLog::in_state(state.root()));
         let default_session = config
             .session
             .map(SessionId::new)
@@ -618,6 +697,9 @@ impl Engine {
             settings.output.spool_ttl.as_std(),
         );
         cursors.sweep(config.clock.now());
+        let continuations = Arc::new(ContinuationStore::new(
+            state.as_ref().map(|state| state.area(StateArea::Results)),
+        ));
         let mut read_cache = ReadCache::new(Arc::clone(&config.clock));
         if let Some(state) = &state {
             read_cache = read_cache.with_dir(state.area(StateArea::ReadCache));
@@ -663,8 +745,12 @@ impl Engine {
             loader,
             state,
             default_session,
+            continuations,
+            console: Mutex::new(None),
             requests: AtomicU64::new(0),
             results: AtomicU64::new(0),
+            inverses,
+            elevation: config.elevation,
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -1027,9 +1113,26 @@ impl Engine {
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
     ) -> Response {
+        self.route(request, cancel, events)
+    }
+
+    /// Runs a request in this process with the rights of the account, or
+    /// with those of the administrator when `mark` says the process already
+    /// has them.
+    pub(crate) fn execute_local(
+        &self,
+        request: &Request,
+        cancel: &CancelToken,
+        events: Option<Arc<dyn EventSink>>,
+        mark: Option<Mark>,
+        early: Option<Early>,
+    ) -> Response {
         let started = self.inner.clock.monotonic();
         let prepared = match self.prepare(request) {
-            Ok(prepared) => prepared,
+            Ok(mut prepared) => {
+                prepared.elevation = mark;
+                prepared
+            }
             Err(error) => {
                 let report = failed_report(REQUEST_KIND, error);
                 return respond_with(&report, &request.options);
@@ -1037,9 +1140,15 @@ impl Engine {
         };
         let compiled = match request.input() {
             Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
-            Ok(RequestInput::Accept(reference)) => self.accept(reference, &prepared),
-            Ok(RequestInput::Program { text, variant }) => self.compile(text, variant, &prepared),
-            Ok(RequestInput::Ast(document)) => self.bind(document, &prepared),
+            Ok(RequestInput::Accept(reference)) => {
+                early.unwrap_or_else(|| self.accept(reference, &prepared))
+            }
+            Ok(RequestInput::Program { text, variant }) => {
+                early.unwrap_or_else(|| self.compile(text, variant, &prepared))
+            }
+            Ok(RequestInput::Ast(document)) => {
+                early.unwrap_or_else(|| self.bind(document, &prepared))
+            }
             Ok(_) => Err(Error::new(ErrorCode::Arg, "unsupported request input")),
             Err(error) => Err(envelope_error(&error, request)),
         };
@@ -1051,6 +1160,20 @@ impl Engine {
                 return self.finish(report, &prepared, None, started);
             }
         };
+        if let Some(response) =
+            self.undo_by_inverse(request, &prepared, &compiled.bound, cancel, events.clone())
+        {
+            return response;
+        }
+        if prepared.elevation.is_none() && self.is_elevated_entry(&compiled.bound) {
+            return self.undo_elevated(request, &prepared, cancel, events);
+        }
+        if prepared.elevation.is_none()
+            && let Some(target) =
+                self.bare_elevated_target(&compiled.bound, prepared.session.as_ref())
+        {
+            return self.refuse_bare(request, &prepared, target);
+        }
         let kind = ProgramKind::of(&compiled.bound);
         if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
             let error = Error::new(
@@ -1064,10 +1187,13 @@ impl Engine {
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
         );
+        let sink = Arc::new(ContinuationSink::new());
         let report = cancel
             .check()
             .and_then(|()| {
                 let run = Run {
+                    sink: Arc::clone(&sink),
+                    resume: None,
                     compiled: &compiled,
                     prepared: &prepared,
                     kind: &kind,
@@ -1080,14 +1206,86 @@ impl Engine {
             })
             .unwrap_or_else(|error| (failure(&reports, &kind, Some(&compiled), error), Vec::new()));
         let (report, pipelines) = report;
-        let mut response = self.finish(report, &prepared, Some(&program), started);
+        let mut response =
+            self.finish_with(report, &prepared, Some(&program), started, Some(&sink));
         attach_pipelines(&mut response, &pipelines, &prepared.options);
         response
+    }
+
+    /// Runs `program` of a continuation from the cursor of `resume` and
+    /// returns its records with the description of what remains.
+    fn resume_part(&self, program: &str, resume: ResumeOverride) -> Result<ResumedPart, Error> {
+        let options = resume
+            .options
+            .clone()
+            .and_then(|value| serde_json::from_value::<RequestOptions>(value).ok())
+            .unwrap_or_default();
+        let request = Request::program(program).with_options(options);
+        let prepared = self.prepare(&request)?;
+        let compiled = self.compile(program, None, &prepared)?;
+        let reports = self.report_context(prepared.config.config());
+        let kind = ProgramKind::of(&compiled.bound);
+        if kind.changing {
+            return Err(Error::new(
+                ErrorCode::InvalidValue,
+                "a program that changes the world is not run again by `next`",
+            ));
+        }
+        let sink = Arc::new(ContinuationSink::new());
+        let cancel = CancelToken::new();
+        let (report, _) = self.run_program(Run {
+            sink: Arc::clone(&sink),
+            resume: Some(resume),
+            compiled: &compiled,
+            prepared: &prepared,
+            kind: &kind,
+            reports: &reports,
+            cancel: &cancel,
+            events: None,
+            started: self.inner.clock.monotonic(),
+        })?;
+        if let Some(error) = report.error {
+            return Err(error);
+        }
+        Ok(ResumedPart {
+            records: report.records.map(|page| page.rows).unwrap_or_default(),
+            next: sink.take().pop(),
+        })
+    }
+
+    /// Names the console that owns the continuations of the following
+    /// requests, apart from the session of the journal: results kept for
+    /// `next` belong to the console, and requests keep their own session.
+    pub fn set_console(&self, console: Option<String>) {
+        *self
+            .inner
+            .console
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = console;
+    }
+
+    /// Key under which a request keeps and finds its continuations: the
+    /// console when one is named, else the session of the request.
+    fn continuation_session(&self, prepared: &Prepared) -> Option<String> {
+        self.inner
+            .console
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .or_else(|| prepared.session.as_ref().map(|id| id.as_str().to_owned()))
+    }
+
+    /// Removes the continuations kept for `next`, as at the end of a session
+    /// of the console.
+    pub fn end_session(&self, session: Option<&str>) {
+        self.inner.continuations.end_session(session);
     }
 
     /// Plans a bound program, executes the plan and assembles its report.
     fn run_program(&self, run: Run<'_>) -> Result<(Report, Vec<Report>), Error> {
         let Run {
+            sink,
+            resume,
             compiled,
             prepared,
             kind,
@@ -1100,9 +1298,19 @@ impl Engine {
         let planning = clock.monotonic();
         let plan = self.plan(compiled, prepared)?;
         let planned = clock.monotonic();
+        let params = self.script_params(compiled, prepared)?;
         let env = self
             .exec_env(prepared, cancel, events)?
-            .with_extension(Arc::new(compiled.bound.clone()));
+            .with_params(params)
+            .with_extension(Arc::new(compiled.bound.clone()))
+            .with_extension(sink)
+            .with_extension(Arc::clone(&self.inner.continuations))
+            .with_extension::<dyn ResumeRunner>(Arc::new(EngineRunner(self.clone())))
+            .with_extension(Arc::new(SessionKey(self.continuation_session(prepared))));
+        let env = match resume {
+            Some(resume) => env.with_extension(Arc::new(resume)),
+            None => env,
+        };
         let env = match &compiled.ast_hash {
             Some(hash) => env.with_ast_hash(hash.clone()),
             None => env,
@@ -1116,6 +1324,31 @@ impl Engine {
             timing
         });
         report_of(reports, kind, compiled, outcome, timing)
+    }
+
+    /// Binds the values given for the parameters of the script to its
+    /// `params` declaration, before anything runs. A program without
+    /// declaration takes no values.
+    fn script_params(
+        &self,
+        compiled: &Compiled,
+        prepared: &Prepared,
+    ) -> Result<Vec<(String, BoundExpr)>, Error> {
+        let declared = compiled
+            .bound
+            .program
+            .statements
+            .iter()
+            .find_map(|statement| match statement {
+                BoundStatement::Params(params) => Some(params.params.as_slice()),
+                _ => None,
+            })
+            .unwrap_or_default();
+        self.inner.frontend.bind_params(
+            declared,
+            prepared.params.as_ref(),
+            prepared.config.config(),
+        )
     }
 
     /// Environment of the executor for one request.
@@ -1146,6 +1379,11 @@ impl Engine {
             .with_timeout(prepared.timeout);
         if let Some(access) = &self.inner.registry_access {
             env = env.with_extension(Arc::clone(access));
+        }
+        if let Some(mark) = &prepared.elevation {
+            env = env.with_extension(Arc::new(nurt_contracts::stage::ElevatedRun {
+                backend: mark.backend.as_str().to_owned(),
+            }));
         }
         if let Some(events) = events {
             env = env.with_events(events);
@@ -1180,11 +1418,46 @@ impl Engine {
     /// rendered result.
     fn finish(
         &self,
-        mut report: Report,
+        report: Report,
         prepared: &Prepared,
         program: Option<&ProgramRef>,
         started: Duration,
     ) -> Response {
+        self.finish_with(report, prepared, program, started, None)
+    }
+
+    /// [`Engine::finish`] that also keeps what the stages of the execution
+    /// left out, as a continuation of the response.
+    fn finish_with(
+        &self,
+        mut report: Report,
+        prepared: &Prepared,
+        program: Option<&ProgramRef>,
+        started: Duration,
+        sink: Option<&ContinuationSink>,
+    ) -> Response {
+        if let Some(mark) = &prepared.elevation {
+            mark.apply(&mut report);
+        } else if report
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code() == ErrorCode::Privilege)
+            && let Some(error) = report.error.take()
+        {
+            let config = prepared.config.config();
+            let system = crate::elevation::system_of(self.inner.host.info().os);
+            let backends =
+                crate::elevation::backends_of(&config.privilege, system).unwrap_or_default();
+            report.error = Some(crate::elevation::guide_privilege_error(
+                error,
+                &backends,
+                &self.inner.elevation,
+                config.privilege.allowed,
+            ));
+        }
+        if !prepared.options.preview() {
+            self.keep_inverse(&mut report);
+        }
         if prepared.options.verbosity == Some(Verbosity::Detailed) {
             let elapsed = self.inner.clock.monotonic().saturating_sub(started);
             report.timing.get_or_insert_with(|| Timing {
@@ -1212,12 +1485,86 @@ impl Engine {
                 Err(_) => {}
             }
         }
-        if let Some(program) = program {
+        let advanced = sink.is_some_and(|sink| {
+            let requests = sink.take();
+            let existing = requests
+                .iter()
+                .any(|request| matches!(request.source, ContinuationSource::Existing));
+            let limit = prepared.options.limit();
+            let read_only = report.op.is_none() && report.changes.is_empty();
+            let resume = requests
+                .iter()
+                .rev()
+                .find_map(|request| match &request.source {
+                    ContinuationSource::Resume { cursor } if read_only => Some(cursor.clone()),
+                    _ => None,
+                });
+            let cuts: Vec<CutLine> = requests
+                .iter()
+                .filter_map(|request| match &request.source {
+                    ContinuationSource::Records { cut, .. } => Some(cut.clone()),
+                    _ => None,
+                })
+                .flatten()
+                .collect();
+            let chosen = if existing {
+                requests
+                    .into_iter()
+                    .rev()
+                    .find(|request| matches!(request.source, ContinuationSource::Existing))
+            } else {
+                records_request(&report, limit, resume, &cuts).or_else(|| {
+                    // Several stages of one program (for example two `run`):
+                    // the first whose output was cut, in program order.
+                    requests.into_iter().find(|request| {
+                        matches!(request.source, ContinuationSource::Lines { .. })
+                            && (request.remaining != 0 || request.cut_lines > 0)
+                    })
+                })
+            };
+            if let Some(request) = chosen {
+                let registration = Registration {
+                    program: program.and_then(|program| program.text.clone()),
+                    session: self.continuation_session(prepared),
+                    part: request.shown,
+                    options: serde_json::to_value(&prepared.options).ok(),
+                };
+                match self.inner.continuations.register(
+                    request,
+                    &registration,
+                    &prepared.config.config().continuation,
+                    self.now(),
+                ) {
+                    Ok(continuation) => {
+                        for entry in &mut report.notable {
+                            if matches!(entry.code, Notable::TruncatedLines | Notable::LimitReached)
+                            {
+                                entry.continuation = Some(continuation.id.clone());
+                            }
+                        }
+                        report.continuation = Some(continuation);
+                    }
+                    Err(NotKept(reason)) => {
+                        let mut entry = NotableEntry::new(Notable::LimitReached);
+                        entry.detail = Some(format!("no continuation is kept: {reason}"));
+                        report.notable.push(entry);
+                    }
+                }
+            }
+            existing
+        });
+        if let (Some(program), false) = (program, advanced) {
             let limit = prepared.options.limit();
             report = self
                 .inner
                 .cursors
                 .first_page(report, limit, program, self.now());
+        }
+        if advanced {
+            let rows = report.records.as_ref().map_or(0, |page| page.rows.len());
+            let mut options = prepared.options.clone();
+            options.limit = Some(options.limit().max(u32::try_from(rows).unwrap_or(u32::MAX)));
+            return respond_with(&report, &options);
         }
         respond_with(&report, &prepared.options)
     }
@@ -1246,7 +1593,7 @@ impl Engine {
         respond_with(&report, &prepared.options)
     }
 
-    fn compile(
+    pub(crate) fn compile(
         &self,
         text: &str,
         variant: Option<SyntaxVariant>,
@@ -1261,7 +1608,11 @@ impl Engine {
             })
     }
 
-    fn bind(&self, document: &AstDocument, prepared: &Prepared) -> Result<Compiled, Error> {
+    pub(crate) fn bind(
+        &self,
+        document: &AstDocument,
+        prepared: &Prepared,
+    ) -> Result<Compiled, Error> {
         self.inner
             .frontend
             .bind(document, &request_config(prepared))
@@ -1273,12 +1624,14 @@ impl Engine {
             })
     }
 
-    fn accept(&self, reference: &str, prepared: &Prepared) -> Result<Compiled, Error> {
+    pub(crate) fn accept(&self, reference: &str, prepared: &Prepared) -> Result<Compiled, Error> {
         let candidate =
             self.inner
                 .candidates
                 .accept(prepared.session.as_ref(), reference, self.now())?;
-        self.compile(&candidate.program, None, prepared)
+        let mut compiled = self.compile(&candidate.program, None, prepared)?;
+        compiled.ran.get_or_insert(candidate.program);
+        Ok(compiled)
     }
 
     /// Keeps the candidates of an ambiguous program for `accept`.
@@ -1294,7 +1647,7 @@ impl Engine {
         }
     }
 
-    fn prepare(&self, request: &Request) -> Result<Prepared, Error> {
+    pub(crate) fn prepare(&self, request: &Request) -> Result<Prepared, Error> {
         request
             .validate()
             .map_err(|error| envelope_error(&error, request))?;
@@ -1316,6 +1669,8 @@ impl Engine {
             options,
             session,
             timeout,
+            elevation: None,
+            params: request.params.clone(),
         })
     }
 
@@ -1368,6 +1723,13 @@ impl Engine {
         if let Some(registry) = &self.inner.registry_access {
             extensions.insert::<dyn RegistryAccess>(Arc::clone(registry));
         }
+        if let Some(mark) = &prepared.elevation {
+            extensions.insert::<nurt_contracts::stage::ElevatedRun>(Arc::new(
+                nurt_contracts::stage::ElevatedRun {
+                    backend: mark.backend.as_str().to_owned(),
+                },
+            ));
+        }
         let mut builder =
             ExecCtx::builder(Arc::clone(&self.inner.clock), Arc::clone(&self.inner.host))
                 .config(Arc::new(config.clone()))
@@ -1403,7 +1765,7 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn now(&self) -> WallTime {
+    pub(crate) fn now(&self) -> WallTime {
         self.inner.clock.now()
     }
 
@@ -1419,7 +1781,7 @@ impl Engine {
 ///
 /// The call parameter `base` of the request replaces `scope.base` of the
 /// configuration, so relative paths of the program resolve against it.
-fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
+pub(crate) fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
     let config = prepared.config.config();
     match prepared.options.base.as_deref() {
         Some(base) if config.scope.base.as_deref() != Some(base) => {
@@ -1458,6 +1820,8 @@ fn effective_options(
         session: session.map(|id| id.as_str().to_owned()),
         language: Some(options.language.unwrap_or_else(|| language_of(config))),
         script: Some(options.script()),
+        privilege: Some(options.privilege.unwrap_or(config.privilege.default)),
+        as_user: options.as_user.clone(),
     }
 }
 
@@ -1468,7 +1832,7 @@ fn language_of(config: &Config) -> Language {
     }
 }
 
-fn input_kind(request: &Request) -> &'static str {
+pub(crate) fn input_kind(request: &Request) -> &'static str {
     if request.cursor.is_some() && request.program.is_none() && request.ast.is_none() {
         PAGE_KIND
     } else if request.accept.is_some() && request.program.is_none() && request.ast.is_none() {
@@ -1506,20 +1870,20 @@ impl ProgramKind {
 /// Last effect command of a bound program, or the source command of its
 /// first pipeline, and whether the program has an effect command.
 fn kind_of(bound: &BoundDocument) -> (String, bool) {
-    let pipelines = bound
-        .program
-        .statements
-        .iter()
-        .filter_map(|statement| match statement {
-            BoundStatement::Pipeline(pipeline) => Some(pipeline),
-            BoundStatement::Let(binding) => Some(&binding.value),
-            _ => None,
-        });
+    let mut pipelines = Vec::new();
+    let mut construct = None;
+    collect_pipelines(&bound.program.statements, &mut pipelines, &mut construct);
     let mut source = None;
     let mut effect = None;
+    let mut calls = false;
     for pipeline in pipelines {
         let head = match &pipeline.head {
             BoundHead::Stage(stage) => Some(stage),
+            BoundHead::Call(call) => {
+                calls = true;
+                source = source.or_else(|| Some(call.name.clone()));
+                None
+            }
             _ => None,
         };
         source = source.or_else(|| head.map(|stage| stage.name.clone()));
@@ -1532,9 +1896,77 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
             effect = Some(stage.name.clone());
         }
     }
-    let changing = effect.is_some();
+    if let Some((name, changes)) = construct {
+        return (name.to_owned(), changes || effect.is_some());
+    }
+    let changing = effect.is_some() || (calls && statements_change(&bound.program.statements));
     let kind = effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned());
     (kind, changing)
+}
+
+/// The pipelines at the top of a program and the first control construct
+/// with its name and whether it changes the world.
+fn collect_pipelines<'b>(
+    statements: &'b [BoundStatement],
+    pipelines: &mut Vec<&'b BoundPipeline>,
+    construct: &mut Option<(&'static str, bool)>,
+) {
+    for statement in statements {
+        let name = match statement {
+            BoundStatement::Pipeline(pipeline) => {
+                pipelines.push(pipeline);
+                continue;
+            }
+            BoundStatement::Let(binding) => {
+                pipelines.push(&binding.value);
+                continue;
+            }
+            BoundStatement::When(_) => "when",
+            BoundStatement::Each(_) => "each",
+            BoundStatement::Repeat(_) => "repeat",
+            BoundStatement::While(_) => "while",
+            BoundStatement::Steps(_) => "steps",
+            _ => continue,
+        };
+        if construct.is_none() {
+            *construct = Some((name, statements_change(std::slice::from_ref(statement))));
+        }
+    }
+}
+
+/// Whether a stage of the statements, nested ones included, changes the world
+/// or runs a program.
+fn statements_change(statements: &[BoundStatement]) -> bool {
+    statements.iter().any(|statement| match statement {
+        BoundStatement::Pipeline(pipeline) => pipeline_changes(pipeline),
+        BoundStatement::Let(binding) => pipeline_changes(&binding.value),
+        BoundStatement::When(construct) => {
+            construct
+                .branches
+                .iter()
+                .any(|branch| statements_change(&branch.body))
+                || construct
+                    .otherwise
+                    .as_deref()
+                    .is_some_and(statements_change)
+        }
+        BoundStatement::Each(construct) => statements_change(&construct.body),
+        BoundStatement::Repeat(construct) => statements_change(&construct.body),
+        BoundStatement::While(construct) => statements_change(&construct.body),
+        BoundStatement::Steps(construct) => statements_change(&construct.body),
+        BoundStatement::Define(construct) => statements_change(&construct.body),
+        _ => false,
+    })
+}
+
+fn pipeline_changes(pipeline: &BoundPipeline) -> bool {
+    let head = match &pipeline.head {
+        BoundHead::Stage(stage) => Some(stage),
+        _ => None,
+    };
+    head.into_iter()
+        .chain(&pipeline.stages)
+        .any(|stage| stage.phase.is_effect())
 }
 
 /// Number of pipelines of a bound program that have an effect stage.
@@ -1561,15 +1993,10 @@ fn effect_pipelines(bound: &BoundDocument) -> usize {
 
 /// Effect kind of the last effect command of a bound program.
 fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
-    bound
-        .program
-        .statements
-        .iter()
-        .filter_map(|statement| match statement {
-            BoundStatement::Pipeline(pipeline) => Some(pipeline),
-            BoundStatement::Let(binding) => Some(&binding.value),
-            _ => None,
-        })
+    let mut pipelines = Vec::new();
+    nested_pipelines(&bound.program.statements, &mut pipelines);
+    pipelines
+        .into_iter()
         .filter_map(|pipeline| {
             let head = match &pipeline.head {
                 BoundHead::Stage(stage) => Some(stage),
@@ -1584,8 +2011,35 @@ fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
         .next_back()
 }
 
+/// Every pipeline of the statements in program order, those inside control
+/// constructs and function bodies included.
+fn nested_pipelines<'b>(statements: &'b [BoundStatement], found: &mut Vec<&'b BoundPipeline>) {
+    for statement in statements {
+        match statement {
+            BoundStatement::Pipeline(pipeline) => found.push(pipeline),
+            BoundStatement::Let(binding) => found.push(&binding.value),
+            BoundStatement::When(construct) => {
+                for branch in &construct.branches {
+                    nested_pipelines(&branch.body, found);
+                }
+                if let Some(body) = &construct.otherwise {
+                    nested_pipelines(body, found);
+                }
+            }
+            BoundStatement::Each(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Repeat(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::While(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Steps(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Define(construct) => nested_pipelines(&construct.body, found),
+            _ => {}
+        }
+    }
+}
+
 /// Inputs of one program execution.
 struct Run<'a> {
+    sink: Arc<ContinuationSink>,
+    resume: Option<ResumeOverride>,
     compiled: &'a Compiled,
     prepared: &'a Prepared,
     kind: &'a ProgramKind,
@@ -1761,8 +2215,16 @@ fn report_of(
         .last()
         .map(|operation| operation.index)
         .filter(|_| !several);
+    let parts: Vec<ReportPart> = operations
+        .iter()
+        .filter_map(|operation| operation.construct.as_ref())
+        .flat_map(|construct| construct.parts.clone())
+        .collect();
     for operation in operations {
         builder = add_operation(builder, operation, last);
+    }
+    if !parts.is_empty() {
+        builder = builder.parts(parts);
     }
     if let Some(error) = error {
         builder = builder.error(error);
@@ -1855,7 +2317,7 @@ fn failure(
 /// Response with the result rendered for the options of the request; the
 /// messages and notes of the report are put into the requested language
 /// first.
-fn respond_with(report: &Report, options: &RequestOptions) -> Response {
+pub(crate) fn respond_with(report: &Report, options: &RequestOptions) -> Response {
     match options.language {
         Some(language @ Language::Pl) => {
             let mut localized = report.clone();
@@ -1872,10 +2334,70 @@ fn localized(mut error: Error, language: Language) -> Error {
     error
 }
 
-fn failed_report(kind: &str, error: Error) -> Report {
+pub(crate) fn failed_report(kind: &str, error: Error) -> Report {
     let mut report = Report::new(ReportStatus::Failed, kind);
     report.error = Some(error);
     report
+}
+
+/// The remainder of a reading result: the records that the first page
+/// leaves out, the lines of the first page that stages cut (`cuts`, as far as
+/// the page shows them) and the cursor of a query that continues after the
+/// records; `None` when nothing is left and nothing was cut.
+fn records_request(
+    report: &Report,
+    limit: u32,
+    resume: Option<String>,
+    cuts: &[CutLine],
+) -> Option<ContinuationRequest> {
+    let rows = &report.records.as_ref()?.rows;
+    if !report.changes.is_empty() {
+        return None;
+    }
+    let size = usize::try_from(limit).unwrap_or(usize::MAX).max(1);
+    let shown = rows.len().min(size);
+    let rest = rows[shown..].to_vec();
+    let cut: Vec<CutLine> = cuts
+        .iter()
+        .filter(|line| {
+            rows[..shown].iter().any(|row| {
+                row.get("path").and_then(Value::as_str) == Some(line.path.as_str())
+                    && match row.get("no") {
+                        Some(Value::Int(no)) => u64::try_from(*no).ok() == Some(line.no),
+                        _ => true,
+                    }
+            })
+        })
+        .cloned()
+        .collect();
+    if rest.is_empty() && cut.is_empty() && resume.is_none() {
+        return None;
+    }
+    Some(ContinuationRequest {
+        id: None,
+        unit: ContinuationUnit::Records,
+        shown: u64::try_from(shown).unwrap_or(u64::MAX),
+        remaining: if resume.is_some() {
+            -1
+        } else {
+            i64::try_from(rest.len()).unwrap_or(i64::MAX)
+        },
+        cut_lines: u64::try_from(cut.len()).unwrap_or(u64::MAX),
+        source: ContinuationSource::Records {
+            rows: rest,
+            cut,
+            resume,
+        },
+    })
+}
+
+/// Runs the program of a continuation again from its cursor, for `next`.
+struct EngineRunner(Engine);
+
+impl ResumeRunner for EngineRunner {
+    fn resume(&self, program: &str, resume: ResumeOverride) -> Result<ResumedPart, Error> {
+        self.0.resume_part(program, resume)
+    }
 }
 
 fn has_items(report: &Report) -> bool {
@@ -2298,3 +2820,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

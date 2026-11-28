@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_edit.rs
+// Responsibility:   Byte edits, offset maps, line diffs and the scope, meaning and identity guards.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Byte edits, offset maps, line diffs and the scope, meaning and identity
 //! guards.
 // Helpers outside `#[test]` functions fail the test on invalid fixtures.
@@ -536,3 +544,7 @@ fn report_keeps_one_notable_effect_per_code() {
     assert_eq!(report.notable[0].detail.as_deref(), Some("a.b"));
     assert_eq!(report.notable[1].detail, None);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

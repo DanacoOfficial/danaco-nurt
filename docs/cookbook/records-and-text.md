@@ -5,6 +5,13 @@ title: Records and text processing
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cookbook/records-and-text.md -->
+<!-- Responsibility:   Documents Records and text processing. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Records and text processing
 
 ## Sort records by a field
@@ -309,9 +316,13 @@ id
 Update rows of a database file and show the number of rows that changed.
 
 ```nurt example
-sql "/home/user/app/data.db" "update users set active = 0 where last_seen < ?" params: ["2025-01-01"] write: true
+sql "/home/user/app/data.db" "update users set active = 0 where last_seen < ?" params: ["2025-01-01"]
 ```
 
 ```text expected
 rows_changed
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

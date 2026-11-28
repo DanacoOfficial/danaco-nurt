@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/perf.rs
+// Responsibility:   Timing targets of the `program` commands on a synthetic system: 2000 executables in `PATH`, 300 dpkg packages and 300 compressed manual pages.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Timing targets of the `program` commands on a synthetic system: 2000
 //! executables in `PATH`, 300 dpkg packages and 300 compressed manual pages.
 //!
@@ -192,3 +200,7 @@ fn search_cold_disk_cache_and_warm_within_targets() {
         DISK_CACHE_SEARCH_TARGET,
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

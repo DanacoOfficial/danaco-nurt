@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::push
+// Responsibility:   The `git.push` command.
+// Dependencies:     bstr, gix, nurt_contracts, nurt_git, nurt_git_transport
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `git.push` command.
 //!
 //! `git.push` updates references of a remote with local commits through the
@@ -832,7 +840,16 @@ fn common_dir_of(repo: &gix::Repository) -> PathBuf {
         return git_dir.to_path_buf();
     }
     let joined = git_dir.join(common);
-    std::fs::canonicalize(&joined).unwrap_or(joined)
+    let resolved = std::fs::canonicalize(&joined).unwrap_or(joined);
+    // `canonicalize` gives a Windows path the verbatim prefix `\\?\`, which
+    // an absolute path of the journal does not carry; a UNC path keeps it.
+    match resolved
+        .to_str()
+        .and_then(|text| text.strip_prefix(r"\\?\"))
+    {
+        Some(plain) if !plain.starts_with("UNC\\") => PathBuf::from(plain),
+        _ => resolved,
+    }
 }
 
 fn resolve_remote(repo: &gix::Repository, root: &Path, remote: &str) -> Result<Remote> {
@@ -2161,7 +2178,7 @@ mod tests {
         let local = Fixture::new();
         local.config(&format!(
             "[remote \"origin\"]\n\turl = {}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n",
-            remote.root().display()
+            remote.root().display().to_string().replace('\\', "/")
         ));
         local
     }
@@ -2669,7 +2686,7 @@ mod tests {
     #[test]
     fn keeps_credentials_of_an_address_out_of_the_remote_name() {
         let dir = tempfile::tempdir().unwrap();
-        let repo = gix::init(dir.path()).unwrap();
+        let repo = nurt_git::testutil::init_isolated(dir.path()).unwrap();
         let address = "https://user:secret@127.0.0.1:1/r.git";
         let remote = resolve_remote(&repo, dir.path(), address).unwrap();
         assert_eq!(remote.name, "https://127.0.0.1:1/r.git");
@@ -2822,3 +2839,7 @@ mod tests {
         assert!(PushCommand.as_effect().is_some());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

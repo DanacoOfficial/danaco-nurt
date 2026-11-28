@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::commands::space
+// Responsibility:   Stage of the `journal.space` command.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stage of the `journal.space` command: free space, reclaimable journal
 //! space and the thresholds of each volume, as reported by the space service
 //! through the journal store.
@@ -102,7 +110,7 @@ mod tests {
         assert_eq!(listed.len(), 2);
         assert_eq!(
             listed[0].get("mount"),
-            Some(&Value::Path("/home".to_owned()))
+            Some(&Value::Path(nurt_testkit::paths::abs("/home")))
         );
         assert_eq!(listed[0].get("journal"), Some(&Value::Bool(true)));
         assert_eq!(listed[1].get("journal"), Some(&Value::Bool(false)));
@@ -113,13 +121,19 @@ mod tests {
 
         let home = call(
             NAME,
-            &[("volume", Value::Path("/home/user/docs".to_owned()))],
+            &[(
+                "volume",
+                Value::Path(nurt_testkit::paths::abs("/home/user/docs")),
+            )],
         );
         let listed = read(&Space, &home, &ctx).unwrap();
         assert_eq!(listed.len(), 1);
         let error = read(
             &Space,
-            &call(NAME, &[("volume", Value::Path("/srv".to_owned()))]),
+            &call(
+                NAME,
+                &[("volume", Value::Path(nurt_testkit::paths::abs("/srv")))],
+            ),
             &ctx,
         )
         .unwrap_err();
@@ -134,3 +148,7 @@ mod tests {
         assert_eq!(error.code, ErrorCode::ServiceNotRunning);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

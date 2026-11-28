@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs
+// Responsibility:   Platform-independent file system layer of Danaco Nurt.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Platform-independent file system layer of Danaco Nurt.
 //!
@@ -15,6 +22,10 @@
 #![allow(unsafe_code, reason = "file system calls of the operating system")]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+#[cfg(unix)]
+pub mod account;
+#[cfg(unix)]
+mod account_secure;
 #[cfg(feature = "archive")]
 pub mod archive;
 #[cfg(feature = "mutation-audit")]
@@ -73,3 +84,7 @@ mod tests {
         assert!(root.starts_with(&volume.mount));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

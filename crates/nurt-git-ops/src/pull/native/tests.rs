@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::pull::native::tests
+// Responsibility:   Tests of the fetch and rebase adapters against repositories in temporary directories; the remote of the fetch is a second local repository.
+// Dependencies:     gix, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the fetch and rebase adapters against repositories in temporary
 //! directories; the remote of the fetch is a second local repository.
 
@@ -44,7 +52,7 @@ impl Pair {
         local.set_ref("refs/remotes/origin/main", base);
         local.config(&format!(
             "[remote \"origin\"]\n\turl = {}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = Puller\n\temail = puller@example.com\n[branch \"main\"]\n\tremote = origin\n\tmerge = refs/heads/main\n",
-            remote.root().display()
+            remote.root().display().to_string().replace('\\', "\\\\")
         ));
         local.checkout(tip);
         Self {
@@ -61,7 +69,7 @@ impl Pair {
     }
 
     fn branch(&self) -> ObjectId {
-        let repo = gix::open(self.local.root()).unwrap();
+        let repo = nurt_git::testutil::open_isolated(self.local.root()).unwrap();
         repo.find_reference("refs/heads/main")
             .unwrap()
             .into_fully_peeled_id()
@@ -144,7 +152,7 @@ fn fetch_plans_the_tracking_update_and_fetch_head() {
     );
     assert!(outcome.objects_received > 0);
     assert!(
-        gix::open(pair.local.root())
+        nurt_git::testutil::open_isolated(pair.local.root())
             .unwrap()
             .has_object(pair.upstream)
     );
@@ -203,7 +211,7 @@ fn rebase_replays_local_commits_onto_the_fetched_head() {
     let pair = Pair::new(LOCAL);
     let outcome = rebase(&pair, RebaseKind::Plain).unwrap();
 
-    let repo = gix::open(pair.local.root()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(pair.local.root()).unwrap();
     let rebased = repo.find_commit(pair.branch()).unwrap();
     assert_eq!(rebased.parent_ids().next().unwrap().detach(), pair.upstream);
     assert_eq!(pair.read("a.txt"), "a\nb\n");
@@ -259,3 +267,7 @@ fn tracking_refspec_maps_an_exact_configured_refspec() {
         "refs/heads/dev:refs/remotes/exact/dev"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

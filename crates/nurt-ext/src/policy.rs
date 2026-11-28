@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ext::policy
+// Responsibility:   Paths an extension may reach through calls of the host.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Paths an extension may reach through calls of the host.
 //!
 //! The permissions of the manifest name directories, absolute or starting
@@ -81,14 +89,16 @@ impl PlaceholderRoots {
 ///     write: vec!["${project}/out".to_owned()],
 ///     network: Vec::new(),
 /// };
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// # let at = |path: &str| std::path::PathBuf::from(format!("{root}{path}"));
 /// let roots = PlaceholderRoots {
-///     project: Some("/srv/app".into()),
+///     project: Some(at("/srv/app")),
 ///     ..PlaceholderRoots::default()
 /// };
 /// let policy = PathPolicy::new("acme", &permissions, &roots);
-/// assert!(policy.grants_read(std::path::Path::new("/srv/app/src/main.rs")));
-/// assert!(!policy.grants_write(std::path::Path::new("/srv/app/src/main.rs")));
-/// assert!(!policy.grants_read(std::path::Path::new("/etc/passwd")));
+/// assert!(policy.grants_read(&at("/srv/app/src/main.rs")));
+/// assert!(!policy.grants_write(&at("/srv/app/src/main.rs")));
+/// assert!(!policy.grants_read(&at("/etc/passwd")));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathPolicy {
@@ -239,11 +249,14 @@ mod tests {
     fn policy() -> PathPolicy {
         let permissions = Permissions {
             read: vec!["${project}".to_owned(), "${home}/.acme".to_owned()],
-            write: vec!["${project}/out".to_owned(), "/var/acme".to_owned()],
+            write: vec![
+                "${project}/out".to_owned(),
+                nurt_testkit::paths::abs("/var/acme"),
+            ],
             network: Vec::new(),
         };
         let roots = PlaceholderRoots {
-            project: Some("/project".into()),
+            project: Some(nurt_testkit::paths::abs_path("/project")),
             ..PlaceholderRoots::default()
         };
         PathPolicy::new("acme", &permissions, &roots)
@@ -263,13 +276,13 @@ mod tests {
     #[test]
     fn grants_follow_the_expanded_permissions() {
         let policy = policy();
-        assert!(policy.grants_read(Path::new("/project/src/a.txt")));
-        assert!(policy.grants_read(Path::new("/var/acme/cache")));
-        assert!(policy.grants_write(Path::new("/project/out/x")));
-        assert!(!policy.grants_write(Path::new("/project/src/a.txt")));
-        assert!(!policy.grants_read(Path::new("/projects/other")));
-        assert!(!policy.grants_read(Path::new("/project/../secret/key")));
-        assert!(!policy.grants_read(Path::new("/home/user/.acme")));
+        assert!(policy.grants_read(&nurt_testkit::paths::abs_path("/project/src/a.txt")));
+        assert!(policy.grants_read(&nurt_testkit::paths::abs_path("/var/acme/cache")));
+        assert!(policy.grants_write(&nurt_testkit::paths::abs_path("/project/out/x")));
+        assert!(!policy.grants_write(&nurt_testkit::paths::abs_path("/project/src/a.txt")));
+        assert!(!policy.grants_read(&nurt_testkit::paths::abs_path("/projects/other")));
+        assert!(!policy.grants_read(&nurt_testkit::paths::abs_path("/project/../secret/key")));
+        assert!(!policy.grants_read(&nurt_testkit::paths::abs_path("/home/user/.acme")));
     }
 
     #[test]
@@ -277,14 +290,25 @@ mod tests {
         let fs = fs();
         let policy = policy();
         assert_eq!(
-            policy.check_read("/project/src/a.txt", &fs).unwrap(),
+            policy
+                .check_read(nurt_testkit::paths::abs("/project/src/a.txt").as_str(), &fs)
+                .unwrap(),
             test_path("/project/src/a.txt").unwrap()
         );
-        policy.check_write("/project/out/new.txt", &fs).unwrap();
-        let denied = policy.check_read("/secret/key", &fs).unwrap_err();
+        policy
+            .check_write(
+                nurt_testkit::paths::abs("/project/out/new.txt").as_str(),
+                &fs,
+            )
+            .unwrap();
+        let denied = policy
+            .check_read(nurt_testkit::paths::abs("/secret/key").as_str(), &fs)
+            .unwrap_err();
         assert_eq!(denied.code(), ErrorCode::Permission);
         assert!(denied.message.contains("permissions.read"));
-        let denied = policy.check_write("/project/src/a.txt", &fs).unwrap_err();
+        let denied = policy
+            .check_write(nurt_testkit::paths::abs("/project/src/a.txt").as_str(), &fs)
+            .unwrap_err();
         assert_eq!(denied.code(), ErrorCode::Permission);
         let relative = policy.check_read("project/src/a.txt", &fs).unwrap_err();
         assert_eq!(relative.code(), ErrorCode::PathRelative);
@@ -293,14 +317,30 @@ mod tests {
     #[test]
     fn links_cannot_lead_outside_granted_directories() {
         let fs = fs();
-        fs.symlink("/secret", &test_path("/project/escape").unwrap())
-            .unwrap();
+        fs.symlink(
+            nurt_testkit::paths::abs("/secret").as_str(),
+            &test_path("/project/escape").unwrap(),
+        )
+        .unwrap();
         let policy = policy();
-        let denied = policy.check_read("/project/escape/key", &fs).unwrap_err();
+        let denied = policy
+            .check_read(
+                nurt_testkit::paths::abs("/project/escape/key").as_str(),
+                &fs,
+            )
+            .unwrap_err();
         assert_eq!(denied.code(), ErrorCode::Permission);
-        fs.symlink("/project/src", &test_path("/project/inner").unwrap())
+        fs.symlink(
+            nurt_testkit::paths::abs("/project/src").as_str(),
+            &test_path("/project/inner").unwrap(),
+        )
+        .unwrap();
+        policy
+            .check_read(
+                nurt_testkit::paths::abs("/project/inner/a.txt").as_str(),
+                &fs,
+            )
             .unwrap();
-        policy.check_read("/project/inner/a.txt", &fs).unwrap();
     }
 
     #[test]
@@ -315,3 +355,7 @@ mod tests {
         assert!(!policy.grants_read(Path::new("relative/x")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

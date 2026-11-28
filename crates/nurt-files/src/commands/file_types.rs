@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::file_types
+// Responsibility:   File types of the `file_type` parameter of `find` and `search` and of the `exclude_file_type` parameter of `search`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! File types of the `file_type` parameter of `find` and `search` and of the
 //! `exclude_file_type` parameter of `search`.
 //!
@@ -348,3 +356,7 @@ mod tests {
         assert!(!wildcard(b"exact", b"exactly"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sys/tests/registry_windows.rs
+// Responsibility:   Tests of the `registry:` provider on the registry of a running Windows system.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `registry:` provider on the registry of a running Windows
 //! system.
 //!
@@ -171,3 +179,7 @@ fn it_registry_wow64_views_differ() {
     let view32 = provider.in_view(RegistryView::Bits32).list(&key).unwrap();
     assert_ne!(view64, view32);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

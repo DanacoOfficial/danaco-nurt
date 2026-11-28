@@ -1,8 +1,16 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/Rpc/ProcessBackend.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/Rpc/ProcessBackend.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,19 +61,19 @@ internal sealed class ProcessBackend : IBackend
     {
         var parameters = new SyntaxParams { Program = program, Variant = WireFormat.VariantName(variant) };
         JsonElement result = await CallAsync("parse", Serialize(parameters), cancellationToken).ConfigureAwait(false);
-        return new ParseResult(JsonRead.Property(result, "ast"), JsonRead.Property(result, "diagnostics"), JsonRead.Property(result, "error"));
+        return new ParseResult(JsonRead.Property(result, "ast"), JsonRead.Property(result, "diagnostics"), LanguageError.ErrorElement(result));
     }
 
     public async Task<string> PrintAsync(JsonElement ast, NotationVariant variant, CancellationToken cancellationToken)
     {
         var parameters = new SyntaxParams { Ast = ast, Variant = WireFormat.VariantName(variant) };
-        return Text(await CallAsync("print", Serialize(parameters), cancellationToken).ConfigureAwait(false), "print");
+        return Text(await QueryAsync("print", Serialize(parameters), cancellationToken).ConfigureAwait(false), "print");
     }
 
     public async Task<CorrectResult> CorrectAsync(string program, NotationVariant variant, CancellationToken cancellationToken)
     {
         var parameters = new SyntaxParams { Program = program, Variant = WireFormat.VariantName(variant) };
-        return new CorrectResult(await CallAsync("correct", Serialize(parameters), cancellationToken).ConfigureAwait(false));
+        return new CorrectResult(await CallAsync("correct", Serialize(parameters), cancellationToken).ConfigureAwait(false), program);
     }
 
     public async Task<NurtResponse> PageAsync(string cursor, int? limit, CancellationToken cancellationToken)
@@ -78,27 +86,27 @@ internal sealed class ProcessBackend : IBackend
     {
         var subject = new DescribeSubjectParams
         {
-            Subject = selector.Layer == "core" ? "core" : selector.Name ?? "core",
+            Subject = selector.Name ?? selector.Layer,
             Language = selector.Language,
         };
         byte[] parameters = JsonSerializer.SerializeToUtf8Bytes(subject, WireJsonContext.Default.DescribeSubjectParams);
-        return Text(await CallAsync("describe", parameters, cancellationToken).ConfigureAwait(false), "describe");
+        return Text(await QueryAsync("describe", parameters, cancellationToken).ConfigureAwait(false), "describe");
     }
 
     public async Task<string> HelpAsync(string? topic, CancellationToken cancellationToken)
     {
         byte[] parameters = JsonSerializer.SerializeToUtf8Bytes(new HelpParams { Topic = topic }, WireJsonContext.Default.HelpParams);
-        return Text(await CallAsync("help", parameters, cancellationToken).ConfigureAwait(false), "help");
+        return Text(await QueryAsync("help", parameters, cancellationToken).ConfigureAwait(false), "help");
     }
 
     public Task<JsonElement> CatalogAsync(JsonElement? what, CancellationToken cancellationToken) =>
-        CallAsync("catalog", Members(what), cancellationToken);
+        CallAsync("catalog", CatalogMembers(what), cancellationToken);
 
     public Task<JsonElement> SchemaAsync(string which, CancellationToken cancellationToken) =>
-        CallAsync("schema", JsonSerializer.SerializeToUtf8Bytes(new SchemaParams { Which = which }, WireJsonContext.Default.SchemaParams), cancellationToken);
+        QueryAsync("schema", JsonSerializer.SerializeToUtf8Bytes(new SchemaParams { Which = which }, WireJsonContext.Default.SchemaParams), cancellationToken);
 
     public Task<JsonElement> HistoryAsync(JsonElement? query, CancellationToken cancellationToken) =>
-        CallAsync("history", Members(query), cancellationToken);
+        CallAsync("history", HistoryMembers(query), cancellationToken);
 
     public Task<JsonElement> SpaceAsync(string? volume, CancellationToken cancellationToken) =>
         CallAsync("space", JsonSerializer.SerializeToUtf8Bytes(new SpaceParams { Volume = volume }, WireJsonContext.Default.SpaceParams), cancellationToken);
@@ -126,10 +134,100 @@ internal sealed class ProcessBackend : IBackend
     private static byte[]? Members(JsonElement? value) =>
         value is { } present ? WireFormat.Compact(present) : null;
 
-    /// <summary>Reads a text result: an object with the member <c>text</c> or <c>description</c>, or a JSON string.</summary>
-    private static string Text(JsonElement result, string method) => result.ValueKind == JsonValueKind.String
-        ? result.GetString()!
-        : JsonRead.String(result, "text") ?? JsonRead.String(result, "description") ?? throw new NurtCallException(CallStatus.Internal, method + ": result carries no text");
+    /// <summary>The parameters of <c>catalog</c>: the selection of a group or a command is the member <c>what</c>.</summary>
+    private static byte[]? CatalogMembers(JsonElement? what)
+    {
+        if (what is not { } selection || selection.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WritePropertyName("what");
+            selection.WriteTo(writer);
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
+
+    /// <summary>The parameters of <c>history</c>: an object is the query itself, the text of a query is the member <c>query</c>.</summary>
+    private static byte[]? HistoryMembers(JsonElement? query)
+    {
+        if (query is not { ValueKind: JsonValueKind.String } text)
+        {
+            return Members(query);
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("query", text.GetString());
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
+
+    /// <summary>
+    /// Reads a text result: a JSON string, an object with the member <c>text</c>, or an object whose member
+    /// <c>description</c> is a string or an object with the member <c>text</c>.
+    /// </summary>
+    private static string Text(JsonElement result, string method)
+    {
+        if (result.ValueKind == JsonValueKind.String)
+        {
+            return result.GetString()!;
+        }
+
+        if (JsonRead.String(result, "text") is { } text)
+        {
+            return text;
+        }
+
+        if (JsonRead.Property(result, "description") is { } description)
+        {
+            if (description.ValueKind == JsonValueKind.String)
+            {
+                return description.GetString()!;
+            }
+
+            if (JsonRead.String(description, "text") is { } described)
+            {
+                return described;
+            }
+        }
+
+        throw new NurtCallException(CallStatus.Internal, method + ": result carries no text");
+    }
+
+    /// <summary>
+    /// Calls a method that has no response of its own to carry a language error. The server answers such an error
+    /// with a failed response, which is raised: an unknown value of an argument as <see cref="CallStatus.InvalidArgument"/>,
+    /// any other error as <see cref="NurtLanguageException"/>.
+    /// </summary>
+    private async Task<JsonElement> QueryAsync(string method, byte[]? parameters, CancellationToken cancellationToken)
+    {
+        JsonElement result = await CallAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+        if (JsonRead.Property(result, "report") is not { } report || JsonRead.String(report, "status") != "failed")
+        {
+            return result;
+        }
+
+        NurtResponse response = NurtResponse.FromElement(result);
+        if (response.Error is not { } error)
+        {
+            return result;
+        }
+
+        throw error.Code == "E_UNKNOWN_VALUE"
+            ? new NurtCallException(CallStatus.InvalidArgument, error.Code + ": " + error.Message)
+            : new NurtLanguageException(response);
+    }
 
     private async Task<JsonElement> CallAsync(string method, byte[]? parameters, CancellationToken cancellationToken)
     {
@@ -166,3 +264,7 @@ internal sealed class ProcessBackend : IBackend
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

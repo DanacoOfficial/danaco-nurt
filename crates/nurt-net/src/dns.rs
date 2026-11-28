@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-net::dns
+// Responsibility:   Name resolution.
+// Dependencies:     hickory_resolver, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Name resolution.
 //!
 //! `network.resolve` sends DNS queries to the servers of the system
@@ -881,7 +889,13 @@ mod tests {
     fn missing_resolv_conf_gives_defaults() {
         let dir = tempfile::tempdir().unwrap();
         let config = ResolverConfig::system(&SysRoot::new(dir.path())).unwrap();
-        assert_eq!(config, ResolverConfig::from_resolv_conf(""));
+        if cfg!(windows) {
+            // Windows has no resolv.conf: the servers come from the network
+            // interfaces of the system, and there is always one.
+            assert!(!config.servers.is_empty());
+        } else {
+            assert_eq!(config, ResolverConfig::from_resolv_conf(""));
+        }
     }
 
     #[test]
@@ -949,3 +963,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

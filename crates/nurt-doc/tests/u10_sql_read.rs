@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_read.rs
+// Responsibility:   Reading SQLite databases with `sql` and the checks that keep a read from changing files.
+// Dependencies:     nurt_contracts, rusqlite, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reading SQLite databases with `sql` and the checks that keep a read from
 //! changing files.
 
@@ -24,7 +32,7 @@ use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 use u10_support::{
     CtxOptions, RecordingTx, SHORT_BUSY, args, cells, code, context, count, ctx, database, failure,
-    read, row, text, write,
+    literal_text, read, row, text, write,
 };
 
 /// One table with a column of every storage class.
@@ -164,7 +172,7 @@ fn numbers_rows_per_statement_of_several_statements() {
 }
 
 #[test]
-fn refuses_changing_statement_without_write_and_offers_fix() {
+fn write_false_refuses_changing_statement_and_offers_fix() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let before = fs::read(&db).unwrap();
@@ -183,7 +191,7 @@ fn refuses_changing_statement_without_write_and_offers_fix() {
         error.fix,
         [format!(
             "sql \"{}\" \"select 1; delete from users where id = ?\" params: [7] write: true",
-            text(&db)
+            literal_text(&db)
         )]
     );
     assert_eq!(fs::read(&db).unwrap(), before);
@@ -191,7 +199,7 @@ fn refuses_changing_statement_without_write_and_offers_fix() {
 }
 
 #[test]
-fn refuses_attach_detach_and_directory_pragmas() {
+fn write_false_refuses_attach_detach_and_directory_pragmas() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let other = dir.path().join("other.db");
@@ -201,22 +209,15 @@ fn refuses_attach_detach_and_directory_pragmas() {
         ("pragma temp_store_directory = '/tmp'".to_owned(), "pragma"),
     ];
     for (query, problem) in cases {
-        for write_allowed in [false, true] {
-            let call = args(&db, &query, Vec::new(), write_allowed);
-            let error = if write_allowed {
-                failure(write(&call, &ctx(), &mut RecordingTx::new()))
-            } else {
-                failure(read(&call, &ctx()))
-            };
-            assert_eq!(error.code(), ErrorCode::Sql, "{query}");
-            assert_eq!(error.problem.as_deref(), Some(problem), "{query}");
-        }
+        let error = failure(read(&args(&db, &query, Vec::new(), false), &ctx()));
+        assert_eq!(error.code(), ErrorCode::Sql, "{query}");
+        assert_eq!(error.problem.as_deref(), Some(problem), "{query}");
     }
     assert!(!other.exists());
 }
 
 #[test]
-fn refuses_vacuum_into_without_creating_the_file() {
+fn write_false_refuses_vacuum_into_without_creating_the_file() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let other = dir.path().join("other.db");
@@ -224,17 +225,11 @@ fn refuses_vacuum_into_without_creating_the_file() {
     let read_error = failure(read(&args(&db, &query, Vec::new(), false), &ctx()));
     assert_eq!(read_error.code(), ErrorCode::Sql);
     assert_eq!(read_error.problem.as_deref(), Some("write_required"));
-    let write_error = failure(write(
-        &args(&db, &query, Vec::new(), true),
-        &ctx(),
-        &mut RecordingTx::new(),
-    ));
-    assert_eq!(write_error.code(), ErrorCode::Sql);
     assert!(!other.exists());
 }
 
 #[test]
-fn refuses_loading_extensions() {
+fn write_false_refuses_loading_extensions() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let lib = dir.path().join("ext.so");
@@ -496,3 +491,7 @@ fn rejects_arguments_of_other_types() {
     );
     assert_eq!(code(read(&path, &ctx())), ErrorCode::Type);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,10 +1,17 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos
+// Responsibility:   MacOS back end.
+// Dependencies:     acl, attrlist, errno, meta, names, space, sys, volume
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! macOS back end.
 //!
-//! [`MacosFs`] implements the file system interface with the calls of macOS:
+//! `MacosFs` implements the file system interface with the calls of macOS:
 //! `renamex_np` with `RENAME_SWAP` and `RENAME_EXCL` for exchange and rename
 //! without replacement, `clonefile` for block-sharing clones on APFS,
 //! `F_FULLFSYNC` for durable flushes, extended attributes including the
@@ -13,7 +20,7 @@
 //! the capacity keys of Core Foundation, which report the space ordinary
 //! programs can use.
 //!
-//! The functions and types exported next to [`MacosFs`] hold the logic that
+//! The functions and types exported next to `MacosFs` hold the logic that
 //! needs no system call (classification of `errno` values, volume types,
 //! attribute buffers, ACL text, space figures and flag arithmetic). They
 //! are compiled on every system so that they are tested independently of
@@ -52,3 +59,7 @@ pub use volume::{
     VOL_CAP_INT_RENAME_SWAP, VolumeCapabilities, device_number, statfs_name, volume_features,
     volume_kind,
 };
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

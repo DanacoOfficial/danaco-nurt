@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::convert
+// Responsibility:   `convert`: explicit change of the encoding, the line endings or the byte order mark of text files.
+// Dependencies:     nurt_contracts, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `convert`: explicit change of the encoding, the line endings or the byte
 //! order mark of text files.
 //!
@@ -451,7 +459,7 @@ mod tests {
     use nurt_contracts::stage::{ArgValue, StageData};
     use nurt_contracts::value::Value;
     use nurt_testkit::ctx::TestContext;
-    use nurt_testkit::fixtures::begin_request;
+    use nurt_testkit::fixtures::{begin_request, racy_time_ns};
     use nurt_testkit::journal::JournalCall;
     use nurt_testkit::vfs::test_path;
 
@@ -819,6 +827,23 @@ mod tests {
     }
 
     #[test]
+    fn a_same_size_rewrite_that_kept_the_modification_time_fails_with_stale() {
+        let test = with_files(&[("/data/a.txt", b"a\r\n")]);
+        let path = abs("/data/a.txt");
+        let racy = racy_time_ns();
+        test.fs().set_modified(&path, racy).unwrap();
+        let given = args(&["/data/a.txt"], &[("line_ending", choice("lf"))]);
+        let ctx = test.ctx();
+        let plan = Convert.plan(&given, StageInput::none(), &ctx).unwrap();
+        test.fs().write_file(&path, b"b\r\n").unwrap();
+        test.fs().set_modified(&path, racy).unwrap();
+        let mut tx = test.journal().begin(begin_request(COMMAND));
+        let error = Convert.apply(&given, plan, tx.as_mut(), &ctx).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"b\r\n");
+    }
+
+    #[test]
     fn a_file_changed_after_the_plan_fails_with_stale() {
         let test = with_files(&[("/data/a.txt", b"a\r\n")]);
         let given = args(&["/data/a.txt"], &[("line_ending", choice("lf"))]);
@@ -1042,3 +1067,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

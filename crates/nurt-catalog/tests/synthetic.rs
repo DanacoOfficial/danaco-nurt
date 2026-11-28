@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-catalog/tests/synthetic.rs
+// Responsibility:   Tests of catalog loading, validation, extensions and results on synthetic catalogs.
+// Dependencies:     common, nurt_contracts, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of catalog loading, validation, extensions and results on synthetic
 //! catalogs.
 
@@ -447,9 +455,9 @@ fn summary_result_lists_groups_with_counts() {
     let registry = Registry::load_embedded().unwrap();
     let result = registry.catalog_json(&CatalogQuery::Summary).unwrap();
     assert_eq!(result["format"], CATALOG_RESULT_FORMAT);
-    assert_eq!(result["total"], 148);
+    assert_eq!(result["total"], 177);
     assert_eq!(result["groups"][0]["name"], "core");
-    assert_eq!(result["groups"][0]["commands"], 33);
+    assert_eq!(result["groups"][0]["commands"], 34);
     assert_eq!(result["groups"][0]["origin"], "core");
     assert_eq!(result["catalog_rev"], registry.catalog_rev().unwrap());
 }
@@ -567,3 +575,7 @@ fn group_and_command_results_list_the_extension_commands() {
     assert_eq!(summary["total"], 3);
     assert_eq!(summary["groups"][1]["name"], "acme");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::package
+// Responsibility:   Package managers.
+// Dependencies:     detect, exec, index, installed, nurt_contracts, nurt_programs, root, version
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Package managers.
 //!
 //! `package.list` and `package.search` read the databases and repository
@@ -815,3 +823,7 @@ fn call_failure(call: &Invocation, outcome: &ProgramOutcome) -> Error {
         format!("{} {status}: {tail}", call.program),
     )
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

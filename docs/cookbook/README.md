@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cookbook/README.md -->
+<!-- Responsibility:   Documents Cookbook. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Cookbook
 
 Each recipe states a problem, a program, the expected result and, where useful, the equivalent in bash and PowerShell. The programs use variant A of the language and are checked against the command catalog.
@@ -19,3 +27,7 @@ Each recipe states a problem, a program, the expected result and, where useful, 
 | [Searching and reading](search-and-read.md) | 25 |
 | [Source code](source-code.md) | 25 |
 | [System and processes](system-and-processes.md) | 26 |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

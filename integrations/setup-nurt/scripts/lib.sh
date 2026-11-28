@@ -2,10 +2,18 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/setup-nurt/scripts/lib.sh
+# Responsibility:   Functions used by setup-nurt.sh.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Functions used by setup-nurt.sh. Compatible with bash 3.2 (macOS runners).
 
-RELEASES_URL_DEFAULT='https://api.github.com/repos/DanacoOfficial/nurt/releases?per_page=100'
-DOWNLOAD_BASE_DEFAULT='https://github.com/DanacoOfficial/nurt/releases/download'
+RELEASES_URL_DEFAULT='https://api.github.com/repos/DanacoOfficial/danaco-nurt/releases?per_page=100'
+DOWNLOAD_BASE_DEFAULT='https://github.com/DanacoOfficial/danaco-nurt/releases/download'
 SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
 
 die() {
@@ -417,3 +425,7 @@ extract_archive() {
     *) die "unknown archive format: $archive" ;;
   esac
 }
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

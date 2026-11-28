@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::bash
+// Responsibility:   Translation of commands written in bash notation into Nurt programs.
+// Dependencies:     lex, nurt_contracts, params, table
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of commands written in bash notation into Nurt programs.
 //!
 //! A statement whose first word belongs to the habit word set and which
@@ -26,12 +34,16 @@
 //! assert!(bash::translate("remove \"/srv/app/build\"").is_none());
 //! ```
 
+mod admin;
 mod awk;
 mod catalog;
+mod compound;
+mod construct;
 mod detect;
 mod engine;
 mod find;
 mod lex;
+mod params;
 mod pattern;
 mod produce;
 mod sed;
@@ -50,6 +62,7 @@ pub use lex::{
     HereDoc, LexError, Operator, PosixToken, PosixTokenKind, Quoting, Redirect, RedirectOp, Word,
     WordPart, lex,
 };
+pub use params::{ParamKind, Rewritten, ScriptParam, rewrite_positionals};
 pub use table::{BashTable, TABLE_FORMAT, TableError};
 
 /// How the translated text is executed.
@@ -70,6 +83,16 @@ pub enum Mode {
     Script,
 }
 
+/// A function defined earlier in the script, so that a call of it is a call
+/// and not a program.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionSignature {
+    /// Name of the function.
+    pub name: String,
+    /// Number of its parameters.
+    pub params: usize,
+}
+
 /// Context of a translation.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TranslateContext<'a> {
@@ -78,6 +101,8 @@ pub struct TranslateContext<'a> {
     pub base: Option<&'a str>,
     /// Names of results bound with `let` earlier in the program or script.
     pub lets: &'a [String],
+    /// Functions defined earlier in the script.
+    pub functions: &'a [FunctionSignature],
     /// Execution mode.
     pub mode: Mode,
 }
@@ -246,11 +271,15 @@ pub fn translate(input: &str) -> Option<Translation> {
 /// use nurt_contracts::error::ErrorCode;
 /// use nurt_correct::bash::{TranslateContext, translate_with};
 ///
-/// let error = translate_with("sudo rm -f /etc/x", &TranslateContext::default())
+/// let translation = translate_with("sudo rm -f /etc/x", &TranslateContext::default())
 ///     .expect("a bash habit")
-///     .expect_err("sudo is not translated");
-/// assert_eq!(error.code(), ErrorCode::Uncorrectable);
-/// assert_eq!(error.data().fix, vec!["remove \"/etc/x\"".to_owned()]);
+///     .expect("sudo is translated");
+/// assert_eq!(translation.text(), "remove \"/etc/x\" privilege: elevated");
+///
+/// let error = translate_with("sudo -i", &TranslateContext::default())
+///     .expect("a bash habit")
+///     .expect_err("an elevated session is not a command");
+/// assert_eq!(error.code(), ErrorCode::Ambiguous);
 /// ```
 #[must_use]
 pub fn translate_with(
@@ -356,3 +385,7 @@ mod tests {
         assert_eq!(translation.text(), "remove \"/srv/zażółć\"");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

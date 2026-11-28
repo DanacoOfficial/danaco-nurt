@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::remove
+// Responsibility:   `remove`: removes files, links and directory trees, and lines and matches from files.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `remove`: removes files, links and directory trees, and lines and
 //! matches from files.
 //!
@@ -240,7 +248,7 @@ impl Planner<'_> {
                 self.ctx.checkpoint()?;
             }
             match source.observe(self.fs)? {
-                Observed::Present(meta) => present.push((source.path, meta)),
+                Observed::Present(meta, _) => present.push((source.path, meta)),
                 Observed::Absent if self.on_missing == OnMissing::Skip => self.summary.missing += 1,
                 Observed::Absent => return Err(missing_error(&source.path)),
             }
@@ -343,7 +351,7 @@ impl Planner<'_> {
             let file = read_text(self.ctx, &edit.path, EncodingParam::Auto)?;
             check_if_match(
                 &edit.path,
-                &Observed::Present(file.meta.clone()),
+                &Observed::Present(file.meta.clone(), Some(file.hash)),
                 edit.etag.as_ref(),
             )?;
             edit.etag = Some(file.etag());
@@ -459,7 +467,7 @@ impl TextEdit {
         let file = read_text(ctx, &self.path, EncodingParam::Auto)?;
         check_if_match(
             &self.path,
-            &Observed::Present(file.meta.clone()),
+            &Observed::Present(file.meta.clone(), Some(file.hash)),
             self.etag.as_ref(),
         )?;
         Ok(file)
@@ -1014,3 +1022,7 @@ mod tests {
         assert_journaled(&test);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

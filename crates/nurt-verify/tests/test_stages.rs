@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-verify/tests/test_stages.rs
+// Responsibility:   The test commands through the public stage list, with the test program standing in for a framework (`go`) and for a custom runner (`tap`).
+// Dependencies:     analyze_support, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The test commands through the public stage list, with the test program
 //! standing in for a framework (`go`) and for a custom runner (`tap`).
 
@@ -25,9 +33,13 @@ fn go_report() -> String {
 }
 
 fn corpus(relative: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/test")
-        .join(relative);
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/data/test")
+    .join(relative);
     std::fs::read_to_string(path).unwrap()
 }
 
@@ -151,8 +163,25 @@ fn run_reads_the_results_of_a_custom_command_in_tap_format() {
     assert_eq!(number(&header, "failed"), Some(1));
 }
 
+/// Fingerprint reported by a run of the test program in the project.
+///
+/// A test program built for coverage measurement writes its own profile
+/// (`*.profraw`) into the directory it runs in; the files are removed after
+/// the run, so that the next fingerprint covers the files of the project only.
 fn fingerprint_of(ctx: &nurt_contracts::stage::ExecCtx, workspace: &Workspace) -> String {
     let (output, _) = apply(ctx, "test.run", &run_args(workspace, &[])).unwrap();
+    for entry in std::fs::read_dir(workspace.project.path())
+        .unwrap()
+        .flatten()
+    {
+        let path = entry.path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "profraw")
+        {
+            std::fs::remove_file(path).unwrap();
+        }
+    }
     field(&output.header.unwrap(), "fingerprint")
         .unwrap()
         .to_owned()
@@ -289,3 +318,7 @@ fn negative_limits_are_rejected_with_a_fix() {
     .unwrap();
     assert_eq!(error.code(), ErrorCode::InvalidValue);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

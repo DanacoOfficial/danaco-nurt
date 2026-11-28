@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-conformance::binding
+// Responsibility:   Binding cases `nurt-binding-cases/1`.
+// Dependencies:     nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Binding cases `nurt-binding-cases/1`.
 //!
@@ -342,7 +349,7 @@ impl BindingExpect {
             if let Some(raw_pointer) = raw_pointer(view, view_pointer)
                 && raw.pointer(&raw_pointer).is_none()
             {
-                pointer::insert(&mut raw, &raw_pointer, json!("present"));
+                pointer::insert(&mut raw, &raw_pointer, present_value(&raw_pointer));
             }
         }
         if view == View::Text && raw.get(member::TEXT).is_none() {
@@ -352,6 +359,9 @@ impl BindingExpect {
             for (name, default) in required_members(call) {
                 members.entry(name).or_insert(default);
             }
+        }
+        if call == "describe" {
+            engine_description(&mut raw);
         }
         if view == View::Object && self.outcome == Outcome::LanguageError {
             pointer::insert(
@@ -378,10 +388,30 @@ impl BindingExpect {
 fn required_members(call: &str) -> Vec<(&'static str, Value)> {
     match call {
         "parse" | "check" => vec![(member::DIAGNOSTICS, json!([]))],
-        "describe" => vec![("description", json!(""))],
         "history" => vec![("operations", json!([]))],
         "space" => vec![("volumes", json!([]))],
         _ => Vec::new(),
+    }
+}
+
+/// Gives the result of `describe` the shape of the engine: the text is the
+/// member `text` of the object `description`, as in
+/// `{"description": {"text": "..."}}`, not a member of the result itself.
+fn engine_description(raw: &mut Value) {
+    let Some(members) = raw.as_object_mut() else {
+        return;
+    };
+    let text = members.remove(member::TEXT).unwrap_or_else(|| json!(""));
+    members.insert("description".to_owned(), json!({member::TEXT: text}));
+}
+
+/// Value of a member that an expectation requires without naming a value:
+/// the position of an error is an object, everything else is text.
+fn present_value(raw_pointer: &str) -> Value {
+    if raw_pointer.ends_with("/error/at") {
+        json!({"line": 1, "column": 1})
+    } else {
+        json!("present")
     }
 }
 
@@ -479,6 +509,23 @@ mod tests {
     }
 
     #[test]
+    fn a_required_error_position_is_an_object() {
+        let expect: BindingExpect = serde_json::from_value(json!({
+            "outcome": "language_error", "code": "E_SYNTAX",
+            "present": ["/error/at", "/error/message"]
+        }))
+        .unwrap();
+        let Answer::Result(raw) = expect.answer("run", View::Response) else {
+            panic!("result expected")
+        };
+        assert_eq!(
+            raw["report"]["error"]["at"],
+            json!({"line": 1, "column": 1})
+        );
+        assert_eq!(raw["report"]["error"]["message"], "error");
+    }
+
+    #[test]
     fn answers_meet_the_expectations() {
         let expect: BindingExpect = serde_json::from_value(json!({
             "outcome": "language_error", "code": "E_SYNTAX",
@@ -501,6 +548,18 @@ mod tests {
         assert_eq!(
             text.answer("print", View::Text),
             Answer::Result(json!({"text": "count\n"}))
+        );
+        let described: BindingExpect =
+            serde_json::from_value(json!({"outcome": "ok", "fields": {"/value": "Danaco Nurt"}}))
+                .unwrap();
+        assert_eq!(
+            described.answer("describe", View::Text),
+            Answer::Result(json!({"description": {"text": "Danaco Nurt"}}))
+        );
+        let undescribed: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
+        assert_eq!(
+            undescribed.answer("describe", View::Text),
+            Answer::Result(json!({"description": {"text": ""}}))
         );
         let empty: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
         assert_eq!(
@@ -579,3 +638,7 @@ mod tests {
         assert!(load_dir(&dir.path().join("none"), &schemas).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

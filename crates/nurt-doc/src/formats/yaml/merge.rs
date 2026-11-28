@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::yaml::merge
+// Responsibility:   Keys of YAML mappings: merge keys `<<` and explicit keys `? `.
+// Dependencies:     indexmap, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Keys of YAML mappings: merge keys `<<` and explicit keys `? `.
 //!
 //! A merge key inserts the entries of other mappings into the mapping that
@@ -404,3 +412,7 @@ mod tests {
         assert!(check_new_key(&"k".repeat(MAX_IMPLICIT_KEY_BYTES + 1)).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

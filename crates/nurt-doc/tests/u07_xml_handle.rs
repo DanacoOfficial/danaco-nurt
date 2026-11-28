@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u07_xml_handle.rs
+// Responsibility:   The format `xml` through the document model.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The format `xml` through the document model: registration, detection,
 //! changes in other encodings and the round-trip harness of the shared
 //! guards on `tests/d5/corpus/xml/core`.
@@ -30,7 +38,12 @@ const GUARD_CONSTRUCTS: [&str; 2] = ["doc.out_of_scope_change", "doc.semantic_mi
 const SHOWN: usize = 10;
 
 fn corpus() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/xml/core")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/xml/core")
 }
 
 fn key(text: &str) -> KeyPath {
@@ -256,3 +269,7 @@ fn harness_structural_changes_differ_only_by_xml_value_rules() {
         summary.unsupported
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

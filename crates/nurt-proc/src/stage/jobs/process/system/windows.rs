@@ -1,25 +1,41 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::jobs::process::system::windows
+// Responsibility:   Processes of Windows.
+// Dependencies:     nurt_contracts, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Processes of Windows.
 //!
 //! A process is opened once and the handle keeps naming it, so a signal never
 //! reaches another process that received the identifier later. Every signal
 //! that `stop` accepts ends the process at once, as `Stop-Process` does;
 //! Windows has no way to ask a process that is not a console program to end.
+//! `suspend` and `resume` stop and continue every thread of the process with
+//! `NtSuspendProcess` and `NtResumeProcess`.
 
 use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::Signal;
-use windows_sys::Win32::Foundation::FILETIME;
+use windows_sys::Win32::Foundation::{FILETIME, HANDLE, NTSTATUS};
 use windows_sys::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_TERMINATE, TerminateProcess,
+    PROCESS_SUSPEND_RESUME, PROCESS_TERMINATE, TerminateProcess,
 };
 
 use super::Condition;
+
+#[link(name = "ntdll", kind = "raw-dylib")]
+unsafe extern "system" {
+    fn NtSuspendProcess(process: HANDLE) -> NTSTATUS;
+    fn NtResumeProcess(process: HANDLE) -> NTSTATUS;
+}
 
 /// Error code of `OpenProcess` for an identifier that names no process.
 const ERROR_INVALID_PARAMETER: i32 = 87;
@@ -52,7 +68,7 @@ impl Handle {
         // SAFETY: plain call; a null result is checked below.
         let raw = unsafe {
             OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | PROCESS_SUSPEND_RESUME,
                 0,
                 pid,
             )
@@ -133,32 +149,38 @@ impl Handle {
         ))
     }
 
-    /// Suspends the process; not available on Windows.
+    /// Stops every thread of the process.
     ///
     /// # Errors
     ///
-    /// Always fails with `E_UNSUPPORTED`.
+    /// Fails with `E_IO` when the system refuses to suspend the process.
     pub(crate) fn suspend(&self) -> Result<()> {
-        Err(unsupported("suspend"))
+        // SAFETY: the handle is open with `PROCESS_SUSPEND_RESUME` access.
+        let status = unsafe { NtSuspendProcess(self.process.as_raw_handle()) };
+        checked(status, "suspend")
     }
 
-    /// Continues the process; not available on Windows.
+    /// Continues every thread of the process.
     ///
     /// # Errors
     ///
-    /// Always fails with `E_UNSUPPORTED`.
+    /// Fails with `E_IO` when the system refuses to resume the process.
     pub(crate) fn resume(&self) -> Result<()> {
-        Err(unsupported("resume"))
+        // SAFETY: the handle is open with `PROCESS_SUSPEND_RESUME` access.
+        let status = unsafe { NtResumeProcess(self.process.as_raw_handle()) };
+        checked(status, "resume")
     }
 }
 
-fn unsupported(action: &str) -> Error {
-    Error::new(
-        ErrorCode::Unsupported,
-        format!(
-            "`{action}` does not act on processes of Windows; use it on a job or end the process with `stop`"
-        ),
-    )
+/// Turns the status of a native call into a result.
+fn checked(status: NTSTATUS, action: &str) -> Result<()> {
+    if status >= 0 {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorCode::Io,
+        format!("cannot {action} the process: status 0x{status:08X}"),
+    ))
 }
 
 fn filetime(time: &FILETIME) -> u64 {
@@ -189,3 +211,7 @@ fn started(process: &OwnedHandle) -> Option<i64> {
     let since_epoch = filetime(&created).checked_sub(EPOCH_DIFFERENCE)?;
     i64::try_from(since_epoch.checked_mul(FILETIME_UNIT_NANOSECONDS)?).ok()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

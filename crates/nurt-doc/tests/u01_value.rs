@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_value.rs
+// Responsibility:   Number lexemes, scalar rendering, value comparison, quoting rules and value edits.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Number lexemes, scalar rendering, value comparison, quoting rules and
 //! value edits.
 // Helpers outside `#[test]` functions fail the test on invalid fixtures.
@@ -441,3 +449,7 @@ fn removing_the_document_root_leaves_null() {
     apply_remove(&mut root, &KeyPath::root(), &MapSemantics::LAST_WINS).expect("removes root");
     assert_eq!(root, Value::Null);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

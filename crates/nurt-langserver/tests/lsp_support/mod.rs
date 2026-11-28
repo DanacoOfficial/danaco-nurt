@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-langserver/tests/lsp_support/mod.rs
+// Responsibility:   Client side of in-memory language server sessions and a matcher for expected protocol messages.
+// Dependencies:     lsp_server, nurt_bind, nurt_contracts, nurt_help, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Client side of in-memory language server sessions and a matcher for
 //! expected protocol messages.
 
@@ -30,7 +38,12 @@ const CATALOG_INDEX: &str = "_index.toml";
 
 /// Root of the workspace.
 pub(crate) fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 /// Paths of the catalog files of the workspace, without the index, in name
@@ -269,3 +282,7 @@ fn apply(operator: &str, operand: &Value, actual: &Value, path: &str) -> Option<
         _ => panic!("unknown operator {operator}"),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

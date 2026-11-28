@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::repl
+// Responsibility:   The interactive session (`nurt repl`).
+// Dependencies:     crossterm, nurt_contracts, nurt_core, reedline, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The interactive session (`nurt repl`).
 //!
 //! On a terminal the session uses the line editor with a history file in the
@@ -32,6 +40,7 @@ use reedline::{
 
 use crate::EngineSource;
 use crate::app::{CliError, Context, Io, Terminal};
+use crate::banner;
 use crate::complete::{TokenKind, Vocabulary};
 use crate::exit;
 use crate::output::{self, Style as Palette};
@@ -274,6 +283,7 @@ pub struct Session<'a> {
     next_job: u32,
     last: u8,
     interrupt: Interrupt,
+    id: String,
 }
 
 enum Flow {
@@ -292,6 +302,14 @@ impl<'a> Session<'a> {
     /// Creates a session on `engine`; `style` colours the output.
     #[must_use]
     pub fn new(engine: &'a Engine, style: Palette) -> Self {
+        let id = format!(
+            "repl:{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos())
+        );
+        engine.set_console(Some(id.clone()));
         Self {
             engine,
             style,
@@ -299,6 +317,7 @@ impl<'a> Session<'a> {
             next_job: 1,
             last: exit::SUCCESS,
             interrupt: Interrupt::new(),
+            id,
         }
     }
 
@@ -308,6 +327,12 @@ impl<'a> Session<'a> {
     pub fn with_interrupt(mut self, interrupt: Interrupt) -> Self {
         self.interrupt = interrupt;
         self
+    }
+
+    /// Identifier of the session in the engine.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     /// Exit code of the last program that ran.
@@ -472,37 +497,6 @@ impl<'a> Session<'a> {
     }
 }
 
-/// Number of columns of the banner art that are painted in silver.
-const SILVER_COLUMNS: usize = 14;
-
-/// Paints the drawing of the banner with the colours of the mark: the first
-/// two letters in silver, the last two in gold. Without colour the banner is
-/// returned unchanged.
-#[must_use]
-pub fn coloured_banner(banner: &str, enabled: bool, theme: Theme) -> String {
-    if !enabled {
-        return banner.to_owned();
-    }
-    let art_rows = nurt_contracts::product::BANNER_ART.len();
-    let (silver, gold) = (theme.silver_escape(), theme.gold_escape());
-    banner
-        .lines()
-        .enumerate()
-        .map(|(index, line)| {
-            if index >= art_rows {
-                return line.to_owned();
-            }
-            let split = line
-                .char_indices()
-                .nth(SILVER_COLUMNS)
-                .map_or(line.len(), |(at, _)| at);
-            let (left, right) = line.split_at(split);
-            format!("{silver}{left}{gold}{right}\x1b[0m")
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 /// The prompt of the session: the default prompt with the colours of the
 /// identity, the name in gold and the indicator in silver.
 struct BrandPrompt {
@@ -571,11 +565,16 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     let interrupt = Interrupt::new();
     let mut session =
         Session::new(&context.engine, context.out_style).with_interrupt(interrupt.clone());
-    if let Some(banner) = banner_for(*terminal) {
+    if banner_for(*terminal).is_some() {
         writeln!(
             out,
             "{}",
-            coloured_banner(&banner, context.out_style.is_enabled(), Theme::detect())
+            banner::session_banner(
+                text::VERSION,
+                &|name| std::env::var(name).ok(),
+                context.out_style.is_enabled(),
+                Theme::detect(),
+            )
         )?;
         if let Err(problem) = interrupt.install_handler() {
             let _ = writeln!(err, "nurt: Ctrl-C does not cancel programs: {problem}");
@@ -595,6 +594,7 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     } else {
         session.run(&mut PlainLines::new(*input), *out, *err)?;
     }
+    context.engine.end_session(Some(session.id()));
     Ok(session.last_exit_code())
 }
 
@@ -609,37 +609,6 @@ mod tests {
             "format": "nurt-catalog-result/1",
             "commands": [{"name": "find", "params": [{"name": "path"}]}]
         })])
-    }
-
-    #[test]
-    fn banner_art_is_painted_in_two_colours_and_the_text_is_not() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        let painted = coloured_banner(&banner, true, Theme::new(false));
-        let lines: Vec<&str> = painted.lines().collect();
-        assert!(
-            lines[0].starts_with("\x1b[38;5;251m _   _  _   _ \x1b[38;5;179m"),
-            "{}",
-            lines[0]
-        );
-        assert!(lines[0].ends_with("\x1b[0m"));
-        assert_eq!(lines[6], "Danaco Nurt 1.2.3");
-    }
-
-    #[test]
-    fn banner_art_has_the_exact_colours_of_the_mark_on_a_truecolor_terminal() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        let painted = coloured_banner(&banner, true, Theme::new(true));
-        let first = painted.lines().next().unwrap();
-        assert!(
-            first.starts_with("\x1b[38;2;195;200;206m _   _  _   _ \x1b[38;2;212;174;110m"),
-            "{first}"
-        );
-    }
-
-    #[test]
-    fn banner_is_unchanged_without_colour() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        assert_eq!(coloured_banner(&banner, false, Theme::new(true)), banner);
     }
 
     #[test]
@@ -668,29 +637,6 @@ mod tests {
         assert_eq!(split_word("bg\tfind \"/srv\""), ("bg", "find \"/srv\""));
         assert_eq!(split_word("pom\u{f3}c  \u{15b}"), ("pom\u{f3}c", "\u{15b}"));
         assert_eq!(split_word(""), ("", ""));
-    }
-
-    #[test]
-    fn banner_lines_shorter_than_the_silver_part_are_painted_whole() {
-        let theme = Theme::new(false);
-        let painted = coloured_banner("ab", true, theme);
-        assert_eq!(
-            painted,
-            format!("{}ab{}\x1b[0m", theme.silver_escape(), theme.gold_escape())
-        );
-    }
-
-    #[test]
-    fn banner_rows_below_the_art_are_not_painted() {
-        let rows = nurt_contracts::product::BANNER_ART.len();
-        let mut text = vec!["x"; rows].join("\n");
-        text.push_str("\nDanaco Nurt 1.0.0\n\u{142}");
-        let painted = coloured_banner(&text, true, Theme::new(true));
-        let lines: Vec<&str> = painted.lines().collect();
-        assert_eq!(lines.len(), rows + 2);
-        assert!(lines[0].starts_with("\x1b[38;2;"));
-        assert_eq!(lines[rows], "Danaco Nurt 1.0.0");
-        assert_eq!(lines[rows + 1], "\u{142}");
     }
 
     #[test]
@@ -748,3 +694,7 @@ mod tests {
         assert!(EditorLines::new(&vocabulary(), temp.path().to_path_buf()).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

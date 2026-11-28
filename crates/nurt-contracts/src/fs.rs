@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::fs
+// Responsibility:   File system interface.
+// Dependencies:     schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! File system interface.
 //!
@@ -37,7 +44,7 @@ use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
 use std::path::{Component, Path, PathBuf, Prefix};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -65,6 +72,28 @@ pub type FsResult<T> = std::result::Result<T, FsError>;
 pub struct AbsPath(PathBuf);
 
 impl AbsPath {
+    /// Absolute path from a POSIX-style literal of a test. On Windows a
+    /// leading `/` gets the drive `C:`, so one literal names an absolute
+    /// path on every platform.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the literal is not an absolute path.
+    #[doc(hidden)]
+    #[must_use]
+    #[allow(clippy::expect_used)] // test-support constructor; a wrong literal is a defect of the test
+    pub fn for_test(text: &str) -> Self {
+        #[cfg(windows)]
+        let text = if text.starts_with('/') && !text.starts_with("//") {
+            format!("C:{text}")
+        } else {
+            text.to_owned()
+        };
+        #[cfg(not(windows))]
+        let text = text.to_owned();
+        Self::new(text).expect("absolute test path")
+    }
+
     /// Creates an absolute path after lexical normalisation.
     ///
     /// # Errors
@@ -427,7 +456,12 @@ pub struct FileId {
 ///
 /// Carried in records from the read stage to the mutation stage. Two tags
 /// match when size, modification time and file identity are equal; `hash` is
-/// compared only when both tags carry it ([`Etag::matches`]). A mismatch
+/// compared only when both tags carry it ([`Etag::matches`]). A read stage
+/// that read the content puts the hash of the bytes it returned into the tag,
+/// because a same-size rewrite within the timestamp granularity of the file
+/// system changes none of the other fields; the journal then compares the hash
+/// with the current content. A tag from metadata only (`list`, `find`, `info`,
+/// the git apply) is checked by metadata. A mismatch
 /// between the tag and the state at mutation time yields `E_STALE`. When
 /// `hash` is present, the journal reuses it as the hash of the previous
 /// content without reading the file again.
@@ -456,6 +490,71 @@ impl Etag {
             && self.modified_ns == other.modified_ns
             && self.file_id == other.file_id
             && hashes_agree
+    }
+}
+
+/// Kind of a special entry that the journal can create: a named pipe or a
+/// device node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum SpecialKind {
+    /// Named pipe (FIFO).
+    Fifo,
+    /// Character device node.
+    Char,
+    /// Block device node.
+    Block,
+}
+
+impl SpecialKind {
+    /// Name used by the language: `fifo`, `char` or `block`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fifo => "fifo",
+            Self::Char => "char",
+            Self::Block => "block",
+        }
+    }
+}
+
+/// A special entry: its kind and, for a device node, its device numbers.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::fs::{SpecialKind, SpecialNode};
+///
+/// let node = SpecialNode::device(SpecialKind::Char, 1, 3);
+/// assert_eq!((node.major, node.minor), (1, 3));
+/// assert_eq!(SpecialNode::fifo().kind, SpecialKind::Fifo);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub struct SpecialNode {
+    /// Kind of the entry.
+    pub kind: SpecialKind,
+    /// Major device number; 0 for a named pipe.
+    pub major: u32,
+    /// Minor device number; 0 for a named pipe.
+    pub minor: u32,
+}
+
+impl SpecialNode {
+    /// A named pipe.
+    #[must_use]
+    pub const fn fifo() -> Self {
+        Self {
+            kind: SpecialKind::Fifo,
+            major: 0,
+            minor: 0,
+        }
+    }
+
+    /// A device node of `kind` with the given numbers.
+    #[must_use]
+    pub const fn device(kind: SpecialKind, major: u32, minor: u32) -> Self {
+        Self { kind, major, minor }
     }
 }
 
@@ -517,7 +616,34 @@ pub struct FileMeta {
     pub windows_attributes: u32,
 }
 
+/// Width of the window before "now" in which a modification time does not
+/// tell two contents apart. File systems store modification times with a
+/// granularity from a few milliseconds (ZFS, ext4 without multigrain
+/// timestamps) up to 2 s (FAT) and 1 s (HFS+), so a rewrite of the same size
+/// within that window can leave the stored time unchanged. 3 s covers the
+/// coarsest of them. A file modified inside the window is racy, as in the Git
+/// index.
+pub const RACY_WINDOW: Duration = Duration::from_secs(3);
+
+/// Modification times at or after the returned value (nanoseconds since the
+/// Unix epoch) are racy for a reader that looks at `now`.
+#[must_use]
+pub fn racy_cutoff_ns(now: SystemTime) -> i64 {
+    let cutoff = now.checked_sub(RACY_WINDOW).unwrap_or(UNIX_EPOCH);
+    cutoff.duration_since(UNIX_EPOCH).map_or(0, |since| {
+        i64::try_from(since.as_nanos()).unwrap_or(i64::MAX)
+    })
+}
+
 impl FileMeta {
+    /// Whether a rewrite of this file at the time of `now` could leave its
+    /// size, modification time and identity unchanged: a regular file whose
+    /// modification time lies within [`RACY_WINDOW`] before `now` or after it.
+    #[must_use]
+    pub fn is_racy(&self, now: SystemTime) -> bool {
+        self.kind == FileKind::File && self.modified_ns >= racy_cutoff_ns(now)
+    }
+
     /// Entity tag of this state, without content hash.
     pub fn etag(&self) -> Etag {
         Etag {
@@ -1057,6 +1183,18 @@ pub trait Fs: Send + Sync {
     /// [`Follow::Follow`]) or [`FsErrorKind::Io`].
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta>;
 
+    /// Kind and device numbers of a special entry (named pipe or device
+    /// node), or `None` for any other entry and for a volume that does not
+    /// report them.
+    ///
+    /// # Errors
+    ///
+    /// Fails as [`Fs::metadata`].
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let _ = path;
+        Ok(None)
+    }
+
     /// Complete metadata for exact restoration (extended attributes, ACL,
     /// flags, alternate streams, link target).
     ///
@@ -1340,6 +1478,32 @@ pub trait FsWrite: Fs {
     /// Fails with [`FsErrorKind::Exists`], and with [`FsErrorKind::NotFound`]
     /// for a missing parent.
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()>;
+
+    /// Creates a named pipe or a device node. With `mode` the permission bits
+    /// are set exactly, without following a symbolic link; without it the
+    /// umask of the process applies to the default `0666`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::Exists`], with [`FsErrorKind::NotFound`] for
+    /// a missing parent, with [`FsErrorKind::Privilege`] or
+    /// [`FsErrorKind::PermissionDenied`] for a device node without the
+    /// privilege, and with [`FsErrorKind::Unsupported`] on a volume or a
+    /// system without such entries (the default).
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        let _ = (scope, node, mode);
+        Err(FsError::new(
+            FsErrorKind::Unsupported,
+            "create_node",
+            Some(path.as_path()),
+        ))
+    }
 
     /// Creates a symbolic link or junction at `link` pointing to `target`.
     ///
@@ -1697,3 +1861,7 @@ pub trait RegistryAccess: Send + Sync {
     /// example a value at the root key.
     fn address(&self, path: &str, kind: RegistryKind) -> crate::error::Result<RegistryTarget>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

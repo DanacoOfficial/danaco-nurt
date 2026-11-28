@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/consistency.rs
+// Responsibility:   Checks of the coverage table against the catalog and against the coverage cases; they need no journal implementation and always run.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checks of the coverage table against the catalog and against the coverage
 //! cases; they need no journal implementation and always run.
 
@@ -13,26 +21,26 @@ use crate::catalog::{self, Command};
 use crate::table::{self, Coverage, CoverageTable, FORMAT};
 
 /// Commands of the catalog.
-const COMMANDS: usize = 148;
+const COMMANDS: usize = 177;
 /// Commands with at least one row that changes data.
-const CHANGING_COMMANDS: usize = 73;
+const CHANGING_COMMANDS: usize = 101;
 /// Commands whose rows only read.
-const READ_ONLY_COMMANDS: usize = 75;
+const READ_ONLY_COMMANDS: usize = 76;
 /// Rows of the table. A source row that lists several catalog actions is
 /// split into one row per action (`http.request` with the methods `post`,
 /// `put`, `patch`, `delete` and `options`).
-const ROWS: usize = 236;
+const ROWS: usize = 265;
 /// Rows per coverage value.
-const ROWS_FULL: usize = 112;
-const ROWS_PARTIAL: usize = 17;
-const ROWS_NONE: usize = 21;
-const ROWS_NO_EFFECT: usize = 86;
+const ROWS_FULL: usize = 120;
+const ROWS_PARTIAL: usize = 21;
+const ROWS_NONE: usize = 37;
+const ROWS_NO_EFFECT: usize = 87;
 /// Distinct row sets exercised by the cases: one per source row of the
 /// table, and one per parameter common to every command.
-const SOURCE_ROWS: usize = 232;
+const SOURCE_ROWS: usize = 261;
 const COMMON_PARAMETERS: usize = 5;
 /// Coverage cases, one per test function.
-const CASE_COUNT: usize = 278;
+const CASE_COUNT: usize = 307;
 
 fn rows_by_command(table: &CoverageTable) -> BTreeMap<&str, Vec<&table::Row>> {
     let mut by_command: BTreeMap<&str, Vec<&table::Row>> = BTreeMap::new();
@@ -228,3 +236,7 @@ fn every_row_and_case_resolve_to_each_other() {
         "common parameters exercised"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

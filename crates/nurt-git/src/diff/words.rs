@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::diff::words
+// Responsibility:   Word differences in the porcelain form of `git diff --word-diff=porcelain`.
+// Dependencies:     bstr, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Word differences in the porcelain form of `git diff --word-diff=porcelain`.
 //!
 //! Within a hunk, each run of removed and added lines is split into words
@@ -263,3 +271,7 @@ mod tests {
         assert_eq!(lines, [" a", "~", "-b", "+c"]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

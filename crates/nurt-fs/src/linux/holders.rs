@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::holders
+// Responsibility:   Processes holding a file open, found through `/proc/<pid>/fd`.
+// Dependencies:     nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Processes holding a file open, found through `/proc/<pid>/fd`.
 //!
 //! Descriptors of processes of other accounts are not readable without
@@ -50,3 +58,7 @@ pub(super) fn holders(path: &Path) -> FsResult<Vec<Holder>> {
     holders.sort_by_key(|holder| holder.pid);
     Ok(holders)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

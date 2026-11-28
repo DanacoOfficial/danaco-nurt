@@ -1,4 +1,14 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/winget/manifests/d/Danaco/Nurt/@VERSION@/Danaco.Nurt.installer.yaml.in
+# Responsibility:   Template of the installer manifest of Danaco Nurt for winget.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 PackageIdentifier: Danaco.Nurt
 PackageVersion: @VERSION@
@@ -12,10 +22,14 @@ Commands:
 ReleaseDate: @DATE@
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip
+  InstallerUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip
   InstallerSha256: @SHA256:x86_64-pc-windows-msvc@
 - Architecture: arm64
-  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip
+  InstallerUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip
   InstallerSha256: @SHA256:aarch64-pc-windows-msvc@
 ManifestType: installer
 ManifestVersion: 1.6.0
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

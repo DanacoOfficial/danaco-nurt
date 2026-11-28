@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::control::supervisor
+// Responsibility:   Supervision of one started tree.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Supervision of one started tree.
 //!
 //! Each tree has one thread per output stream, which copies the output to
@@ -568,3 +576,7 @@ fn wall_now() -> WallTime {
         .map_or(0, |since| since.as_nanos());
     WallTime::from_unix_nanos(i128::try_from(nanos).unwrap_or(i128::MAX))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::stage
+// Responsibility:   Execution of a command through its stage implementation, the way the executor runs it.
+// Dependencies:     nurt_contracts, nurt_git, nurt_git_ops
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of a command through its stage implementation, the way the
 //! executor runs it: static check, then the read interface, or plan and apply
 //! inside a journal transaction.
@@ -350,3 +358,7 @@ mod tests {
         assert_eq!(table.names().count(), count);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

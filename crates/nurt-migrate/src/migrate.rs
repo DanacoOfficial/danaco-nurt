@@ -1,11 +1,20 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-migrate::migrate
+// Responsibility:   Translation of a whole script, statement by statement.
+// Dependencies:     nurt_contracts, nurt_correct
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of a whole script, statement by statement.
 
 use nurt_contracts::ast::{Arg, AstDocument, Expr, Head, Pipeline, Program, Stage, Statement};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::CorrectionClass;
+use nurt_correct::bash::{FunctionSignature, ScriptParam, rewrite_positionals};
 
 use crate::language::ScriptLanguage;
 use crate::output::{self, Block};
@@ -136,6 +145,15 @@ pub fn migrate_with(
 ) -> Result<Migration, Error> {
     let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let normalized = source.replace("\r\n", "\n");
+    // The positional parameters of a bash script become the names of its
+    // `params`; the rewritten text is what the statements are read from.
+    let (normalized, params) = match language {
+        ScriptLanguage::Bash => {
+            let rewritten = rewrite_positionals(&normalized);
+            (rewritten.text, rewritten.params)
+        }
+        ScriptLanguage::PowerShell => (normalized, Vec::new()),
+    };
     let segments = segment::segment(&normalized, language)?;
     let script = options.script.clone().unwrap_or_else(|| {
         let extension = match language {
@@ -149,11 +167,13 @@ pub fn migrate_with(
         language,
         translator,
         lets: Vec::new(),
+        functions: Vec::new(),
         let_statements: Vec::new(),
         report: MigrationReport::new(language, &script),
         blocks: Vec::new(),
         directories: Vec::new(),
     };
+    session.declare_params(&params);
     for segment in &segments {
         session.segment(segment);
     }
@@ -165,6 +185,7 @@ struct Session<'a> {
     language: ScriptLanguage,
     translator: &'a dyn Translator,
     lets: Vec<LetBinding>,
+    functions: Vec<FunctionSignature>,
     let_statements: Vec<String>,
     report: MigrationReport,
     blocks: Vec<Block>,
@@ -181,6 +202,49 @@ struct Unit<'p> {
 }
 
 impl Session<'_> {
+    /// Declares the parameters found in the script as the `params` block that
+    /// starts the program.
+    fn declare_params(&mut self, params: &[ScriptParam]) {
+        if params.is_empty() {
+            return;
+        }
+        let mut text = String::from("params {");
+        for param in params {
+            text.push_str("\n    ");
+            text.push_str(&param.declaration());
+        }
+        text.push_str("\n}");
+        let names: Vec<&str> = params.iter().map(|param| param.name.as_str()).collect();
+        let source = format!("positional parameters: {}", names.join(", "));
+        let notes: Vec<String> = params
+            .iter()
+            .filter_map(|param| param.note.clone())
+            .collect();
+        let status = if notes.is_empty() {
+            Status::Translated
+        } else {
+            Status::Assumption
+        };
+        let mut item = Item::new(1, 1, &source, status);
+        item.rules.push("B42".to_owned());
+        item.assumptions = notes;
+        item.output = Some(text.clone());
+        self.blocks.push(Block {
+            start_line: 1,
+            end_line: 1,
+            lines: output::item_lines(&item),
+        });
+        self.report.items.push(item);
+        self.let_statements.push(text);
+        for param in params {
+            self.lets.push(LetBinding {
+                variable: param.name.clone(),
+                name: param.name.clone(),
+                record: None,
+            });
+        }
+    }
+
     fn segment(&mut self, segment: &Segment) {
         let text = segment.text(self.source);
         let unit = Unit {
@@ -276,6 +340,7 @@ impl Session<'_> {
             language: self.language,
             statement,
             lets: &self.lets,
+            functions: &self.functions,
         })
     }
 
@@ -317,7 +382,44 @@ impl Session<'_> {
         item.assumptions = assumptions;
         item.output = Some(output);
         self.record_lets(unit, &translation.tree, &translation.records);
+        self.record_functions(&translation.tree);
+        self.record_params(&translation.tree);
         self.push(unit, item);
+    }
+
+    /// Remembers the parameters a statement declares (the options of
+    /// `getopts`), so that the statements after it read them as names.
+    fn record_params(&mut self, tree: &AstDocument) {
+        for statement in &tree.program.statements {
+            let Statement::Params(params) = statement else {
+                continue;
+            };
+            let single = AstDocument::new(Program {
+                statements: vec![statement.clone()],
+            });
+            self.let_statements.push(self.translator.print(&single));
+            for param in &params.params {
+                self.lets.push(LetBinding {
+                    variable: param.name.clone(),
+                    name: param.name.clone(),
+                    record: None,
+                });
+            }
+        }
+    }
+
+    /// Remembers the functions a statement defines, so that a later call of
+    /// one is translated as a call.
+    fn record_functions(&mut self, tree: &AstDocument) {
+        for statement in &tree.program.statements {
+            if let Statement::Define(define) = statement {
+                self.functions.retain(|known| known.name != define.name);
+                self.functions.push(FunctionSignature {
+                    name: define.name.clone(),
+                    params: define.params.len(),
+                });
+            }
+        }
     }
 
     fn record_lets(
@@ -518,3 +620,7 @@ fn is_absolute(path: &str) -> bool {
         _ => false,
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

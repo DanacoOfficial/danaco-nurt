@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/tests/test_ci_tools.py
+# Responsibility:   Script test_ci_tools.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Tests of tools/ci/check-commits.sh and tools/ci/repo-hygiene.sh."""
 
 import os
@@ -150,6 +158,35 @@ class CheckCommitsTest(unittest.TestCase):
         result = self.check("HEAD~1..HEAD")
         self.assertEqual(result.returncode, 1)
         self.assertIn("longer than 72", result.stderr)
+
+    def allow_file(self, content):
+        path = Path(self.temp.name) / "commits-allow.txt"
+        path.write_text(content, encoding="utf-8")
+        self.environment["NURT_COMMITS_ALLOW_FILE"] = str(path)
+
+    def head(self):
+        return self.git("rev-parse", "HEAD").stdout.strip()
+
+    def test_skips_a_commit_listed_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example", signed=False)
+        self.allow_file(f"# published history\n{self.head()} published before the check\n")
+        result = self.check("HEAD~1..HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_checks_a_commit_that_is_not_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example")
+        listed = self.head()
+        self.commit("fix(nonexistent): correct the example again")
+        self.allow_file(f"{listed}\n")
+        result = self.check("HEAD~2..HEAD")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr.count("unknown scope"), 1)
+
+    def test_ignores_an_abbreviated_identifier_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example")
+        self.allow_file(f"{self.head()[:12]}\n")
+        result = self.check("HEAD~1..HEAD")
+        self.assertEqual(result.returncode, 1)
 
 
 class WorkflowCopiesTest(unittest.TestCase):
@@ -301,3 +338,7 @@ class WorkflowSupplyChainTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/abi_node.rs
+// Responsibility:   Interface tests in Node: a Node-API module is compiled with `clang` against the installed Node headers and loaded by a test script.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface tests in Node: `tests/abi/node/addon.c` is compiled with `clang`
 //! into a Node-API module against the headers of the installed Node and
 //! loaded by `tests/abi/node/abi_test.js` (feature `stub`) or
@@ -84,3 +92,7 @@ fn node_module_passes_the_interface_checks_on_the_engine() {
     let output = common::run_isolated(Command::new(node).arg(script).arg(&module), work.path());
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

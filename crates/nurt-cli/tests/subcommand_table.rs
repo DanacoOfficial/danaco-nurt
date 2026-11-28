@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/subcommand_table.rs
+// Responsibility:   The table of subcommands, the dispatcher, the usage text and the documentation list the same subcommands.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The table of subcommands, the dispatcher, the usage text and the
 //! documentation list the same subcommands.
 
@@ -168,3 +176,7 @@ fn exit_code_reference_lists_every_code() {
         assert!(EXIT_CODES.contains(&format!("| {code} |")), "{code}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

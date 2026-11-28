@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::bash::table
+// Responsibility:   Data of the bash translation table and of the habit word set.
+// Dependencies:     nurt_contracts, serde, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Data of the bash translation table and of the habit word set.
 //!
 //! The table is a TOML document of the format `nurt-correction-table/1`
@@ -797,7 +805,12 @@ mod tests {
     ];
 
     fn catalog() -> BTreeMap<String, CatalogParams> {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+        let dir = std::path::Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("../../catalog");
         let mut commands = BTreeMap::new();
         for file in std::fs::read_dir(&dir).unwrap() {
             let path = file.unwrap().path();
@@ -891,32 +904,43 @@ mod tests {
         stages
     }
 
+    /// Notes in `missing` what a stage of the table uses and the catalog does
+    /// not know.
+    fn stage_gaps(
+        catalog: &BTreeMap<String, CatalogParams>,
+        stage: &TemplateStage,
+        missing: &mut Vec<String>,
+    ) {
+        let Some(params) = catalog.get(&stage.name) else {
+            missing.push(format!("command {}", stage.name));
+            return;
+        };
+        for arg in &stage.args {
+            let Some(name) = &arg.name else { continue };
+            match params.get(name) {
+                None => missing.push(format!("parameter {}.{name}", stage.name)),
+                Some((values, _)) => {
+                    if let super::super::template::Node::Const(nurt_contracts::ast::Expr::Ident {
+                        v,
+                        ..
+                    }) = &arg.value
+                        && !values.is_empty()
+                        && !values.contains(v)
+                    {
+                        missing.push(format!("value {}.{name} = {v}", stage.name));
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn commands_parameters_and_values_exist_in_the_catalog() {
         let catalog = catalog();
         let table = BashTable::embedded().unwrap();
         let mut missing = Vec::new();
         for stage in stages_of(table) {
-            let Some(params) = catalog.get(&stage.name) else {
-                missing.push(format!("command {}", stage.name));
-                continue;
-            };
-            for arg in &stage.args {
-                let Some(name) = &arg.name else { continue };
-                match params.get(name) {
-                    None => missing.push(format!("parameter {}.{name}", stage.name)),
-                    Some((values, _)) => {
-                        if let super::super::template::Node::Const(
-                            nurt_contracts::ast::Expr::Ident { v, .. },
-                        ) = &arg.value
-                            && !values.is_empty()
-                            && !values.contains(v)
-                        {
-                            missing.push(format!("value {}.{name} = {v}", stage.name));
-                        }
-                    }
-                }
-            }
+            stage_gaps(&catalog, &stage, &mut missing);
         }
         for name in BUILT_STAGES {
             if !catalog.contains_key(*name) {
@@ -1003,7 +1027,7 @@ mod tests {
         let table = BashTable::embedded().unwrap();
         for rule in table.rules() {
             let number: u8 = rule.strip_prefix('B').unwrap().parse().unwrap();
-            assert!((1..=40).contains(&number), "{rule}");
+            assert!((1..=44).contains(&number), "{rule}");
         }
     }
 
@@ -1025,3 +1049,7 @@ mod tests {
         assert!(counts.contains(&("chmod".to_owned(), 2)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

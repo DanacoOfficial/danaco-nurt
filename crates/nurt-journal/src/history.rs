@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::history
+// Responsibility:   Journal entries as seen by `history`, `undo`, `redo` and `journal.pin`.
+// Dependencies:     nurt_contracts, nurt_testkit, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Journal entries as seen by `history`, `undo`, `redo` and `journal.pin`.
 //!
 //! [`JournalEntry`] joins the immutable manifest of an entry with its mutable
@@ -1139,7 +1147,7 @@ mod tests {
         assert_eq!(entry.irreversible[0].reason, Irreversible::JournalError);
         assert_eq!(
             entry.irreversible[0].path.as_deref(),
-            Some("/srv/app/src/a.go")
+            Some(nurt_testkit::paths::abs("/srv/app/src/a.go").as_str())
         );
     }
 
@@ -1262,3 +1270,7 @@ mod tests {
         assert!(listed(OpState::Partial).is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

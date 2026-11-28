@@ -1,13 +1,21 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::window
+// Responsibility:   Lines kept for one stream: the first and the last lines, the cutting of long lines and the shared byte budget of a response.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Lines kept for one stream: the first and the last lines, the cutting of
 //! long lines and the shared byte budget of a response.
 
 use std::collections::VecDeque;
 
 /// Characters of one line a response keeps; a longer line is cut and marked
-/// with `… [+N znaków]`.
+/// with `… [+N characters]`.
 pub(super) const MAX_LINE_CHARS: usize = 400;
 
 /// Line standing for the lines left out between the head and the tail.
@@ -94,6 +102,8 @@ pub(super) struct Window {
     pub(super) cut_lines: u64,
     /// First line of the file among the cut ones.
     pub(super) first_cut: Option<u64>,
+    /// Lines of the file that were cut, by line number.
+    pub(super) cut_at: Vec<u64>,
 }
 
 impl Window {
@@ -109,6 +119,7 @@ impl Window {
             if let Some(shorter) = cut_line(&line.text) {
                 line.text = shorter;
                 cut += 1;
+                self.cut_at.push(line.raw_start);
                 first = first.or(Some(line.raw_start));
             }
         }
@@ -186,7 +197,7 @@ impl Window {
 pub(super) fn cut_line(text: &str) -> Option<String> {
     let (end, _) = text.char_indices().nth(MAX_LINE_CHARS)?;
     let left = text[end..].chars().count();
-    Some(format!("{}\u{2026} [+{left} znak\u{f3}w]", &text[..end]))
+    Some(format!("{}\u{2026} [+{left} characters]", &text[..end]))
 }
 
 /// `text` cut to at most `limit` bytes, marked like a cut line.
@@ -198,7 +209,7 @@ fn clip_to_bytes(text: &str, limit: usize) -> String {
         end -= 1;
     }
     let left = text[end..].chars().count();
-    format!("{}\u{2026} [+{left} znak\u{f3}w]", &text[..end])
+    format!("{}\u{2026} [+{left} characters]", &text[..end])
 }
 
 fn separator_bytes(grouped: bool, earlier: u64, later: u64) -> usize {
@@ -328,6 +339,7 @@ impl Share {
             last.text = clip_to_bytes(&last.text, limit);
             window.cut_lines += 1;
             window.first_cut.get_or_insert(last.raw_start);
+            window.cut_at.push(last.raw_start);
         }
         window.head = head;
         window.tail = tail;
@@ -388,10 +400,10 @@ mod tests {
         let text = "a".repeat(MAX_LINE_CHARS + 25);
         let cut = cut_line(&text).unwrap();
         assert!(cut.starts_with(&"a".repeat(MAX_LINE_CHARS)));
-        assert!(cut.ends_with("\u{2026} [+25 znak\u{f3}w]"));
+        assert!(cut.ends_with("\u{2026} [+25 characters]"));
         assert_eq!(cut_line(&"b".repeat(MAX_LINE_CHARS)), None);
         let wide = "\u{105}".repeat(MAX_LINE_CHARS + 1);
-        assert!(cut_line(&wide).unwrap().ends_with("[+1 znak\u{f3}w]"));
+        assert!(cut_line(&wide).unwrap().ends_with("[+1 characters]"));
     }
 
     #[test]
@@ -441,7 +453,7 @@ mod tests {
         allocate(&mut windows, 120, &[0], &[0]);
         let text = windows[0].text();
         assert!(text.len() <= 120, "{}", text.len());
-        assert!(text.contains("znak\u{f3}w]"));
+        assert!(text.contains("characters]"));
         assert_eq!(windows[0].cut_lines, 1);
     }
 
@@ -463,3 +475,7 @@ mod tests {
         assert!(window.head.is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

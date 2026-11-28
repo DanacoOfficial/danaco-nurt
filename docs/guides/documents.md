@@ -6,6 +6,13 @@ commands: [read, set, query, sql, write, diff, find]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/documents.md -->
+<!-- Responsibility:   Documents documents. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # documents
 
@@ -36,7 +43,7 @@ A write that introduces a new syntax error into a known format is rolled back. `
 
 ## Databases
 
-`sql` runs statements on an SQLite database file. The database is opened read-only unless `write: true` is given, and a statement that changes data is then recorded in the journal like any other change.
+`sql` runs statements on an SQLite database file. A call whose statements only read opens the database read-only. A statement that changes anything opens it for writing, and the change is recorded in the journal like any other change: the database file and its `-wal`, `-shm` and `-journal` files are preserved first, and `undo` restores them. `write: true` is optional; `write: false` keeps the call read-only. `BEGIN`, `COMMIT` and `END` merge with the transaction of the call, `ROLLBACK` ends it with `E_ROLLED_BACK`, and `ATTACH`, `VACUUM INTO`, `VACUUM`, `load_extension` and the pragmas `temp_store_directory` and `data_store_directory` are allowed (see the command page).
 
 ```nurt
 sql "/srv/app/app.db" "select id, name from users where active = 1 limit 5"
@@ -45,3 +52,7 @@ sql "/srv/app/app.db" "select id, name from users where active = 1 limit 5"
 ## Errors
 
 `E_KEY_NOT_FOUND` names a key that does not exist and lists the keys at the nearest level. `E_KEY_SYNTAX` marks a malformed key path. `E_DOC_PARSE` means the file is not valid in its format, and `E_FORMAT` means the format could not be determined.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

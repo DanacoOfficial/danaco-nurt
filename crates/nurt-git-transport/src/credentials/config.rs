@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::credentials::config
+// Responsibility:   Credential settings of one remote address.
+// Dependencies:     nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Credential settings of one remote address: `credential.helper`,
 //! `credential.username` and `credential.useHttpPath`, including the
 //! `credential.<url>.*` subsections matched as `git` matches them.
@@ -127,7 +135,9 @@ pub(crate) fn classify(definition: &str) -> HelperKind {
         return HelperKind::Program(ProgramHelper::Script(definition.to_owned()));
     }
     let first = words.remove(0);
-    let absolute = Path::new(&first).is_absolute();
+    // Git takes a helper that starts with a separator as an absolute path,
+    // on Windows too, where such a path names the current drive.
+    let absolute = Path::new(&first).is_absolute() || first.starts_with(['/', '\\']);
     let name = if absolute {
         Path::new(&first)
             .file_stem()
@@ -264,7 +274,9 @@ mod tests {
         assert_eq!(classify("manager-core"), HelperKind::CredentialManager);
         assert_eq!(classify("wincred"), HelperKind::CredentialManager);
         assert_eq!(
-            classify("/usr/lib/git-core/git-credential-libsecret"),
+            classify(&nurt_testkit::paths::abs(
+                "/usr/lib/git-core/git-credential-libsecret"
+            )),
             HelperKind::SecretService
         );
     }
@@ -344,3 +356,7 @@ mod tests {
         assert_eq!(script.label(), "!");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

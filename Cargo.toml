@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           Cargo.toml
+# Responsibility:   Configuration or catalog data of Cargo.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 [workspace]
 resolver = "3"
@@ -12,8 +19,8 @@ edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 authors = ["Danaco Holding Group Sp. z o.o."]
-repository = "https://github.com/DanacoOfficial/nurt"
-homepage = "https://github.com/DanacoOfficial/nurt"
+repository = "https://github.com/DanacoOfficial/danaco-nurt"
+homepage = "https://github.com/DanacoOfficial/danaco-nurt"
 publish = false
 
 [workspace.lints.rust]
@@ -155,7 +162,7 @@ plist = "1.10.4"
 jaq-core = "3.1.2"
 jaq-std = "3.0.4"
 jaq-json = { path = "crates/jaq-json", version = "2.0.3" }
-rusqlite = { version = "0.43.0", features = ["bundled", "hooks"] }
+rusqlite = { version = "0.43.0", features = ["bundled", "hooks", "load_extension"] }
 rust-ini = "0.21.3"
 
 # Archives and compression.
@@ -401,3 +408,7 @@ debug = "line-tables-only"
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

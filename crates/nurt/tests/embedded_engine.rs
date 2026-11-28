@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt/tests/embedded_engine.rs
+// Responsibility:   The embedded engine, opened over a state directory in a temporary directory.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The embedded engine, opened over a state directory in a temporary
 //! directory. No language front end is connected, so programs fail with
 //! `E_UNSUPPORTED`; the tests cover the facade: conversion of envelopes,
@@ -253,3 +261,7 @@ fn clones_run_requests_from_many_threads() {
         assert!(worker.join().unwrap());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

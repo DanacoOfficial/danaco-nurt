@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::rebase::tests
+// Responsibility:   Tests of the `git.rebase` actions against repositories in temporary directories, with a recording journal that can undo each action.
+// Dependencies:     bstr, gix, gix_index, gix_object, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `git.rebase` actions against repositories in temporary
 //! directories, with a recording journal that can undo each action.
 
@@ -53,7 +61,7 @@ struct Repo {
 impl Repo {
     fn new() -> Self {
         let dir = tempfile::tempdir().expect("temporary directory");
-        let repo = gix::init(dir.path()).expect("repository");
+        let repo = nurt_git::testutil::init_isolated(dir.path()).expect("repository");
         Self {
             dir,
             repo,
@@ -283,7 +291,7 @@ impl Repo {
     }
 
     fn run(&self, request: &RebaseRequest) -> Result<RebaseResult> {
-        let fresh = gix::open(self.root()).expect("reopen");
+        let fresh = nurt_git::testutil::open_isolated(self.root()).expect("reopen");
         let ctx = ApplyContext::open(&fresh)?;
         let plan = plan_rebase(&ctx, request)?;
         let mut tx = self.journal.begin();
@@ -656,7 +664,7 @@ fn abort_returns_to_the_original_branch() {
 fn changed_submodule_is_not_an_unstaged_change() {
     let repo = three_commits(false);
     let sub = repo.root().join("sub");
-    let inner = gix::init(&sub).expect("nested repository");
+    let inner = nurt_git::testutil::init_isolated(&sub).expect("nested repository");
     let author = committer();
     let inner_commit = gix_object::Commit {
         tree: inner.empty_tree().id,
@@ -686,7 +694,7 @@ fn changed_submodule_is_not_an_unstaged_change() {
     index
         .write(Default::default(), Default::default())
         .expect("index written");
-    let fresh = gix::open(repo.root()).expect("reopen");
+    let fresh = nurt_git::testutil::open_isolated(repo.root()).expect("reopen");
     let unstaged = super::command::unstaged_paths(&fresh).expect("status");
     assert!(
         !unstaged.iter().any(|path| path == "sub"),
@@ -910,3 +918,7 @@ fn stage_reports_a_stop_as_an_applied_error_and_continues() {
     run_stage(&repo, &[("action", "abort")]).expect("abort");
     assert!(!repo.has_git("rebase-merge"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

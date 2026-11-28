@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::control::tests
+// Responsibility:   Tests of process control with the `proc_fixture` test program.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of process control with the `proc_fixture` test program.
 //!
 //! Real-time limits are at least three times shorter than the time the
@@ -336,7 +344,13 @@ fn timeout_ends_the_whole_tree() {
     let begin = Instant::now();
     let end = finish(&mut started);
     assert_eq!(end.killed_by, Some(KilledBy::Timeout));
-    assert_eq!(end.signal, Some(Signal::Terminate));
+    // Windows has no signals: the job object is ended and reported as a kill.
+    let expected = if cfg!(windows) {
+        Signal::Kill
+    } else {
+        Signal::Terminate
+    };
+    assert_eq!(end.signal, Some(expected));
     assert!(begin.elapsed() < TEST_BOUND);
     let pids = started.sink.pids();
     assert_eq!(pids.len(), 3, "the tree has three levels: {pids:?}");
@@ -718,3 +732,7 @@ fn windows_job_memory_limit_is_reported() {
     let end = finish(&mut started);
     assert_eq!(end.limit_hit, Some(LimitHit::Memory));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

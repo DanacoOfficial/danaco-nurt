@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::hash
+// Responsibility:   Tree hash `ast_hash`.
+// Dependencies:     nurt_contracts, serde, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tree hash `ast_hash`.
 //!
 //! ```text
@@ -106,3 +114,7 @@ pub fn ast_hash<T: TreeDocument>(document: &T) -> Result<String, SyntaxError> {
     let digest = Sha256::digest(input.as_bytes());
     Ok(format!("{AST_HASH_PREFIX}{}", hex::encode(digest)))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::accounts::unix
+// Responsibility:   User and group databases on Linux and macOS.
+// Dependencies:     libc
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! User and group databases on Linux and macOS.
 //!
 //! On the running system the databases are read through the system library
@@ -153,10 +161,16 @@ fn members(mut list: *mut *mut c_char) -> Vec<String> {
         return names;
     }
     // SAFETY: `gr_mem` is a null-terminated array of null-terminated strings
-    // owned by the library entry, valid until the next enumeration call.
+    // owned by the library entry, valid until the next enumeration call. The
+    // library of macOS does not align the array to the size of a pointer, so
+    // the elements are read without an alignment requirement.
     unsafe {
-        while !(*list).is_null() {
-            names.push(text(*list));
+        loop {
+            let item = list.read_unaligned();
+            if item.is_null() {
+                break;
+            }
+            names.push(text(item));
             list = list.add(1);
         }
     }
@@ -173,3 +187,7 @@ fn text(pointer: *const c_char) -> String {
         .to_string_lossy()
         .into_owned()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

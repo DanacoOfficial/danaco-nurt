@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-langserver/tests/lsp_correction.rs
+// Responsibility:   Sessions that bind programs to the catalog of the workspace: diagnostics of golden programs, fields of input records and help on hover.
+// Dependencies:     lsp_support, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Sessions that bind programs to the catalog of the workspace: diagnostics
 //! of golden programs, fields of input records and help on hover.
 
@@ -137,3 +145,7 @@ fn describes_commands_and_error_codes_from_the_help_on_hover() {
     );
     client.shutdown().unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

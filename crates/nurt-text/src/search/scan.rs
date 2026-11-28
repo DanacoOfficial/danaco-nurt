@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::search::scan
+// Responsibility:   Leftmost-first scanning of a byte slice with every pattern of a set.
+// Dependencies:     memchr
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Leftmost-first scanning of a byte slice with every pattern of a set.
 //!
 //! Patterns are searched independently and merged by start offset; at the
@@ -39,6 +47,9 @@ pub(super) struct Scanner<'s, 'h> {
     pos: usize,
     last_end: Option<usize>,
     backtrack_limit_hits: u64,
+    /// Bounds of the line found last, `start..=end`, where `end` is the offset
+    /// of its line break or the length of the slice.
+    line: Option<(usize, usize)>,
 }
 
 impl<'s, 'h> Scanner<'s, 'h> {
@@ -54,7 +65,25 @@ impl<'s, 'h> Scanner<'s, 'h> {
             pos: 0,
             last_end: None,
             backtrack_limit_hits: 0,
+            line: None,
         }
+    }
+
+    /// Start and end of the line that contains `pos`. The line of the previous
+    /// answer is reused while `pos` stays on it, so that many matches on one
+    /// long line do not search that line for its breaks once per match.
+    pub(super) fn line_bounds(&mut self, pos: usize) -> (usize, usize) {
+        if let Some((start, end)) = self.line
+            && start <= pos
+            && pos <= end
+        {
+            return (start, end);
+        }
+        let bounds = (line_start(self.haystack, pos), line_end(self.haystack, pos));
+        if pos <= self.haystack.len() {
+            self.line = Some(bounds);
+        }
+        bounds
     }
 
     pub(super) const fn backtrack_limit_hits(&self) -> u64 {
@@ -158,11 +187,11 @@ impl<'s, 'h> Scanner<'s, 'h> {
         let length = self.haystack.len();
         loop {
             let candidate = self.find(source, self.haystack, from, length)?;
-            let line_end = line_end(self.haystack, candidate.start);
+            let (first, line_end) = self.line_bounds(candidate.start);
             if candidate.end <= line_end {
                 return Some(candidate);
             }
-            let line_start = line_start(self.haystack, candidate.start).max(from);
+            let line_start = first.max(from);
             if let Some(found) = self.find(source, self.haystack, line_start, line_end) {
                 return Some(found);
             }
@@ -178,9 +207,9 @@ impl<'s, 'h> Scanner<'s, 'h> {
     /// limit of the backtracking engine applies to one line.
     fn find_line_by_line(&mut self, source: MatchSource, from: usize) -> Option<RawMatch> {
         let haystack = self.haystack;
-        let mut start = line_start(haystack, from);
+        let mut start = self.line_bounds(from).0;
         while start < haystack.len() {
-            let end = line_end(haystack, start);
+            let end = self.line_bounds(start).1;
             let line = &haystack[start..end];
             if let Some(found) = self.find(source, line, from.saturating_sub(start), line.len()) {
                 return Some(RawMatch {
@@ -336,3 +365,7 @@ impl Locator<'_, '_> {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/go/ci/workflow.yml
+# Responsibility:   Configuration or workflow definition of bindings/go/ci/workflow.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 name: go-binding
 
 on:
@@ -39,7 +47,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+        run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
       - name: License files match the repository
         run: |
           cmp LICENSE ../../LICENSE
@@ -66,6 +74,7 @@ jobs:
           go-version: ${{ matrix.go }}
           cache-dependency-path: bindings/go/go.mod
       - name: Test
+        shell: bash
         run: go test -race -count=1 -coverprofile=coverage.out ./...
       - name: Coverage
         shell: bash
@@ -146,9 +155,16 @@ jobs:
           PC
           echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/target/release" >> "$GITHUB_ENV"
+          # The library names the soname libnurt.so.1, which the loader looks up.
+          release="$GITHUB_WORKSPACE/target/release"
+          ln -sf libnurt_ffi.so "$release/libnurt.so.1"
       - name: Test with the library backend
         env:
           CGO_ENABLED: "1"
         run: |
           go vet -tags nurt_cgo ./...
           go test -tags nurt_cgo -race -count=1 ./...
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

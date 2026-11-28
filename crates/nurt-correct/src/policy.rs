@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::policy
+// Responsibility:   Policy that decides whether a correction is applied.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Policy that decides whether a correction is applied.
 //!
 //! | Class | Reading program | Program that changes the world or runs a program |
@@ -461,7 +469,7 @@ pub fn path_check(written: &str, bound: &str, base: Option<&str>) -> PathCheck {
     let relative = strip_current(&normalized);
     match base {
         Some(base) => {
-            if normalize_path(&format!("{base}/{relative}")) == bound {
+            if collapse_parent_segments(&normalize_path(&format!("{base}/{relative}"))) == bound {
                 PathCheck::Preserved
             } else {
                 PathCheck::Changed
@@ -470,6 +478,30 @@ pub fn path_check(written: &str, bound: &str, base: Option<&str>) -> PathCheck {
         None if bound.ends_with(&format!("/{relative}")) => PathCheck::BaseChosen,
         None => PathCheck::Changed,
     }
+}
+
+/// Removes the `..` segments of a path together with the segment each one
+/// leaves, so that a relative path resolved against a base compares equal to
+/// the bound path; `..` above the root stays at the root.
+fn collapse_parent_segments(path: &str) -> String {
+    if !path.split('/').any(|segment| segment == "..") {
+        return path.to_owned();
+    }
+    let rooted = path.starts_with('/');
+    let mut kept: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if kept.last().is_some_and(|last| !last.ends_with(':')) {
+                    kept.pop();
+                }
+            }
+            other => kept.push(other),
+        }
+    }
+    let joined = kept.join("/");
+    if rooted { format!("/{joined}") } else { joined }
 }
 
 fn strip_current(path: &str) -> &str {
@@ -1171,7 +1203,7 @@ mod tests {
         );
         assert_eq!(
             path_check("../x", "/srv/x", Some("/srv/app")),
-            PathCheck::Changed
+            PathCheck::Preserved
         );
     }
 
@@ -1229,3 +1261,7 @@ mod tests {
         assert_eq!(rename(&renames, "find"), "find");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

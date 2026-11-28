@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-testkit/tests/fs_contract_deviations.rs
+// Responsibility:   The conformance checks against a file system that deviates from the contract at one chosen call.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The conformance checks against a file system that deviates from the
 //! contract at one chosen call.
 
@@ -549,3 +557,7 @@ fn a_report_names_the_failed_check_and_the_deviation() {
     let first = report.failures().next().unwrap();
     assert!(text.contains(first.name), "{text}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

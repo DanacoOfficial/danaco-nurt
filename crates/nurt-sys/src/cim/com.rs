@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::cim::com
+// Responsibility:   WMI queries through COM.
+// Dependencies:     nurt_contracts, windows
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! WMI queries through COM.
 //!
 //! The query runs on the calling thread inside a multithreaded apartment
@@ -28,13 +36,14 @@ use windows::Win32::System::Variant::{
     VT_R4, VT_R8, VT_UI1, VT_UI2, VT_UI4, VT_UI8, VT_UINT, VT_UNKNOWN, VT_VARIANT, VariantClear,
 };
 use windows::Win32::System::Wmi::{
-    IEnumWbemClassObject, IWbemClassObject, IWbemLocator, IWbemServices, WBEM_FLAG_FORWARD_ONLY,
-    WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_GENERIC_FLAG_TYPE,
-    WBEM_S_TIMEDOUT, WbemLocator,
+    IEnumWbemClassObject, IWbemClassObject, IWbemContext, IWbemLocator, IWbemServices,
+    WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
+    WBEM_GENERIC_FLAG_TYPE, WBEM_S_TIMEDOUT, WbemLocator,
 };
 use windows::core::{BSTR, HRESULT, HSTRING, IUnknown, Interface, PCWSTR};
 
 use super::convert::{self, MAX_DEPTH, RawObject, RawProperty, RawValue};
+use super::invoke::{Argument, Called, Invocation};
 use super::wql::CimQuery;
 use super::{status_error, too_many};
 
@@ -500,3 +509,167 @@ pub(super) fn query(
     }
     Ok(objects)
 }
+
+/// Calls the method of `invocation` on the instances selected by `query`, or
+/// on the class when the query has no condition.
+///
+/// # Errors
+///
+/// The errors of [`query`] for the selection, `E_INVALID_VALUE` or
+/// `E_NOT_FOUND` for a method or class that WMI rejects, `E_PRIVILEGE` when
+/// access is denied, `E_CANCELLED` and `E_TIMEOUT` from the execution
+/// context and `E_IO` for other COM failures.
+pub(super) fn invoke(
+    query: &CimQuery,
+    invocation: &Invocation,
+    ctx: &ExecCtx,
+) -> Result<Vec<Called>> {
+    let _apartment = Apartment::enter()?;
+    initialize_security()?;
+    let services = connect(query)?;
+    let targets = if query.condition.is_some() {
+        instance_paths(&services, query, ctx)?
+    } else {
+        vec![query.class.clone()]
+    };
+    let mut called = Vec::with_capacity(targets.len());
+    for target in targets {
+        ctx.checkpoint()?;
+        called.push(call(&services, &target, query, invocation)?);
+    }
+    Ok(called)
+}
+
+fn instance_paths(
+    services: &IWbemServices,
+    query: &CimQuery,
+    ctx: &ExecCtx,
+) -> Result<Vec<String>> {
+    let enumerator = execute(services, query)?;
+    let mut paths = Vec::new();
+    loop {
+        ctx.checkpoint()?;
+        match next(&enumerator, query)? {
+            Step::Object(object) => paths.extend(text_property(&object, PATH_PROPERTY)?),
+            Step::Pending => {}
+            Step::Done => break,
+        }
+    }
+    Ok(paths)
+}
+
+fn call(
+    services: &IWbemServices,
+    target: &str,
+    query: &CimQuery,
+    invocation: &Invocation,
+) -> Result<Called> {
+    let input = input_parameters(services, query, invocation)?;
+    let path = BSTR::from(target);
+    let method = BSTR::from(invocation.method.as_str());
+    let mut output: Option<IWbemClassObject> = None;
+    // SAFETY: both strings are valid `BSTR` values that outlive the call,
+    // `input` is a live object or absent, and `output` is valid for writes;
+    // a returned object is owned by `output`.
+    unsafe {
+        services.ExecMethod(
+            &path,
+            &method,
+            WBEM_GENERIC_FLAG_TYPE(0),
+            None::<&IWbemContext>,
+            input.as_ref(),
+            Some(&raw mut output),
+            None,
+        )
+    }
+    .map_err(|error| wmi_error(&error, query))?;
+    let return_value = match output
+        .as_ref()
+        .map(|object| get(object, "ReturnValue", 0))
+        .transpose()?
+    {
+        Some((RawValue::Signed(value), _)) => Some(value),
+        Some((RawValue::Unsigned(value), _)) => i64::try_from(value).ok(),
+        _ => None,
+    };
+    Ok(Called {
+        target: target.to_owned(),
+        return_value,
+    })
+}
+
+fn input_parameters(
+    services: &IWbemServices,
+    query: &CimQuery,
+    invocation: &Invocation,
+) -> Result<Option<IWbemClassObject>> {
+    if invocation.arguments.is_empty() {
+        return Ok(None);
+    }
+    let class = BSTR::from(query.class.as_str());
+    let mut definition: Option<IWbemClassObject> = None;
+    // SAFETY: `class` is a valid `BSTR` that outlives the call and
+    // `definition` is valid for writes.
+    unsafe {
+        services.GetObject(
+            &class,
+            WBEM_GENERIC_FLAG_TYPE(0),
+            None::<&IWbemContext>,
+            Some(&raw mut definition),
+            None,
+        )
+    }
+    .map_err(|error| wmi_error(&error, query))?;
+    let definition = definition.ok_or_else(|| {
+        Error::new(
+            ErrorCode::NotFound,
+            format!("WMI returned no definition of `{}`", query.class),
+        )
+    })?;
+    let method = HSTRING::from(invocation.method.as_str());
+    let mut signature: Option<IWbemClassObject> = None;
+    let mut results: Option<IWbemClassObject> = None;
+    // SAFETY: `method` is a null-terminated UTF-16 string that outlives the
+    // call; both out pointers are valid for writes.
+    unsafe {
+        definition.GetMethod(
+            PCWSTR(method.as_ptr()),
+            0,
+            &raw mut signature,
+            &raw mut results,
+        )
+    }
+    .map_err(|error| wmi_error(&error, query))?;
+    let signature = signature.ok_or_else(|| {
+        Error::new(
+            ErrorCode::InvalidValue,
+            format!(
+                "`{}.{}` takes no input parameters",
+                query.class, invocation.method
+            ),
+        )
+    })?;
+    // SAFETY: `signature` is a live class object returned by `GetMethod`.
+    let parameters = unsafe { signature.SpawnInstance(0) }
+        .map_err(|error| com_error("IWbemClassObject::SpawnInstance", &error))?;
+    for (name, argument) in &invocation.arguments {
+        let wide = HSTRING::from(name.as_str());
+        let value = match argument {
+            Argument::Text(text) => VARIANT::from(text.as_str()),
+            Argument::Bool(flag) => VARIANT::from(*flag),
+            Argument::Int(number) => match i32::try_from(*number) {
+                Ok(small) => VARIANT::from(small),
+                Err(_) => VARIANT::from(*number),
+            },
+        };
+        // SAFETY: `wide` is a null-terminated UTF-16 string and `value` a
+        // valid variant; both outlive the call and `Put` copies the value.
+        unsafe { parameters.Put(PCWSTR(wide.as_ptr()), 0, &raw const value, 0) }
+            .map_err(|error| wmi_error(&error, query))?;
+    }
+    Ok(Some(parameters))
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-report::text
+// Responsibility:   Renderer of the text format.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Renderer of the text format.
 
 use nurt_contracts::envelope::Verbosity;
@@ -69,6 +77,11 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
     {
         out.plain(single_line(&format!("next cursor {cursor}")));
     }
+    if report.records.is_none()
+        && let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more())
+    {
+        out.plain(continuation.more_text());
+    }
     if let Some(path) = &report.result_file {
         out.plain(single_line(&format!("result file {path}")));
     }
@@ -129,8 +142,13 @@ fn read_summary(page: &RecordsPage, report: &Report) -> String {
         parts.push(format!("matched {}", format_count(matched)));
     }
     parts.push(format!("shown {}", format_count(page.rows.len() as u64)));
-    if let Some(cursor) = &report.next_cursor {
+    if report.continuation.is_none()
+        && let Some(cursor) = &report.next_cursor
+    {
         parts.push(format!("next cursor {cursor}"));
+    }
+    if let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more()) {
+        parts.push(continuation.more_text());
     }
     parts.join(SEPARATOR)
 }
@@ -505,3 +523,7 @@ fn error_lines(out: &mut Lines, error: &Error, indent: &str, label: &str) {
         error_lines(out, cause, &format!("{indent}{INDENT}"), "cause");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

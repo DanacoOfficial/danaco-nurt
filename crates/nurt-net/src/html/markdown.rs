@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-net::html::markdown
+// Responsibility:   Markdown and plain text documents, and rendering of blocks.
+// Dependencies:     regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Markdown and plain text documents, and rendering of blocks.
 
 use std::collections::{BTreeSet, HashMap};
@@ -358,3 +366,7 @@ mod tests {
         assert_eq!(page.blocks[1].text, "two");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

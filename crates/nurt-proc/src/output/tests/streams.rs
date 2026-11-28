@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::tests::streams
+// Responsibility:   Output of real processes: the `proc_fixture` program writes, the tests pass its pipes to the spool as process control does.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Output of real processes: the `proc_fixture` program writes, the tests
 //! pass its pipes to the spool as process control does.
 
@@ -130,11 +138,15 @@ fn show_both() -> OutputView {
 #[test]
 fn output_cursor_concurrent_with_paced_program() {
     let bench = Bench::new();
-    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("data")
-        .join("output")
-        .join("test_report.txt");
+    let corpus = std::path::Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests")
+    .join("data")
+    .join("output")
+    .join("test_report.txt");
     let expected: Vec<String> = std::fs::read_to_string(&corpus)
         .unwrap()
         .lines()
@@ -183,3 +195,7 @@ fn output_cursor_concurrent_with_paced_program() {
         .collect();
     assert_eq!(read, expected);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::processes::filter
+// Responsibility:   Selection of processes by name, account and identifier.
+// Dependencies:     nurt_contracts, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Selection of processes by name, account and identifier.
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -120,3 +128,7 @@ fn compile(pattern: &PatternValue) -> Result<Regex> {
             .with_found(pattern.pattern.clone())
         })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

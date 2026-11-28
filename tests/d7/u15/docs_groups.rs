@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d7/u15/docs_groups.rs
+// Responsibility:   Consistency of the pages of the command groups with the command catalog.
+// Dependencies:     regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Consistency of the pages of the command groups with the command catalog.
 
 #![allow(
@@ -17,12 +25,17 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 const GROUPS: [&str; 6] = [
-    "system", "admin", "package", "network", "schedule", "program",
+    "system",
+    "administration",
+    "package",
+    "network",
+    "schedule",
+    "program",
 ];
 
 const COMMANDS_DOCUMENTED_ELSEWHERE: [&str; 2] = ["suspend", "resume"];
 
-const EXPECTED_COMMANDS: usize = 36;
+const EXPECTED_COMMANDS: usize = 64;
 
 const MIN_EXAMPLES: usize = 3;
 
@@ -64,7 +77,12 @@ impl Command {
 }
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn load_catalog() -> BTreeMap<String, Command> {
@@ -502,3 +520,7 @@ fn group_page_external_markers_match_catalog() {
         .collect();
     assert_eq!(documented, expected_markers);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

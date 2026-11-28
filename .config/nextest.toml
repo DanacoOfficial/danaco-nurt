@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           .config/nextest.toml
+# Responsibility:   Configuration or catalog data of .config/nextest.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 # The tests that read inputs which once made correction run without end have
 # no time limit of their own, because a limit measured in the test depends on
@@ -8,3 +15,27 @@
 [[profile.default.overrides]]
 filter = "package(nurt-correct) & (binary(lexical_regressions) | binary(lexical_front) | binary(powershell_translate))"
 slow-timeout = { period = "30s", terminate-after = 4 }
+
+# The tests of the binaries named `perf` assert wall-clock limits. They run
+# alone, with every thread of the machine reserved, so that the other tests
+# running in parallel do not distort the measured time.
+[[profile.default.overrides]]
+filter = "binary(perf)"
+threads-required = "num-cpus"
+
+# The nurt-proc tests start the `proc_fixture` example from the `examples`
+# directory next to the test binaries. `cargo test --no-run` builds it, but an
+# archive carries test binaries only, so the example travels as an included
+# path for the native and the cross-compiled targets, Windows included.
+[profile.default.archive]
+include = [
+    { path = "debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "aarch64-unknown-linux-gnu/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "x86_64-unknown-linux-gnu/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "x86_64-pc-windows-msvc/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "aarch64-pc-windows-msvc/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

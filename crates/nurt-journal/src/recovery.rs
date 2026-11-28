@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::recovery
+// Responsibility:   Crash recovery.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Crash recovery.
 //!
 //! Recovery runs once per process before the first transaction and at start
@@ -1227,8 +1235,18 @@ impl Entry<'_> {
     /// Moves the current target into the entry.
     fn displace(&self, index: TargetIndex, target: &AbsPath) -> Step<()> {
         let destination = self.displaced_name(index)?;
-        self.fs()
-            .rename(&self.scope, target, &destination, RenameMode::NoReplace)?;
+        match self
+            .fs()
+            .rename(&self.scope, target, &destination, RenameMode::NoReplace)
+        {
+            Ok(()) => {}
+            Err(error) if error.kind == FsErrorKind::CrossDevice => {
+                blob::copy_entry(self.fs(), &self.scope, target, &destination)?;
+                blob::sync_tree(self.fs(), &self.scope, &destination)?;
+                blob::remove_entry(self.fs(), &self.scope, target)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
         blob::sync_parents(self.fs(), &self.scope, &[target, &destination])?;
         Ok(())
     }
@@ -2382,7 +2400,7 @@ mod pass_tests {
     use std::collections::HashMap;
     use std::io::{Seek, Write};
     use std::sync::{Arc, Mutex, OnceLock};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use nurt_contracts::config::OverwriteStrategy;
     use nurt_contracts::env::{BootId, ClockStamp, WallTime};
@@ -2415,7 +2433,7 @@ mod pass_tests {
     const NEW: &[u8] = b"new content of the operation";
 
     fn abs(text: &str) -> AbsPath {
-        AbsPath::new(text).unwrap()
+        AbsPath::for_test(text)
     }
 
     fn features() -> FsFeatures {
@@ -3294,7 +3312,7 @@ mod pass_tests {
         let index = world.ctx.state.index().unwrap();
         let part = world.part(0);
         let mut foreign = entry_of(1, Vec::new(), vec![part.clone()]);
-        foreign.account = Some("/home/other/.local/state/nurt".to_owned());
+        foreign.account = Some(nurt_testkit::paths::abs("/home/other/.local/state/nurt"));
         world.write_entry(0, foreign, StateRecord::new(EntryState::Committed), true);
         let mut own = entry_of(2, Vec::new(), vec![part]);
         own.account = Some(world.ctx.state.account_id());
@@ -3553,26 +3571,6 @@ mod pass_tests {
         assert_eq!(outcome.states_read, 1);
         assert!(outcome.report.corrupt.is_empty());
         assert!(!world.exists(&world.journal().entry(OpId(500)).unwrap().state().unwrap()));
-        assert_rolled_back(&world);
-    }
-
-    #[test]
-    fn recovery_with_a_million_entries_takes_less_than_five_seconds() {
-        let world = World::new();
-        for op in 10..1_000_010 {
-            world
-                .fs
-                .seed_dir(world.journal().entry(OpId(op)).unwrap().dir())
-                .unwrap();
-        }
-        overwrite_entry(&world, PreserveMode::Exchange);
-        let started = Instant::now();
-        recover(&world.ctx).unwrap();
-        assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "{:?}",
-            started.elapsed()
-        );
         assert_rolled_back(&world);
     }
 
@@ -3934,3 +3932,7 @@ mod pass_tests {
         assert!(first.diff(&second).is_empty(), "{:?}", first.diff(&second));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::tests
+// Responsibility:   Tests of the Linux back end on the file systems of the test host.
+// Dependencies:     nurt_contracts, rustix, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the Linux back end on the file systems of the test host.
 //!
 //! The temporary directory decides the file system under test. Tests that
@@ -21,14 +29,14 @@ use std::time::{Duration, Instant};
 
 use nurt_contracts::fs::{
     AbsPath, Durability, ExtendedMeta, FileKind, Follow, Fs, FsErrorKind, FsWrite, LinkKind,
-    MetaChange, RenameMode, ScopePurpose, TxScope, VolumeKind, Xattr,
+    MetaChange, RenameMode, ScopePurpose, SpecialKind, SpecialNode, TxScope, VolumeKind, Xattr,
 };
 use nurt_contracts::journal::OpId;
 use rustix::fs::IFlags;
 use rustix::io::Errno;
 use tempfile::TempDir;
 
-use super::fs::emulate_noreplace;
+use super::fs::{emulate_noreplace, remove_created};
 use super::{LinuxFs, MountTable, features_for, volume_kind};
 use crate::conformance;
 
@@ -39,6 +47,10 @@ const SPACE_PROBE: usize = 64 << 20;
 /// Least decrease of free space accepted after writing [`SPACE_PROBE`]; the
 /// margin covers concurrent writers on a shared volume.
 const SPACE_TOLERANCE: u64 = 48 << 20;
+/// Readings of the free space taken after one probe before the next probe is written.
+const SPACE_POLLS: usize = 32;
+/// Pause between two readings of the free space.
+const SPACE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 /// Length of the sparse copy test file: above 2 GiB, the largest transfer
 /// of one `copy_file_range` call.
 const SPARSE_LENGTH: u64 = (2 << 30) + 4097;
@@ -411,11 +423,7 @@ fn clone_and_copy_refuse_directories_and_special_files() {
     assert_eq!(error.kind, FsErrorKind::IsADirectory);
     let error = fixture
         .fs
-        .copy_file(
-            &fixture.scope,
-            &AbsPath::new("/dev/null").expect("path"),
-            &target,
-        )
+        .copy_file(&fixture.scope, &AbsPath::for_test("/dev/null"), &target)
         .expect_err("device source");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
     assert!(!target.as_path().exists());
@@ -627,16 +635,12 @@ fn remove_tree_removes_single_entries_and_reports_errors() {
     assert_eq!(error.kind, FsErrorKind::NotFound);
     let error = fixture
         .fs
-        .remove_tree(&fixture.scope, &AbsPath::new("/").expect("root"), 1)
+        .remove_tree(&fixture.scope, &AbsPath::for_test("/"), 1)
         .expect_err("root");
     assert_eq!(error.kind, FsErrorKind::InvalidPath);
     let error = fixture
         .fs
-        .remove_tree(
-            &fixture.scope,
-            &AbsPath::new("/proc/self/fd").expect("path"),
-            1,
-        )
+        .remove_tree(&fixture.scope, &AbsPath::for_test("/proc/self/fd"), 1)
         .expect_err("pseudo file system");
     assert_ne!(error.kind, FsErrorKind::NotFound);
 }
@@ -1132,7 +1136,7 @@ fn reports_metadata_kinds_and_error_classes() {
     assert!(meta.changed_ns.is_some() && meta.accessed_ns.is_some());
     assert_eq!(meta.file_id.low, inode_of(&file));
     assert_eq!(meta.file_id.volume, fs::metadata(&file).expect("std").dev());
-    let null = AbsPath::new("/dev/null").expect("path");
+    let null = AbsPath::for_test("/dev/null");
     assert_eq!(
         fixture
             .fs
@@ -1292,7 +1296,7 @@ fn reports_writable_directories() {
                 .can_write_dir(&locked)
                 .expect("read-only directory")
         );
-        let proc = AbsPath::new("/proc").expect("path");
+        let proc = AbsPath::for_test("/proc");
         assert!(!fixture.fs.can_write_dir(&proc).expect("procfs"));
     }
 }
@@ -1364,14 +1368,14 @@ fn classifies_volumes_of_the_host() {
         assert_eq!(root.kind, VolumeKind::Overlay);
         let entry = fixture
             .fs
-            .mount_entry(&AbsPath::new("/").expect("root"))
+            .mount_entry(&AbsPath::for_test("/"))
             .expect("root mount");
         let layers = entry.overlay_layers().expect("overlay layers");
         assert!(!layers.lower.is_empty());
     }
     let error = fixture
         .fs
-        .volume(&AbsPath::new("/proc/self/fd/999999/x").expect("path"))
+        .volume(&AbsPath::for_test("/proc/self/fd/999999/x"))
         .map(|volume| volume.kind);
     assert_eq!(error.ok(), Some(VolumeKind::Other));
 }
@@ -1405,15 +1409,31 @@ fn free_space_shrinks_after_written_and_flushed_data() {
         assert!(before.total > 0);
         let path = fixture.path(&format!("probe{attempt}"));
         let mut file = File::create(&path).expect("probe file");
-        file.write_all(&vec![0x5a; SPACE_PROBE])
-            .expect("probe data");
+        // Incompressible data: a file system that compresses blocks (ZFS, btrfs)
+        // would otherwise show no decrease for a constant fill.
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64 ^ (attempt as u64 + 1);
+        let data: Vec<u8> = (0..SPACE_PROBE)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state.to_le_bytes()[0]
+            })
+            .collect();
+        file.write_all(&data).expect("probe data");
         file.sync_all().expect("probe flush");
-        let after = fixture.fs.space(&volume.id).expect("space after");
-        let decrease = before.available.saturating_sub(after.available);
-        decreases.push(decrease);
-        if decrease >= SPACE_TOLERANCE {
-            return;
+        // A file system that accounts space when a transaction group is
+        // written (ZFS) reports the decrease some seconds after the flush.
+        let mut decrease = 0;
+        for _ in 0..SPACE_POLLS {
+            let after = fixture.fs.space(&volume.id).expect("space after");
+            decrease = before.available.saturating_sub(after.available);
+            if decrease >= SPACE_TOLERANCE {
+                return;
+            }
+            std::thread::sleep(SPACE_POLL_INTERVAL);
         }
+        decreases.push(decrease);
     }
     panic!("free space did not shrink by {SPACE_TOLERANCE} bytes: {decreases:?}");
 }
@@ -1430,7 +1450,7 @@ fn space_of_unknown_volume_fails_with_not_found() {
         fs.space(&id).expect_err("unknown").kind,
         FsErrorKind::NotFound
     );
-    let root = AbsPath::new("/").expect("root");
+    let root = AbsPath::for_test("/");
     let volume = LinuxFs::new().volume(&root).expect("volume");
     let space = fs
         .space(&volume.id)
@@ -2042,3 +2062,158 @@ fn path_keys_are_raw_bytes_on_case_sensitive_volumes() {
         raw.as_path().as_os_str().as_encoded_bytes()
     );
 }
+
+#[test]
+fn a_fifo_is_created_with_the_requested_mode_and_reported_by_special_node() {
+    let fixture = Fixture::new();
+    let path = fixture.path("pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
+        .expect("create the fifo");
+    let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+    assert_eq!(meta.kind, FileKind::Special);
+    assert_eq!(meta.mode & 0o7777, 0o640);
+    assert_eq!(
+        fixture.fs.special_node(&path).unwrap(),
+        Some(SpecialNode::fifo())
+    );
+    let again = fixture
+        .fs
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
+        .unwrap_err();
+    assert_eq!(again.kind, FsErrorKind::Exists);
+    fixture.fs.remove_file(&fixture.scope, &path).unwrap();
+    assert!(!path.as_path().exists());
+}
+
+#[test]
+fn special_node_is_empty_for_regular_files_and_directories() {
+    let fixture = Fixture::new();
+    let file = fixture.file("plain", b"x");
+    let dir = fixture.dir("folder");
+    assert_eq!(fixture.fs.special_node(&file).unwrap(), None);
+    assert_eq!(fixture.fs.special_node(&dir).unwrap(), None);
+}
+
+#[test]
+fn a_device_node_needs_a_privilege() {
+    let fixture = Fixture::new();
+    if rustix::process::geteuid().is_root() {
+        return;
+    }
+    let path = fixture.path("null2");
+    let error = fixture
+        .fs
+        .create_node(
+            &fixture.scope,
+            &path,
+            SpecialNode::device(SpecialKind::Char, 1, 3),
+            None,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            error.kind,
+            FsErrorKind::Privilege | FsErrorKind::PermissionDenied
+        ),
+        "{error:?}"
+    );
+    assert!(!path.as_path().exists());
+}
+
+#[test]
+#[ignore = "needs root to create device nodes: run on the pool machine as root"]
+fn device_nodes_are_created_with_their_numbers_and_removed() {
+    let fixture = Fixture::new();
+    for (name, kind, major, minor) in [
+        ("char", SpecialKind::Char, 1, 3),
+        ("block", SpecialKind::Block, 7, 5),
+    ] {
+        let path = fixture.path(name);
+        let node = SpecialNode::device(kind, major, minor);
+        fixture
+            .fs
+            .create_node(&fixture.scope, &path, node, Some(0o600))
+            .expect("create the device node as root");
+        let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+        assert_eq!(meta.kind, FileKind::Special);
+        assert_eq!(meta.mode & 0o7777, 0o600);
+        assert_eq!(fixture.fs.special_node(&path).unwrap(), Some(node));
+        fixture.fs.remove_file(&fixture.scope, &path).unwrap();
+        assert!(!path.as_path().exists());
+    }
+}
+
+#[test]
+fn a_node_without_mode_follows_the_umask_and_with_mode_is_exact() {
+    let fixture = Fixture::new();
+    let default = fixture.path("default-pipe");
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o027));
+    let created = fixture
+        .fs
+        .create_node(&fixture.scope, &default, SpecialNode::fifo(), None);
+    rustix::process::umask(previous);
+    created.unwrap();
+    assert_eq!(
+        fixture
+            .fs
+            .metadata(&default, Follow::NoFollow)
+            .unwrap()
+            .mode
+            & 0o7777,
+        0o640,
+        "0666 reduced by the umask 027"
+    );
+    let exact = fixture.path("exact-pipe");
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o077));
+    let created = fixture
+        .fs
+        .create_node(&fixture.scope, &exact, SpecialNode::fifo(), Some(0o666));
+    rustix::process::umask(previous);
+    created.unwrap();
+    assert_eq!(
+        fixture.fs.metadata(&exact, Follow::NoFollow).unwrap().mode & 0o7777,
+        0o666,
+        "an explicit mode is not reduced by the umask"
+    );
+}
+
+#[test]
+fn a_created_node_is_removed_only_while_it_is_the_same_entry() {
+    use std::os::fd::OwnedFd;
+    let fixture = Fixture::new();
+    let node = fixture.path("pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &node, SpecialNode::fifo(), None)
+        .unwrap();
+    let dir: OwnedFd = rustix::fs::openat(
+        rustix::fs::CWD,
+        fixture.root.as_path(),
+        rustix::fs::OFlags::PATH | rustix::fs::OFlags::DIRECTORY,
+        rustix::fs::Mode::empty(),
+    )
+    .unwrap();
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    let identity = (stat.st_dev, stat.st_ino);
+    // The entry is replaced by another file, as an attacker could do. The other
+    // file is created while the first one still exists and is renamed over it,
+    // because a file created after the removal can reuse the inode number.
+    let other = fixture.path("other");
+    std::fs::write(other.as_path(), b"theirs").unwrap();
+    std::fs::rename(other.as_path(), node.as_path()).unwrap();
+    remove_created(&dir, std::ffi::OsStr::new("pipe"), identity);
+    assert_eq!(std::fs::read(node.as_path()).unwrap(), b"theirs");
+    let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
+    remove_created(
+        &dir,
+        std::ffi::OsStr::new("pipe"),
+        (stat.st_dev, stat.st_ino),
+    );
+    assert!(!node.as_path().exists());
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

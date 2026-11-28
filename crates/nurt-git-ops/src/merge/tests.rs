@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::merge::tests
+// Responsibility:   Tests of three-way merges of trees and commits.
+// Dependencies:     gix_object, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of three-way merges of trees and commits.
 
 use gix_object::tree::EntryKind;
@@ -318,7 +326,7 @@ fn reads_options_from_repository_configuration() {
         "[merge]\n\tconflictStyle = zdiff3\n\trenames = false\n\trenormalize = true\n\tdefault = keep\n[merge \"keep\"]\n\tname = keep ours\n\tdriver = keep %A\n",
     );
     std::fs::write(&config, text).unwrap();
-    let repo = gix::open(fx.repo.git_dir()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(fx.repo.git_dir()).unwrap();
     let opts = MergeOptions::from_repo(&repo).unwrap();
     assert_eq!(opts.conflict_style, ConflictStyle::Zdiff3);
     assert!(opts.renames.is_none());
@@ -352,7 +360,7 @@ fn rejects_unknown_conflict_style_in_configuration() {
     let mut text = std::fs::read_to_string(&config).unwrap();
     text.push_str("[merge]\n\tconflictStyle = fancy\n");
     std::fs::write(&config, text).unwrap();
-    let repo = gix::open(fx.repo.git_dir()).unwrap();
+    let repo = nurt_git::testutil::open_isolated(fx.repo.git_dir()).unwrap();
     let error = MergeOptions::from_repo(&repo).unwrap_err();
     assert_eq!(error.code(), ErrorCode::Config);
 }
@@ -431,3 +439,7 @@ fn merges_repeated_lines_with_the_histogram_algorithm() {
         Some("a\nb\n<<<<<<< HEAD\n=======\nb\nb\nn6\nd\n>>>>>>> topic\nc\n")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

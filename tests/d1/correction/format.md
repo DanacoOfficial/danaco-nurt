@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           tests/d1/correction/format.md -->
+<!-- Responsibility:   Documents Correction corpus format. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Correction corpus format
 
 Correction corpora are files in JSON Lines format (`*.jsonl`): one JSON object per line, UTF-8, no blank lines, no comments. Each object is one case: a program as written and the expected reaction of the correction pipeline.
@@ -108,3 +116,7 @@ A false correction is never offset by other passing cases. AMB is computed over 
 - Generated files are rewritten only by their generator; a test compares the file in the repository with a fresh generation and fails on any difference. The generator tests rewrite their files when the variable `NURT_REGENERATE_CORPUS` is `1`.
 - A test checks every `*.jsonl` file under this directory against this format: members, member values, the form of `expect`, rule identifiers, error codes and unique identifiers.
 - `note`, `id` and every other member are written in English; they do not refer to issue trackers, decisions or documents outside the repository.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

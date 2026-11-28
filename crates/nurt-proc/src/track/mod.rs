@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track
+// Responsibility:   Detection of file changes made by programs and preservation of previous content.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection of file changes made by programs and preservation of previous
 //! content.
 //!
@@ -10,6 +18,35 @@
 //! run a second scan, or the paths reported by file system events, reveals
 //! the changes; they are reported with `MutationTx::observe_external`.
 //! Changes outside the watched directories are not detected.
+//!
+//! A scan compares kind, size, modification time, file identity and, when
+//! both scans have one, the content hash. A file system stores modification
+//! times with a limited granularity, so a file rewritten with the same size
+//! right after the first scan can keep its stored time. Such a file is racy:
+//! its modification time is less than `nurt_contracts::fs::RACY_WINDOW` older
+//! than the start of the first scan. Racy files are hashed in the first scan;
+//! the second scan, or the refresh by events, hashes a file only when the first
+//! scan hashed it and its size, modification time and identity did not change,
+//! because a hash on one side decides nothing. A file larger than
+//! `run.preimage_copy_max` (64 MiB when that key is unlimited) is not hashed
+//! for this reason and is compared by metadata only, so a same-size rewrite of
+//! such a file within the timestamp granularity stays undetected; the hash is
+//! not interrupted by the time budget, which is why its size is bounded.
+//! Older files are hashed only on request (`scan_hash`).
+
+/// Largest file hashed because it is racy when `run.preimage_copy_max` does
+/// not bound the copies.
+const RACY_MAX_BYTES_DEFAULT: u64 = 64 << 20;
+
+/// Largest file hashed because it is racy: the largest file whose content is
+/// kept, or [`RACY_MAX_BYTES_DEFAULT`] when no such limit is set.
+fn racy_limit(copy_max: u64) -> u64 {
+    if copy_max == 0 || copy_max == u64::MAX {
+        RACY_MAX_BYTES_DEFAULT
+    } else {
+        copy_max
+    }
+}
 
 mod diff;
 mod journal;
@@ -24,7 +61,7 @@ mod tests;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use nurt_contracts::config::PreimageMode;
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -34,7 +71,9 @@ use nurt_contracts::stage::ExecCtx;
 
 use self::preimage::{Candidate, Limits};
 use self::prepared::{Detection, Prepared, State};
-use self::scan::{Bound, Kind, ScanLimits, Scope, Snapshot, Stop, has_name, scan};
+use self::scan::{
+    Bound, Kind, Racy, ScanLimits, Scope, Snapshot, Stop, has_name, racy_cutoff, scan,
+};
 use self::watch_events::EventWatch;
 use crate::iface::{ChangeTracker, PreparedScan, TrackMode, TrackSpec};
 
@@ -139,11 +178,18 @@ impl Tracker {
         } else {
             ScanLimits::UNLIMITED
         };
+        let racy_cutoff_ns = racy_cutoff(SystemTime::now());
+        let racy_max_bytes = racy_limit(run.preimage_copy_max.bytes());
         let bound = Bound::new(scan_limits, deadline, ctx.cancel().clone());
         let scope = Scope {
             roots: &roots,
             ignore: &ignore,
             hash: spec.scan_hash,
+            racy: Some(Racy {
+                cutoff_ns: racy_cutoff_ns,
+                max_bytes: racy_max_bytes,
+                previous: None,
+            }),
             bound: Some(&bound),
         };
         let scanned = scan(fs, scope);
@@ -208,6 +254,8 @@ impl Tracker {
             exclude: run.preimage_exclude.clone(),
             preimage_enabled,
             scan_hash: spec.scan_hash,
+            racy_cutoff_ns: Some(racy_cutoff_ns),
+            racy_max_bytes,
             snapshot: scanned.entries,
             denied: scanned.denied,
             preimage,
@@ -309,6 +357,7 @@ fn files_under(fs: &dyn Fs, paths: &[AbsPath], ignore: &[String], bound: &Bound)
                     roots: &roots,
                     ignore,
                     hash: false,
+                    racy: None,
                     bound: Some(bound),
                 },
             )
@@ -336,3 +385,7 @@ fn watched_files(snapshot: &Snapshot, scope: Scope<'_>, exclude: &[String]) -> V
         .map(|(path, state)| (path.clone(), state.size))
         .collect()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

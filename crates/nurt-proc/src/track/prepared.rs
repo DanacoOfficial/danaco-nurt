@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::prepared
+// Responsibility:   State captured before a run and its comparison after the run.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! State captured before a run and its comparison after the run.
 
 use std::path::{Path, PathBuf};
@@ -17,7 +25,7 @@ use super::POST_SCAN_MIN;
 use super::diff;
 use super::journal::Recorder;
 use super::preimage::Preimage;
-use super::scan::{Bound, ScanLimits, Scope, Snapshot, Stop, has_name, refresh, scan};
+use super::scan::{Bound, Racy, ScanLimits, Scope, Snapshot, Stop, has_name, refresh, scan};
 use super::watch_events::EventWatch;
 use crate::iface::{PreparedScan, TrackOutcome};
 
@@ -53,6 +61,10 @@ pub(super) struct State {
     pub(super) preimage_enabled: bool,
     /// Content hashes are compared.
     pub(super) scan_hash: bool,
+    /// Racy-entry cutoff of the before-scan, see `Racy::cutoff_ns`.
+    pub(super) racy_cutoff_ns: Option<i64>,
+    /// Largest file hashed because it is racy, see `Racy::max_bytes`.
+    pub(super) racy_max_bytes: u64,
     /// State before the run.
     pub(super) snapshot: Snapshot,
     /// Directories that could not be listed before the run.
@@ -82,6 +94,8 @@ impl State {
             exclude: Vec::new(),
             preimage_enabled: false,
             scan_hash: false,
+            racy_cutoff_ns: None,
+            racy_max_bytes: 0,
             snapshot: Snapshot::new(),
             denied: 0,
             preimage: Preimage::default(),
@@ -98,6 +112,11 @@ impl State {
             roots: &self.roots,
             ignore: &self.ignore,
             hash: self.scan_hash,
+            racy: self.racy_cutoff_ns.map(|cutoff_ns| Racy {
+                cutoff_ns,
+                max_bytes: self.racy_max_bytes,
+                previous: Some(&self.snapshot),
+            }),
             bound: Some(bound),
         }
     }
@@ -108,6 +127,7 @@ impl State {
             roots: &self.roots,
             ignore: &self.ignore,
             hash: self.scan_hash,
+            racy: None,
             bound: None,
         }
     }
@@ -288,3 +308,7 @@ impl PreparedScan for Prepared {
         Ok(outcome)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

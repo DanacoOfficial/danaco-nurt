@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-catalog/tests/stages.rs
+// Responsibility:   Tests of the implementation registry: registration and resolution by the pair of a command and an input record kind.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the implementation registry: registration and resolution by the
 //! pair of a command and an input record kind.
 
@@ -232,10 +240,10 @@ fn validation_reports_kind_missing_from_the_catalog_input() {
 #[test]
 fn unimplemented_commands_shrink_as_implementations_register() {
     let mut registry = registry();
-    assert_eq!(registry.unimplemented_commands().len(), 148);
+    assert_eq!(registry.unimplemented_commands().len(), 177);
     registry.register_impl(Fake::any("count")).unwrap();
     let remaining = registry.unimplemented_commands();
-    assert_eq!(remaining.len(), 147);
+    assert_eq!(remaining.len(), 176);
     assert!(!remaining.contains(&"count"));
 }
 
@@ -340,3 +348,7 @@ fn accepted_kinds_list_each_kind_once_in_registration_order() {
     assert_eq!(accepted.kinds, vec!["entry", "job", "item"]);
     assert!(!accepted.source);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

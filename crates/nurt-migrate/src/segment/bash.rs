@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-migrate::segment::bash
+// Responsibility:   Statements of a bash script read with `tree-sitter-bash`.
+// Dependencies:     tree_sitter
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Statements of a bash script read with `tree-sitter-bash`.
 
 use tree_sitter::Node;
@@ -59,11 +67,17 @@ fn analyze(builder: &Builder<'_>, node: Node<'_>) -> Analysis {
 
 fn construct(source: &str, node: Node<'_>) -> Option<Reason> {
     match node.kind() {
-        "for_statement" | "c_style_for_statement" | "while_statement" | "select_statement" => {
-            Some(Reason::Loop)
+        // Loops over words, `while`, `if`, `case` and functions are translated
+        // into constructs of the language; the arithmetic `for` and `select`
+        // have no counterpart.
+        "c_style_for_statement" | "select_statement" => Some(Reason::Loop),
+        "compound_statement"
+            if node
+                .parent()
+                .is_some_and(|parent| parent.kind() == "function_definition") =>
+        {
+            None
         }
-        "if_statement" | "case_statement" => Some(Reason::Condition),
-        "function_definition" => Some(Reason::Function),
         "subshell" | "compound_statement" => Some(Reason::Block),
         "command" => {
             let name = command_name(source, node)?;
@@ -172,3 +186,7 @@ fn literal(source: &str, node: Node<'_>) -> Option<String> {
         _ => None,
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

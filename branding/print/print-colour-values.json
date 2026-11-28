@@ -1,0 +1,1793 @@
+{
+  "document": "Danaco Nurt print colour values",
+  "date": "2026-11-26",
+  "method": {
+    "intent": "relative colorimetric (transicc -t1)",
+    "black_point_compensation": "on for sRGB to CMYK (-b); the printed appearance is read back without -b",
+    "commands": {
+      "rgb_to_cmyk": "echo \"R G B\" | transicc -n -i'*sRGB' -o<profile> -t1 -b",
+      "cmyk_to_lab": "echo \"C M Y K\" | transicc -n -i<profile> -o'*Lab' -t1",
+      "cmyk_to_srgb": "echo \"C M Y K\" | transicc -n -i<profile> -o'*sRGB' -t1 -b",
+      "rgb_to_lab": "echo \"R G B\" | transicc -n -i'*sRGB' -o'*Lab' -t1",
+      "version": "LittleCMS ColorSpace conversion calculator 5.1 [LittleCMS 2.17]"
+    },
+    "profiles": {
+      "fogra39": {
+        "file": "/usr/share/color/icc/ISOcoated_v2_bas.ICC",
+        "name": "ISO Coated v2 (ECI), FOGRA39, coated paper",
+        "tac_limit": 300
+      },
+      "fogra47": {
+        "file": "/usr/share/color/icc/PSO_Uncoated_ISO12647_bas.ICC",
+        "name": "PSO Uncoated ISO12647 (ECI), FOGRA47, uncoated wood-free paper",
+        "tac_limit": 260
+      }
+    },
+    "source_profile": "sRGB (transicc built-in profile *sRGB)",
+    "de2000_definition": "CIEDE2000 (kLCH = 1) in CIELAB D50 between the target colour (sRGB converted to Lab) and the Lab of the integer CMYK recipe read from the print profile (print appearance, no BPC on return). de2000_software_return uses the return conversion CMYK to sRGB with BPC instead.",
+    "tac_correction": "If the transicc recipe exceeds the TAC limit, an integer CMYK recipe within the limit with the lowest CIEDE2000 to the target is searched (seeded batched local search, 1 percent steps)."
+  },
+  "colours": {
+    "graphite": {
+      "label": "Graphite",
+      "hex": "#0B0C0E",
+      "srgb": [
+        11,
+        12,
+        14
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            3.29,
+            -0.05,
+            -1.0
+          ],
+          "transicc_float": [
+            83.1,
+            74.24,
+            62.69,
+            87.72
+          ],
+          "unconstrained_cmyk": [
+            83,
+            74,
+            63,
+            88
+          ],
+          "unconstrained_tac": 308.0,
+          "unconstrained_de2000": 6.73,
+          "tac_limit": 300,
+          "cmyk": [
+            60,
+            50,
+            50,
+            100
+          ],
+          "tac": 260.0,
+          "tac_corrected": true,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            12.07,
+            -0.5,
+            0.75
+          ],
+          "de2000_print": 5.69,
+          "srgb_return": [
+            -1,
+            1,
+            -2
+          ],
+          "hex_return": "#000100",
+          "de2000_software_return": 2.25,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            3.29,
+            -0.05,
+            -1.0
+          ],
+          "transicc_float": [
+            77.4,
+            57.62,
+            52.0,
+            92.66
+          ],
+          "unconstrained_cmyk": [
+            77,
+            58,
+            52,
+            93
+          ],
+          "unconstrained_tac": 280.0,
+          "unconstrained_de2000": 18.4,
+          "tac_limit": 260,
+          "cmyk": [
+            50,
+            40,
+            40,
+            100
+          ],
+          "tac": 230.0,
+          "tac_corrected": true,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            30.78,
+            0.36,
+            1.14
+          ],
+          "de2000_print": 18.58,
+          "srgb_return": [
+            22,
+            16,
+            7
+          ],
+          "hex_return": "#161007",
+          "de2000_software_return": 5.73,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        }
+      }
+    },
+    "graphite_soft": {
+      "label": "Graphite soft",
+      "hex": "#15171A",
+      "srgb": [
+        21,
+        23,
+        26
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            7.62,
+            -0.35,
+            -2.47
+          ],
+          "transicc_float": [
+            80.16,
+            69.57,
+            59.18,
+            81.73
+          ],
+          "unconstrained_cmyk": [
+            80,
+            70,
+            59,
+            82
+          ],
+          "unconstrained_tac": 291.0,
+          "unconstrained_de2000": 5.84,
+          "tac_limit": 300,
+          "cmyk": [
+            60,
+            50,
+            50,
+            100
+          ],
+          "tac": 260.0,
+          "tac_corrected": false,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            12.07,
+            -0.5,
+            0.75
+          ],
+          "de2000_print": 4.17,
+          "srgb_return": [
+            -1,
+            1,
+            -2
+          ],
+          "hex_return": "#000100",
+          "de2000_software_return": 5.12,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            7.62,
+            -0.35,
+            -2.47
+          ],
+          "transicc_float": [
+            77.72,
+            54.99,
+            48.04,
+            89.34
+          ],
+          "unconstrained_cmyk": [
+            78,
+            55,
+            48,
+            89
+          ],
+          "unconstrained_tac": 270.0,
+          "unconstrained_de2000": 16.64,
+          "tac_limit": 260,
+          "cmyk": [
+            50,
+            40,
+            40,
+            100
+          ],
+          "tac": 230.0,
+          "tac_corrected": true,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            30.78,
+            0.36,
+            1.14
+          ],
+          "de2000_print": 16.3,
+          "srgb_return": [
+            22,
+            16,
+            7
+          ],
+          "hex_return": "#161007",
+          "de2000_software_return": 7.23,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        }
+      }
+    },
+    "black_deep": {
+      "label": "Black deep",
+      "hex": "#050506",
+      "srgb": [
+        5,
+        5,
+        6
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            1.39,
+            0.1,
+            -0.38
+          ],
+          "transicc_float": [
+            85.2,
+            77.22,
+            64.72,
+            90.88
+          ],
+          "unconstrained_cmyk": [
+            85,
+            77,
+            65,
+            91
+          ],
+          "unconstrained_tac": 318.0,
+          "unconstrained_de2000": 7.06,
+          "tac_limit": 300,
+          "cmyk": [
+            60,
+            50,
+            50,
+            100
+          ],
+          "tac": 260.0,
+          "tac_corrected": true,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            12.07,
+            -0.5,
+            0.75
+          ],
+          "de2000_print": 6.64,
+          "srgb_return": [
+            -1,
+            1,
+            -2
+          ],
+          "hex_return": "#000100",
+          "de2000_software_return": 1.19,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            1.39,
+            0.1,
+            -0.38
+          ],
+          "transicc_float": [
+            77.07,
+            59.05,
+            53.97,
+            94.03
+          ],
+          "unconstrained_cmyk": [
+            77,
+            59,
+            54,
+            94
+          ],
+          "unconstrained_tac": 284.0,
+          "unconstrained_de2000": 19.28,
+          "tac_limit": 260,
+          "cmyk": [
+            50,
+            40,
+            40,
+            100
+          ],
+          "tac": 230.0,
+          "tac_corrected": true,
+          "recipe_kind": "rich black (target L* below 10: darker than any print on this profile)",
+          "lab_print_d50": [
+            30.78,
+            0.36,
+            1.14
+          ],
+          "de2000_print": 19.6,
+          "srgb_return": [
+            22,
+            16,
+            7
+          ],
+          "hex_return": "#161007",
+          "de2000_software_return": 5.44,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        }
+      }
+    },
+    "silver": {
+      "label": "Silver",
+      "hex": "#DDE1E6",
+      "srgb": [
+        221,
+        225,
+        230
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            89.33,
+            -0.71,
+            -2.95
+          ],
+          "transicc_float": [
+            15.77,
+            9.07,
+            8.13,
+            0.03
+          ],
+          "unconstrained_cmyk": [
+            16,
+            9,
+            8,
+            0
+          ],
+          "unconstrained_tac": 33.0,
+          "unconstrained_de2000": 0.24,
+          "tac_limit": 300,
+          "cmyk": [
+            16,
+            9,
+            8,
+            0
+          ],
+          "tac": 33.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            89.48,
+            -0.79,
+            -3.18
+          ],
+          "de2000_print": 0.24,
+          "srgb_return": [
+            221,
+            225,
+            230
+          ],
+          "hex_return": "#DDE1E6",
+          "de2000_software_return": 0.0,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            89.33,
+            -0.71,
+            -2.95
+          ],
+          "transicc_float": [
+            12.96,
+            7.41,
+            5.62,
+            1.18
+          ],
+          "unconstrained_cmyk": [
+            13,
+            7,
+            6,
+            1
+          ],
+          "unconstrained_tac": 27.0,
+          "unconstrained_de2000": 0.89,
+          "tac_limit": 260,
+          "cmyk": [
+            13,
+            7,
+            6,
+            1
+          ],
+          "tac": 27.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            90.3,
+            -0.98,
+            -2.38
+          ],
+          "de2000_print": 0.89,
+          "srgb_return": [
+            221,
+            226,
+            230
+          ],
+          "hex_return": "#DDE2E6",
+          "de2000_software_return": 0.78,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        }
+      }
+    },
+    "gold": {
+      "label": "Gold",
+      "hex": "#C9A15A",
+      "srgb": [
+        201,
+        161,
+        90
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            68.87,
+            9.11,
+            42.41
+          ],
+          "transicc_float": [
+            19.71,
+            34.12,
+            69.61,
+            7.78
+          ],
+          "unconstrained_cmyk": [
+            20,
+            34,
+            70,
+            8
+          ],
+          "unconstrained_tac": 132.0,
+          "unconstrained_de2000": 0.73,
+          "tac_limit": 300,
+          "cmyk": [
+            20,
+            34,
+            70,
+            8
+          ],
+          "tac": 132.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            69.38,
+            8.5,
+            40.84
+          ],
+          "de2000_print": 0.73,
+          "srgb_return": [
+            200,
+            161,
+            89
+          ],
+          "hex_return": "#C8A159",
+          "de2000_software_return": 0.41,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            68.87,
+            9.11,
+            42.41
+          ],
+          "transicc_float": [
+            9.46,
+            27.66,
+            69.57,
+            12.56
+          ],
+          "unconstrained_cmyk": [
+            9,
+            28,
+            70,
+            13
+          ],
+          "unconstrained_tac": 120.0,
+          "unconstrained_de2000": 3.07,
+          "tac_limit": 260,
+          "cmyk": [
+            9,
+            28,
+            70,
+            13
+          ],
+          "tac": 120.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            71.17,
+            8.41,
+            35.59
+          ],
+          "de2000_print": 3.07,
+          "srgb_return": [
+            201,
+            160,
+            88
+          ],
+          "hex_return": "#C9A058",
+          "de2000_software_return": 0.37,
+          "verdict": "visible difference: proof required (2 < dE2000 <= 5)"
+        }
+      }
+    },
+    "ink": {
+      "label": "Ink",
+      "hex": "#2B2F36",
+      "srgb": [
+        43,
+        47,
+        54
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            19.22,
+            -0.43,
+            -5.12
+          ],
+          "transicc_float": [
+            75.24,
+            62.66,
+            50.95,
+            64.58
+          ],
+          "unconstrained_cmyk": [
+            75,
+            63,
+            51,
+            65
+          ],
+          "unconstrained_tac": 254.0,
+          "unconstrained_de2000": 3.72,
+          "tac_limit": 300,
+          "cmyk": [
+            75,
+            63,
+            51,
+            65
+          ],
+          "tac": 254.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            24.28,
+            -0.36,
+            -3.84
+          ],
+          "de2000_print": 3.72,
+          "srgb_return": [
+            43,
+            47,
+            54
+          ],
+          "hex_return": "#2B2F36",
+          "de2000_software_return": 0.0,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            19.22,
+            -0.43,
+            -5.12
+          ],
+          "transicc_float": [
+            73.49,
+            52.73,
+            37.46,
+            74.07
+          ],
+          "unconstrained_cmyk": [
+            73,
+            53,
+            37,
+            74
+          ],
+          "unconstrained_tac": 237.0,
+          "unconstrained_de2000": 12.5,
+          "tac_limit": 260,
+          "cmyk": [
+            73,
+            53,
+            37,
+            74
+          ],
+          "tac": 237.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            35.49,
+            0.11,
+            -2.09
+          ],
+          "de2000_print": 12.5,
+          "srgb_return": [
+            45,
+            47,
+            54
+          ],
+          "hex_return": "#2D2F36",
+          "de2000_software_return": 1.26,
+          "verdict": "dark: limited by the darkest black of the profile; use rich black recipe"
+        }
+      }
+    },
+    "gold_deep": {
+      "label": "Gold deep",
+      "hex": "#A3722A",
+      "srgb": [
+        163,
+        114,
+        42
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            52.23,
+            15.0,
+            45.97
+          ],
+          "transicc_float": [
+            28.37,
+            50.26,
+            89.08,
+            21.52
+          ],
+          "unconstrained_cmyk": [
+            28,
+            50,
+            89,
+            22
+          ],
+          "unconstrained_tac": 189.0,
+          "unconstrained_de2000": 1.89,
+          "tac_limit": 300,
+          "cmyk": [
+            28,
+            50,
+            89,
+            22
+          ],
+          "tac": 189.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            53.54,
+            14.15,
+            41.88
+          ],
+          "de2000_print": 1.89,
+          "srgb_return": [
+            163,
+            114,
+            42
+          ],
+          "hex_return": "#A3722A",
+          "de2000_software_return": 0.0,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            52.23,
+            15.0,
+            45.97
+          ],
+          "transicc_float": [
+            13.65,
+            46.45,
+            98.73,
+            24.48
+          ],
+          "unconstrained_cmyk": [
+            14,
+            46,
+            99,
+            24
+          ],
+          "unconstrained_tac": 183.0,
+          "unconstrained_de2000": 7.13,
+          "tac_limit": 260,
+          "cmyk": [
+            14,
+            46,
+            99,
+            24
+          ],
+          "tac": 183.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            57.59,
+            11.94,
+            32.29
+          ],
+          "de2000_print": 7.13,
+          "srgb_return": [
+            163,
+            115,
+            44
+          ],
+          "hex_return": "#A3732C",
+          "de2000_software_return": 0.39,
+          "verdict": "out of gamut (dE2000 > 5): use a spot colour or an approved CMYK substitute"
+        }
+      }
+    },
+    "paper": {
+      "label": "Paper",
+      "hex": "#F6F7F8",
+      "srgb": [
+        246,
+        247,
+        248
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            97.18,
+            -0.21,
+            -0.6
+          ],
+          "transicc_float": [
+            4.45,
+            2.5,
+            2.92,
+            0.0
+          ],
+          "unconstrained_cmyk": [
+            4,
+            2,
+            3,
+            0
+          ],
+          "unconstrained_tac": 9.0,
+          "unconstrained_de2000": 0.65,
+          "tac_limit": 300,
+          "cmyk": [
+            4,
+            2,
+            3,
+            0
+          ],
+          "tac": 9.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            97.48,
+            -0.44,
+            -0.07
+          ],
+          "de2000_print": 0.65,
+          "srgb_return": [
+            247,
+            248,
+            248
+          ],
+          "hex_return": "#F7F8F8",
+          "de2000_software_return": 0.55,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            97.18,
+            -0.21,
+            -0.6
+          ],
+          "transicc_float": [
+            3.42,
+            2.08,
+            1.79,
+            0.15
+          ],
+          "unconstrained_cmyk": [
+            3,
+            2,
+            2,
+            0
+          ],
+          "unconstrained_tac": 7.0,
+          "unconstrained_de2000": 0.57,
+          "tac_limit": 260,
+          "cmyk": [
+            3,
+            2,
+            2,
+            0
+          ],
+          "tac": 7.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            97.63,
+            -0.01,
+            -0.19
+          ],
+          "de2000_print": 0.57,
+          "srgb_return": [
+            248,
+            248,
+            248
+          ],
+          "hex_return": "#F8F8F8",
+          "de2000_software_return": 0.71,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        }
+      }
+    },
+    "paper_warm": {
+      "label": "Paper warm",
+      "hex": "#F2EEE6",
+      "srgb": [
+        242,
+        238,
+        230
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            94.25,
+            0.36,
+            4.38
+          ],
+          "transicc_float": [
+            6.29,
+            5.82,
+            10.83,
+            0.0
+          ],
+          "unconstrained_cmyk": [
+            6,
+            6,
+            11,
+            0
+          ],
+          "unconstrained_tac": 23.0,
+          "unconstrained_de2000": 0.16,
+          "tac_limit": 300,
+          "cmyk": [
+            6,
+            6,
+            11,
+            0
+          ],
+          "tac": 23.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            94.33,
+            0.41,
+            4.55
+          ],
+          "de2000_print": 0.16,
+          "srgb_return": [
+            242,
+            238,
+            230
+          ],
+          "hex_return": "#F2EEE6",
+          "de2000_software_return": 0.0,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            94.25,
+            0.36,
+            4.38
+          ],
+          "transicc_float": [
+            4.84,
+            4.81,
+            8.29,
+            0.67
+          ],
+          "unconstrained_cmyk": [
+            5,
+            5,
+            8,
+            1
+          ],
+          "unconstrained_tac": 19.0,
+          "unconstrained_de2000": 0.58,
+          "tac_limit": 260,
+          "cmyk": [
+            5,
+            5,
+            8,
+            1
+          ],
+          "tac": 19.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            94.25,
+            0.48,
+            3.73
+          ],
+          "de2000_print": 0.58,
+          "srgb_return": [
+            241,
+            237,
+            230
+          ],
+          "hex_return": "#F1EDE6",
+          "de2000_software_return": 0.5,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        }
+      }
+    },
+    "gold_ground": {
+      "label": "Gold ground",
+      "hex": "#D9BC85",
+      "srgb": [
+        217,
+        188,
+        133
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            77.82,
+            5.12,
+            31.88
+          ],
+          "transicc_float": [
+            15.76,
+            24.58,
+            52.51,
+            3.08
+          ],
+          "unconstrained_cmyk": [
+            16,
+            25,
+            53,
+            3
+          ],
+          "unconstrained_tac": 97.0,
+          "unconstrained_de2000": 0.36,
+          "tac_limit": 300,
+          "cmyk": [
+            16,
+            25,
+            53,
+            3
+          ],
+          "tac": 97.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            78.08,
+            5.06,
+            31.14
+          ],
+          "de2000_print": 0.36,
+          "srgb_return": [
+            217,
+            188,
+            132
+          ],
+          "hex_return": "#D9BC84",
+          "de2000_software_return": 0.23,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            77.82,
+            5.12,
+            31.88
+          ],
+          "transicc_float": [
+            8.6,
+            18.82,
+            48.31,
+            7.63
+          ],
+          "unconstrained_cmyk": [
+            9,
+            19,
+            48,
+            8
+          ],
+          "unconstrained_tac": 84.0,
+          "unconstrained_de2000": 2.05,
+          "tac_limit": 260,
+          "cmyk": [
+            9,
+            19,
+            48,
+            8
+          ],
+          "tac": 84.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            79.05,
+            4.48,
+            27.56
+          ],
+          "de2000_print": 2.05,
+          "srgb_return": [
+            215,
+            187,
+            133
+          ],
+          "hex_return": "#D7BB85",
+          "de2000_software_return": 0.45,
+          "verdict": "visible difference: proof required (2 < dE2000 <= 5)"
+        }
+      }
+    }
+  },
+  "extra_colours": {
+    "wordmark_silver": {
+      "label": "Wordmark Danaco, dark ground",
+      "hex": "#C9CED5",
+      "srgb": [
+        201,
+        206,
+        213
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            82.53,
+            -0.78,
+            -4.11
+          ],
+          "transicc_float": [
+            24.65,
+            15.52,
+            13.39,
+            0.45
+          ],
+          "unconstrained_cmyk": [
+            25,
+            16,
+            13,
+            0
+          ],
+          "unconstrained_tac": 54.0,
+          "unconstrained_de2000": 0.61,
+          "tac_limit": 300,
+          "cmyk": [
+            25,
+            16,
+            13,
+            0
+          ],
+          "tac": 54.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            82.78,
+            -0.48,
+            -4.59
+          ],
+          "de2000_print": 0.61,
+          "srgb_return": [
+            201,
+            206,
+            214
+          ],
+          "hex_return": "#C9CED6",
+          "de2000_software_return": 0.47,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            82.53,
+            -0.78,
+            -4.11
+          ],
+          "transicc_float": [
+            20.16,
+            12.15,
+            9.09,
+            3.29
+          ],
+          "unconstrained_cmyk": [
+            20,
+            12,
+            9,
+            3
+          ],
+          "unconstrained_tac": 44.0,
+          "unconstrained_de2000": 1.04,
+          "tac_limit": 260,
+          "cmyk": [
+            20,
+            12,
+            9,
+            3
+          ],
+          "tac": 44.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            84.01,
+            -0.74,
+            -3.77
+          ],
+          "de2000_print": 1.04,
+          "srgb_return": [
+            202,
+            207,
+            214
+          ],
+          "hex_return": "#CACFD6",
+          "de2000_software_return": 0.24,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        }
+      }
+    },
+    "wordmark_ink": {
+      "label": "Wordmark Danaco, light ground",
+      "hex": "#4A515C",
+      "srgb": [
+        74,
+        81,
+        92
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            34.13,
+            -0.9,
+            -7.46
+          ],
+          "transicc_float": [
+            67.72,
+            53.54,
+            42.2,
+            40.2
+          ],
+          "unconstrained_cmyk": [
+            68,
+            54,
+            42,
+            40
+          ],
+          "unconstrained_tac": 204.0,
+          "unconstrained_de2000": 2.07,
+          "tac_limit": 300,
+          "cmyk": [
+            68,
+            54,
+            42,
+            40
+          ],
+          "tac": 204.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            36.59,
+            -0.68,
+            -7.03
+          ],
+          "de2000_print": 2.07,
+          "srgb_return": [
+            74,
+            81,
+            92
+          ],
+          "hex_return": "#4A515C",
+          "de2000_software_return": 0.0,
+          "verdict": "visible difference: proof required (2 < dE2000 <= 5)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            34.13,
+            -0.9,
+            -7.46
+          ],
+          "transicc_float": [
+            63.9,
+            45.4,
+            28.88,
+            50.21
+          ],
+          "unconstrained_cmyk": [
+            64,
+            45,
+            29,
+            50
+          ],
+          "unconstrained_tac": 188.0,
+          "unconstrained_de2000": 8.69,
+          "tac_limit": 260,
+          "cmyk": [
+            64,
+            45,
+            29,
+            50
+          ],
+          "tac": 188.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            43.88,
+            -0.7,
+            -4.93
+          ],
+          "de2000_print": 8.69,
+          "srgb_return": [
+            75,
+            82,
+            92
+          ],
+          "hex_return": "#4B525C",
+          "de2000_software_return": 0.62,
+          "verdict": "out of gamut (dE2000 > 5): use a spot colour or an approved CMYK substitute"
+        }
+      }
+    },
+    "caption": {
+      "label": "Caption grey",
+      "hex": "#7C8390",
+      "srgb": [
+        124,
+        131,
+        144
+      ],
+      "profiles": {
+        "fogra39": {
+          "target_lab_d50": [
+            54.5,
+            -0.58,
+            -7.96
+          ],
+          "transicc_float": [
+            52.91,
+            39.62,
+            30.5,
+            14.74
+          ],
+          "unconstrained_cmyk": [
+            53,
+            40,
+            30,
+            15
+          ],
+          "unconstrained_tac": 138.0,
+          "unconstrained_de2000": 0.92,
+          "tac_limit": 300,
+          "cmyk": [
+            53,
+            40,
+            30,
+            15
+          ],
+          "tac": 138.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            55.38,
+            -0.3,
+            -8.07
+          ],
+          "de2000_print": 0.92,
+          "srgb_return": [
+            124,
+            130,
+            144
+          ],
+          "hex_return": "#7C8290",
+          "de2000_software_return": 0.83,
+          "verdict": "within tolerance (dE2000 <= 2)"
+        },
+        "fogra47": {
+          "target_lab_d50": [
+            54.5,
+            -0.58,
+            -7.96
+          ],
+          "transicc_float": [
+            46.42,
+            32.59,
+            20.31,
+            22.94
+          ],
+          "unconstrained_cmyk": [
+            46,
+            33,
+            20,
+            23
+          ],
+          "unconstrained_tac": 122.0,
+          "unconstrained_de2000": 4.38,
+          "tac_limit": 260,
+          "cmyk": [
+            46,
+            33,
+            20,
+            23
+          ],
+          "tac": 122.0,
+          "tac_corrected": false,
+          "recipe_kind": "direct",
+          "lab_print_d50": [
+            59.08,
+            -0.13,
+            -6.62
+          ],
+          "de2000_print": 4.38,
+          "srgb_return": [
+            125,
+            131,
+            144
+          ],
+          "hex_return": "#7D8390",
+          "de2000_software_return": 0.51,
+          "verdict": "visible difference: proof required (2 < dE2000 <= 5)"
+        }
+      }
+    }
+  },
+  "rich_black": {
+    "fogra39": {
+      "ladder": [
+        {
+          "cmyk": [
+            0,
+            0,
+            0,
+            100
+          ],
+          "tac": 100.0,
+          "within_limit": true,
+          "lab": [
+            17.4,
+            -0.0,
+            0.6
+          ],
+          "de2000_to_graphite": 9.0
+        },
+        {
+          "cmyk": [
+            30,
+            20,
+            20,
+            100
+          ],
+          "tac": 170.0,
+          "within_limit": true,
+          "lab": [
+            14.7,
+            -0.6,
+            0.0
+          ],
+          "de2000_to_graphite": 7.2
+        },
+        {
+          "cmyk": [
+            40,
+            30,
+            30,
+            100
+          ],
+          "tac": 200.0,
+          "within_limit": true,
+          "lab": [
+            13.7,
+            -0.4,
+            0.2
+          ],
+          "de2000_to_graphite": 6.5
+        },
+        {
+          "cmyk": [
+            50,
+            40,
+            40,
+            100
+          ],
+          "tac": 230.0,
+          "within_limit": true,
+          "lab": [
+            12.9,
+            -0.5,
+            0.5
+          ],
+          "de2000_to_graphite": 6.1
+        },
+        {
+          "cmyk": [
+            60,
+            40,
+            40,
+            100
+          ],
+          "tac": 240.0,
+          "within_limit": true,
+          "lab": [
+            12.5,
+            -1.6,
+            -0.4
+          ],
+          "de2000_to_graphite": 6.1
+        },
+        {
+          "cmyk": [
+            60,
+            50,
+            50,
+            100
+          ],
+          "tac": 260.0,
+          "within_limit": true,
+          "lab": [
+            12.1,
+            -0.5,
+            0.7
+          ],
+          "de2000_to_graphite": 5.7
+        },
+        {
+          "cmyk": [
+            70,
+            60,
+            60,
+            100
+          ],
+          "tac": 290.0,
+          "within_limit": true,
+          "lab": [
+            11.4,
+            -0.6,
+            1.0
+          ],
+          "de2000_to_graphite": 5.3
+        },
+        {
+          "cmyk": [
+            75,
+            68,
+            67,
+            90
+          ],
+          "tac": 300.0,
+          "within_limit": true,
+          "lab": [
+            14.4,
+            -0.0,
+            1.3
+          ],
+          "de2000_to_graphite": 7.3
+        }
+      ],
+      "darkest_neutral_search": {
+        "cmyk": [
+          87,
+          69,
+          44,
+          100
+        ],
+        "tac": 300.0,
+        "lab": [
+          10.3,
+          0.2,
+          -2.0
+        ]
+      },
+      "chosen": [
+        60,
+        50,
+        50,
+        100
+      ],
+      "chosen_tac": 260.0,
+      "chosen_lab": [
+        12.1,
+        -0.5,
+        0.7
+      ],
+      "chosen_de2000_to_graphite": 5.7,
+      "chosen_by": "ladder",
+      "rule": "lowest TAC recipe of the ladder within the ink limit whose L* is at most 1.0 above the darkest ladder recipe within the limit; the unrestricted search result is listed for comparison only"
+    },
+    "fogra47": {
+      "ladder": [
+        {
+          "cmyk": [
+            0,
+            0,
+            0,
+            100
+          ],
+          "tac": 100.0,
+          "within_limit": true,
+          "lab": [
+            33.1,
+            1.0,
+            1.9
+          ],
+          "de2000_to_graphite": 20.5
+        },
+        {
+          "cmyk": [
+            30,
+            20,
+            20,
+            100
+          ],
+          "tac": 170.0,
+          "within_limit": true,
+          "lab": [
+            32.0,
+            0.7,
+            1.3
+          ],
+          "de2000_to_graphite": 19.6
+        },
+        {
+          "cmyk": [
+            40,
+            30,
+            30,
+            100
+          ],
+          "tac": 200.0,
+          "within_limit": true,
+          "lab": [
+            31.4,
+            0.5,
+            1.3
+          ],
+          "de2000_to_graphite": 19.1
+        },
+        {
+          "cmyk": [
+            50,
+            40,
+            40,
+            100
+          ],
+          "tac": 230.0,
+          "within_limit": true,
+          "lab": [
+            30.8,
+            0.4,
+            1.1
+          ],
+          "de2000_to_graphite": 18.6
+        },
+        {
+          "cmyk": [
+            60,
+            40,
+            40,
+            100
+          ],
+          "tac": 240.0,
+          "within_limit": true,
+          "lab": [
+            30.5,
+            0.2,
+            0.5
+          ],
+          "de2000_to_graphite": 18.3
+        },
+        {
+          "cmyk": [
+            60,
+            50,
+            50,
+            100
+          ],
+          "tac": 260.0,
+          "within_limit": true,
+          "lab": [
+            30.1,
+            0.2,
+            0.9
+          ],
+          "de2000_to_graphite": 18.0
+        },
+        {
+          "cmyk": [
+            70,
+            60,
+            60,
+            100
+          ],
+          "tac": 290.0,
+          "within_limit": false,
+          "lab": [
+            29.5,
+            -0.0,
+            0.8
+          ],
+          "de2000_to_graphite": 17.5
+        },
+        {
+          "cmyk": [
+            75,
+            68,
+            67,
+            90
+          ],
+          "tac": 300.0,
+          "within_limit": false,
+          "lab": [
+            30.7,
+            -0.0,
+            1.1
+          ],
+          "de2000_to_graphite": 18.5
+        }
+      ],
+      "darkest_neutral_search": {
+        "cmyk": [
+          74,
+          62,
+          24,
+          100
+        ],
+        "tac": 260.0,
+        "lab": [
+          29.4,
+          2.0,
+          -0.4
+        ]
+      },
+      "chosen": [
+        50,
+        40,
+        40,
+        100
+      ],
+      "chosen_tac": 230.0,
+      "chosen_lab": [
+        30.8,
+        0.4,
+        1.1
+      ],
+      "chosen_de2000_to_graphite": 18.6,
+      "chosen_by": "ladder",
+      "rule": "lowest TAC recipe of the ladder within the ink limit whose L* is at most 1.0 above the darkest ladder recipe within the limit; the unrestricted search result is listed for comparison only"
+    }
+  },
+  "pantone": {
+    "status": "kandydat do potwierdzenia wzornikiem",
+    "method": "No Pantone swatch book, no spectral data and no Pantone Lab table are available on the production server. The candidates were chosen from memory by colour family (hue, lightness, metallic or solid) and are NOT measured or computed matches. No hex or Lab values of Pantone colours are given because they could not be verified. Each candidate must be confirmed against the physical Pantone Formula Guide (Coated and Uncoated) and the Pantone Metallics Guide under D50 light, and then recorded here with the edition of the guide.",
+    "no_candidate_note": "No candidate given: no certain Pantone name could be recalled for this colour. It is reproduced with the process recipe of this document, as a tint, or by the stock itself.",
+    "candidates": {
+      "gold": [
+        {
+          "name": "PANTONE 871 C",
+          "kind": "metallic ink",
+          "confidence": "name and type: high; match to #C9A15A: medium",
+          "note": "Metallic gold of the Pantone Metallics range; usually darker and greener than the screen gold.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE 874 C",
+          "kind": "metallic ink",
+          "confidence": "name and type: medium; match: low",
+          "note": "Neighbouring metallic gold of the same range; compare with 871 C on the fan deck.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE 8003 C",
+          "kind": "metallic ink (named in the brief)",
+          "confidence": "existence and hue: low, not verified",
+          "note": "Taken over from the brief; check that it exists in the guide edition in use before it is quoted.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE 7562 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: medium; match: medium",
+          "note": "Non-metallic gold-brown for a printed (non-foil) gold; no metallic lustre.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        }
+      ],
+      "gold_deep": [
+        {
+          "name": "PANTONE 872 C",
+          "kind": "metallic ink",
+          "confidence": "name and type: medium; match: low",
+          "note": "Darker metallic gold for use on light grounds.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE 875 C",
+          "kind": "metallic ink",
+          "confidence": "name and type: medium; match: low",
+          "note": "Bronze metallic; probably too brown, check on the fan deck.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        }
+      ],
+      "silver": [
+        {
+          "name": "PANTONE 877 C",
+          "kind": "metallic ink",
+          "confidence": "name and type: high; match to #DDE1E6: low (metallic silver prints mid-grey)",
+          "note": "Standard metallic silver; the screen silver #DDE1E6 is much lighter than the printed ink.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE Cool Gray 2 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: high; match: medium",
+          "note": "Light cool grey for a printed (non-foil) silver.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE Cool Gray 3 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: high; match: medium",
+          "note": "Slightly darker alternative to Cool Gray 2 C.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        }
+      ],
+      "graphite": [
+        {
+          "name": "PANTONE Black 6 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: high; match: medium",
+          "note": "Neutral-cool very dark ink; alternative to the rich black recipe on coated paper.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE Neutral Black C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: high; match: medium",
+          "note": "Neutral black; check the undertone against the cool graphite.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        }
+      ],
+      "ink": [
+        {
+          "name": "PANTONE 433 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: medium; match: low",
+          "note": "Dark blue-grey; check on the fan deck.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        },
+        {
+          "name": "PANTONE 432 C",
+          "kind": "solid ink, non-metallic",
+          "confidence": "name: medium; match: low",
+          "note": "Slightly lighter blue-grey than 433 C.",
+          "label": "kandydat do potwierdzenia wzornikiem"
+        }
+      ],
+      "graphite_soft": [],
+      "black_deep": [],
+      "paper": [],
+      "paper_warm": [],
+      "gold_ground": []
+    }
+  },
+  "foil_specification": {
+    "process": "Hot foil stamping with a heated metal die; blind or registered emboss from a separate or combined die.",
+    "carrier": "Foil on a polyester carrier film with release layer, protective lacquer, metallised layer and adhesive layer; the adhesive grade must suit the stock (black board, cotton paper). A typical carrier thickness of 12 micrometres is common; the exact value is the printer's choice.",
+    "finish": "High gloss. Metallised foil for gold and silver. A pigment (opaque, non-metallic) gloss foil is only an option for a non-metallic colour; the brief names pigment gloss foil, which is confirmed or replaced by metallised foil with the printer.",
+    "gold": "Gold: warm yellow gold with a slight red component, neither lemon-green nor copper-red; lightness comparable to the brand gold #C9A15A (L* about 70) as a screen reference only. Ask for at least three gold swatches (pale, rich, warm) stamped on the real stock.",
+    "silver": "Silver: bright neutral to slightly cool silver, mirror gloss, no brushed or hologram effect unless ordered. Ask for at least two silver swatches stamped on the real stock.",
+    "catalogue": "No manufacturer, series or catalogue number is specified in this document. The choice is made from the swatches that the printer supplies; record the chosen foil type and number in the brand book after the first print.",
+    "sampling": "Request a stamping test on the actual stock (black board 400 to 600 g/m2 and cotton paper 300 to 600 g/m2) with the smallest mark size to be produced, before the order is released."
+  }
+}

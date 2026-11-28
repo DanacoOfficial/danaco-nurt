@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::run
+// Responsibility:   The `run` command and tool runs.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `run` command and tool runs.
 //!
 //! The plan step resolves the program, builds the environment and the start
@@ -33,6 +41,7 @@ use nurt_contracts::value::{Record, RecordKind, Value};
 
 use crate::api::{ToolKind, ToolOutcome, ToolResult, ToolRun};
 use crate::classify::EffectClassifier;
+use crate::continuation;
 use crate::iface::{
     OutputView, Priority, ProcessLimits, RunHost, RunKind, RunRequest, RunResult, RunWait,
     ShowMode, StdinSource, TrackMode, TrackSpec,
@@ -409,6 +418,7 @@ fn run_single<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: RunPlan) -> Result<E
                 return Err(error);
             }
             let changes = result.track.changes.clone();
+            continuation::offer(ctx, &result.output);
             let mut outcome = one_record(Record::from(exec));
             outcome.changes = changes;
             outcome.notable = record::notes(&result);
@@ -581,3 +591,7 @@ pub(crate) fn run_tool(
         RunWait::Background(job) => ToolOutcome::Background(job),
     })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

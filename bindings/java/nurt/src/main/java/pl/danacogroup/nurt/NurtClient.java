@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt/src/main/java/pl/danacogroup/nurt/NurtClient.java
+// Responsibility:   Source file bindings/java/nurt/src/main/java/pl/danacogroup/nurt/NurtClient.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt;
 
 import java.util.LinkedHashMap;
@@ -198,7 +206,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String print(Map<String, Object> ast, Request.Variant variant) {
-        return text("print", backend.call("print", params("ast", ast, "variant", variant.wire())));
+        return text("print", query(backend.call("print", params("ast", ast, "variant", variant.wire()))));
     }
 
     /**
@@ -210,7 +218,13 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> correct(String program, Request.Variant variant) {
-        return object("correct", backend.call("correct", params("program", program, "variant", variant.wire())));
+        Map<String, Object> result = object("correct", backend.call("correct", params("program", program, "variant", variant.wire())));
+        if (result.containsKey("program") || !result.containsKey("ast")) {
+            return result;
+        }
+        Map<String, Object> corrected = new LinkedHashMap<>(result);
+        corrected.put("program", result.get("ran") instanceof String ran ? ran : program);
+        return corrected;
     }
 
     /**
@@ -243,7 +257,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String describe() {
-        return text("describe", backend.call("describe", params("subject", "core")));
+        return text("describe", query(backend.call("describe", params("subject", "core"))));
     }
 
     /**
@@ -259,7 +273,7 @@ public final class NurtClient implements AutoCloseable {
         if (language != null) {
             params.put("language", language.wire());
         }
-        return text("describe", backend.call("describe", params));
+        return text("describe", query(backend.call("describe", params)));
     }
 
     /**
@@ -269,7 +283,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String help() {
-        return text("help", backend.call("help", params()));
+        return text("help", query(backend.call("help", params())));
     }
 
     /**
@@ -280,7 +294,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String help(String topic) {
-        return text("help", backend.call("help", params("topic", topic)));
+        return text("help", query(backend.call("help", params("topic", topic))));
     }
 
     /**
@@ -290,7 +304,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> catalog() {
-        return object("catalog", backend.call("catalog", params()));
+        return object("catalog", query(backend.call("catalog", params())));
     }
 
     /**
@@ -301,7 +315,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> catalog(Map<String, Object> what) {
-        return object("catalog", backend.call("catalog", new LinkedHashMap<>(what)));
+        return object("catalog", query(backend.call("catalog", params("what", new LinkedHashMap<>(what)))));
     }
 
     /**
@@ -313,7 +327,7 @@ public final class NurtClient implements AutoCloseable {
      *     {@link NurtCallException.Kind#INVALID_ARGUMENT}
      */
     public Map<String, Object> schema(String which) {
-        return object("schema", backend.call("schema", params("name", which)));
+        return object("schema", query(backend.call("schema", params("name", which))));
     }
 
     /**
@@ -323,7 +337,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> history() {
-        return object("history", backend.call("history", params()));
+        return object("history", query(backend.call("history", params())));
     }
 
     /**
@@ -334,7 +348,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> history(Map<String, Object> query) {
-        return object("history", backend.call("history", new LinkedHashMap<>(query)));
+        return object("history", query(backend.call("history", new LinkedHashMap<>(query))));
     }
 
     /**
@@ -344,7 +358,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> space() {
-        return object("space", backend.call("space", params()));
+        return object("space", query(backend.call("space", params())));
     }
 
     /**
@@ -355,7 +369,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public Map<String, Object> space(String volume) {
-        return object("space", backend.call("space", params("volume", volume)));
+        return object("space", query(backend.call("space", params("volume", volume))));
     }
 
     /**
@@ -420,11 +434,46 @@ public final class NurtClient implements AutoCloseable {
         if (result instanceof String text) {
             return text;
         }
-        if (Json.object(result) != null
-                && (Json.string(result, "text") != null || Json.string(result, "description") != null)) {
+        Map<String, Object> object = Json.object(result);
+        if (object != null) {
             String text = Json.string(result, "text");
-            return text != null ? text : Json.string(result, "description");
+            if (text != null) {
+                return text;
+            }
+            Object description = object.get("description");
+            if (description instanceof String described) {
+                return described;
+            }
+            if (Json.object(description) != null && Json.string(description, "text") != null) {
+                return Json.string(description, "text");
+            }
         }
         throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "result of `" + method + "` is neither a string nor an object with `text` or `description`");
     }
+
+    /**
+     * Returns the result of a query, or raises its language error. The server reports a language error of every
+     * method as a response whose report has the status {@code failed}; a query has no response to return it in. An
+     * unknown value of an argument is {@link NurtCallException.Kind#INVALID_ARGUMENT}, any other error a
+     * {@link NurtLanguageException}.
+     */
+    private static Object query(Object result) {
+        Map<String, Object> object = Json.object(result);
+        if (object == null || Json.object(object.get("report")) == null) {
+            return result;
+        }
+        NurtResponse response = NurtResponse.of(result);
+        if (!"failed".equals(response.status().orElse(null)) || response.error().isEmpty()) {
+            return result;
+        }
+        LanguageError error = response.error().get();
+        if ("E_UNKNOWN_VALUE".equals(error.code())) {
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, error.code() + ": " + error.message());
+        }
+        throw new NurtLanguageException(error);
+    }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

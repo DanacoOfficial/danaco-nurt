@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::move_entries
+// Responsibility:   `move`: moves files, links and directory trees.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `move`: moves files, links and directory trees.
 //!
 //! Every moved entry is one target of the transaction, declared as a rename
@@ -343,7 +351,12 @@ mod tests {
                 .as_ref()
                 .expect("a rename names the previous path");
             assert_ne!(from.as_str(), change.path.as_str());
-            assert!(change.path.as_str().starts_with("/out"));
+            assert!(
+                change
+                    .path
+                    .as_str()
+                    .starts_with(&nurt_testkit::paths::abs("/out"))
+            );
         }
     }
 
@@ -626,3 +639,7 @@ mod tests {
         assert!(test.fs().exists(&source));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

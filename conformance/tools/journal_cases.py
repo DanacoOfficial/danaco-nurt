@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           conformance/tools/journal_cases.py
+# Responsibility:   Script journal_cases.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Journal cases: undo of every row of the coverage table, and the semantics of undo and redo.
 
 Every row of `tables/journal-coverage.toml` outside the group `git` has a case
@@ -888,3 +896,7 @@ def semantics() -> Collection:
 def collections() -> list[Collection]:
     """Returns every journal collection."""
     return [coverage(), semantics()]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

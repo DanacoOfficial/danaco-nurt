@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::refs_tx::tests
+// Responsibility:   Unit tests of reference transactions on repositories built in temporary directories.
+// Dependencies:     bstr, gix_hash, gix_ref, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Unit tests of reference transactions on repositories built in temporary
 //! directories.
 
@@ -825,7 +833,7 @@ fn prepared_transaction_reports_targets_before_applying() {
 #[test]
 fn layout_is_read_from_repository_configuration() {
     let dir = tempfile::tempdir().unwrap();
-    let repo = gix::init(dir.path()).unwrap();
+    let repo = crate::testutil::init_isolated(dir.path()).unwrap();
     let layout = RefLayout::from_repo(&repo).unwrap();
     assert_eq!(layout.log_all(), LogAllRefUpdates::Standard);
     assert_eq!(layout.git_dir(), layout.common_dir());
@@ -834,18 +842,18 @@ fn layout_is_read_from_repository_configuration() {
     let mut text = std::fs::read_to_string(&config).unwrap();
     text.push_str("[core]\n\tlogAllRefUpdates = always\n");
     std::fs::write(&config, &text).unwrap();
-    let repo = gix::open(dir.path()).unwrap();
+    let repo = crate::testutil::open_isolated(dir.path()).unwrap();
     assert_eq!(
         RefLayout::from_repo(&repo).unwrap().log_all(),
         LogAllRefUpdates::Always
     );
     text.push_str("[core]\n\tlogAllRefUpdates = sometimes\n");
     std::fs::write(&config, &text).unwrap();
-    let repo = gix::open(dir.path()).unwrap();
+    let repo = crate::testutil::open_isolated(dir.path()).unwrap();
     let error = RefLayout::from_repo(&repo).unwrap_err();
     assert_eq!(error.problem.as_deref(), Some("invalid_config"));
     let bare = tempfile::tempdir().unwrap();
-    let repo = gix::init_bare(bare.path()).unwrap();
+    let repo = crate::testutil::init_bare_isolated(bare.path()).unwrap();
     assert_eq!(
         RefLayout::from_repo(&repo).unwrap().log_all(),
         LogAllRefUpdates::Never
@@ -930,3 +938,7 @@ fn paths_of_names_are_joined_per_component() {
         )
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

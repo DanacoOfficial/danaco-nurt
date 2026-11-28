@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-report::assemble::builder
+// Responsibility:   Builder of `nurt-report/1` reports.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Builder of `nurt-report/1` reports.
 
 use nurt_contracts::error::Error;
@@ -8,9 +16,12 @@ use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::record::Operation;
 use nurt_contracts::report::{
     Change, Correction, Hunk, IrreversibleEntry, Notable, NotableEntry, RecordsPage, Report,
-    ReportStatus, ReportViolation, Targets, Timing,
+    ReportPart, ReportStatus, ReportViolation, Targets, Timing,
 };
 use nurt_contracts::value::Record;
+
+/// The largest number of parts of a control construct a report lists.
+const MAX_PARTS: usize = 200;
 
 use super::bulk::summarize_bulk;
 use super::context::ReportContext;
@@ -281,6 +292,19 @@ impl<'c> ReportBuilder<'c> {
         self
     }
 
+    /// Sets the parts of a control construct. The report keeps the first
+    /// `MAX_PARTS` parts and states the total when there are more.
+    #[must_use]
+    pub fn parts(mut self, mut parts: Vec<ReportPart>) -> Self {
+        let total = u64::try_from(parts.len()).unwrap_or(u64::MAX);
+        if parts.len() > MAX_PARTS {
+            parts.truncate(MAX_PARTS);
+            self.report.parts_total = Some(total);
+        }
+        self.report.parts = parts;
+        self
+    }
+
     /// Sets the durations of the processing steps.
     #[must_use]
     pub fn timing(mut self, timing: Timing) -> Self {
@@ -380,3 +404,7 @@ fn list(
     report.diff = diff;
     report
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

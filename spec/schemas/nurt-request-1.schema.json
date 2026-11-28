@@ -17,7 +17,8 @@
     },
     "cursor": { "type": "string", "minLength": 1, "description": "Cursor of a further page of an earlier result." },
     "accept": { "type": "string", "minLength": 1, "description": "Identifier of a candidate from an earlier E_AMBIGUOUS error." },
-    "options": { "$ref": "#/$defs/options" }
+    "options": { "$ref": "#/$defs/options" },
+    "params": { "type": "object", "description": "Values of the parameters of a script that starts with `params { … }`, by name: typed JSON, or text that the declared type reads." }
   },
   "oneOf": [
     { "required": ["program"] },
@@ -45,7 +46,9 @@
         "timeout": { "type": "string", "pattern": "^([0-9]+(ms|s|m|h|d))+$", "default": "120s", "description": "Time limit of the whole program." },
         "session": { "type": "string", "minLength": 1, "description": "Session identifier recorded in the journal." },
         "language": { "enum": ["en", "pl"], "default": "en", "description": "Language of messages and help." },
-        "script": { "type": "boolean", "default": false, "description": "Script mode: several pipelines, each its own operation." }
+        "script": { "type": "boolean", "default": false, "description": "Script mode: several pipelines, each its own operation." },
+        "privilege": { "enum": ["account", "elevated", "auto"], "default": "account", "description": "Rights of the operation: the account, the administrator, or the account with one elevated repetition after E_PERMISSION or E_PRIVILEGE." },
+        "as_user": { "type": "string", "minLength": 1, "description": "Account that runs the operation (Linux and macOS); implies elevation for the switch." }
       }
     },
     "format": {

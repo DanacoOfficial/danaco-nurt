@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::checkpoint::test_journal
+// Responsibility:   Repositories and a checked journal for the tests of the checkpoint and working tree commands.
+// Dependencies:     gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Repositories and a checked journal for the tests of the checkpoint and
 //! working tree commands.
 //!
@@ -144,7 +152,12 @@ impl Fixture {
     pub(crate) fn state_without_refs(&self) -> BTreeMap<PathBuf, TreeEntry> {
         self.state()
             .into_iter()
-            .filter(|(path, _)| !path.to_string_lossy().contains(CHECKPOINT_REFS))
+            .filter(|(path, _)| {
+                !path
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .contains(CHECKPOINT_REFS)
+            })
             .collect()
     }
 
@@ -190,7 +203,7 @@ fn write_index(repo: &gix::Repository, entries: &BTreeMap<BString, Blob>) {
 fn checked_state(base: &Path) -> BTreeMap<PathBuf, TreeEntry> {
     testutil::snapshot(base)
         .into_iter()
-        .filter(|(path, _)| !path.to_string_lossy().contains(OBJECTS))
+        .filter(|(path, _)| !path.to_string_lossy().replace('\\', "/").contains(OBJECTS))
         .collect()
 }
 
@@ -313,3 +326,7 @@ impl MutationTx for CheckedTx<'_> {
         self.inner.rollback(reason)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

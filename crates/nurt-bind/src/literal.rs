@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::literal
+// Responsibility:   Decoders of literal texts and of catalog default values.
+// Dependencies:     jiff, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Decoders of literal texts and of catalog default values.
 //!
 //! A quoted text in a place of type `size`, `duration` or `instant` is
@@ -151,6 +159,15 @@ fn safe(value: u128) -> Option<u64> {
         return None;
     }
     u64::try_from(value).ok()
+}
+
+/// Reads the text of a literal (`7`, `10mb`, `5s`, `true`, `[1, 2]`) into a
+/// surface expression.
+pub(crate) fn literal_expr(text: &str) -> Option<Expr> {
+    let mut parser = LiteralParser::new(text.trim());
+    let expr = parser.value()?;
+    parser.skip_space();
+    parser.at_end().then_some(expr)
 }
 
 /// Reads a catalog default value into a surface expression.
@@ -577,3 +594,7 @@ mod tests {
         assert_eq!(parsed("$x"), None);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

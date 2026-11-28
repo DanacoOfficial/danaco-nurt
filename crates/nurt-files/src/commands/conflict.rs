@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::conflict
+// Responsibility:   Sources, destinations, conflicts and transaction steps shared by `copy`, `move`, `remove` and `rename`.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Sources, destinations, conflicts and transaction steps shared by `copy`,
 //! `move`, `remove` and `rename`.
 //!
@@ -267,7 +275,7 @@ impl Source {
     /// entry.
     pub(crate) fn require(&self, fs: &dyn Fs) -> Result<FileMeta> {
         match self.observe(fs)? {
-            Observed::Present(meta) => Ok(meta),
+            Observed::Present(meta, _) => Ok(meta),
             Observed::Absent => Err(not_found_error(&self.path)),
         }
     }
@@ -593,7 +601,7 @@ impl<'a> Placer<'a> {
         {
             return Ok(Occupant::Free);
         }
-        let Observed::Present(meta) = observe(self.fs, destination)? else {
+        let Observed::Present(meta, _) = observe(self.fs, destination)? else {
             return Ok(Occupant::Free);
         };
         if meta.file_id == source.file_id {
@@ -1656,3 +1664,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

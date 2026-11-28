@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::commands::undo
+// Responsibility:   Stage of the `undo` command: restores the state that preceded selected journal entries, as a new journal entry.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stage of the `undo` command: restores the state that preceded selected
 //! journal entries, as a new journal entry.
 
@@ -337,7 +345,7 @@ mod tests {
                 ("id", Value::Int(3)),
                 (
                     "paths",
-                    Value::Text("/home/użytkownik/zażółć.txt".to_owned()),
+                    Value::Text(nurt_testkit::paths::abs("/home/użytkownik/zażółć.txt")),
                 ),
             ],
         );
@@ -345,7 +353,7 @@ mod tests {
             parse(&args).unwrap().selection,
             Selection::Paths {
                 op: OpId(3),
-                paths: vec!["/home/użytkownik/zażółć.txt".to_owned()],
+                paths: vec![nurt_testkit::paths::abs("/home/użytkownik/zażółć.txt")],
             }
         );
         let wrong = call(NAME, &[("id", Value::Int(3)), ("paths", Value::Int(1))]);
@@ -357,7 +365,9 @@ mod tests {
         use super::super::testing::path;
 
         let env = Env::new();
-        let ctx = env.ctx_with(NAME, |options| options.base = Some("/home/user".to_owned()));
+        let ctx = env.ctx_with(NAME, |options| {
+            options.base = Some(nurt_testkit::paths::abs("/home/user"))
+        });
         let args = call(
             NAME,
             &[
@@ -383,7 +393,7 @@ mod tests {
                     "paths",
                     Value::List(vec![
                         Value::Path("a.txt".to_owned()),
-                        Value::Text("/srv/b.txt".to_owned()),
+                        Value::Text(nurt_testkit::paths::abs("/srv/b.txt")),
                     ]),
                 ),
             ],
@@ -439,3 +449,7 @@ mod tests {
         assert_eq!(parse(&force).unwrap().on_conflict, OnConflict::Force);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

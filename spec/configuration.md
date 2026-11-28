@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/configuration.md -->
+<!-- Responsibility:   Documents Configuration `nurt-config/1`. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Configuration `nurt-config/1`
 
 Danaco Nurt reads its configuration from TOML files, environment variables
@@ -74,6 +82,7 @@ Keys that are not applied are reported with these notable codes:
 |---|---|---|
 | `scope.trust*` | project, runtime | `trust_config_ignored` |
 | `service.*` | project | `trust_config_ignored` |
+| `privilege.*` | project | `trust_config_ignored` |
 | `journal.*` | project that is not trusted | `journal_config_ignored` |
 | any other key outside the list above | project | `project_config_ignored` |
 
@@ -274,6 +283,18 @@ behaviour in the meaning column applies.
 | `report.notable.per_file_repl` | integer | `100` | replacements in one file from which `many_per_file` is reported |
 | `report.notable.targets_high` | integer | `500` | targets from which `target_count_high` is reported |
 
+### 7.8a `[continuation]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `continuation.max_age` | duration | `1h` | a continuation older than this expires |
+| `continuation.max_count` | integer | `50` | most continuations kept; the oldest is removed first |
+| `continuation.max_size` | size | `256mib` | most space of all kept results; the oldest is removed first |
+
+Kept results live in the `results` area of the state directory, outside the
+journal, and are removed at the end of the session of the console or by these
+limits.
+
 ### 7.9 `[text]`, `[limits]`, `[fs]`
 
 | Key | Type | Default | Meaning |
@@ -284,6 +305,14 @@ behaviour in the meaning column applies.
 | `limits.max_file_bytes_text` | size | `1gib` | largest file read as text |
 | `limits.threads` | integer | none: number of processor cores | worker threads |
 | `fs.sharing_retry_ms` | integer | `2000` | time of retries after a sharing violation (Windows), in milliseconds |
+
+### 7.9a `[loop]`, `[function]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `loop.max_iterations` | integer | `10000` | largest number of iterations of a `repeat` or `while` without `limit` (an explicit `limit` replaces both loop keys); reaching it ends `repeat` with `E_LIMIT` and `while` normally, and the report says so |
+| `loop.max_time` | duration | `10m` | longest time of a `repeat` or `while` without `limit`, with the same outcome |
+| `function.max_depth` | integer, 1 to 1024 | `64` | deepest nesting of calls of functions defined with `define`; deeper recursion ends with `E_LIMIT` |
 
 ### 7.10 `[code]`
 
@@ -350,6 +379,17 @@ cover only what Git does not define.
 | `session.id` | text | none | session identifier recorded in the journal |
 | `session.ttl` | duration | `24h` | time without calls after which session settings (for example limits set by `journal.limits` for a session) expire |
 
+### 7.15 `[privilege]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `privilege.default` | `account`, `elevated`, `auto` | `account` | value of the call parameter `privilege` when a call does not give it; the embedding engine may set it |
+| `privilege.allowed` | boolean | `true` | when `false`, `elevated` and `auto` end with `E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch with which the embedding engine applies its policy |
+| `privilege.backends` | list of `self`, `broker`, `sudo`, `doas`, `run0` | none: the list of the system | allowed backends in order of trial; the list of the system is `["self", "broker", "sudo", "doas", "run0"]` on Linux, `["self", "broker", "sudo"]` on macOS and `["self", "broker"]` on Windows; `broker` is reported as `not_installed` until the service `nurt-elevation` exists |
+| `privilege.group` | text | none: `sudo` or `wheel` (Linux), `admin` (macOS) | group allowed to connect to the service `nurt-elevation` |
+
+A project file cannot set `privilege.*`.
+
 ## 8. Interface for implementations
 
 The module `nurt_contracts::config` provides:
@@ -370,3 +410,7 @@ defaults against `spec/golden/config/defaults.toml`, the generated schema
 against the approved file, every golden file against the schema, the
 precedence of the seven levels for the three retention limits, the trust
 rules and the environment level.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

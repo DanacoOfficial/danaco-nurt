@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt/src/test/java/pl/danacogroup/nurt/BindingConformanceTest.java
+// Responsibility:   Source file bindings/java/nurt/src/test/java/pl/danacogroup/nurt/BindingConformanceTest.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -124,7 +132,9 @@ class BindingConformanceTest {
                 if (result != null) {
                     view.put("value", result);
                 }
-                outcome = "ok";
+                Map<String, Object> error = result instanceof Map<?, ?> ? Json.object(((Map<?, ?>) result).get("error")) : null;
+                outcome = error == null ? "ok" : "language_error";
+                errorCode = error == null ? null : Json.string(error, "code");
             }
         } catch (NurtLanguageException e) {
             outcome = "language_error";
@@ -182,7 +192,9 @@ class BindingConformanceTest {
                     ? client.describe(text(args, "name"), language(args))
                     : client.describe();
             case "help" -> args.get("topic") == null ? client.help() : client.help(text(args, "topic"));
-            case "catalog" -> client.catalog(withoutLocal(args));
+            case "catalog" -> args.get("what") == null
+                    ? client.catalog()
+                    : client.catalog(Json.object(args.get("what")));
             case "schema" -> client.schema(text(args, "which"));
             case "history" -> client.history(withoutLocal(args));
             case "space" -> args.get("volume") == null ? client.space() : client.space(text(args, "volume"));
@@ -237,8 +249,11 @@ class BindingConformanceTest {
             request = Request.cursor(text(args, "cursor"));
         } else if (args.containsKey("accept")) {
             request = Request.accept(text(args, "accept"));
-        } else {
+        } else if (args.containsKey("program")) {
             request = Request.program(text(args, "program"));
+        } else {
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
+                    "a request needs a program, a tree, a cursor or a candidate");
         }
         if (args.get("variant") instanceof String variant) {
             request.variant(Request.Variant.valueOf(variant.toUpperCase(java.util.Locale.ROOT)));
@@ -370,3 +385,7 @@ class BindingConformanceTest {
         return Json.write(expected).equals(Json.write(actual)) || (expected != null && expected.equals(actual));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/list_golden.rs
+// Responsibility:   The examples of the `list` page of the command documentation, run on the virtual file system.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The examples of the `list` page of the command documentation, run on the
 //! virtual file system.
 
@@ -178,3 +186,7 @@ fn example_lists_files_most_recently_modified_first() {
     assert_eq!(relatives(&entries), ["version.go", "main.go"]);
     assert!(entries.iter().all(|entry| entry.kind == EntryType::File));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

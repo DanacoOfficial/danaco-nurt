@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-docgen::check
+// Responsibility:   Static check of example programs against the command catalog.
+// Dependencies:     ScalarType, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Static check of example programs against the command catalog.
 //!
 //! The check stands in for `nurt check` until the executor is available to the
@@ -12,6 +20,7 @@
 
 use std::collections::HashSet;
 
+use nurt_contracts::bound::STAGE_CALL_PARAMETERS;
 use nurt_contracts::spec::{ParamSpec, ParamType, ScalarType, StageSpec};
 
 use crate::catalog::Catalog;
@@ -554,6 +563,9 @@ impl Binder<'_> {
             let param = match &arg.name {
                 Some(name) => match spec.param(name) {
                     Some(param) => Some(param),
+                    None if STAGE_CALL_PARAMETERS.contains(&name.as_str()) || name == "preview" => {
+                        continue;
+                    }
                     None => {
                         self.unknown_named(spec, name);
                         continue;
@@ -586,7 +598,7 @@ impl Binder<'_> {
             .params
             .iter()
             .any(|p| p.ty.contains_scalar(ScalarType::NamedExpression));
-        if !expression_param {
+        if !expression_param && name != "preview" {
             self.issue(
                 "E_UNKNOWN_PARAM",
                 format!("{} has no parameter {name}", spec.name),
@@ -665,9 +677,138 @@ impl Binder<'_> {
     }
 }
 
+/// Words that open a control construct at the start of a statement.
+const CONSTRUCT_WORDS: [&str; 7] = [
+    "when", "each", "repeat", "while", "steps", "define", "params",
+];
+
+/// Lowers the control constructs to the pipelines they contain.
+///
+/// The checker binds pipelines against the catalog. Headers of constructs,
+/// the declarations of `params`, closing braces, `break`, `continue` and calls
+/// of functions defined in the program are removed, and every name that the
+/// constructs introduce (parameters, loop variables) becomes a `let` so that
+/// the pipelines inside the blocks are checked as they are. Conditions and the
+/// types of constructs are checked by the engine, not here.
+fn flatten_constructs(program: &str) -> String {
+    let mut scope = Scope::default();
+    let mut body: Vec<&str> = Vec::new();
+    let mut in_params = false;
+    for line in program.lines() {
+        let text = line.trim();
+        if in_params {
+            in_params = !text.starts_with('}');
+            scope.declare_parameter(text);
+        } else if closes_block(text) || matches!(text, "break" | "continue") {
+        } else if let Some(word) = construct_word(text) {
+            in_params = word == "params";
+            scope.open(word, text);
+        } else {
+            body.push(line);
+        }
+    }
+    let mut out = String::new();
+    for name in scope.names.iter().filter(|n| !n.is_empty()) {
+        out.push_str(&format!("let {name} = find \"/\"\n"));
+    }
+    for line in body {
+        let call = line.trim().split('(').next().unwrap_or("");
+        if line.trim().contains('(') && scope.functions.iter().any(|f| f == call) {
+            continue;
+        }
+        out.push_str(&as_references(line, &scope.loop_vars));
+        out.push('\n');
+    }
+    out
+}
+
+/// Names introduced by the constructs of a program.
+#[derive(Default)]
+struct Scope {
+    names: Vec<String>,
+    loop_vars: Vec<String>,
+    functions: Vec<String>,
+}
+
+impl Scope {
+    fn declare_parameter(&mut self, line: &str) {
+        if let Some((name, _)) = line.split_once(':') {
+            self.names.push(name.trim().to_owned());
+        }
+    }
+
+    fn open(&mut self, word: &str, line: &str) {
+        match word {
+            "each" => {
+                let var = line
+                    .split_once(" as ")
+                    .and_then(|(_, rest)| rest.split_whitespace().next());
+                if let Some(var) = var {
+                    self.loop_vars.push(var.to_owned());
+                    self.names.push(var.to_owned());
+                }
+            }
+            "define" => {
+                let head = line.trim_start_matches("define").trim();
+                if let Some((name, rest)) = head.split_once('(') {
+                    self.functions.push(name.trim().to_owned());
+                    let list = rest.split(')').next().unwrap_or("");
+                    self.names.extend(
+                        list.split(',')
+                            .filter_map(|p| p.split(':').next())
+                            .map(|n| n.trim().to_owned()),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Whether a line only closes a block, possibly opening the next one.
+fn closes_block(line: &str) -> bool {
+    line.starts_with('}') && (line.ends_with('{') || line.trim_matches('}').is_empty())
+}
+
+/// Returns the construct word when a line opens a block of a construct.
+fn construct_word(line: &str) -> Option<&'static str> {
+    let first = line
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .next()?;
+    CONSTRUCT_WORDS
+        .iter()
+        .copied()
+        .find(|word| *word == first && line.ends_with('{'))
+}
+
+/// Writes the fields of loop variables (`f.path`) as references (`@f.path`).
+fn as_references(line: &str, vars: &[String]) -> String {
+    let mut text = line.to_owned();
+    for var in vars {
+        let pattern = format!("{var}.");
+        let mut out = String::new();
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find(&pattern) {
+            let before = rest[..at].chars().next_back();
+            let plain =
+                before.is_none_or(|c| !(c.is_alphanumeric() || matches!(c, '_' | '@' | '.')));
+            out.push_str(&rest[..at]);
+            if plain {
+                out.push('@');
+            }
+            out.push_str(&pattern);
+            rest = &rest[at + pattern.len()..];
+        }
+        out.push_str(rest);
+        text = out;
+    }
+    text
+}
+
 impl ProgramChecker for CatalogChecker<'_> {
     fn check(&self, program: &str) -> Vec<CheckIssue> {
-        let (tokens, problems) = tokenize(program);
+        let flat = flatten_constructs(program);
+        let (tokens, problems) = tokenize(&flat);
         let mut issues: Vec<CheckIssue> = problems
             .into_iter()
             .map(|message| CheckIssue::new("E_LEXICAL", message))
@@ -818,4 +959,25 @@ mod tests {
             vec!["E_STAGE_INPUT"]
         );
     }
+
+    #[test]
+    fn checks_the_pipelines_inside_constructs() {
+        let program =
+            "params {\n    dir: path\n}\nsteps {\n    find @dir glob: \"*.log\" |> remove\n}\n";
+        assert!(codes(program).is_empty());
+        let program = "each (find \"/srv\" glob: \"*.log\") as f {\n    find f.path glob: \"*\" |> count\n}\n";
+        assert!(codes(program).is_empty());
+        let program = "define rotate(dir: path) {\n    find @dir glob: \"*.log\" |> remove\n}\nrotate(\"/x\")\n";
+        assert!(codes(program).is_empty());
+    }
+
+    #[test]
+    fn reports_an_unknown_command_inside_a_construct() {
+        let program = "when exists \"/x\" {\n    frobnicate \"/x\"\n}\n";
+        assert_eq!(codes(program), vec!["E_UNKNOWN_COMMAND"]);
+    }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::output::select
+// Responsibility:   Response views of captured output.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Response views of captured output.
 //!
 //! The lines of each stream pass, in this order, through decoding, line
@@ -31,7 +39,7 @@ use super::formats::{Collector, MAX_ERRORS_LISTED, entry_bytes};
 use super::progress::{self, Observer, Watch};
 use super::spool::{Snapshot, Source, io_error};
 use super::window::{HeadTail, ShownLine, Window, allocate};
-use crate::iface::{OutputView, RenderedOutput, ShowMode};
+use crate::iface::{LinesContinuation, OutputView, RenderedOutput, ShowMode};
 
 /// Lines of a stream that `show: auto` returns whole after a failure;
 /// longer output returns its error lines when it has any.
@@ -317,9 +325,6 @@ struct Scan {
     shortened: u64,
 }
 
-// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
-// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
-// https://github.com/DanacoOfficial | support@danaco-group.pl
 /// A stream whose lines are being processed for the response.
 struct Held<'a> {
     stream: OutputStream,
@@ -431,8 +436,8 @@ pub(super) fn respond(
     output.notes = notes(snapshot, &detected, shortened);
     output.output_cursor = Some(cursor.encode(&snapshot.tag));
     output.diagnostics = diagnostics;
-    output.read_hint = matches!(mode, Mode::Whole { .. })
-        .then(|| read_hint(&cuts))
+    output.continuation = matches!(mode, Mode::Whole { .. })
+        .then(|| continuation_of(&cuts))
         .flatten();
     Ok(output)
 }
@@ -535,20 +540,19 @@ fn fit_budget(
 
 /// A stream whose response leaves lines out or cuts lines.
 struct Cut {
-    label: &'static str,
     path: PathBuf,
-    omitted: u64,
-    filtered: u64,
     total: u64,
     cut_lines: u64,
-    range: Option<(u64, u64)>,
+    unseen: Option<(u64, u64)>,
+    left_out: bool,
+    shown: u64,
+    cut_at: Vec<u64>,
 }
 
 fn cuts_of(shown: &[(OutputStream, PathBuf, OutputShownText)]) -> Vec<Cut> {
-    let merged = shown.len() == 1;
     shown
         .iter()
-        .filter_map(|(stream, path, text)| {
+        .filter_map(|(_, path, text)| {
             let OutputShownText::Lines {
                 window,
                 filtered,
@@ -560,65 +564,50 @@ fn cuts_of(shown: &[(OutputStream, PathBuf, OutputShownText)]) -> Vec<Cut> {
             let outside = if *selected_by_errors { *filtered } else { 0 };
             let left_out = window.omitted() > 0 || window.cut_lines > 0 || outside > 0;
             left_out.then(|| Cut {
-                label: match (merged, stream) {
-                    (true, _) => "output",
-                    (false, OutputStream::Stdout) => "stdout",
-                    (false, OutputStream::Stderr) => "stderr",
-                },
                 path: path.clone(),
-                omitted: window.omitted(),
-                filtered: outside,
                 total: window.raw_total,
                 cut_lines: window.cut_lines,
-                range: window
-                    .unseen_range()
-                    .or_else(|| window.first_cut.map(|line| (line, line))),
+                unseen: window.unseen_range(),
+                left_out: window.omitted() > 0 || outside > 0,
+                shown: u64::try_from(window.head.len() + window.tail.len()).unwrap_or(u64::MAX),
+                cut_at: window.cut_at.clone(),
             })
         })
         .collect()
 }
 
-/// Pattern the search of the read hint looks for.
-const HINT_FILTER: &str = "error|FAILED";
-
-/// One sentence with the Nurt commands that read the lines a response leaves
-/// out from the output file, without running the program again: `read` with
-/// the range of lines of the file and `search` with a pattern, or `search`
-/// alone when the response shows a selection of lines.
-fn read_hint(cuts: &[Cut]) -> Option<String> {
-    if cuts.is_empty() {
-        return None;
-    }
-    let quote = |path: &std::path::Path| {
-        let text = path.display().to_string();
-        format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
-    };
-    let parts: Vec<String> = cuts
+/// The lines of the output file that the response leaves out or cuts, as the
+/// source of the continuation `next` reads: the range of lines between the
+/// head and the tail of the first stream that has one; the whole file when
+/// the response shows a selection of lines; no lines when the response only
+/// cuts long lines.
+fn continuation_of(cuts: &[Cut]) -> Option<LinesContinuation> {
+    let mut parts: Vec<LinesContinuation> = cuts
         .iter()
+        .filter(|cut| cut.left_out || cut.unseen.is_some() || cut.cut_lines > 0)
         .map(|cut| {
-            let path = quote(&cut.path);
-            let mut detail = Vec::new();
-            if cut.omitted > 0 {
-                detail.push(format!("{} of {} lines left out", cut.omitted, cut.total));
-            }
-            if cut.filtered > 0 {
-                detail.push(format!("{} lines outside the selection", cut.filtered));
-            }
-            if cut.cut_lines > 0 {
-                detail.push(format!("{} long lines cut", cut.cut_lines));
-            }
-            let search = format!("search /{HINT_FILTER}/ {path}");
-            let commands = match cut.range {
-                Some((from, to)) => format!("read {path} lines: {from}..{to} or {search}"),
-                None => search,
+            let (first_line, last_line) = match (cut.unseen, cut.left_out) {
+                (Some(range), _) => range,
+                (None, true) => (1, cut.total),
+                (None, false) => (cut.total + 1, cut.total),
             };
-            format!("{} ({}): {commands}", cut.label, detail.join(", "))
+            LinesContinuation {
+                path: cut.path.clone(),
+                first_line,
+                last_line,
+                shown: cut.shown,
+                cut: cut.cut_at.clone(),
+                more: Vec::new(),
+            }
         })
         .collect();
-    Some(format!(
-        "Output cut; read the rest from the output file without running the program again: {}.",
-        parts.join("; ")
-    ))
+    if parts.is_empty() {
+        return None;
+    }
+    let mut first = parts.remove(0);
+    first.shown += parts.iter().map(|part| part.shown).sum::<u64>();
+    first.more = parts;
+    Some(first)
 }
 
 fn base_output(snapshot: &Snapshot) -> RenderedOutput {
@@ -888,3 +877,7 @@ fn notes(
     }
     notes
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

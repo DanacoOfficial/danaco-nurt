@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_harness.rs
+// Responsibility:   Round-trip harness, the `key = value` test format and the in-memory journal.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round-trip harness, the `key = value` test format and the in-memory
 //! journal.
 #![cfg(feature = "testing")]
@@ -612,7 +620,7 @@ fn target(path: &AbsPath, action: TargetAction) -> TargetSpec {
 }
 
 fn settings() -> AbsPath {
-    AbsPath::new("/srv/app/settings.kv").expect("absolute path")
+    AbsPath::for_test("/srv/app/settings.kv")
 }
 
 #[test]
@@ -662,7 +670,7 @@ fn transaction_without_changes_records_no_operation() {
 #[test]
 fn rollback_restores_changed_targets() {
     let path = settings();
-    let created = AbsPath::new("/srv/app/new.kv").expect("absolute path");
+    let created = AbsPath::for_test("/srv/app/new.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("set"));
     tx.preserve(&[
@@ -683,7 +691,7 @@ fn rollback_restores_changed_targets() {
 #[test]
 fn removal_and_creation_are_undone() {
     let path = settings();
-    let created = AbsPath::new("/srv/app/new.kv").expect("absolute path");
+    let created = AbsPath::for_test("/srv/app/new.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("remove"));
     tx.preserve(&[
@@ -704,7 +712,7 @@ fn removal_and_creation_are_undone() {
 #[test]
 fn transaction_rejects_misuse() {
     let path = settings();
-    let missing = AbsPath::new("/srv/app/missing.kv").expect("absolute path");
+    let missing = AbsPath::for_test("/srv/app/missing.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("set"));
     let exists = tx
@@ -732,3 +740,7 @@ fn transaction_rejects_misuse() {
         .expect_err("after a change");
     assert_eq!(late.code, ErrorCode::StageFailed);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

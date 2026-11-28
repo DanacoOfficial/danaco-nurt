@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::model
+// Responsibility:   Document node tree with byte spans, positions, comments and style.
+// Dependencies:     errors, handle, nurt_contracts, position, resolve, semantics, span, tree
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Document node tree with byte spans, positions, comments and style.
 //!
 //! A format parses its text into a [`DocTree`] with a [`TreeBuilder`]. Every
@@ -52,3 +60,7 @@ pub use span::Span;
 pub use tree::{
     DocNode, DocTree, Layout, NodeId, NodeKind, NodeSpec, ScalarStyle, Style, TreeBuilder,
 };
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

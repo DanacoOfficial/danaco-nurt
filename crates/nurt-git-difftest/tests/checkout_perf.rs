@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-git-difftest/tests/checkout_perf.rs
+// Responsibility:   Checkout time of a large tree compared with `git`.
+// Dependencies:     nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checkout time of a large tree compared with `git`.
 //!
 //! The test is ignored by default because it creates 100 000 files:
@@ -52,6 +60,10 @@ fn checkout_of_100000_files_takes_at_most_three_times_the_time_of_git() {
     std::fs::create_dir_all(&git_side).expect("repository directory");
     for args in [
         &["init", "-q", "-b", "main"][..],
+        // An automatic gc that git starts in the background after the commit
+        // of the files packs loose objects while the repository is copied.
+        &["config", "gc.auto", "0"],
+        &["config", "maintenance.auto", "false"],
         &["commit", "-q", "--allow-empty", "-m", "empty"],
         &["switch", "-q", "-c", "big"],
     ] {
@@ -100,3 +112,7 @@ fn checkout_of_100000_files_takes_at_most_three_times_the_time_of_git() {
         "checkout took {ratio:.2} times the time of git"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

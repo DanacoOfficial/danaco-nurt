@@ -1,0 +1,42 @@
+Danaco Nurt start banner, plain ASCII (7 bit). Roles: the left chevron is silver, the right chevron is gold.
+
+          +#+
+       :+###+
+    :+######:
+  +######+                  Danaco Nurt
++#####+:   +#+:
+######+    +####+           Command shell and language where every change can be undone
+ :+######: :+#####+:
+    :+#####+: :######+:     nurt 0.1.0  -  journal on
+       +####+    +######
+         :+#+   :+#####+    docs  https://www.danaco-group.pl
+              +######+
+           :######+:
+           +###+:
+           +#+
+
+nurt > find "/home/user/app/build" glob: "*.tmp" |> remove
+  removed 14 files  -  journal entry 42
+
+nurt > undo
+  restored 14 files from entry 42
+  summary  1 operation undone, 14 files restored, 0 conflicts
+
+nurt > history limit: 3
+  id  state       operation                               when
+  42  undone      remove 14 files                         just now
+  41  available   replace 3 occurrences in src/main.go    12 min ago
+  40  available   write 1 file                            14 min ago
+
+nurt >
+
+Compact banner for narrow terminals (drawing for small sizes, 16 px):
+
+    +#
+ :+###  +
+####+:  ##+:
+:####+  +####:
+  :+##  :+####
+     +  ###+:
+        #+
+  Danaco Nurt

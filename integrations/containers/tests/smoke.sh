@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/containers/tests/smoke.sh
+# Responsibility:   Runs a built image and checks the executable, the license files, the user and the state directory.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Runs a built image and checks the executable, the license files, the user
 # and the state directory. Usage: smoke.sh IMAGE [ci|devcontainer|nurt].
 
@@ -65,3 +73,7 @@ case $kind in
 esac
 
 ((failures == 0))
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

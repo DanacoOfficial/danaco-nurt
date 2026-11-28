@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::local::receive
+// Responsibility:   In-process receive-pack service for pushes to local repositories.
+// Dependencies:     bstr, gix, gix_transport, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! In-process receive-pack service for pushes to local repositories.
 //!
 //! For `file://` URLs and paths `git` starts the `git-receive-pack` program;
@@ -1106,7 +1114,7 @@ mod tests {
     #[test]
     fn empty_pack_trailer_has_the_length_of_the_repository_hash() {
         let dir = tempfile::tempdir().unwrap();
-        gix::init_bare(dir.path()).unwrap();
+        crate::send_pack::testing::init_isolated(dir.path(), true);
         let config = dir.path().join("config");
         let text = std::fs::read_to_string(&config).unwrap();
         let text = text.replace("repositoryformatversion = 0", "repositoryformatversion = 1");
@@ -1582,3 +1590,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

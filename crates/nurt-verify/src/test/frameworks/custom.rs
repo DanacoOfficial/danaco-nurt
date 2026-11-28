@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::test::frameworks::custom
+// Responsibility:   Package scripts and commands given by the user.
+// Dependencies:     nurt_contracts, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Package scripts and commands given by the user.
 
 use std::sync::LazyLock;
@@ -116,3 +124,7 @@ fn result(name: &str, status: TestStatus, millis: Option<f64>) -> TestResult {
         ..TestResult::default()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

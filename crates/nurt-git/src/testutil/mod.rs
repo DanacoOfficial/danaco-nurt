@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::testutil
+// Responsibility:   Deterministic test repositories built without an external program.
+// Dependencies:     bstr, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Deterministic test repositories built without an external program.
 //!
 //! [`RepoBuilder`] creates repositories in temporary directories with the
@@ -50,6 +58,59 @@ fn fixture_options() -> gix::open::Options {
             .map(|value| (*value).to_owned())
             .chain(identity),
     )
+}
+
+/// Creates a repository with a working tree at `dir` and opens it with the
+/// options of the fixtures. The configuration of the machine that runs the
+/// tests (system and global files, environment) is never read, so that a
+/// setting such as `core.autocrlf` of Git for Windows does not change what a
+/// test sees.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be created.
+pub fn init_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    init_with(dir.as_ref(), gix::create::Kind::WithWorktree)
+}
+
+/// Creates a bare repository at `dir`, opened as [`init_isolated`] opens it.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be created.
+pub fn init_bare_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    init_with(dir.as_ref(), gix::create::Kind::Bare)
+}
+
+/// Opens the repository at `dir` with the options of the fixtures, without
+/// the configuration of the machine that runs the tests.
+///
+/// # Errors
+///
+/// Returns the error of `gix` when the repository cannot be opened.
+pub fn open_isolated(dir: impl AsRef<Path>) -> gix::Result<gix::Repository> {
+    gix::open_opts(dir.as_ref(), fixture_options())
+}
+
+fn init_with(dir: &Path, kind: gix::create::Kind) -> gix::Result<gix::Repository> {
+    let repo = gix::ThreadSafeRepository::init_opts(
+        dir,
+        kind,
+        gix::create::Options::default(),
+        fixture_options(),
+    )?
+    .to_thread_local();
+    with_git_line_ends(repo.git_dir());
+    Ok(repo)
+}
+
+/// Rewrites the configuration of the repository at `git_dir` with `\n` line
+/// ends, as `git` writes it on every system; `gix` uses the line ends of the
+/// system, `\r\n` on Windows.
+pub fn with_git_line_ends(git_dir: &Path) {
+    let path = git_dir.join("config");
+    let text = std::fs::read_to_string(&path).expect("configuration is readable");
+    std::fs::write(&path, text.replace("\r\n", "\n")).expect("configuration is writable");
 }
 
 /// Clock that always reads the same wall time.
@@ -134,6 +195,19 @@ impl TestHost {
     pub fn with_var(mut self, name: &str, value: impl Into<OsString>) -> Self {
         self.vars.retain(|(existing, _)| existing != name);
         self.vars.push((name.into(), value.into()));
+        self
+    }
+
+    /// The same host reporting the operating system `os` and its path
+    /// notation, so that lists of paths in variables split as on that system.
+    #[must_use]
+    pub fn with_os(mut self, os: Os) -> Self {
+        self.info.os = os;
+        self.info.path_style = if os == Os::Windows {
+            PathStyle::Windows
+        } else {
+            PathStyle::Posix
+        };
         self
     }
 }
@@ -917,3 +991,7 @@ mod tests {
         assert_eq!(host.info().home, PathBuf::from("/home/user"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

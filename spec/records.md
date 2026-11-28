@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/records.md -->
+<!-- Responsibility:   Documents Values and records. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Values and records
 
 Programs exchange typed values and records. This specification defines the value types, their JSON form `nurt-value/1` and every record kind with its fields. The schema `nurt-value-1.schema.json` is generated from the types of the crate `nurt-contracts`; a test of the crate compares the two and validates the golden files of `spec/golden/value` against the schema.
@@ -128,7 +136,7 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `extension` | text | no | Last extension, without the leading period. |
 | `parent` | path | no | Parent directory. |
 | `raw_parent` | bytes | no | Native bytes of `parent`; present only when it is not valid Unicode. |
-| `type` | enum(file\|directory\|link\|other) | yes | Type of the entry. |
+| `type` | enum(file\|directory\|link\|fifo\|device\|other) | yes | Type of the entry. |
 | `exists` | bool | no | Whether the entry exists; set in the result of `info`. |
 | `size` | size | yes | Size in bytes; for directories as reported by the system. |
 | `modified` | instant | yes | Time of the last modification. |
@@ -143,6 +151,8 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `link_target` | path | no | Target of a link. |
 | `raw_link_target` | bytes | no | Native bytes of `link_target`; present only when it is not valid Unicode. |
 | `link_type` | enum(symbolic\|junction\|hard) | no | Kind of a link. |
+| `major` | int | no | Major device number of a device node. |
+| `minor` | int | no | Minor device number of a device node. |
 | `links` | int | no | Number of hard links. |
 | `volume` | path | no | Mount point of the volume. |
 | `file_id` | text | no | File identifier on the volume. |
@@ -506,7 +516,6 @@ Result of a finished run of a program.
 | `job` | text | no | Job identifier when the run continued in the background. |
 | `diagnostics` | object [`ExecDiagnostics`](#execdiagnostics) | no | Errors and warnings of a recognised tool. |
 | `digest` | text | no | One line about a successful run: exit code, time, lines and bytes. |
-| `read_hint` | text | no | Sentence with the commands that read what the response leaves out from the output file. |
 
 ### job
 
@@ -933,7 +942,7 @@ Member of an archive.
 | `archive` | path | yes | Archive file. |
 | `name` | text | yes | Last component of the member path. |
 | `size` | size | yes | Size after extraction. |
-| `type` | enum(file\|directory\|link\|other) | yes | Type. |
+| `type` | enum(file\|directory\|link\|fifo\|device\|other) | yes | Type. |
 | `path` | text | no | Full path inside the archive. |
 | `packed` | size | no | Size in the archive. |
 | `modified` | instant | no | Modification time. |
@@ -1695,3 +1704,7 @@ Progress of an operation with several steps, such as a rebase.
 |---|---|---|---|
 | `done` | int | yes | Steps done. |
 | `total` | int | yes | Steps in total. |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-archive/tests/corpus.rs
+// Responsibility:   Archives generated in the test: every supported format and compression, Unicode names, links and members crafted to escape the destination.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Archives generated in the test: every supported format and compression,
 //! Unicode names, links and members crafted to escape the destination.
 //!
@@ -437,6 +445,17 @@ fn assert_contained(root: &Path, into: &Path) {
     }
 }
 
+/// `path` as the absolute member name of an attack: on Windows without the
+/// drive and with `/` separators, the name that a careless extraction writes
+/// to the same place of the current drive.
+fn rooted(path: &Path) -> String {
+    let text = path.to_str().unwrap().replace('\\', "/");
+    match text.as_bytes() {
+        [drive, b':', ..] if drive.is_ascii_alphabetic() => text[2..].to_owned(),
+        _ => text,
+    }
+}
+
 #[test]
 fn malicious_tar_writes_nothing_outside_destination() {
     for compression in [None, Some(Algorithm::Gzip), Some(Algorithm::Zstd)] {
@@ -444,7 +463,7 @@ fn malicious_tar_writes_nothing_outside_destination() {
         let outside = temp.path().join("outside");
         fs::create_dir(&outside).unwrap();
         fs::write(outside.join("secret"), b"secret").unwrap();
-        let archive = malicious_tar(outside.to_str().unwrap(), compression);
+        let archive = malicious_tar(&rooted(&outside), compression);
         let into = temp.path().join("into");
         let plan = materialise(&archive, &into, Rules::default());
 
@@ -453,7 +472,7 @@ fn malicious_tar_writes_nothing_outside_destination() {
             .iter()
             .map(|rejected| (rejected.path.as_str(), rejected.violation))
             .collect();
-        let absolute = format!("{}/absolute.txt", outside.display());
+        let absolute = format!("{}/absolute.txt", rooted(&outside));
         assert_eq!(
             violations,
             [
@@ -492,7 +511,7 @@ fn malicious_zip_writes_nothing_outside_destination() {
     let temp = tempfile::tempdir().unwrap();
     let outside = temp.path().join("outside");
     fs::create_dir(&outside).unwrap();
-    let archive = malicious_zip(outside.to_str().unwrap());
+    let archive = malicious_zip(&rooted(&outside));
     let into = temp.path().join("into");
     let plan = materialise(&archive, &into, Rules::default());
     let violations: Vec<Violation> = plan
@@ -693,3 +712,7 @@ fn sink_errors_end_the_stream() {
     assert_eq!(calls, 1);
     assert_eq!(error.code(), ErrorCode::Io);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

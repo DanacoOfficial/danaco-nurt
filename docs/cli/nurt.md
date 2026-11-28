@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cli/nurt.md -->
+<!-- Responsibility:   Documents nurt. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt
 
 The `nurt` executable runs programs of the language, offers an interactive session and hosts the protocol servers.
@@ -24,7 +32,7 @@ Without arguments the executable starts the interactive session.
 | `--version` | flag | | Print the version with the build data, the copyright and the license. |
 | `-h`, `--help` | flag | | Print the usage. As the first argument after the name of a subcommand it prints the usage of that subcommand and ends with exit code 0, without running it. |
 
-The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
+The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`, `--privilege`, `--as-user`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
 
 ## Output and colour
 
@@ -52,7 +60,7 @@ Syntax:
 
 ```
 nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N]
-          [--cursor C] [--verbosity V] <program>
+          [--cursor C] [--verbosity V] [--privilege P] [--as-user NAME] <program>
 ```
 
 | Parameter | Type | Default | Meaning |
@@ -64,6 +72,8 @@ nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N]
 | `--limit` | integer 1 to 5000 | 50 | Records per page. |
 | `--cursor` | text | none | Read a further page of an earlier result; no program is given. |
 | `--verbosity` | `quiet`, `normal`, `detailed` | `normal` | Level of detail. |
+| `--privilege` | `account`, `elevated`, `auto` | `privilege.default` | Rights of the operation. |
+| `--as-user` | account name | none | Account that runs the operation (Linux and macOS). |
 
 Result: the rendered result of the program; with `--json` the response document. Exit code: see `exit-codes.md`.
 
@@ -75,6 +85,38 @@ Example:
 nurt exec --preview remove "/tmp/build/old.log"
 ```
 
+## Program files: `nurt run`
+
+Runs a program file with the values of its parameters. The file is one program: several statements, `when`, loops, `steps` and functions are allowed; several pipelines that change are written with `steps`. A first line starting with `#!` is ignored.
+
+```text
+nurt run <file> [name: value | flag ...] [--variant a|b|c] [--preview] [--json | --format F] [--limit N] [--verbosity V]
+nurt run <file> --help
+```
+
+The file declares its parameters with `params { … }` as its first statement. `name: value` gives a value (two arguments, or `name:value` in one); a name alone is a flag of type `bool` and means `true`, and `name: false` is `false`. The command line passes every value as text and the declared type reads it (`7` for `int`, `10mb` for `size`, `/srv/app` for `path`). Before anything runs the engine checks that every required parameter has a value (`E_MISSING_PARAM`), that every name is declared (`E_UNKNOWN_PARAM`, with the nearest name) and that every value fits its type (`E_TYPE`); the error lists the declaration. A file without `params` takes no values.
+
+`nurt run <file> --help` prints the declaration with the types and the defaults and the usage line:
+
+```text
+$ nurt run cleanup.nurt --help
+Usage: nurt run cleanup.nurt dir: <path> [days: <int>] [dry: <bool>]
+
+Parameters of cleanup.nurt:
+  dir: path
+  days: int = 30
+  dry: bool = false
+```
+
+Exit codes are those of `exec`. `nurt run` followed by a name that ends with `.nurt` runs the file; any other `nurt run …` is the program of the command `run`.
+
+Examples:
+
+```text
+nurt run cleanup.nurt dir: /srv/app days: 7 dry
+nurt run cleanup.nurt dir: /srv/app --preview
+```
+
 ## `script`
 
 Runs a script file. Each pipeline of the file is its own operation. A first line starting with `#!` is ignored, so a file can start with `#!/usr/bin/env nurt`.
@@ -82,7 +124,7 @@ Runs a script file. Each pipeline of the file is its own operation. A first line
 Syntax:
 
 ```
-nurt script <file | -> [--preview] [--json | --format F] [--limit N] [--verbosity V]
+nurt script <file | -> [--preview] [--json | --format F] [--limit N] [--verbosity V] [--privilege P] [--as-user NAME]
 ```
 
 The file `-` is the standard input. The options are those of `exec`.
@@ -105,7 +147,7 @@ Syntax:
 nurt repl
 ```
 
-On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the name of the product drawn with characters above the version, the copyright line and a hint. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
+On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the mark of the product, a silver chevron and a gold chevron, drawn with half blocks (with 7-bit ASCII characters on a terminal without UTF-8), with the name, the canonical sentence, the version, a hint and the copyright line beside it. On a terminal too narrow for both, the text stands below the drawing, and on a terminal narrower than the drawing the banner is the text alone. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
 
 | Word | Meaning |
 |---|---|
@@ -464,3 +506,7 @@ Example:
 ```
 nurt version
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

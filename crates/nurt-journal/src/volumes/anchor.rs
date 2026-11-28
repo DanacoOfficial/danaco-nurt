@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::volumes::anchor
+// Responsibility:   Selection of the journal anchor directory and creation of the journal directory with its markers and format files.
+// Dependencies:     nurt_contracts, nurt_testkit, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Selection of the journal anchor directory and creation of the journal
 //! directory with its markers and format files.
 //!
@@ -533,7 +541,10 @@ mod tests {
             serde_json::from_slice(&fs.read(&format!("{root}/vol.json")).unwrap()).unwrap();
         assert_eq!(description["dev"], 1);
         assert_eq!(description["fs"], "ext4");
-        assert_eq!(description["anchor"], "/home/user");
+        assert_eq!(
+            description["anchor"],
+            nurt_testkit::paths::abs("/home/user")
+        );
         assert_eq!(
             description["features"],
             serde_json::json!(["durable_metadata"])
@@ -636,3 +647,7 @@ mod tests {
         assert_eq!(fs.mode("/home/user/.nurt-journal"), Some(0o700));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

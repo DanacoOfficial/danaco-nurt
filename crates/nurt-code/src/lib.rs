@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code
+// Responsibility:   Source code analysis for Danaco Nurt.
+// Dependencies:     commands
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Source code analysis for Danaco Nurt.
 //!
 //! Syntax analysis uses built-in tree-sitter grammars: symbols, outlines,
@@ -28,3 +36,7 @@ pub mod symbols;
 pub mod syntax_check;
 
 pub use commands::{register, register_with};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

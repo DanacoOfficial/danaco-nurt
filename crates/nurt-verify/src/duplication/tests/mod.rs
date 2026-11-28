@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::duplication::tests
+// Responsibility:   Detection of duplicated blocks on tokens produced by a small lexer that stands in for the code service.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection of duplicated blocks on tokens produced by a small lexer that
 //! stands in for the code service.
 
@@ -196,3 +204,7 @@ fn distinct_code_has_no_findings() {
     assert!(report.findings.is_empty());
     assert_eq!(report.duplicated_lines, 0);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

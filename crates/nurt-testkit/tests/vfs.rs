@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-testkit/tests/vfs.rs
+// Responsibility:   Reference semantics of the virtual file system.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reference semantics of the virtual file system.
 
 #![allow(
@@ -219,7 +227,8 @@ fn file_identities_count_up_per_volume() {
 fn symbolic_links_resolve_and_loops_are_detected() {
     let (_clock, fs, scope) = setup();
     fs.write_file(&path("/real/file.txt"), b"x").unwrap();
-    fs.symlink("/real", &path("/alias")).unwrap();
+    fs.symlink(nurt_testkit::paths::abs("/real"), &path("/alias"))
+        .unwrap();
     assert_eq!(fs.read_file(&path("/alias/file.txt")).unwrap(), b"x");
     assert_eq!(
         fs.real_path(&path("/alias/file.txt")).unwrap(),
@@ -232,14 +241,14 @@ fn symbolic_links_resolve_and_loops_are_detected() {
 
     fs.create_link(
         &scope,
-        std::path::Path::new("/loop-b"),
+        &nurt_testkit::paths::abs_path("/loop-b"),
         &path("/loop-a"),
         LinkKind::SymlinkFile,
     )
     .unwrap();
     fs.create_link(
         &scope,
-        std::path::Path::new("/loop-a"),
+        &nurt_testkit::paths::abs_path("/loop-a"),
         &path("/loop-b"),
         LinkKind::SymlinkFile,
     )
@@ -531,3 +540,7 @@ fn an_unprivileged_account_cannot_restore_the_ownership_of_another_user() {
         Some(4242)
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

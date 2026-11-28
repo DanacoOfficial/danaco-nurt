@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::diff::id
+// Responsibility:   Hunk identifiers.
+// Dependencies:     nurt_contracts, regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Hunk identifiers.
 //!
 //! Grammar: `id = path "#" number [":" fingerprint] ["@" rows]`,
@@ -295,3 +303,7 @@ mod tests {
         assert!(RowRange { first: 2, last: 4 }.contains(3));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

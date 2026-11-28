@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_registry.rs
+// Responsibility:   Access to the registry in the context of stages that run through the engine.
+// Dependencies:     nurt_contracts, nurt_sys, nurt_testkit, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Access to the registry in the context of stages that run through the
 //! engine: the context built for execution, not only the one returned by
 //! `Engine::context`, carries it when the engine has a registry.
@@ -57,7 +65,7 @@ impl ReadStage for Probe {
     ) -> Result<StageOutput<'a>> {
         let present = ctx.extensions().get::<dyn RegistryAccess>().is_some();
         let record = Record::new(RecordKind::Entry)
-            .with("path", Value::Path("/data/a.log".to_owned()))
+            .with("path", Value::Path(nurt_testkit::paths::abs("/data/a.log")))
             .with("registry", Value::Bool(present));
         Ok(StageOutput::records(RecordStream::from_records(vec![
             record,
@@ -100,3 +108,7 @@ fn a_stage_that_runs_through_the_engine_reaches_the_registry_of_the_engine() {
 fn an_engine_without_a_registry_gives_stages_no_access_to_it() {
     assert!(!engine_reports_registry(None));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/architecture/c-interface.md -->
+<!-- Responsibility:   Documents C interface. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # C interface
 
 The library `libnurt` (crate `nurt-ffi`) exposes the engine to any language
@@ -14,6 +22,9 @@ header is maintained by hand and is the reference of the interface.
 | Linux | `libnurt.so.1` (SONAME, major version of the interface) | `libnurt.a` |
 | macOS | `libnurt.1.dylib` (install name `@rpath/libnurt.1.dylib`) | `libnurt.a` |
 | Windows | `nurt.dll` with the import library `nurt.dll.lib` | `nurt.lib` (define `NURT_STATIC`) |
+
+On musl targets the release archive of the library holds only the static library `libnurt.a`. On musl the library is static
+(`libnurt.a`) and must not be linked into one program with another static library written in Rust.
 
 ## Versioning
 
@@ -76,3 +87,7 @@ the format `nurt-config/1` (see `spec/configuration.md`). It is applied at the
 level of the `NURT_CONFIG` file, so an embedding application can set trusted
 projects and protection floors of the journal; run-time settings cannot
 override trust.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

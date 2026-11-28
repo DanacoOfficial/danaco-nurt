@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::accounts::windows
+// Responsibility:   Local accounts, groups and security identifiers on Windows.
+// Dependencies:     indexmap, nurt_contracts, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Local accounts, groups and security identifiers on Windows.
 //!
 //! Users come from `NetUserEnum` (level 3), groups from `NetLocalGroupEnum`
@@ -419,3 +427,7 @@ impl Drop for NetBuffer {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

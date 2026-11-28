@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_constructs.rs
+// Responsibility:   Consistency of the list of construct names with the source of the crate.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Consistency of the list of construct names with the source of the crate.
 // Helpers outside `#[test]` functions fail the test on invalid fixtures.
 #![allow(clippy::expect_used)]
@@ -53,7 +61,12 @@ fn sources(dir: &Path, files: &mut Vec<PathBuf>) {
 fn declared_names() -> Vec<(PathBuf, String)> {
     let mut files = Vec::new();
     sources(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("src"),
         &mut files,
     );
     let mut found = Vec::new();
@@ -115,3 +128,7 @@ fn unsupported_error_names_the_construct_and_the_alternative() {
         "`null` cannot be written in TOML; nothing was changed, edit the text with `replace` or `edit` instead"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

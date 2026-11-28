@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::host::test_support
+// Responsibility:   Test doubles of the clock, the host and the process host, shared by the tests of `host`, `environment`, `accounts` and `open_files`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles of the clock, the host and the process host, shared by the
 //! tests of `host`, `environment`, `accounts` and `open_files`.
 
@@ -23,7 +31,12 @@ use nurt_contracts::value::{Record, Value};
 
 /// Directory of the static fixtures of these tests.
 pub(crate) fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d7/u02")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d7/u02")
 }
 
 /// Clock fixed at one wall time.
@@ -207,3 +220,7 @@ pub(crate) fn processes(records: Vec<Record>) -> Vec<Process> {
         .map(|record| Process::try_from(record).unwrap())
         .collect()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

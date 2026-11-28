@@ -1,0 +1,1058 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           catalog/administration.toml
+# Responsibility:   Configuration or catalog data of catalog/administration.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "administration"
+summary = "System services, the registry provider, CIM, the firewall, routes, DNS and the clock."
+
+[[command]]
+name = "services"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["service"]
+summary = "List system or user services with their state and start type."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS the state of services is read through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "name"
+type = "text | regex"
+position = 1
+summary = "Service name or pattern."
+
+[[command.param]]
+name = "state"
+type = "text"
+summary = "Only services in this state."
+
+[[command.param]]
+name = "scope"
+type = "enum(system|user)"
+default = "system"
+values = ["system", "user"]
+summary = "System services or services of the current account."
+
+[[command]]
+name = "start"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Start the input services."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are started through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "10s"
+waits = true
+summary = "Time to wait for each service to reach the running state."
+
+[[command]]
+name = "restart"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Restart the input services."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are restarted through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "10s"
+waits = true
+summary = "Time to wait for each service to reach the running state."
+
+[[command]]
+name = "enable"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Make the input services start automatically at boot or login."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are enabled through the launchctl component of the operating system." }
+
+[[command]]
+name = "disable"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Stop the input services from starting automatically."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are disabled through the launchctl component of the operating system." }
+
+[[command]]
+name = "windows.cim"
+category = "change"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["cim_object", "effect"]
+summary = "Query CIM instances through WMI on Windows, or call a method of the selected instances with invoke."
+os = ["windows"]
+reversibility_note = "A query only reads. A call with invoke is irreversible unless the method has a documented opposite (StartService and StopService, Enable and Disable, Pause and Resume), which undo calls on the same instances."
+effects = [
+  { action = "invoke", effect = "external", reversibility = "irreversible", note = "Applies when invoke is given." },
+]
+
+[[command.param]]
+name = "class"
+type = "text"
+position = 1
+required = true
+summary = "CIM class name, for example Win32_Process."
+
+[[command.param]]
+name = "where"
+type = "text"
+summary = "WQL condition on instance properties."
+
+[[command.param]]
+name = "namespace"
+type = "text"
+default = "\"root/cimv2\""
+summary = "CIM namespace."
+
+[[command.param]]
+name = "properties"
+type = "list<text>"
+summary = "Properties to return; all when omitted."
+
+[[command.param]]
+name = "invoke"
+type = "text"
+summary = "Method to call on every selected instance, or on the class when where is omitted (static methods such as Win32_Process.Create)."
+
+[[command.param]]
+name = "arguments"
+type = "map<any>"
+summary = "Input parameters of the method by name: text, int or bool values."
+
+# Firewall, routes, DNS and the clock.
+
+[[command]]
+name = "firewall.rules"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["any"]
+summary = "List the rules of the firewall with their action, protocol, port, source, direction and zone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+summary = "Only rules for this port or range."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+values = ["tcp", "udp"]
+summary = "Only rules of this protocol."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.allow"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Allow traffic on a port."
+reversibility_note = "`undo` removes the rule that was added; a rule that already exists is left alone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.deny"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Drop traffic on a port."
+reversibility_note = "`undo` removes the rule that was added; a rule that already exists is left alone."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command]]
+name = "firewall.remove"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove the firewall rules that match a port, protocol, source, direction and zone."
+reversibility_note = "`undo` adds the rules that were removed."
+external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
+
+[[command.param]]
+name = "port"
+type = "int | text"
+position = 1
+required = true
+summary = "Port or range of ports such as 8000-8100."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp)"
+default = "tcp"
+values = ["tcp", "udp"]
+summary = "Transport protocol."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted."
+
+[[command.param]]
+name = "direction"
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
+summary = "Direction of the traffic."
+
+[[command.param]]
+name = "zone"
+type = "text"
+summary = "Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted."
+
+[[command.param]]
+name = "backend"
+type = "enum(auto|nftables|firewalld|ufw|pf|windows)"
+default = "auto"
+values = ["auto", "nftables", "firewalld", "ufw", "pf", "windows"]
+summary = "Firewall to use; auto selects the first one that is installed and running."
+
+[[command.param]]
+name = "table"
+type = "text"
+default = "\"nurt\""
+summary = "Table of the family inet that holds the rules of nftables."
+
+[[command.param]]
+name = "action"
+type = "enum(any|allow|deny)"
+default = "any"
+values = ["any", "allow", "deny"]
+summary = "Remove only rules with this action; both when any."
+
+[[command]]
+name = "network.route_add"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Add a route to the routing table."
+reversibility_note = "`undo` removes the route; a route that already exists is left alone."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "destination"
+type = "text"
+position = 1
+required = true
+summary = "Network in CIDR form, a host address or default."
+
+[[command.param]]
+name = "gateway"
+type = "text"
+summary = "Next hop. Required unless interface is given."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface of the route."
+
+[[command.param]]
+name = "metric"
+type = "int"
+summary = "Metric of the route."
+
+[[command]]
+name = "network.route_remove"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove the routes that match a destination, next hop, interface and metric."
+reversibility_note = "`undo` adds the routes that were removed."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "destination"
+type = "text"
+position = 1
+required = true
+summary = "Network in CIDR form, a host address or default."
+
+[[command.param]]
+name = "gateway"
+type = "text"
+summary = "Next hop. Only routes through this next hop."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface of the route."
+
+[[command.param]]
+name = "metric"
+type = "int"
+summary = "Metric of the route."
+
+[[command]]
+name = "network.dns_set"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the DNS servers and search domains of an interface; an empty list of servers returns to automatic servers."
+reversibility_note = "`undo` sets the previous servers and domains; changes of /etc/resolv.conf are restored by the journal."
+external = { kind = "system_program", programs = ["ip", "route", "netstat", "resolvectl", "networksetup", "powershell"], note = "Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows." }
+
+[[command.param]]
+name = "servers"
+type = "list<text>"
+position = 1
+required = true
+summary = "IP addresses of the name servers, in order; an empty list means automatic."
+
+[[command.param]]
+name = "search"
+type = "list<text>"
+summary = "Search domains; unchanged when omitted."
+
+[[command.param]]
+name = "interface"
+type = "text"
+summary = "Interface or network service; the interface of the default route when omitted on Linux."
+
+[[command]]
+name = "clock.timezone_set"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the time zone of the system."
+reversibility_note = "`undo` sets the previous time zone."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "zone"
+type = "text"
+position = 1
+required = true
+summary = "Name of the time zone, for example Europe/Warsaw; on Windows the identifier such as W. Europe Standard Time."
+
+[[command]]
+name = "clock.set"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Set the date and time of the clock."
+reversibility_note = "The previous reading of the clock cannot be restored."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "time"
+type = "instant"
+position = 1
+required = true
+summary = "New time; an instant in UTC."
+
+[[command]]
+name = "clock.ntp"
+category = "change"
+reversibility = "reversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Switch network time synchronisation on or off."
+reversibility_note = "`undo` restores the previous state."
+external = { kind = "system_program", programs = ["timedatectl", "systemsetup", "tzutil", "date", "powershell"], note = "The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service." }
+
+[[command.param]]
+name = "state"
+type = "enum(on|off)"
+position = 1
+required = true
+values = ["on", "off"]
+summary = "Synchronise the clock with network time or not."
+[[command]]
+name = "accounts.create"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a user account."
+reversibility_note = "Undo removes the account and keeps its home directory."
+external = { kind = "system_program", programs = ["useradd", "sysadminctl", "net"], note = "Accounts are created with useradd on Linux, sysadminctl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "uid"
+type = "int"
+summary = "Numeric identifier; the system chooses one when omitted."
+
+[[command.param]]
+name = "shell"
+type = "text"
+summary = "Login shell."
+
+[[command.param]]
+name = "home"
+type = "text"
+summary = "Home directory."
+
+[[command.param]]
+name = "groups"
+type = "list<text>"
+summary = "Groups other than the primary one."
+
+[[command.param]]
+name = "comment"
+type = "text"
+summary = "Comment or full name."
+
+[[command.param]]
+name = "system"
+type = "bool"
+default = "false"
+summary = "Create a system account without a home directory."
+
+[[command.param]]
+name = "create_home"
+type = "bool"
+default = "true"
+summary = "Create the home directory."
+
+[[command]]
+name = "accounts.modify"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Change the shell, home, groups, comment or lock state of an account."
+reversibility_note = "Undo restores the recorded values of the fields that changed."
+external = { kind = "system_program", programs = ["usermod", "dscl", "net"], note = "Accounts are changed with usermod on Linux, dscl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "shell"
+type = "text"
+summary = "New login shell."
+
+[[command.param]]
+name = "home"
+type = "text"
+summary = "New home directory."
+
+[[command.param]]
+name = "groups"
+type = "list<text>"
+summary = "Complete list of groups other than the primary one."
+
+[[command.param]]
+name = "comment"
+type = "text"
+summary = "New comment or full name."
+
+[[command.param]]
+name = "lock"
+type = "bool"
+summary = "Lock the account when true and unlock it when false."
+
+[[command]]
+name = "accounts.remove"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove a user account."
+reversibility_note = "Undo creates the account again with its identifier, shell, groups and comment; the home directory returns with the journal."
+external = { kind = "system_program", programs = ["userdel", "sysadminctl", "net"], note = "Accounts are removed with userdel on Linux, sysadminctl on macOS and net user on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "keep_home"
+type = "bool"
+default = "false"
+summary = "Keep the home directory; otherwise it is removed through the journal."
+
+[[command]]
+name = "accounts.password"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Set the password of an account."
+reversibility_note = "The previous password is not recorded."
+external = { kind = "system_program", programs = ["chpasswd", "dscl", "powershell"], note = "The password is passed to chpasswd on its standard input on Linux, and in an environment variable of Set-LocalUser on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Account name."
+
+[[command.param]]
+name = "value"
+type = "text"
+position = 2
+required = true
+secret = true
+summary = "New password; masked in the journal and the report."
+
+[[command]]
+name = "groups.create"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a group."
+external = { kind = "system_program", programs = ["groupadd", "dseditgroup", "net"], note = "Groups are created with groupadd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "gid"
+type = "int"
+summary = "Numeric identifier; the system chooses one when omitted."
+
+[[command.param]]
+name = "system"
+type = "bool"
+default = "false"
+summary = "Create a system group."
+
+[[command]]
+name = "groups.remove"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove a group."
+reversibility_note = "Undo creates the group again with its identifier and members."
+external = { kind = "system_program", programs = ["groupdel", "dseditgroup", "net"], note = "Groups are removed with groupdel on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command]]
+name = "groups.add_member"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Add an account to a group."
+external = { kind = "system_program", programs = ["gpasswd", "dseditgroup", "net"], note = "Members are added with gpasswd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "member"
+type = "text"
+position = 2
+required = true
+summary = "Account to add."
+
+[[command]]
+name = "groups.remove_member"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Remove an account from a group."
+external = { kind = "system_program", programs = ["gpasswd", "dseditgroup", "net"], note = "Members are removed with gpasswd on Linux, dseditgroup on macOS and net localgroup on Windows." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Group name."
+
+[[command.param]]
+name = "member"
+type = "text"
+position = 2
+required = true
+summary = "Account to remove."
+
+[[command]]
+name = "mount"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Mount a device or volume."
+reversibility_note = "Undo unmounts the target; the edit of /etc/fstab is restored by the journal."
+external = { kind = "system_program", programs = ["mount", "mountvol"], note = "Mounts use mount on Linux and macOS and mountvol on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Device, volume or source of the mount."
+
+[[command.param]]
+name = "target"
+type = "text"
+position = 2
+required = true
+summary = "Mount point: a directory, or a drive letter or folder on Windows."
+
+[[command.param]]
+name = "type"
+type = "text"
+summary = "File system type; detected by the system when omitted."
+
+[[command.param]]
+name = "options"
+type = "list<text>"
+summary = "Mount options."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also write the mount to /etc/fstab (Linux); the file is journaled."
+
+[[command]]
+name = "unmount"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Unmount a mount point."
+reversibility_note = "Undo mounts the recorded device with its type and options."
+external = { kind = "system_program", programs = ["umount", "mountvol"], note = "Unmounts use umount on Linux and macOS and mountvol on Windows." }
+
+[[command.param]]
+name = "target"
+type = "text"
+position = 1
+required = true
+summary = "Mount point."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also remove the mount from /etc/fstab (Linux); the file is journaled."
+
+[[command]]
+name = "sysctl.set"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Set a kernel parameter."
+reversibility_note = "Undo sets the recorded value; the file is restored by the journal."
+os = ["linux", "macos"]
+external = { kind = "system_program", programs = ["sysctl"], note = "Parameters are read and set with sysctl." }
+
+[[command.param]]
+name = "key"
+type = "text"
+position = 1
+required = true
+summary = "Name of the parameter, for example net.ipv4.ip_forward."
+
+[[command.param]]
+name = "value"
+type = "text | int"
+position = 2
+required = true
+summary = "New value."
+
+[[command.param]]
+name = "persistent"
+type = "bool"
+default = "false"
+summary = "Also write the value to /etc/sysctl.d/90-nurt.conf (Linux); the file is journaled."
+
+[[command]]
+name = "modules.load"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Load a kernel module."
+reversibility_note = "Undo unloads the module."
+os = ["linux"]
+external = { kind = "system_program", programs = ["modprobe", "lsmod"], note = "Modules are listed with lsmod and loaded with modprobe." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Module name."
+
+[[command.param]]
+name = "params"
+type = "list<text>"
+summary = "Module parameters as name=value."
+
+[[command]]
+name = "modules.unload"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Unload a kernel module."
+reversibility_note = "Undo loads the module."
+os = ["linux"]
+external = { kind = "system_program", programs = ["modprobe", "lsmod"], note = "Modules are listed with lsmod and unloaded with modprobe -r." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Module name."
+
+[[command]]
+name = "power.restart"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Restart the system now or at a given time."
+reversibility_note = "A scheduled restart is undone by power.cancel; one without at or delay runs at once and is irreversible."
+external = { kind = "system_program", programs = ["shutdown"], note = "The system is restarted with the program shutdown." }
+
+[[command.param]]
+name = "at"
+type = "instant"
+summary = "Time of the restart; converted to a delay with the clock of the engine."
+
+[[command.param]]
+name = "delay"
+type = "duration"
+summary = "Time until the restart; rounded up to whole minutes on Linux and macOS."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message shown to the logged-in users."
+
+[[command]]
+name = "power.shutdown"
+category = "change"
+reversibility = "reversible_if_preserved"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Shut down the system now or at a given time."
+reversibility_note = "A scheduled shutdown is undone by power.cancel; one without at or delay runs at once and is irreversible."
+external = { kind = "system_program", programs = ["shutdown"], note = "The system is shut down with the program shutdown." }
+
+[[command.param]]
+name = "at"
+type = "instant"
+summary = "Time of the shutdown; converted to a delay with the clock of the engine."
+
+[[command.param]]
+name = "delay"
+type = "duration"
+summary = "Time until the shutdown; rounded up to whole minutes on Linux and macOS."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message shown to the logged-in users."
+
+[[command]]
+name = "power.cancel"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Cancel a scheduled restart or shutdown."
+reversibility_note = "A cancelled schedule is not restored."
+external = { kind = "system_program", programs = ["shutdown", "pkill"], note = "The schedule is cancelled with shutdown -c on Linux, shutdown /a on Windows and by stopping shutdown on macOS." }
+
+[[command]]
+name = "disks.partition"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create, delete or resize a partition."
+reversibility_note = "Irreversible; the preview lists the device, its partitions, file systems, mount points and the size of the data that is lost."
+external = { kind = "system_program", programs = ["parted", "lsblk", "diskutil", "powershell"], note = "Partitions are changed with parted on Linux, diskutil on macOS and the storage cmdlets on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Disk device such as /dev/sdb, or the number of the disk on Windows."
+
+[[command.param]]
+name = "action"
+type = "enum(create|delete|resize)"
+required = true
+values = ["create", "delete", "resize"]
+summary = "Change to make."
+
+[[command.param]]
+name = "number"
+type = "int"
+summary = "Number of the partition to delete or resize."
+
+[[command.param]]
+name = "start"
+type = "size"
+summary = "Start of a new partition; 1 MiB when omitted."
+
+[[command.param]]
+name = "size"
+type = "size"
+summary = "Size of a new or resized partition; the rest of the disk when omitted for create."
+
+[[command.param]]
+name = "fs_type"
+type = "text"
+summary = "File system type hint of a new partition."
+
+[[command]]
+name = "disks.format"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "system_program"
+input = ["none"]
+output = ["effect"]
+summary = "Create a file system on a device."
+reversibility_note = "Irreversible; the preview lists the device, its partitions, file systems, mount points and the size of the data that is lost."
+external = { kind = "system_program", programs = ["mkfs", "lsblk", "diskutil", "powershell"], note = "File systems are created with mkfs on Linux, diskutil on macOS and Format-Volume on Windows." }
+
+[[command.param]]
+name = "device"
+type = "text"
+position = 1
+required = true
+summary = "Partition or disk such as /dev/sdb1, or a drive letter such as D: on Windows."
+
+[[command.param]]
+name = "fs"
+type = "enum(ext4|xfs|btrfs|vfat|ntfs|exfat)"
+required = true
+values = ["ext4", "xfs", "btrfs", "vfat", "ntfs", "exfat"]
+summary = "File system."
+
+[[command.param]]
+name = "label"
+type = "text"
+summary = "Label of the file system."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

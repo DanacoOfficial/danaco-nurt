@@ -1,12 +1,19 @@
 ---
 command: enable
-group: admin
+group: administration
 summary: Make the input services start automatically at boot or login.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/enable.md -->
+<!-- Responsibility:   Documents enable. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # enable
 
@@ -30,6 +37,12 @@ already `automatic` is not passed to the manager; its effect record has
 service the operation is marked irreversible with `service_changed` before
 the manager is asked to act. Services are processed in input order; an error
 stops the processing of the remaining services.
+
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry disables the services again, when their start type before was `disabled`.
+
+```nurt
+services name: "cron" |> enable privilege: elevated
+```
 
 ## Parameters
 
@@ -88,5 +101,9 @@ services name: /^backup/ |> enable
 ## Related
 
 `services` produces the input records. `disable` stops a service from starting
-automatically and `start` starts it now. The `admin` group page lists the
+automatically and `start` starts it now. The `administration` group page lists the
 other commands of the group.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

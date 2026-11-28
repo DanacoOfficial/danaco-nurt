@@ -1,17 +1,38 @@
 ---
 name: large-results
 description: Keeping large results small with paging, field selection, counting, summaries and saved output.
-commands: [find, filter, select, count, summarize, group, first, sort, run, search]
+commands: [find, filter, select, count, summarize, group, first, sort, run, search, next]
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/large-results.md -->
+<!-- Responsibility:   Documents large-results. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # large-results
 
 ## Paging
 
 A result is limited by the call parameter `limit`, 50 records by default, and the answer carries a `cursor` that continues the result in the next call. The program is the same in each call; only `cursor` changes. A limit keeps the answer within the budget of the caller without changing the effect of the program.
+
+## Continuing a shortened result
+
+A response that leaves lines, records or the end of long lines out carries the field `continuation` and ends with the hint "more: next". The call `next` returns the next part, in the same record type as the first response, until `remaining` is 0; the program does not run again and the parts are consistent with the first response.
+
+```nurt
+next
+next 200
+next c3 200
+next all
+next full
+```
+
+`next c3` continues the continuation `c3` when several results are open, `next 200` reads 200 units, `next all` everything that is left and `next full` the lines of the last part that were cut, whole. The part is a result like any other: `next |> filter severity == "error"`. Kept results expire after `continuation.max_age` (1 hour), and the limits `continuation.max_count` (50) and `continuation.max_size` (256 MiB) remove the oldest first; an expired continuation ends with `E_CONTINUATION_EXPIRED` and the original call in `next_steps`.
 
 ## Fewer fields
 
@@ -48,3 +69,7 @@ The call parameter `save_to` writes the full result to a file and returns a summ
 ```nurt
 run ["make", "all"] cwd: "/srv/app" show: errors tail: 40
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

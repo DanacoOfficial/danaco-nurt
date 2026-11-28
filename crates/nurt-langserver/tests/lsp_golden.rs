@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-langserver/tests/lsp_golden.rs
+// Responsibility:   Sessions over every program file of the golden sets in three variants.
+// Dependencies:     lsp_support, nurt_contracts, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Sessions over every program file of the golden sets in three variants.
 //!
 //! For each file the server publishes no diagnostics, formats the text into
@@ -289,3 +297,7 @@ fn golden_programs_of_variant_b_are_served_without_diagnostics() {
 fn golden_programs_of_variant_c_are_served_without_diagnostics() {
     check_variant(Variant::C);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

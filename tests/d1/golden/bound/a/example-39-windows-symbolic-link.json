@@ -1,8 +1,8 @@
 {
-  "nurt": "1.0",
-  "bound": "1.0",
-  "catalog_rev": "sha256:91096de585b63c65381978d4f9f0f49ef68f64dcc19f89b70f6841bcaf240071",
-  "corr_rev": "sha256:65d40b4ec4fbcd11daf83d2286a5d642c20da9688004b43bd7d51950c217ef7c",
+  "nurt": "1.1",
+  "bound": "1.1",
+  "catalog_rev": "sha256:ad74233c7b6b364643edd1df1721eb3539cd261eb1be3d74bd631a6cca997196",
+  "corr_rev": "sha256:50622c69abac21b95657cb610a2127bcbe67651a2c285f7ede0f6bbb6ff2ce78",
   "program": {
     "statements": [
       {
@@ -86,6 +86,34 @@
               "value": {
                 "t": "enum",
                 "v": "skip"
+              },
+              "default": true
+            },
+            {
+              "name": "kind",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "major",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "minor",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "null"
               },
               "default": true
             }

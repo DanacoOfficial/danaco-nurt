@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           catalog/documents.toml
+# Responsibility:   Configuration or catalog data of catalog/documents.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog/1"
 group = "documents"
@@ -118,15 +125,15 @@ summary = "Apply the filter to the document given by path."
 [[command]]
 name = "sql"
 category = "change"
-reversibility = "read"
-effect = "read"
+reversibility = "reversible_if_preserved"
+effect = "local"
 implementation = "builtin"
 input = ["none"]
 output = ["row"]
-summary = "Run SQL statements on an SQLite database file, read-only unless write is set."
-reversibility_note = "With write set to true the database file is copied before the change; without space for the copy the change is irreversible."
+summary = "Run SQL statements on an SQLite database file; a statement that changes anything makes the call a change."
+reversibility_note = "A call that changes the database copies the database file and its journal files first, and undo restores them; the files of ATTACH and VACUUM INTO are preserved or removed the same way. Without space for the copy, and for the effects of load_extension, the change is irreversible."
 effects = [
-  { action = "write", effect = "local", reversibility = "reversible_if_preserved", note = "Applies when write is true." },
+  { action = "write", effect = "local", reversibility = "reversible_if_preserved", note = "Applies when write is true, and without write when a statement changes anything." },
 ]
 
 [[command.param]]
@@ -152,5 +159,8 @@ summary = "Values bound to the placeholders of the statements: a list for positi
 [[command.param]]
 name = "write"
 type = "bool"
-default = "false"
-summary = "Allow statements that change the database."
+summary = "Optional: a statement that changes the database opens it for writing without it. write: false keeps the call read-only."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

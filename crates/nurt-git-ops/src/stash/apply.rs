@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::stash::apply
+// Responsibility:   `git.stash action: apply|pop`: merging a stash entry into the working tree.
+// Dependencies:     gix, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `git.stash action: apply|pop`: merging a stash entry into the working
 //! tree.
 //!
@@ -229,8 +237,9 @@ pub(crate) fn plan_apply(
         expect: context.index_expect().clone(),
         record_resolve_undo: false,
     });
-    // As in Git, the tree with conflict markers is kept for conflicts only.
-    if !clean {
+    // As in Git, the merge result is recorded for conflicted applies and for
+    // clean ones, except when the entry holds no tracked changes.
+    if !clean || base != work {
         change.plan.state_files.push(state_write(
             repo,
             AUTO_MERGE,
@@ -311,3 +320,7 @@ mod tests {
         assert_eq!(paths, vec![BString::from("a"), BString::from("b")]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

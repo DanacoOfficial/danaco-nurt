@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-types
+// Responsibility:   Values, records, units and ranges of the Danaco Nurt language.
+// Dependencies:     access, arith, builtins, check, coerce, compare, display, env, eval, nurt_contracts, units
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Values, records, units and ranges of the Danaco Nurt language.
 //!
 //! The crate gives the value model of `nurt_contracts::value` its behaviour:
@@ -92,3 +100,7 @@ pub use units::{
     display_duration, display_instant, display_size, format_duration, format_size, parse_duration,
     parse_instant, parse_range, parse_size,
 };
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

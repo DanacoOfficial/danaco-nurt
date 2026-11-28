@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::system_services
+// Responsibility:   Shared services of the running process.
+// Dependencies:     nurt_code, nurt_contracts, nurt_doc, nurt_files, nurt_fs, nurt_git, nurt_proc, nurt_sys, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Shared services of the running process.
 //!
 //! The command crates reach each other through the service traits of
@@ -117,3 +125,7 @@ mod tests {
         assert!(std::ptr::addr_eq(kept, Arc::as_ptr(&given)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

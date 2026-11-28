@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/go/errors.go
+// Responsibility:   Source file bindings/go/errors.go.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 package nurt
 
@@ -98,8 +105,11 @@ func contextError(err error) *Error {
 
 // LanguageError is an error of the Danaco Nurt language: a syntax, binding,
 // assertion, stale target, ambiguity or journal error reported in the effect
-// report with a stable E_* code. It is returned as an error only when the
-// request sets FailOnLanguageError.
+// report with a stable E_* code. It is returned as an error when the
+// request sets FailOnLanguageError, and by the queries that have no response
+// to carry it (Describe, Help and Print) when the process backend reports one;
+// an unknown value of an argument of such a query is an *Error with
+// StatusArg.
 type LanguageError struct {
 	// Code is the stable error code, for example "E_SYNTAX".
 	Code string `json:"code"`
@@ -144,3 +154,7 @@ func (e *LanguageError) UnmarshalJSON(data []byte) error {
 	e.Raw = append(json.RawMessage(nil), data...)
 	return nil
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

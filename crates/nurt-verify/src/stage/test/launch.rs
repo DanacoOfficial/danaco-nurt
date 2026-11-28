@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::stage::test::launch
+// Responsibility:   Preparation and start of a test run, shared by `test.run` and `test.failed`.
+// Dependencies:     nurt_contracts, nurt_proc, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Preparation and start of a test run, shared by `test.run` and
 //! `test.failed`.
 
@@ -332,3 +340,7 @@ fn missing_program(error: Error) -> Error {
     .with_fix("install the framework or pass command:")
     .with_cause(error)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

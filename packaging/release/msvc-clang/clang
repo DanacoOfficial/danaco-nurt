@@ -1,0 +1,34 @@
+#!/bin/sh
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/release/msvc-clang/clang
+# Responsibility:   Wrapper of clang for build scripts that call it directly for an MSVC target.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+# clang for build scripts that call clang directly for an MSVC target (ring
+# for aarch64-pc-windows-msvc): turns the clang-cl include option /imsvc of
+# the flags of cargo-xwin into -isystem. NURT_MSVC_CLANG names the clang
+# executable when it is not /usr/bin/clang.
+next=""
+for argument in "$@"; do
+    shift
+    if [ -n "$next" ]; then
+        set -- "$@" -isystem "$argument"
+        next=""
+        continue
+    fi
+    case $argument in
+        /imsvc) next=1 ;;
+        *) set -- "$@" "$argument" ;;
+    esac
+done
+exec "${NURT_MSVC_CLANG:-/usr/bin/clang}" "$@"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

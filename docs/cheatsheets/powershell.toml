@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           docs/cheatsheets/powershell.toml
+# Responsibility:   Configuration or catalog data of docs/cheatsheets/powershell.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 format = "nurt-correction-table/1"
 shell = "powershell"
 title = "Nurt for PowerShell users"
@@ -252,3 +260,7 @@ canonical = 'run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"'
 outcome = "rejected"
 code = "E_UNCORRECTABLE"
 note = "the language has no eval; run the program explicitly"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

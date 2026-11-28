@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/tools/gen_types.py
+# Responsibility:   Script gen_types.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Write ``src/nurt/types.py`` from the JSON schemas in ``spec/schemas``.
 
 Usage::
@@ -8,8 +16,10 @@ Usage::
     python3 tools/gen_types.py [--spec DIR] [--output FILE] [--check]
 
 ``--check`` compares the output with the existing file and exits with code 1
-when they differ. Leading comment lines of the existing file (the file
-header) are not compared and are kept when the file is written.
+when they differ. The file header (leading comment lines and the blank
+lines after them) and the file footer (trailing comment lines and the blank
+lines before them) of the existing file are not compared and are kept when
+the file is written.
 """
 
 from __future__ import annotations
@@ -247,11 +257,35 @@ def render(spec_dir: Path) -> str:
 
 
 def strip_header(text: str) -> Tuple[str, str]:
-    """Split ``text`` into its leading comment lines and the rest."""
+    """Split ``text`` into its file header and the rest.
+
+    The file header is the leading comment lines and the blank lines after
+    them.
+    """
     lines = text.splitlines(keepends=True)
     count = 0
     while count < len(lines) and lines[count].startswith("#"):
         count += 1
+    if count:
+        while count < len(lines) and not lines[count].strip():
+            count += 1
+    return "".join(lines[:count]), "".join(lines[count:])
+
+
+def strip_footer(text: str) -> Tuple[str, str]:
+    """Split ``text`` into the module and its file footer.
+
+    The file footer is the trailing comment lines and the blank lines before
+    them.
+    """
+    lines = text.splitlines(keepends=True)
+    count = len(lines)
+    while count and lines[count - 1].startswith("#"):
+        count -= 1
+    if count == len(lines):
+        return text, ""
+    while count and not lines[count - 1].strip():
+        count -= 1
     return "".join(lines[:count]), "".join(lines[count:])
 
 
@@ -262,17 +296,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--check", action="store_true", help="fail when the module is out of date")
     arguments = parser.parse_args(argv)
     text = render(arguments.spec)
-    header, current = "", ""
+    header, current, footer = "", "", ""
     if arguments.output.exists():
         header, current = strip_header(arguments.output.read_text(encoding="utf-8"))
+        current, footer = strip_footer(current)
     if arguments.check:
         if current != text:
             sys.stderr.write(f"{arguments.output} is out of date; run tools/gen_types.py\n")
             return 1
         return 0
-    arguments.output.write_text(header + text, encoding="utf-8")
+    arguments.output.write_text(header + text + footer, encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

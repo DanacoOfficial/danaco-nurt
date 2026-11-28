@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/examples/openhands/README.md -->
+<!-- Responsibility:   Documents OpenHands. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # OpenHands
 
 Configuration that adds the `nurt` tool to OpenHands through the MCP server `nurt mcp`.
@@ -12,3 +20,7 @@ Configuration that adds the `nurt` tool to OpenHands through the MCP server `nur
 3. Start OpenHands; the agent lists the `nurt` tool next to its built-in tools.
 
 The server runs inside the sandbox, so programs act on the workspace of the agent.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

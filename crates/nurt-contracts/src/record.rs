@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::record
+// Responsibility:   Typed records that flow through pipelines.
+// Dependencies:     indexmap, schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Typed records that flow through pipelines.
 //!
@@ -706,7 +713,11 @@ text_enum! {
         Directory = "directory",
         /// Symbolic link, junction or other link.
         Link = "link",
-        /// Device, socket, FIFO or another special object.
+        /// Named pipe (FIFO).
+        Fifo = "fifo",
+        /// Character or block device node; `major` and `minor` hold its numbers.
+        Device = "device",
+        /// Socket or another special object.
         Other = "other",
     }
 }
@@ -2152,6 +2163,10 @@ record_struct! {
         raw_link_target: Option<Bytes>,
         /// Kind of a link.
         link_type: Option<LinkType>,
+        /// Major device number of a device node.
+        major: Option<u64>,
+        /// Minor device number of a device node.
+        minor: Option<u64>,
         /// Number of hard links.
         links: Option<u64>,
         /// Mount point of the volume.
@@ -2818,9 +2833,6 @@ record_struct! {
         diagnostics: Option<ExecDiagnostics>,
         /// One line about a successful run: exit code, time, lines and bytes.
         digest: Option<String>,
-        /// Sentence with the commands that read what the response leaves out
-        /// from the output file.
-        read_hint: Option<String>,
     }
 }
 
@@ -4695,7 +4707,9 @@ mod tests {
         );
         assert!("dir".parse::<EntryType>().is_err());
         assert!("File".parse::<EntryType>().is_err());
-        assert_eq!(EntryType::ALL.len(), 4);
+        assert_eq!(EntryType::ALL.len(), 6);
+        assert_eq!("fifo".parse::<EntryType>().unwrap(), EntryType::Fifo);
+        assert_eq!("device".parse::<EntryType>().unwrap(), EntryType::Device);
         assert_eq!(RegistryView::Bits32.as_str(), "32");
         assert_eq!("64".parse::<RegistryView>().unwrap(), RegistryView::Bits64);
     }
@@ -4744,3 +4758,7 @@ mod tests {
         assert_eq!(altered.first_invalid_line(), Some(0));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

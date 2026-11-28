@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/LanguageError.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/LanguageError.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System.Collections.Generic;
 using System.Text.Json;
@@ -62,11 +69,30 @@ public sealed class LanguageError
     /// <summary>The whole error object as JSON.</summary>
     public JsonElement Element { get; }
 
-    /// <summary>Reads the member <c>error</c> of a result object; <see langword="null"/> when the member is absent.</summary>
-    internal static LanguageError? FromMember(JsonElement? container) =>
-        container is { ValueKind: JsonValueKind.Object } value && JsonRead.Property(value, "error") is { ValueKind: JsonValueKind.Object } error
-            ? new LanguageError(error)
+    /// <summary>
+    /// Reads the member <c>error</c> of a result object, or the member <c>error</c> of its member <c>report</c>, where
+    /// <c>nurt serve</c> reports the language error of a method as a failed response; <see langword="null"/> when there is none.
+    /// </summary>
+    internal static LanguageError? FromMember(JsonElement? container) => ErrorElement(container) is { } error ? new LanguageError(error) : null;
+
+    /// <summary>The object that describes the language error of a result object; <see langword="null"/> when there is none.</summary>
+    internal static JsonElement? ErrorElement(JsonElement? container)
+    {
+        if (container is not { ValueKind: JsonValueKind.Object } value)
+        {
+            return null;
+        }
+
+        if (JsonRead.Property(value, "error") is { ValueKind: JsonValueKind.Object } error)
+        {
+            return error;
+        }
+
+        return JsonRead.Property(value, "report") is { ValueKind: JsonValueKind.Object } report
+            && JsonRead.Property(report, "error") is { ValueKind: JsonValueKind.Object } failure
+            ? failure
             : null;
+    }
 
     private static List<AmbiguityCandidate> ReadCandidates(JsonElement element)
     {
@@ -86,3 +112,7 @@ public sealed class LanguageError
         return result;
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::branch
+// Responsibility:   The `git.branch` command.
+// Dependencies:     bstr, command, gix_hash, gix_ref, nurt_contracts, sha2, switch, trash
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `git.branch` command.
 //!
 //! [`list`] reads local or remote-tracking branches as `branch` records in
@@ -848,7 +856,7 @@ pub(crate) mod test_repo {
     impl TestRepo {
         pub(crate) fn new() -> Self {
             let dir = tempfile::tempdir().unwrap();
-            gix::init(dir.path()).unwrap();
+            crate::testutil::init_isolated(dir.path()).unwrap();
             Self {
                 dir,
                 journal: TestJournal::new(),
@@ -856,7 +864,7 @@ pub(crate) mod test_repo {
         }
 
         pub(crate) fn open(&self) -> gix::Repository {
-            gix::open(self.dir.path()).unwrap()
+            crate::testutil::open_isolated(self.dir.path()).unwrap()
         }
 
         pub(crate) fn git_dir(&self) -> PathBuf {
@@ -1042,7 +1050,7 @@ mod tests {
     fn main_working_tree_of_a_linked_one_follows_the_common_directory() {
         let dir = tempfile::tempdir().unwrap();
         let common = dir.path().join("main.git");
-        gix::init_bare(&common).unwrap();
+        crate::testutil::init_bare_isolated(&common).unwrap();
         let registration = common.join("worktrees/wt");
         let tree = dir.path().join("wt");
         std::fs::create_dir_all(&registration).unwrap();
@@ -1059,7 +1067,7 @@ mod tests {
             format!("gitdir: {}\n", registration.display()),
         )
         .unwrap();
-        let repo = gix::open(&tree).unwrap();
+        let repo = crate::testutil::open_isolated(&tree).unwrap();
         let heads = worktree_heads(&repo).unwrap();
         assert!(
             heads.is_empty(),
@@ -1072,7 +1080,7 @@ mod tests {
         let mut text = std::fs::read_to_string(&config).unwrap();
         text.push_str("[core]\n\tbare = false\n");
         std::fs::write(&config, text).unwrap();
-        let repo = gix::open(&tree).unwrap();
+        let repo = crate::testutil::open_isolated(&tree).unwrap();
         let heads = worktree_heads(&repo).unwrap();
         assert_eq!(heads.len(), 1);
         assert_eq!(heads[0].1.as_path(), common.as_path());
@@ -1294,3 +1302,7 @@ mod tests {
         assert!(!quoted.ends_with(".git\""));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

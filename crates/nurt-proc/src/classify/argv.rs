@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::classify::argv
+// Responsibility:   Splitting of a command line into the programs it starts: the program itself and every program started through a wrapper (`sudo`, `env`, `npx`).
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Splitting of a command line into the programs it starts: the program
 //! itself and every program started through a wrapper (`sudo`, `env`, `npx`).
 
@@ -339,3 +347,7 @@ mod tests {
         assert_eq!(chain(&["sudo"], &[wrapper("sudo")]).len(), 1);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

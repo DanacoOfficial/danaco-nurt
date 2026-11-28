@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/stages.rs
+// Responsibility:   Behaviour of `program.find`, `program.search`, `program.describe` and `program.catalog`, including the parity with the reference algorithm.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Behaviour of `program.find`, `program.search`, `program.describe` and
 //! `program.catalog`, including the parity of ranking and listings with
 //! the reference algorithm on a synthetic catalog.
@@ -1231,3 +1239,7 @@ fn find_labels_the_real_source_of_the_version() {
         Some("catalog")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syslog/tests/eventlog_query.rs
+// Responsibility:   Building of XPath queries and parsing and mapping of event XML.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -22,9 +30,13 @@ use nurt_syslog::eventlog::xml::{EventXml, EventXmlError};
 use nurt_syslog::eventlog::xpath::{XPathFilter, literal};
 
 fn fixture(name: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/eventlog")
-        .join(name);
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/fixtures/eventlog")
+    .join(name);
     fs::read_to_string(path).unwrap()
 }
 
@@ -472,3 +484,7 @@ fn eventlog_priority_of_every_level_is_in_the_range_of_priorities() {
         assert!(priority(level) <= 7, "Level {level}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -6,6 +6,13 @@ commands: [read, lines, search, replace, insert, edit, remove, write, assert]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/text-editing.md -->
+<!-- Responsibility:   Documents text-editing. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # text-editing
 
@@ -48,3 +55,7 @@ search "debug_print" "/srv/app/src" glob: "**/*.go" |> remove
 ## Several changes to one file
 
 `edit` applies a list of changes to one file as a single write: all of them are applied or none. A change that does not match fails with `E_NO_MATCH` and the file stays as it was. `write` with `mode: append` or `mode: prepend` adds text without reading the file first.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

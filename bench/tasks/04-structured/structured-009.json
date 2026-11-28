@@ -64,7 +64,7 @@
   },
   "oracle_program": "set \"tsconfig.json\" key: \"compilerOptions.jsxImportSource\" value: null",
   "reference_bash": "python3 - <<'EOF'\nimport json\np = 'tsconfig.json'\nd = json.load(open(p, encoding='utf-8'))\ndel d['compilerOptions']['jsxImportSource']\nopen(p, 'w', encoding='utf-8').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
-  "reference_pwsh": "$p = Join-Path $PWD 'tsconfig.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.compilerOptions.PSObject.Properties.Remove('jsxImportSource')\n$d | ConvertTo-Json -Depth 20 | Set-Content $p\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'tsconfig.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.compilerOptions.PSObject.Properties.Remove('jsxImportSource')\n[IO.File]::WriteAllText($p, (($d | ConvertTo-Json -Depth 20) -replace \"`r`n\", \"`n\") + \"`n\")\n",
   "tags": [
     "delete-key",
     "json"

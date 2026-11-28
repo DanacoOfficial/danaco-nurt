@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/java/ci/workflow.yml
+# Responsibility:   Configuration or workflow definition of bindings/java/ci/workflow.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 name: java-binding
 
 on:
@@ -112,6 +120,7 @@ jobs:
           done
           test -n "${NURT_LIBRARY:-}"
           export NURT_CONFORMANCE="$release/nurt-conformance"
+          export NURT_STUB_DIR="$GITHUB_WORKSPACE/crates/nurt-ffi/tests/fixtures/stub"
           if [ "$RUNNER_OS" = "Windows" ]; then NURT_CONFORMANCE="$NURT_CONFORMANCE.exe"; fi
           mvn -B -ntp verify
 
@@ -192,3 +201,7 @@ jobs:
           path: |
             bindings/java/nurt/target/nurt-*.jar
             bindings/java/nurt-ffm/target/nurt-ffm-*.jar
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

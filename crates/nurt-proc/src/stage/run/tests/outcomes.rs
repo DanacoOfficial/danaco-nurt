@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::run::tests::outcomes
+// Responsibility:   Outcomes of `run` that the run host decides: runs over input records that cannot finish, runs ended by a limit, and command lines with an external effect.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Outcomes of `run` that the run host decides: runs over input records
 //! that cannot finish, runs ended by a limit, and command lines with an
 //! external effect.
@@ -103,3 +111,7 @@ fn a_variable_name_the_program_cannot_receive_fails_the_plan() {
     assert!(execute(&host, &args, StageInput::none(), &ctx(&[])).is_err());
     assert!(host.recorded().is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

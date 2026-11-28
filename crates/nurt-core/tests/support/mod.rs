@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/support/mod.rs
+// Responsibility:   Test stages, front end and engine set-up shared by the end-to-end tests.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test stages, front end and engine set-up shared by the end-to-end tests.
 
 // Every test crate uses a part of the items.
@@ -69,7 +77,7 @@ impl ReadStage for Find {
         let fs = ctx.require_fs()?;
         let mut records = Vec::new();
         for (path, _) in FILES {
-            let abs = AbsPath::new(path)?;
+            let abs = AbsPath::for_test(path);
             let size = fs
                 .metadata(&abs, nurt_contracts::fs::Follow::NoFollow)
                 .ok()
@@ -77,7 +85,7 @@ impl ReadStage for Find {
             if let Some(size) = size {
                 records.push(
                     Record::new(RecordKind::Entry)
-                        .with("path", Value::Path(path.to_owned()))
+                        .with("path", Value::Path(abs.to_language_string()))
                         .with("size", Value::Int(size)),
                 );
             }
@@ -210,7 +218,7 @@ pub(crate) const PROGRAM_HASH: &str =
 pub(crate) fn find_stage() -> serde_json::Value {
     json!({
         "t": "stage", "name": "find", "effect": "read", "phase": "source",
-        "args": [{"name": "path", "value": {"t": "path", "v": "/data"}}]
+        "args": [{"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs("/data")}}]
     })
 }
 
@@ -320,3 +328,7 @@ pub(crate) fn run(world: &World, text: &str, preview: bool) -> Response {
     response.validate().unwrap();
     response
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

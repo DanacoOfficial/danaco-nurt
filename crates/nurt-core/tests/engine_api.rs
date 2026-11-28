@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_api.rs
+// Responsibility:   Public interface of the engine.
+// Dependencies:     nurt_contracts, nurt_sys, nurt_testkit, serde_json, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Public interface of the engine: envelope rules and defaults, sessions,
 //! candidates, execution handles, events, the execution context and the
 //! queries that do not run programs.
@@ -50,7 +58,7 @@ fn bound_find() -> BoundDocument {
         "program": {"statements": [{
             "t": "pipeline",
             "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": [
-                {"name": "path", "value": {"t": "path", "v": "/srv"}}
+                {"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs("/srv")}}
             ]},
             "stages": []
         }]}
@@ -215,7 +223,12 @@ fn golden_requests_get_valid_responses() {
             .without_state_dir(),
     )
     .unwrap();
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/request");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/request");
     let mut checked = 0;
     for entry in fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
@@ -310,6 +323,8 @@ fn defaults_follow_the_envelope_and_the_configuration() {
         session: None,
         language: Some(Language::Pl),
         script: Some(false),
+        privilege: Some(nurt_contracts::envelope::Privilege::Account),
+        as_user: None,
     };
     assert_eq!(ctx.options(), &expected);
 }
@@ -516,7 +531,7 @@ fn check_plans_the_bound_program() {
     let report = h.engine.check(&Request::program(FIND)).unwrap();
     assert_eq!(report.bound, bound_find());
     assert_eq!(report.summary.effect, EffectKind::Read);
-    assert_eq!(report.summary.paths, vec!["/srv".to_owned()]);
+    assert_eq!(report.summary.paths, vec![nurt_testkit::paths::abs("/srv")]);
     let from_tree = h.engine.check(&Request::ast(ast())).unwrap();
     assert_eq!(from_tree.bound, report.bound);
     assert_eq!(from_tree.summary, report.summary);
@@ -659,3 +674,7 @@ fn invalid_project_file_fails_the_request() {
     let response = h.engine.run(&Request::program(FIND).with_options(options));
     assert_eq!(error_of(&response).code, ErrorCode::Config);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

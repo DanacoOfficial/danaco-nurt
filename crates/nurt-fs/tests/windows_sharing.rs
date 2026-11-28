@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-fs/tests/windows_sharing.rs
+// Responsibility:   Renames, removals and sharing violations on NTFS.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Renames, removals and sharing violations on NTFS.
 //!
 //! Renames that replace use `FileRenameInfoEx` with POSIX semantics and
@@ -227,3 +235,7 @@ fn holders_of_a_missing_file_is_not_found() {
     let error = fx.fs.holders(&fx.path("missing.txt")).unwrap_err();
     assert_eq!(error.kind, FsErrorKind::NotFound, "{error}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

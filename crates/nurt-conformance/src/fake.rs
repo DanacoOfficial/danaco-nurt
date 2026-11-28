@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-conformance::fake
+// Responsibility:   Fake server that answers `nurt-rpc/1` from the cases.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Fake server that answers `nurt-rpc/1` from the cases.
 //!
@@ -771,10 +778,19 @@ impl Bindings for BindingFields<'_> {
     }
 }
 
+/// Key of a request: the method and the canonical form of its parameters
+/// without what does not tell cases apart. Those are the version of the
+/// envelope, `options.base` and the language `en` of `describe` and `help`,
+/// which is the language of a session that names none.
 fn key(method_name: &str, params: &Value) -> String {
     let mut params = params.clone();
     if let Some(members) = params.as_object_mut() {
         members.remove(member::VERSION);
+        if matches!(method_name, "describe" | "help")
+            && members.get("language") == Some(&json!("en"))
+        {
+            members.remove("language");
+        }
         if let Some(Value::Object(options)) = members.get_mut(member::OPTIONS) {
             options.remove(member::BASE);
             if options.is_empty() {
@@ -1221,6 +1237,23 @@ mod tests {
     }
 
     #[test]
+    fn the_default_language_does_not_tell_requests_apart() {
+        let plain = key("describe", &json!({"subject": "core"}));
+        assert_eq!(
+            key("describe", &json!({"subject": "core", "language": "en"})),
+            plain
+        );
+        assert_ne!(
+            key("describe", &json!({"subject": "core", "language": "pl"})),
+            plain
+        );
+        assert_ne!(
+            key("run", &json!({"program": "x", "language": "en"})),
+            key("run", &json!({"program": "x"}))
+        );
+    }
+
+    #[test]
     fn native_methods_answer_without_cases() {
         let mut fake = server(Vec::new(), None);
         assert!(fake.is_empty());
@@ -1608,3 +1641,7 @@ mod tests {
         assert!(String::from_utf8(output).unwrap().contains("E_CANCELLED"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

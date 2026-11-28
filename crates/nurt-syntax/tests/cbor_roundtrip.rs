@@ -1,9 +1,19 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/cbor_roundtrip.rs
+// Responsibility:   Round trips JSON ↔ CBOR ↔ tree of the golden trees and of generated trees.
+// Dependencies:     hash_support, nurt_contracts, proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round trips JSON ↔ CBOR ↔ tree of the golden trees and of generated trees.
 //!
-//! The properties run `PROPTEST_CASES` cases, 100 000 by default.
+//! Every property runs `PROPTEST_CASES` cases when that variable is set,
+//! 100 000 cases when `NURT_PROPTEST_FULL=1` (the nightly run) and 300 cases
+//! otherwise.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -29,14 +39,22 @@ use nurt_syntax::validate::{MAX_SAFE_INTEGER, is_reserved_word};
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestRunner};
 
-/// Number of generated cases of every property unless `PROPTEST_CASES` is set.
-const DEFAULT_CASES: u32 = 100_000;
+/// Number of generated cases of every property in the regular run.
+const QUICK_CASES: u32 = 300;
+
+/// Number of generated cases of every property in the full run.
+const FULL_CASES: u32 = 100_000;
+
+/// Whether `NURT_PROPTEST_FULL=1` requests the full number of cases.
+fn full_run() -> bool {
+    std::env::var("NURT_PROPTEST_FULL").is_ok_and(|value| value == "1")
+}
 
 fn config() -> Config {
     let cases = std::env::var("PROPTEST_CASES")
         .ok()
         .and_then(|cases| cases.parse().ok())
-        .unwrap_or(DEFAULT_CASES);
+        .unwrap_or(if full_run() { FULL_CASES } else { QUICK_CASES });
     Config {
         cases,
         failure_persistence: None,
@@ -522,3 +540,7 @@ fn generated_bound_trees_survive_cbor_and_keep_their_hash() {
         })
         .unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

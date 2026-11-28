@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/crash/journal_faults.rs
+// Responsibility:   Fault injection into the journal transaction protocol.
+// Dependencies:     nurt_contracts, nurt_crashfs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fault injection into the journal transaction protocol.
 //!
 //! Each file system call made by an operation receives, one call at a time,
@@ -278,3 +286,7 @@ fn inject_short_writes_and_reads_keep_the_result_of_every_case() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

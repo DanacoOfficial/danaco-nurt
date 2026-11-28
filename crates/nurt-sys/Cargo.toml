@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           crates/nurt-sys/Cargo.toml
+# Responsibility:   Configuration or catalog data of crates/nurt-sys/Cargo.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 [package]
 name = "nurt-sys"
@@ -44,6 +51,7 @@ windows-sys = { workspace = true, features = [
     "Win32_NetworkManagement_NetManagement",
     "Win32_Networking_WinSock",
     "Win32_Storage_FileSystem",
+    "Win32_System_Console",
     "Win32_System_Diagnostics_Debug",
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_Environment",
@@ -85,6 +93,7 @@ which = { workspace = true }
 indexmap = { workspace = true }
 
 [dev-dependencies]
+nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
@@ -95,3 +104,7 @@ zbus = { workspace = true, features = ["p2p"] }
 [[test]]
 name = "docs_groups"
 path = "../../tests/d7/u15/docs_groups.rs"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

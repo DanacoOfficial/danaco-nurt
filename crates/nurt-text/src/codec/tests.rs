@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::codec::tests
+// Responsibility:   Implements the module nurt-text::codec::tests.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::services::TextEncoding;
 
@@ -388,3 +396,7 @@ fn control_characters_are_escaped_in_messages() {
     };
     assert!(error.to_string().starts_with("character `\\u{7}` (U+0007)"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

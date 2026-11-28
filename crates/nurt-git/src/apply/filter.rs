@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply::filter
+// Responsibility:   Content conversion between the object database and the working tree.
+// Dependencies:     bstr, gix_filter, gix_worktree, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Content conversion between the object database and the working tree.
 //!
 //! The built-in conversions of `gix-filter` apply: end-of-line handling
@@ -199,7 +207,7 @@ mod tests {
     use super::*;
 
     fn repository(dir: &std::path::Path, attributes: &str) -> gix::Repository {
-        let repo = gix::init(dir).expect("init");
+        let repo = crate::testutil::init_isolated(dir).expect("init");
         std::fs::write(dir.join(".gitattributes"), attributes).expect("attributes");
         repo
     }
@@ -239,7 +247,7 @@ mod clean_tests {
     #[test]
     fn clean_converts_working_tree_line_endings_to_lf() {
         let dir = tempfile::tempdir().expect("temp dir");
-        let repo = gix::init(dir.path()).expect("init");
+        let repo = crate::testutil::init_isolated(dir.path()).expect("init");
         std::fs::write(dir.path().join(".gitattributes"), "f.txt text eol=crlf\n")
             .expect("attributes");
         let index = gix_index::State::new(repo.object_hash());
@@ -262,3 +270,7 @@ mod clean_tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-net/tests/http_request_catalog.rs
+// Responsibility:   Agreement of `http.request` with its entry in `catalog/network.toml`.
+// Dependencies:     exec_ctx, indexmap, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Agreement of `http.request` with its entry in `catalog/network.toml`.
 //!
 //! Every parameter of the catalog entry is accepted by the static check,
@@ -33,7 +41,12 @@ use exec_ctx::text;
 const URL: &str = "https://example.test/page";
 
 fn spec() -> StageSpec {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/network.toml");
+    let path = format!(
+        "{}/../../catalog/network.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let mut file: CatalogFile = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     file.resolve_groups();
     file.command(COMMAND).unwrap().clone()
@@ -81,7 +94,10 @@ fn sample(name: &str) -> Vec<(&'static str, Value)> {
         )],
         "body" => vec![("method", text("post")), ("body", text("payload"))],
         "json" => vec![("method", text("post")), ("json", Value::Int(1))],
-        "save" => vec![("save", Value::Path("/srv/page.html".to_owned()))],
+        "save" => vec![(
+            "save",
+            Value::Path(nurt_testkit::paths::abs("/srv/page.html")),
+        )],
         "as" => vec![("as", text("markdown"))],
         "extract" => vec![("extract", text("links"))],
         "table" => vec![("extract", text("tables")), ("table", Value::Int(2))],
@@ -231,3 +247,7 @@ fn save_effect_matches_the_plan() {
     assert_eq!(planned.changes.len(), 1);
     assert!(planned.irreversible.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

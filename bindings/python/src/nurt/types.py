@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/src/nurt/types.py
+# Responsibility:   Script types.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Types of the JSON formats ``nurt-request/1``, ``nurt-response/1`` and ``nurt-report/1``.
 
 The module is produced from ``spec/schemas`` with ``tools/gen_types.py``;
@@ -443,6 +451,7 @@ _NotableOptional = TypedDict(
         "path": str,
         "count": int,
         "detail": str,
+        "continuation": str,
     },
     total=False,
 )
@@ -504,6 +513,7 @@ ErrorCode = Literal[
     "E_QUERY",
     "E_SQL",
     "E_ARG",
+    "E_CONTINUATION_EXPIRED",
     "E_EXTERNAL_MISSING",
     "E_EXTERNAL_FAILED",
     "E_PROGRAM_NOT_FOUND",
@@ -676,6 +686,28 @@ class Error(_ErrorRequired, _ErrorOptional):
     """Error of the language, as defined by the error contract."""
 
 
+_ContinuationRequired = TypedDict(
+    "_ContinuationRequired",
+    {
+        "id": str,
+        "unit": Literal["lines", "records", "bytes"],
+        "shown": int,
+        "remaining": int,
+    },
+)
+_ContinuationOptional = TypedDict(
+    "_ContinuationOptional",
+    {
+        "cut_lines": int,
+    },
+    total=False,
+)
+
+
+class Continuation(_ContinuationRequired, _ContinuationOptional):
+    """What a shortened response leaves out; `next` reads the next part."""
+
+
 _TimingOptional = TypedDict(
     "_TimingOptional",
     {
@@ -692,6 +724,36 @@ class Timing(_TimingOptional):
     """Object ``/$defs/timing`` of ``nurt-report/1``."""
 
 
+_PartRequired = TypedDict(
+    "_PartRequired",
+    {
+        "at": str,
+        "kind": Literal["branch", "iteration", "step", "loop"],
+        "ok": bool,
+    },
+)
+_PartOptional = TypedDict(
+    "_PartOptional",
+    {
+        "condition": bool,
+        "branch": int,
+        "command": str,
+        "targets": int,
+        "rolled_back": bool,
+        "irreversible": bool,
+        "error": str,
+        "iterations": int,
+        "op": int,
+        "note": str,
+    },
+    total=False,
+)
+
+
+class Part(_PartRequired, _PartOptional):
+    """Object ``/$defs/part`` of ``nurt-report/1``."""
+
+
 _ReportRequired = TypedDict(
     "_ReportRequired",
     {
@@ -704,6 +766,10 @@ _ReportOptional = TypedDict(
     "_ReportOptional",
     {
         "op": int,
+        "elevated": Any,
+        "backend": Literal["self", "broker", "sudo", "doas", "run0"],
+        "as_user": str,
+        "elevation_reason": Literal["permission_denied", "elevated_entry"],
         "ran": str,
         "ast_hash": str,
         "result_file": str,
@@ -723,7 +789,10 @@ _ReportOptional = TypedDict(
         "irreversible": List[Irreversible],
         "error": Error,
         "next_cursor": str,
+        "continuation": Continuation,
         "timing": Timing,
+        "parts": List[Part],
+        "parts_total": int,
     },
     total=False,
 )
@@ -756,6 +825,8 @@ _RequestOptionsOptional = TypedDict(
         "session": str,
         "language": Literal["en", "pl"],
         "script": bool,
+        "privilege": Literal["account", "elevated", "auto"],
+        "as_user": str,
     },
     total=False,
 )
@@ -782,6 +853,7 @@ _RequestOptional = TypedDict(
         "cursor": str,
         "accept": str,
         "options": RequestOptions,
+        "params": Dict[str, Any],
     },
     total=False,
 )
@@ -845,5 +917,11 @@ REQUEST_OPTIONS: Tuple[str, ...] = (
     "session",
     "language",
     "script",
+    "privilege",
+    "as_user",
 )
 """Names of the options of ``nurt-request/1``."""
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

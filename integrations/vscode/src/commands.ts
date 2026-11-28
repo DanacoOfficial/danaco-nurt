@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           integrations/vscode/src/commands.ts
+// Responsibility:   Source file integrations/vscode/src/commands.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 import { execFile } from "child_process";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -134,3 +142,7 @@ export function registerCommands(server: LanguageServer): vscode.Disposable[] {
     vscode.commands.registerCommand(COMMAND_RESTART_SERVER, () => server.restart()),
   ];
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

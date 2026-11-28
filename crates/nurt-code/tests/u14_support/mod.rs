@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u14_support/mod.rs
+// Responsibility:   Test doubles for the `code.rename` and `code.languages` tests.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles for the `code.rename` and `code.languages` tests: a file
 //! system over the real disk, a journal double that keeps the previous
 //! content of every target, a small code service for Python and
@@ -87,7 +95,7 @@ impl TestHost {
             architecture: "x86_64".to_owned(),
             hostname: "test".to_owned(),
             user: "test".to_owned(),
-            home: PathBuf::from("/home/test"),
+            home: nurt_testkit::paths::abs_path("/home/test"),
             temp: std::env::temp_dir(),
             path_style: PathStyle::Posix,
             timezone: "UTC".to_owned(),
@@ -506,10 +514,17 @@ pub(crate) fn context(config: Config) -> ExecCtx {
         .build()
 }
 
-/// Project directory with a `.git` marker.
+/// Project directory with a `.git` marker. On macOS the temporary directory
+/// lies behind the link `/var`, and the servers answer with the real path, so
+/// the project is named by its real path there.
 pub(crate) fn project() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().join("proj");
+    let base = if cfg!(target_os = "macos") {
+        dir.path().canonicalize().unwrap()
+    } else {
+        dir.path().to_path_buf()
+    };
+    let root = base.join("proj");
     std::fs::create_dir_all(root.join(".git")).unwrap();
     (dir, root)
 }
@@ -1049,3 +1064,7 @@ impl SemanticProvider for ScriptedProvider {
             .collect()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,7 +1,18 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/rpm/nurt.spec.in
+# Responsibility:   Template of the RPM specification of Danaco Nurt.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 %global debug_package %{nil}
 %global __strip /bin/true
 %global target_triple %{_arch}-unknown-linux-gnu
-%global release_url https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@
+%global release_url https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@
 
 Name:           nurt
 Version:        @RPM_VERSION@
@@ -101,3 +112,7 @@ sed -e 's|^prefix=.*|prefix=%{_prefix}|' \
 %changelog
 * @RPM_DATE@ Danaco Official <support@danaco-group.pl> - @RPM_VERSION@-@RPM_RELEASE@
 - Release @VERSION@.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

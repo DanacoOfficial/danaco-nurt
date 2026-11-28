@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/value_schema.rs
+// Responsibility:   The published schema `nurt-value/1` equals the schema generated from the Rust types.
+// Dependencies:     schemars, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Tests assert through `unwrap`, `expect` and `panic!`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -16,7 +24,12 @@ use schemars::generate::SchemaSettings;
 use serde_json::json;
 
 fn schema_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-value-1.schema.json")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-value-1.schema.json")
 }
 
 fn generated_schema() -> serde_json::Value {
@@ -77,3 +90,7 @@ fn schema_is_valid_json_schema() {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

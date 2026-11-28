@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-docgen/tests/repository.rs
+// Responsibility:   Checks of the documentation of the repository against its catalog.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checks of the documentation of the repository against its catalog.
 
 // The helpers of this test file fail the test through `expect` when the repository cannot be read.
@@ -54,7 +62,13 @@ fn site_pages_use_the_product_sentence_only() {
 }
 
 fn layout() -> Layout {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    let root = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..");
     Layout::new(&root)
 }
 
@@ -76,8 +90,8 @@ fn collect_files(dir: &Path, extension: &str, out: &mut Vec<PathBuf>) {
 #[test]
 fn catalog_has_the_documented_command_counts() {
     let catalog = catalog(&layout());
-    assert_eq!(catalog.group_size(CORE_GROUP), 33);
-    assert_eq!(catalog.total(), 148);
+    assert_eq!(catalog.group_size(CORE_GROUP), 34);
+    assert_eq!(catalog.total(), 177);
     assert_eq!(catalog.optional_groups(), 14);
 }
 
@@ -122,6 +136,11 @@ fn site_builds_valid_pages_without_unresolved_links() {
             page.display()
         );
         assert!(!html.contains("http://fonts") && !html.contains("https://fonts"));
+    }
+    for name in std::iter::once("favicon.svg").chain(site::SITE_ASSETS) {
+        let copied = std::fs::read(out.path().join(name)).expect("identity file is copied");
+        let source = std::fs::read(layout.site().join(name)).expect("identity file exists");
+        assert_eq!(copied, source, "{name} differs from the source");
     }
     let index =
         std::fs::read_to_string(out.path().join("search-index.json")).expect("index exists");
@@ -205,3 +224,7 @@ fn every_subcommand_has_a_manual_page_and_completions() {
     let serve = std::fs::read_to_string(man.path().join("nurt-serve.1")).expect("serve page");
     assert!(serve.contains(".SH Framing") || serve.contains(".SH FRAMING"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

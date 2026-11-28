@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u12_profile.rs
+// Responsibility:   `code.profile` on project trees created in temporary directories.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `code.profile` on project trees created in temporary directories.
 //!
 //! The repository is described by its metadata files (`.git/HEAD` and a
@@ -493,7 +501,8 @@ fn script_names_with_shell_metacharacters_are_not_offered_as_commands() {
 #[test]
 fn entry_points_name_their_target_and_origin() {
     let fixture = project();
-    let root = fixture.root().display().to_string();
+    // Records name paths in the language form, with `/` separators.
+    let root = fixture.root().display().to_string().replace('\\', "/");
     let (_, records) = run(&fixture.context(true, true, true), fixture.root(), &[]).unwrap();
     let entries = section(&records, "entry_points");
     let tool = format!("{root}/bin/tool.js");
@@ -771,3 +780,7 @@ fn root_that_is_not_a_directory_fails_with_not_found() {
     let error = run(&fixture.context(true, true, false), &file, &[]).unwrap_err();
     assert_eq!(error.code(), ErrorCode::NotFound);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

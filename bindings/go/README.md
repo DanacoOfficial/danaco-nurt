@@ -1,15 +1,23 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bindings/go/README.md -->
+<!-- Responsibility:   Documents Danaco Nurt for Go. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Danaco Nurt for Go
 
-[Danaco Nurt](https://github.com/DanacoOfficial/nurt) is a command shell and
+[Danaco Nurt](https://github.com/DanacoOfficial/danaco-nurt) is a command shell and
 language where every change can be undone. This module is the Go binding.
 
 ## Installation
 
 ```sh
-go get github.com/DanacoOfficial/nurt/bindings/go
+go get github.com/DanacoOfficial/danaco-nurt/bindings/go
 ```
 
 The module requires Go 1.23 or later and has no dependencies outside the
@@ -63,9 +71,13 @@ the module is built with `-tags nurt_cgo`. The test sets
 
 ## Documentation
 
-API reference: [pkg.go.dev](https://pkg.go.dev/github.com/DanacoOfficial/nurt/bindings/go).
+API reference: [pkg.go.dev](https://pkg.go.dev/github.com/DanacoOfficial/danaco-nurt/bindings/go).
 Language and command reference: <https://nurt.danaco-group.pl>.
 
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

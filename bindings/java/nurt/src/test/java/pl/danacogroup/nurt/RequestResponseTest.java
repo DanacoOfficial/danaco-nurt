@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt/src/test/java/pl/danacogroup/nurt/RequestResponseTest.java
+// Responsibility:   Source file bindings/java/nurt/src/test/java/pl/danacogroup/nurt/RequestResponseTest.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,6 +54,17 @@ class RequestResponseTest {
                 + "\"format\":\"markdown\",\"verbosity\":\"detailed\",\"diff\":\"stat\",\"diff_context\":5,"
                 + "\"max_chars\":400,\"save_to\":\"/home/user/out.txt\",\"timeout\":\"1500ms\",\"session\":\"s-1\","
                 + "\"language\":\"pl\",\"script\":true,\"future_option\":\"x\"}}"), request.toMap());
+    }
+
+    @Test
+    void parametersAndPrivilegeUseTheirWireNames() {
+        Request request = Request.program("run p")
+                .params(Map.of("count", 3L))
+                .privilege(Request.Privilege.AUTO)
+                .asUser("deploy");
+        assertEquals(Json.parse("{\"nurt\":\"1.0\",\"program\":\"run p\",\"params\":{\"count\":3},"
+                + "\"options\":{\"privilege\":\"auto\",\"as_user\":\"deploy\"}}"), request.toMap());
+        assertFalse(Request.program("x").toMap().containsKey("params"));
     }
 
     @Test
@@ -150,3 +169,7 @@ class RequestResponseTest {
         assertEquals(CallStatus.INTERNAL, NurtCallException.Kind.PROTOCOL.status());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

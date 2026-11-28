@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bench::protocol
+// Responsibility:   Protocol files: settings, system message and tool definitions.
+// Dependencies:     serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Protocol files: settings, system message and tool definitions.
 //!
 //! The directory `bench/protocol/` holds `protocol.toml`,
@@ -254,3 +262,7 @@ pub(crate) mod tests {
         assert_eq!(clip("αβγδεζηθικ", 4), "αβ\n[6 characters omitted]\nικ");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

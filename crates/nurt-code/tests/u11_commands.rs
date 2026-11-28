@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u11_commands.rs
+// Responsibility:   Tests of the `code.symbols` and `code.outline` stages on a project in the virtual file system, with the listing double and a scripted semantic provider.
+// Dependencies:     nurt_contracts, nurt_testkit, u11_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `code.symbols` and `code.outline` stages on a project in
 //! the virtual file system, with the listing double and a scripted
 //! semantic provider.
@@ -411,8 +419,9 @@ fn search_without_path_needs_a_base_directory() {
 }
 
 fn server_answers() -> Arc<ScriptedSemantic> {
-    let lib = std::path::Path::new(ROOT).join("src/lib.rs");
-    let outside = std::path::Path::new("/elsewhere/other.rs");
+    // The server names absolute paths of the current system.
+    let lib = nurt_testkit::paths::abs_path(ROOT).join("src/lib.rs");
+    let outside = &nurt_testkit::paths::abs_path("/elsewhere/other.rs");
     ScriptedSemantic::new(Script {
         workspace: Ok(vec![
             server_symbol("parse", RecordKind::Function, &lib, 1),
@@ -704,3 +713,7 @@ fn stages_describe_themselves_as_sources() {
     assert_eq!(outline.command, "code.outline");
     assert!(symbols.source && outline.source);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

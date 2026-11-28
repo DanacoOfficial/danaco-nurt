@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/catalog_schema.rs
+// Responsibility:   Tests that the published schema of catalog files equals the schema generated from the Rust types.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests that the published schema of catalog files equals the schema
 //! generated from the Rust types. With `NURT_BLESS=1` the generated schema is
@@ -15,7 +22,12 @@ use std::path::{Path, PathBuf};
 use nurt_contracts::spec::{CATALOG_SCHEMA_ID, CatalogFile};
 
 fn schema_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-catalog-1.schema.json")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-catalog-1.schema.json")
 }
 
 fn generated_schema() -> serde_json::Value {
@@ -90,3 +102,7 @@ fn schema_rejects_unknown_keys_and_invalid_kinds() {
     missing.as_object_mut().unwrap().remove("summary");
     assert!(!validator.is_valid(&missing));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

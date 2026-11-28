@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/pyproject.toml
+# Responsibility:   Configuration or catalog data of bindings/python/pyproject.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 [build-system]
 requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
@@ -29,8 +37,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://nurt.danaco-group.pl"
 Documentation = "https://nurt.danaco-group.pl"
-Repository = "https://github.com/DanacoOfficial/nurt"
-Issues = "https://github.com/DanacoOfficial/nurt/issues"
+Repository = "https://github.com/DanacoOfficial/danaco-nurt"
+Issues = "https://github.com/DanacoOfficial/danaco-nurt/issues"
 
 [project.scripts]
 nurt = "nurt._cli:main"
@@ -58,3 +66,13 @@ files = ["src/nurt"]
 [tool.ruff]
 line-length = 120
 target-version = "py39"
+
+[tool.ruff.lint]
+# The pycodestyle (E4, E7, E9) and pyflakes (F) rules that ruff has enabled by
+# default so far; named here so that the check does not change with the default
+# rule set of the ruff release that CI installs.
+select = ["E4", "E7", "E9", "F"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

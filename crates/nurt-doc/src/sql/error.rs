@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::sql::error
+// Responsibility:   Language errors of `sql`.
+// Dependencies:     nurt_contracts, rusqlite, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Language errors of `sql`.
 
 use std::io;
@@ -189,12 +197,6 @@ pub(super) fn denied(denial: &Denial, number: usize) -> Error {
                 "statement {number} calls load_extension, which loads code into the process; remove the call"
             ),
         ),
-        Denial::Transaction(keyword) => (
-            "transaction",
-            format!(
-                "statement {number} uses {keyword}; with `write: true` all statements run in one transaction, so use SAVEPOINT for nested transactions"
-            ),
-        ),
     };
     Error::new(ErrorCode::Sql, message)
         .with_problem(problem)
@@ -340,6 +342,7 @@ mod tests {
             query: "insert into t values (?)\n".to_owned(),
             params,
             write: false,
+            base: None,
             busy_timeout: Duration::from_secs(1),
         }
     }
@@ -386,7 +389,6 @@ mod tests {
             (denied(&Denial::Extension, 1), "extension"),
             (denied(&Denial::Attach("ATTACH"), 1), "attach"),
             (denied(&Denial::Pragma("p".to_owned()), 1), "pragma"),
-            (denied(&Denial::Transaction("BEGIN"), 1), "transaction"),
             (missing_params(1, 0), "parameter_count"),
             (extra_params(1, 2), "parameter_count"),
         ];
@@ -443,3 +445,7 @@ mod tests {
         assert_eq!(other.code(), ErrorCode::Sql);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

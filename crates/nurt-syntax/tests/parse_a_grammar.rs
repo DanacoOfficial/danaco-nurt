@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_a_grammar.rs
+// Responsibility:   Productions of the variant A grammar: statements, stages, arguments, expressions, sub-pipelines, spans, nesting and metadata.
+// Dependencies:     nurt_contracts, parse_a_support, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Productions of the variant A grammar: statements, stages, arguments,
 //! expressions, sub-pipelines, spans, nesting and metadata.
 #![allow(
@@ -451,7 +459,7 @@ fn literals_keep_their_written_kind() {
 fn spans_follow_the_specification_example() {
     let json = json_a("ports state: listen |> filter port == 8080");
     let expected: Value = serde_json::from_str(
-        r#"{"nurt": "1.0", "program": {"statements": [{"t": "pipeline",
+        r#"{"nurt": "1.1", "program": {"statements": [{"t": "pipeline",
           "head": {"t": "stage", "name": "ports", "args": [
             {"name": "state", "value": {"t": "ident", "v": "listen", "span": [1, 14, 1, 20]}, "span": [1, 7, 1, 20]}],
             "span": [1, 1, 1, 20]},
@@ -585,3 +593,7 @@ fn canonical_forms_read_back() {
         check_invariants(&json).unwrap_or_else(|problem| panic!("{text}: {problem}"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/install/install.sh
+# Responsibility:   Installs the nurt executable of a Danaco Nurt release.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Installs the nurt executable of a Danaco Nurt release.
 #
 #   curl -fsSL https://nurt.danaco-group.pl/install.sh | sh
@@ -25,11 +33,11 @@
 #   NURT_PUBLIC_KEY    file or URL of the ASCII-armored public signing key
 #   NURT_RELEASES_URL  release location; URL, directory or file:// URL with
 #                      the layout of GitHub releases (default:
-#                      https://github.com/DanacoOfficial/nurt/releases)
+#                      https://github.com/DanacoOfficial/danaco-nurt/releases)
 
 set -eu
 
-releases_url=${NURT_RELEASES_URL:-https://github.com/DanacoOfficial/nurt/releases}
+releases_url=${NURT_RELEASES_URL:-https://github.com/DanacoOfficial/danaco-nurt/releases}
 version=${NURT_VERSION:-}
 bin_dir=${NURT_INSTALL_DIR:-}
 public_key=${NURT_PUBLIC_KEY:-}
@@ -214,3 +222,7 @@ case ":${PATH:-}:" in
     *":$bin_dir:"*) ;;
     *) say "$bin_dir is not in PATH" ;;
 esac
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-plan::hints
+// Responsibility:   Hints for stages: the fields the rest of the pipeline uses, whether file records must carry their entity tag, and how many records are used.
+// Dependencies:     nurt_catalog, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Hints for stages: the fields the rest of the pipeline uses, whether file
 //! records must carry their entity tag, and how many records are used.
 //!
@@ -35,7 +43,7 @@ use nurt_contracts::stage::{CheckCtx, Demand, FieldDemand};
 use nurt_contracts::value::Value;
 
 use crate::check::{implementation_for, static_args};
-use crate::model::{PipelinePlan, PlanOptions, PlanStatement, PlannedStage};
+use crate::model::{ConstructShape, PipelinePlan, PlanOptions, PlanStatement, PlannedStage};
 
 /// Detail of the static check of a stage that bounds its input records.
 const LIMIT_DETAIL: &str = "limit";
@@ -131,21 +139,51 @@ pub(crate) fn annotate(
     options: &PlanOptions,
 ) {
     let tagged = lets_used_by_changes(statements);
-    let requested = options.field_set();
     let hinting = Hinting {
         registry,
         host: PlanningHost::new(),
         config: Config::default(),
     };
+    annotate_block(statements, &hinting, &tagged, options);
+}
+
+fn annotate_block(
+    statements: &mut [PlanStatement],
+    hinting: &Hinting<'_>,
+    tagged: &HashSet<String>,
+    options: &PlanOptions,
+) {
+    let requested = options.field_set();
     for statement in statements.iter_mut() {
         match statement {
+            PlanStatement::Construct(construct) => {
+                let blocks: Vec<&mut Vec<PlanStatement>> = match &mut construct.shape {
+                    ConstructShape::When {
+                        branches,
+                        otherwise,
+                    } => branches
+                        .iter_mut()
+                        .map(|branch| &mut branch.body)
+                        .chain(otherwise.iter_mut())
+                        .collect(),
+                    ConstructShape::Each { body, .. }
+                    | ConstructShape::Repeat { body, .. }
+                    | ConstructShape::While { body, .. }
+                    | ConstructShape::Steps { body }
+                    | ConstructShape::Define { body, .. } => vec![body],
+                    _ => Vec::new(),
+                };
+                for block in blocks {
+                    annotate_block(block, hinting, tagged, options);
+                }
+            }
             PlanStatement::Let(binding) => {
                 let end = Demand {
                     fields: FieldDemand::All,
                     etag: tagged.contains(binding.name.as_str()),
                     limit: None,
                 };
-                annotate_pipeline(&mut binding.pipeline, &hinting, end);
+                annotate_pipeline(&mut binding.pipeline, hinting, end);
             }
             PlanStatement::Operation(operation) => {
                 let read_only = operation.pipeline.is_read_only();
@@ -156,7 +194,7 @@ pub(crate) fn annotate(
                     etag: false,
                     limit: if read_only { options.limit } else { None },
                 };
-                annotate_pipeline(&mut operation.pipeline, &hinting, end);
+                annotate_pipeline(&mut operation.pipeline, hinting, end);
             }
         }
     }
@@ -620,3 +658,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

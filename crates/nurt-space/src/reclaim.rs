@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-space::reclaim
+// Responsibility:   Reclaim of journal entries.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_journal, rayon
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reclaim of journal entries.
 //!
 //! An entry is released in three steps: it is marked expiring, its directory
@@ -822,13 +830,7 @@ mod tests {
             .expect("remove_file");
         let synced = log
             .iter()
-            .position(|line| {
-                *line
-                    == format!(
-                        "sync_dir {}",
-                        blob(op, 1).as_path().parent().expect("parent").display()
-                    )
-            })
+            .position(|line| *line == format!("sync_dir {}", blob(op, 1).parent().expect("parent")))
             .expect("sync_dir of the block directory");
         assert!(removed < synced);
         assert!(catalog.pending().is_empty());
@@ -1006,3 +1008,7 @@ mod tests {
         assert!(volume.exists(&path("vol/j/ops/1/blobs/0")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

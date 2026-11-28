@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::analyze::tests::tools
+// Responsibility:   Detection of tools in a project and their command lines.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection of tools in a project and their command lines.
 
 use std::collections::BTreeSet;
@@ -198,3 +206,7 @@ fn builds_write_commands_only_for_formatters() {
     assert!(Tool::Prettier.formats());
     assert_eq!(Tool::Prettier.check(), FindingKind::Format);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

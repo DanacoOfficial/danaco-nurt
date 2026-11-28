@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-help::consistency
+// Responsibility:   Consistency of program texts with the catalog.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Consistency of program texts with the catalog.
 //!
 //! Examples in the help, in the description layers, in guides and in command
@@ -9,6 +17,8 @@
 //! it splits a program into stages and words and compares the command of each
 //! stage and every `name:` argument with the catalog.
 
+use nurt_contracts::bound::STAGE_CALL_PARAMETERS;
+
 use crate::catalog::Catalog;
 
 /// Words that are valid values of an enumeration parameter in any command.
@@ -16,6 +26,8 @@ const LITERAL_WORDS: &[&str] = &["true", "false", "null"];
 
 /// Checks the programs in `text`, one program per line, and returns one
 /// message for each name the catalog does not know.
+///
+/// Lines that only open or close a construct (`steps {`, `}`) are skipped.
 ///
 /// Lines that start with `|>` continue the previous line and are checked as
 /// stages. Words that follow `@name` references and expressions are not
@@ -40,9 +52,18 @@ const LITERAL_WORDS: &[&str] = &["true", "false", "null"];
 #[must_use]
 pub fn check_program(catalog: &Catalog, text: &str) -> Vec<String> {
     let mut problems = Vec::new();
+    let mut declarations = false;
     for line in text.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        if declarations {
+            declarations = line != "}";
+            continue;
+        }
+        if line == "params {" {
+            declarations = true;
+            continue;
+        }
+        if line.is_empty() || line.starts_with('#') || is_construct_frame(line) {
             continue;
         }
         for stage in split_stages(line) {
@@ -50,6 +71,20 @@ pub fn check_program(catalog: &Catalog, text: &str) -> Vec<String> {
         }
     }
     problems
+}
+
+/// Whether the line only opens or closes a construct (`steps {`, `} otherwise {`,
+/// `}`); the pipelines inside a construct are checked line by line.
+fn is_construct_frame(line: &str) -> bool {
+    if line == "}" || line.starts_with("} ") {
+        return true;
+    }
+    let first = line.split_whitespace().next().unwrap_or_default();
+    line.ends_with('{')
+        && matches!(
+            first,
+            "steps" | "when" | "each" | "while" | "repeat" | "define" | "otherwise"
+        )
 }
 
 fn check_stage(catalog: &Catalog, stage: &str, problems: &mut Vec<String>) {
@@ -79,7 +114,9 @@ fn check_stage(catalog: &Catalog, stage: &str, problems: &mut Vec<String>) {
             continue;
         };
         let Some(param) = spec.param(name) else {
-            problems.push(format!("command `{}` has no parameter `{name}`", spec.name));
+            if name != "preview" && !STAGE_CALL_PARAMETERS.contains(&name) {
+                problems.push(format!("command `{}` has no parameter `{name}`", spec.name));
+            }
             continue;
         };
         let value = words.get(position + 1).map(String::as_str);
@@ -327,3 +364,7 @@ mod tests {
         assert!(!is_parameter_name(""));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

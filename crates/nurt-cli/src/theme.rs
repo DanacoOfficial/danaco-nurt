@@ -1,20 +1,28 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::theme
+// Responsibility:   Colours of the identity in the terminal.
+// Dependencies:     reedline
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Colours of the identity in the terminal.
 //!
-//! The mark has two colours, silver `#C3C8CE` for the step back and gold
-//! `#D4AE6E` for the step forward; the blue of the product has the cyan
+//! The mark has two colours, silver `#DDE1E6` for the step back and gold
+//! `#C9A15A` for the step forward; the blue of the product has the cyan
 //! `#4FD1F5`. A terminal that reports 24-bit colour shows exactly these
 //! values. Any other terminal gets the nearest colours of the 256-colour
 //! palette.
 
 use reedline::Color;
 
-const SILVER: (u8, u8, u8) = (0xC3, 0xC8, 0xCE);
-const GOLD: (u8, u8, u8) = (0xD4, 0xAE, 0x6E);
+const SILVER: (u8, u8, u8) = (0xDD, 0xE1, 0xE6);
+const GOLD: (u8, u8, u8) = (0xC9, 0xA1, 0x5A);
 const CYAN: (u8, u8, u8) = (0x4F, 0xD1, 0xF5);
-const SILVER_INDEX: u8 = 251;
+const SILVER_INDEX: u8 = 254;
 const GOLD_INDEX: u8 = 179;
 const CYAN_INDEX: u8 = 81;
 
@@ -48,13 +56,13 @@ impl Theme {
         Self { truecolor }
     }
 
-    /// Silver, the step back; the first two letters of the banner.
+    /// Silver, the step back; the left chevron of the mark in the banner.
     #[must_use]
     pub fn silver(self) -> Color {
         self.colour(SILVER, SILVER_INDEX)
     }
 
-    /// Gold, the step forward; the last two letters of the banner.
+    /// Gold, the step forward; the right chevron of the mark in the banner.
     #[must_use]
     pub fn gold(self) -> Color {
         self.colour(GOLD, GOLD_INDEX)
@@ -213,25 +221,29 @@ mod tests {
     #[test]
     fn silver_and_cyan_have_exact_and_palette_forms() {
         assert_eq!(Theme::new(true).cyan(), Color::Rgb(0x4F, 0xD1, 0xF5));
-        assert_eq!(Theme::new(true).silver_escape(), "\x1b[38;2;195;200;206m");
-        assert_eq!(Theme::new(false).silver_escape(), "\x1b[38;5;251m");
+        assert_eq!(Theme::new(true).silver_escape(), "\x1b[38;2;221;225;230m");
+        assert_eq!(Theme::new(false).silver_escape(), "\x1b[38;5;254m");
     }
 
     #[test]
     fn truecolor_theme_uses_the_exact_colours_of_the_mark() {
         let theme = Theme::new(true);
-        assert_eq!(theme.silver(), Color::Rgb(0xC3, 0xC8, 0xCE));
-        assert_eq!(theme.gold(), Color::Rgb(0xD4, 0xAE, 0x6E));
-        assert_eq!(theme.gold_escape(), "\x1b[38;2;212;174;110m");
-        assert_eq!(theme.silver_escape(), "\x1b[38;2;195;200;206m");
+        assert_eq!(theme.silver(), Color::Rgb(0xDD, 0xE1, 0xE6));
+        assert_eq!(theme.gold(), Color::Rgb(0xC9, 0xA1, 0x5A));
+        assert_eq!(theme.gold_escape(), "\x1b[38;2;201;161;90m");
+        assert_eq!(theme.silver_escape(), "\x1b[38;2;221;225;230m");
     }
 
     #[test]
     fn other_terminals_get_the_nearest_colours_of_the_256_palette() {
         let theme = Theme::new(false);
-        assert_eq!(theme.silver(), Color::Fixed(251));
+        assert_eq!(theme.silver(), Color::Fixed(254));
         assert_eq!(theme.gold(), Color::Fixed(179));
         assert_eq!(theme.cyan(), Color::Fixed(81));
         assert_eq!(theme.gold_escape(), "\x1b[38;5;179m");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::notebook::export
+// Responsibility:   `notebook.export`: a notebook written to a new script, Markdown or text file.
+// Dependencies:     nurt_contracts, nurt_notebook, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `notebook.export`: a notebook written to a new script, Markdown or text
 //! file.
 //!
@@ -213,3 +221,7 @@ mod tests {
         assert!(!test.fs().exists(&target));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::test::external_tests
+// Responsibility:   Parsers on the output of installed test frameworks.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsers on the output of installed test frameworks. Every test needs its
 //! framework in `PATH`, is skipped without it and runs only with the
 //! `external-tools` feature.
@@ -164,3 +172,7 @@ fn bun_report_is_parsed_into_passed_and_failed_results() {
     assert_eq!(status_of(&results, "passes"), Some(&TestStatus::Passed));
     assert_eq!(status_of(&results, "fails"), Some(&TestStatus::Failed));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

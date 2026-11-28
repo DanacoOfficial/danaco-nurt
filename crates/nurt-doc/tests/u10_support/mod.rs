@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_support/mod.rs
+// Responsibility:   Fixtures of the `sql` tests.
+// Dependencies:     nurt_contracts, rusqlite
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixtures of the `sql` tests: an execution context, bound arguments,
 //! databases created in temporary directories and a journal transaction that
 //! keeps copies of the declared files and can restore them.
@@ -83,6 +91,8 @@ pub(crate) struct CtxOptions {
     pub(crate) busy: Duration,
     pub(crate) cancel: CancelToken,
     pub(crate) max_records: u64,
+    /// `scope.base`: the directory of relative files of `ATTACH`.
+    pub(crate) base: Option<String>,
 }
 
 impl Default for CtxOptions {
@@ -91,6 +101,7 @@ impl Default for CtxOptions {
             busy: Duration::from_secs(5),
             cancel: CancelToken::new(),
             max_records: Limits::default().max_records,
+            base: None,
         }
     }
 }
@@ -98,6 +109,7 @@ impl Default for CtxOptions {
 /// Execution context without file system and services.
 pub(crate) fn context(options: CtxOptions) -> ExecCtx {
     let mut config = Config::default();
+    config.scope.base = options.base.clone();
     config.sql.busy_timeout =
         DurationSetting::from_millis(u64::try_from(options.busy.as_millis()).unwrap());
     let host = TestHost {
@@ -140,6 +152,12 @@ pub(crate) fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// `path` inside a text literal of the language, with `\\` escaped as the
+/// fixes of `sql` write it.
+pub(crate) fn literal_text(path: &Path) -> String {
+    text(path).replace('\\', "\\\\")
+}
+
 /// Bound arguments of one call.
 pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) -> BoundArgs {
     let defaulted = params.is_empty();
@@ -152,6 +170,19 @@ pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) ->
         )
         .with("params", ArgValue::Value(Value::List(params)), defaulted)
         .with("write", ArgValue::Value(Value::Bool(write)), !write)
+}
+
+/// Bound arguments of one call without `write`: the statements decide.
+pub(crate) fn args_auto(path: &Path, query: &str, params: Vec<Value>) -> BoundArgs {
+    let defaulted = params.is_empty();
+    BoundArgs::new("sql")
+        .with("path", ArgValue::Value(Value::Path(text(path))), false)
+        .with(
+            "query",
+            ArgValue::Value(Value::Text(query.to_owned())),
+            false,
+        )
+        .with("params", ArgValue::Value(Value::List(params)), defaulted)
 }
 
 /// Bound arguments of one call with a map of named parameters.
@@ -410,3 +441,7 @@ impl MutationTx for RecordingTx {
         panic!("the stage never rolls back")
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-lspclient::rename
+// Responsibility:   Rename plans built from workspace edits.
+// Dependencies:     lsp_types, nurt_code, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rename plans built from workspace edits.
 //!
 //! A server answers `textDocument/rename` (and code actions with edits) with a
@@ -102,7 +110,8 @@ fn code_units(count: usize) -> u32 {
 /// use nurt_lspclient::rename::{PositionUnit, workspace_change};
 /// use serde_json::json;
 ///
-/// let edit = json!({"changes": {"file:///work/a.py": [{
+/// # let uri = if cfg!(windows) { "file:///C:/work/a.py" } else { "file:///work/a.py" };
+/// let edit = json!({"changes": {uri: [{
 ///     "range": {"start": {"line": 0, "character": 4}, "end": {"line": 0, "character": 7}},
 ///     "newText": "total"
 /// }]}});
@@ -349,3 +358,7 @@ fn file_path(uri: &Uri) -> SemanticResult<PathBuf> {
 fn failed(message: String) -> SemanticError {
     SemanticError::new(SemanticErrorKind::Failed, message)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

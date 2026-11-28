@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/lex_tokens.rs
+// Responsibility:   Tokens of the lexical table, line breaks, comments, positions and checkpoints.
+// Dependencies:     TokenKind, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tokens of the lexical table, line breaks, comments, positions and
 //! checkpoints.
 
@@ -569,3 +577,7 @@ fn reads_a_single_minus_before_a_word_as_unary_minus() {
     assert_eq!(error("Remove-Item -Force").problem, "name_case");
     assert_eq!(error("x -Force").problem, "flag");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

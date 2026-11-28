@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/journal.md -->
+<!-- Responsibility:   Documents Journal and file system contract. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Journal and file system contract
 
 This document specifies the contract of the operation journal (module
@@ -92,7 +100,23 @@ stage returns. The stage never commits.
    flush returned; a failed flush rolls the transaction back.
 3. Expected state. `TargetSpec::expect` (`unchecked`, `absent`, an entity
    tag or a content hash) is checked atomically with the change. A mismatch
-   fails with `E_STALE` and rolls the whole transaction back.
+   fails with `E_STALE` and rolls the whole transaction back. An entity tag
+   is `size-modified-volume-low-high` in hexadecimal, optionally followed by
+   `-sha256:<digest>`; tags without the hash are accepted. The tag is opaque:
+   its form depends on how it was made. File modification times have a
+   granularity of up to 2 s (FAT) and, on ZFS and ext4 without multigrain
+   timestamps, a few milliseconds, so a same-size rewrite within that
+   granularity leaves size and time unchanged. A tag with a hash is therefore
+   also compared with the hash of the current content. A read stage that read
+   the content (`read`, `lines`, `edit`, `convert`, `compress`, notebooks) puts
+   the hash of the bytes it returned into the tag, so an edit, convert or
+   compress after such a read refuses a foreign same-size rewrite with
+   `E_STALE`. Tags made from metadata only (`list`, `find`, `info`, the git
+   apply, `write`/`copy`/`remove` of paths they did not read) are checked by
+   metadata, as before; a same-size rewrite within the timestamp granularity is
+   not detected for them. Clocks: the check relies on the local clock only in
+   change tracking (see below); NFS attribute caches and a file system clock
+   that differs from the local clock by more than 3 s are not covered.
 4. External writers. Targets written by a library (embedded database
    engine, repository index writer) or by a launched program are declared with
    the action `external_write`; the journal preserves their full previous
@@ -277,6 +301,95 @@ with its own number; it keeps the current state of every restored item, so it
 can be redone. A later ordinary operation on the same items invalidates `redo`
 through the conflict check.
 
+### 8.1 Elevated entries
+
+An operation that runs with `privilege: elevated` is executed by a separate
+process with the identity of the administrator. Its entries are in the journal
+of the account that asked for it, like every other entry, and the account has
+access to their copies. There is one journal and one counter: an elevated
+entry takes the next number of the account, and `history`, `journal.status`,
+`undo`, `redo` and `pin` treat it like any other entry. The entry names the
+backend in its `action` (`elevated:<backend>`), and the report of the
+operation states `elevated: true` and the `backend`.
+
+The elevated process writes the entry, with the previous content, owner,
+group, mode, access control list, extended attributes and the security context
+of every target (sections 3 to 7), with the rights of the account, not of the
+administrator: on Linux it can switch the file system user and group of the
+calling thread (`fsuid`, `fsgid`) to those of the account for every call that
+concerns the state directory or a journal directory of the account, so the
+kernel checks each component of the path, a link included, with the
+permissions of the account, and every file and directory is created owned by
+the account. On macOS and the other Unix systems, which have no `fsuid`, the
+process opens the journal directory without following links (it must be a
+directory owned by the account), creates every file with `openat(O_CREAT |
+O_EXCL | O_NOFOLLOW)` and every directory with `mkdirat` relative to that
+descriptor, and gives each new entry to the account with `fchown` (`fchownat`
+with `AT_SYMLINK_NOFOLLOW` for a link) and `fchmod` before anything is
+written; on Windows the backend `self` runs as the same account and needs
+none of this. In every case the process never follows a link with more rights than the account has,
+and it never leaves a file owned by the administrator below the state
+directory. A copy of a target into the journal is read with the rights of the
+administrator and written with those of the account, block by block; a hard
+link, a clone or a rename of a target into the journal is not used (the journal
+copies instead). The account sends the user, the group and the state directory
+in the request (`nurt-elevated/1`); the elevated process refuses a state
+directory that is not an existing directory owned by that user, and a user that
+differs from the one the backend recorded (`SUDO_UID`). The request of an
+operation with `as_user` carries no owner: the entry is in the journal of that
+account.
+
+`undo` and `redo` of an entry that an elevated operation wrote restore the
+targets with the rights of the administrator, through the same backend with the
+same access rule, and report `elevation_reason: elevated_entry`; without a
+backend they end with `E_PRIVILEGE` and `next_steps`. `undo` and `redo` without
+a number first find the entry they would restore, as the journal does (the
+newest available entry that is not an undo, or the newest available undo, of
+the session); when an elevated operation wrote that entry, they end with
+`E_PRIVILEGE` and the next step `undo N privilege: elevated` (`redo N …` for
+`redo`), with the number of the entry. `undo to:` runs with the rights of the
+account.
+
+An `enable` or `disable` is undone only when the recorded start type is
+`disabled` or `automatic` (release 0.1.1). A service whose recorded start type
+is `manual`, `static` or `masked`, or a delayed start on Windows, makes the
+entry irreversible: the report keeps the marker `service_changed` and its
+`detail` gives the reason. A package that the repository no longer offers in
+the recorded version is irreversible per package; the other packages of an
+`upgrade` stay undoable.
+
+Operations outside the file system are undone by inverse operations:
+
+| Operation | Recorded state | Undo |
+|---|---|---|
+| `package.install` | whether the package was installed before and its version | `package.remove` when it was not installed before; reinstall of the recorded version when the install changed the version |
+| `package.remove` | installed version | `package.install` of that version when the repository still offers it; otherwise irreversible at the time of the change |
+| `package.upgrade` | versions before the upgrade | install of the recorded versions when the repository still offers them; otherwise irreversible per package |
+| `start`, `stop` (services) | previous state | the opposite command |
+| `enable`, `disable` | previous start type | the opposite command with the recorded start type |
+| `restart`, `stop` of a process, `run` | none | irreversible; the report states `irreversible` before the change |
+| `firewall.allow`, `firewall.deny` | target `firewall:<rule>`, `absent` to `present` | `firewall.remove` of the rule, in the backend and table that were used |
+| `firewall.remove` | target `firewall:<rule>`, `present` to `absent`, one change per removed rule | `firewall.allow` or `firewall.deny` of every removed rule |
+| `network.route_add`, `network.route_remove` | target `route:<destination>` with `via=<gateway> dev=<interface> metric=<n>` | the opposite command with the recorded route |
+| `network.dns_set` | target `dns:<interface>` with `servers=<list>;search=<list>` | `network.dns_set` with the previous servers and domains; `/etc/resolv.conf` is a file target restored by the journal |
+| `clock.timezone_set`, `clock.ntp` | targets `clock:timezone` and `clock:ntp` | the same command with the previous value |
+| `clock.set` | target `clock:time` | irreversible; the report keeps the marker `external_effect` and its `detail` gives the reason |
+| `windows.cim` with `invoke` | target `cim:<class>.<method>` with the namespace and the condition | the documented opposite method on the same instances; otherwise irreversible |
+| `accounts.create` | absent before | `accounts.remove` with `keep_home: true` |
+| `accounts.modify` | shell, home, groups, comment and lock state before and after | `accounts.modify` with the recorded values of the fields that changed |
+| `accounts.remove` | the whole state of the account; the home directory goes through the journal | `accounts.create` with the recorded identifier, shell, home, groups and comment, and `accounts.modify` for a locked account; the journal restores the home directory |
+| `accounts.password` | none | irreversible |
+| `groups.create`, `groups.remove` | absent before; identifier and members | pairwise; a removed group returns with `groups.add_member` of its members |
+| `groups.add_member`, `groups.remove_member` | members before and after | the opposite command |
+| `mount`, `unmount` | absent before; device, type and options | pairwise; an edit of `/etc/fstab` is a file of the journal |
+| `sysctl.set` | previous value | `sysctl.set` with that value; the file of `persistent: true` is a file of the journal |
+| `modules.load`, `modules.unload` | loaded or not | the opposite command |
+| `power.restart`, `power.shutdown` | schedule | `power.cancel` for a scheduled action; irreversible when the action runs at once |
+| `power.cancel`, `disks.partition`, `disks.format` | none | irreversible; the preview of a disk change lists the data that is lost |
+
+Files changed by a program started with `run` and `privilege: elevated` are not
+preserved; the entry is irreversible and the report says so.
+
 ## 9. Errors
 
 All methods of `MutationTx` and `JournalStore` return the language error. The
@@ -433,3 +546,7 @@ the operation, compares the full tree state (hashes and metadata) before the
 operation and after undo, checks the preserve mode against the table, checks
 the irreversible reasons of `partial` and `none` rows, and detects mutations
 outside a transaction.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

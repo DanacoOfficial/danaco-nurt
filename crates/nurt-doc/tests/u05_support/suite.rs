@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u05_support/suite.rs
+// Responsibility:   Loader of the YAML Test Suite in its source format.
+// Dependencies:     saphyr
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Loader of the YAML Test Suite in its source format.
 //!
 //! Every file `<ID>.yaml` holds a list of cases. A case inherits each field
@@ -35,7 +43,12 @@ pub(crate) struct SuiteCase {
 
 /// Directory of the suite inside the repository.
 pub(crate) fn suite_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/third_party/yaml/yaml-test-suite")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/third_party/yaml/yaml-test-suite")
 }
 
 /// Every case of the suite, sorted by identifier.
@@ -123,3 +136,7 @@ pub(crate) fn visual_to_raw(visual: &str) -> String {
     }
     raw
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::report
+// Responsibility:   Effect report `nurt-report/1`.
+// Dependencies:     schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Effect report `nurt-report/1`.
 //!
@@ -41,6 +48,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::ast::AST_HASH_PREFIX;
+use crate::continuation::Continuation;
 use crate::error::{Error, ErrorCode};
 use crate::value::{Bytes, Record, RecordKind};
 
@@ -1304,6 +1312,11 @@ pub struct NotableEntry {
     /// Short description of the effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// Identifier of the continuation (`c3`) that reads what the effect
+    /// concerns, for `truncated_lines` and `limit_reached`; absent when
+    /// nothing continues.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<String>,
 }
 
 impl NotableEntry {
@@ -1317,6 +1330,7 @@ impl NotableEntry {
             raw_path: None,
             count: None,
             detail: None,
+            continuation: None,
         }
     }
 }
@@ -1389,6 +1403,22 @@ pub struct Report {
     /// reading programs, previews and changing programs without targets.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub op: Option<u64>,
+    /// Whether the operation ran with elevated rights; present only when
+    /// `true`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub elevated: bool,
+    /// Elevation backend that ran the operation (`self`, `sudo`, `doas`,
+    /// `run0`); present only when `elevated` is `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    /// Account the operation ran as, when the call gave `as_user`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_user: Option<String>,
+    /// Why the operation was elevated without being asked to: `permission_denied`
+    /// when `privilege: auto` repeated the stage after a denial, or
+    /// `elevated_entry` when `undo` or `redo` of an elevated entry was sent to a backend.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elevation_reason: Option<String>,
     /// Canonical text of the program that ran; present only when corrections
     /// were applied.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1452,9 +1482,93 @@ pub struct Report {
     /// Cursor of the next page; absent on the last page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+    /// Continuation of a shortened response: what remains and how `next`
+    /// reads it; absent when the response leaves nothing out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<Continuation>,
     /// Durations of the processing steps (verbosity `detailed`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timing: Option<Timing>,
+    /// The parts of a control construct in order: the chosen branch, every
+    /// iteration, every step, with their effects. Empty for a program that
+    /// has no construct. A construct with more parts than the report keeps
+    /// lists the first ones and states the total in [`Report::parts_total`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<ReportPart>,
+    /// Number of parts of the construct when [`Report::parts`] is shortened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parts_total: Option<u64>,
+}
+
+/// One part of a control construct in a report.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ReportPart {
+    /// Place of the part in the construct: `when`, `when.branch[1]`,
+    /// `each.iteration[3]`, `steps[2]`, `call rotate_logs`.
+    pub at: String,
+    /// What happened: `condition`, `branch`, `iteration`, `step`, `call`.
+    pub kind: String,
+    /// Value of the condition for a `condition` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<bool>,
+    /// Number of the chosen branch for a `branch` part; counted from 1,
+    /// the branch of `otherwise` is one past the last condition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<u64>,
+    /// Command whose effect the part reports, for a `step` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    /// Number of targets the part changed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub targets: Option<u64>,
+    /// Whether the part ran to its end: `false` for the part that failed and
+    /// for a part rolled back.
+    pub ok: bool,
+    /// Whether the effects of the part were rolled back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rolled_back: bool,
+    /// Whether the effects of the part cannot be rolled back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub irreversible: bool,
+    /// Code of the error that ended the part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Number of iterations of a `loop` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iterations: Option<u64>,
+    /// Number of the journal entry of the part, when the part has an entry
+    /// of its own (`atomic: false`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op: Option<u64>,
+    /// Remark on the part, for example that a limit ended the loop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl ReportPart {
+    /// A part that ran to its end.
+    #[must_use]
+    pub fn done(at: impl Into<String>, kind: impl Into<String>) -> Self {
+        Self {
+            at: at.into(),
+            kind: kind.into(),
+            condition: None,
+            branch: None,
+            command: None,
+            targets: None,
+            ok: true,
+            rolled_back: false,
+            irreversible: false,
+            error: None,
+            iterations: None,
+            op: None,
+            note: None,
+        }
+    }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl Report {
@@ -1466,6 +1580,10 @@ impl Report {
             status,
             kind: kind.into(),
             op: None,
+            elevated: false,
+            backend: None,
+            as_user: None,
+            elevation_reason: None,
             ran: None,
             ast_hash: None,
             result_file: None,
@@ -1485,7 +1603,10 @@ impl Report {
             irreversible: Vec::new(),
             error: None,
             next_cursor: None,
+            continuation: None,
             timing: None,
+            parts: Vec::new(),
+            parts_total: None,
         }
     }
 
@@ -1810,3 +1931,7 @@ pub fn is_ast_hash(hash: &str) -> bool {
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

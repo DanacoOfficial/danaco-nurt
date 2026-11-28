@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::sshsig::allowed
+// Responsibility:   Allowed signers and revoked keys of SSH signature verification.
+// Dependencies:     nurt_contracts, ssh_key
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Allowed signers and revoked keys of SSH signature verification.
 //!
 //! An allowed signers line has the form `principals [options] key`. The
@@ -57,7 +65,7 @@ pub(super) fn is_krl(path: &Path) -> Result<bool> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(bytes.starts_with(KRL_MAGIC)),
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(source) => Err(io_error(path, &source)),
+        Err(source) => Err(io_error(path, &directory_error(path, source))),
     }
 }
 
@@ -78,7 +86,17 @@ fn read(path: &Path) -> Result<Option<String>> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(Some(String::from_utf8_lossy(&bytes).into_owned())),
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(source) => Err(io_error(path, &source)),
+        Err(source) => Err(io_error(path, &directory_error(path, source))),
+    }
+}
+
+/// The error of reading `path`; for a directory the error that Linux
+/// reports, which Windows reports as a denied access instead.
+fn directory_error(path: &Path, source: std::io::Error) -> std::io::Error {
+    if path.is_dir() {
+        std::io::Error::from(std::io::ErrorKind::IsADirectory)
+    } else {
+        source
     }
 }
 
@@ -404,3 +422,7 @@ mod tests {
         assert_eq!(unquote("\"x"), "\"x");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

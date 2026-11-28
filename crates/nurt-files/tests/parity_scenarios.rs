@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/parity_scenarios.rs
+// Responsibility:   Tests of the parity scenario files.
+// Dependencies:     support_parity
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the parity scenario files.
 
 // Test code unwraps results so that a failure aborts the test with the original error.
@@ -19,7 +27,12 @@ const SOURCE_CASES: u32 = 293;
 const SOURCE_FILES: usize = 17;
 
 fn data_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/parity")
 }
 
 fn model() -> Model {
@@ -359,3 +372,7 @@ fn rejects_an_unknown_open_item() {
     scenario_mut(&mut model).open_gap = Some("LP-04".into());
     assert_eq!(model.validate(), Vec::<String>::new());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

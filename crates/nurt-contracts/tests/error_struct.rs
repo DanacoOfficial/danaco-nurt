@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/error_struct.rs
+// Responsibility:   Behaviour and JSON form of the error structure.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Tests assert through `unwrap`, `expect` and `panic!`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -201,3 +209,7 @@ fn file_system_errors_convert_with_details() {
     assert!(error.details.get("holders").is_none());
     assert!(error.message.starts_with("rename failed"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

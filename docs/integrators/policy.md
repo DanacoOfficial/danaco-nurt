@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/integrators/policy.md -->
+<!-- Responsibility:   Documents Policy. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Policy
 
 The console runs the programs it receives; it does not decide which programs an agent may run. The host enforces its policy before `run`, on data that the console computes without any effect:
@@ -130,3 +138,7 @@ Targets computed at run time (a URL read from a file) have `source: "record"` an
 ## Confirmation by the user
 
 A host that asks the user before a change runs the program with `preview: true`, shows the targets and differences of the report, and then runs the same program without `preview`. The journal records every change; `undo` reverts an operation by its number `op`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

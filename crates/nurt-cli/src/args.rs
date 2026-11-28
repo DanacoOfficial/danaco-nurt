@@ -1,13 +1,21 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::args
+// Responsibility:   Resolution of the command line and parsing of the options.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Resolution of the command line and parsing of the options.
 //!
 //! The first argument selects a subcommand only when it equals a name of
 //! [`SUBCOMMANDS`] exactly; any other first argument starts a program of the
 //! language. `nurt exec` is always unambiguous.
 
-use nurt_contracts::envelope::{OutputFormat, Verbosity};
+use nurt_contracts::envelope::{OutputFormat, Privilege, Verbosity};
 use nurt_contracts::kinds::SyntaxVariant;
 
 use crate::app::CliError;
@@ -28,10 +36,33 @@ pub const EXEC_FLAGS: &[&str] = &[
     "--limit",
     "--cursor",
     "--verbosity",
+    "--privilege",
+    "--as-user",
 ];
 
 /// Options of `script`.
-pub const SCRIPT_FLAGS: &[&str] = &["--preview", "--json", "--format", "--limit", "--verbosity"];
+pub const SCRIPT_FLAGS: &[&str] = &[
+    "--preview",
+    "--json",
+    "--format",
+    "--limit",
+    "--verbosity",
+    "--privilege",
+    "--as-user",
+];
+
+/// Name of the form of `run` that runs a program file.
+pub const RUN_FILE: &str = "run";
+
+/// Options of `run`.
+pub const RUN_FLAGS: &[&str] = &[
+    "--variant",
+    "--preview",
+    "--json",
+    "--format",
+    "--limit",
+    "--verbosity",
+];
 
 /// Options of `check`.
 pub const CHECK_FLAGS: &[&str] = &["-e", "--variant", "--json", "--format"];
@@ -84,6 +115,12 @@ pub fn resolve(args: &[String]) -> Invocation {
         "-V" => Invocation::Version { full: false },
         "--version" => Invocation::Version { full: true },
         "-h" | "--help" => Invocation::Help,
+        // `run` is also a command of the language: `nurt run ["make"] cwd: "/x"` is
+        // a program, `nurt run build.nurt` runs a program file with parameters.
+        "run" if args.get(1).is_some_and(|file| is_program_file(file)) => Invocation::Subcommand {
+            name: RUN_FILE,
+            args: args[1..].to_vec(),
+        },
         name => match SUBCOMMANDS.iter().find(|known| **known == name) {
             Some(known) => Invocation::Subcommand {
                 name: known,
@@ -94,6 +131,14 @@ pub fn resolve(args: &[String]) -> Invocation {
             },
         },
     }
+}
+
+/// Whether the argument names a program file for `nurt run`: it ends with
+/// `.nurt`.
+fn is_program_file(argument: &str) -> bool {
+    std::path::Path::new(argument)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("nurt"))
 }
 
 /// Whether the arguments after the name of a subcommand ask for its usage: the
@@ -118,6 +163,10 @@ pub struct Flags {
     pub cursor: Option<String>,
     /// Value of the option `--verbosity`.
     pub verbosity: Option<Verbosity>,
+    /// Value of the option `--privilege`.
+    pub privilege: Option<Privilege>,
+    /// Value of the option `--as-user`.
+    pub as_user: Option<String>,
     /// Program text given with the option `-e`.
     pub program: Option<String>,
     /// Value of the option `--from`.
@@ -210,6 +259,8 @@ fn store(flags: &mut Flags, name: &str, value: String) -> Result<(), CliError> {
             })?);
         }
         "--cursor" => flags.cursor = Some(value),
+        "--privilege" => flags.privilege = Some(privilege(&value)?),
+        "--as-user" => flags.as_user = Some(value),
         "-e" => flags.program = Some(value),
         "--from" => flags.from = Some(value),
         "--to" => flags.to = Some(value),
@@ -242,6 +293,18 @@ fn format(value: &str) -> Result<OutputFormat, CliError> {
         .ok_or_else(|| {
             CliError::Usage(format!(
                 "`{value}` is not a format; expected text, json, markdown or compact"
+            ))
+        })
+}
+
+fn privilege(value: &str) -> Result<Privilege, CliError> {
+    Privilege::ALL
+        .iter()
+        .copied()
+        .find(|level| level.as_str() == value)
+        .ok_or_else(|| {
+            CliError::Usage(format!(
+                "`{value}` is not a privilege; expected account, elevated or auto"
             ))
         })
 }
@@ -462,3 +525,7 @@ mod tests {
         assert_eq!(flags.cursor.as_deref(), Some("c_1"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

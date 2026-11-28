@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-plan/tests/schema.rs
+// Responsibility:   Generation of the `nurt-check/1` schema from the result types and the validation of check results of the golden bound trees against it.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Generation of the `nurt-check/1` schema from the result types and the
 //! validation of check results of the golden bound trees against it.
 
@@ -150,3 +158,7 @@ fn schema_rejects_unknown_effect_class() {
     value["effect"] = json!("unbounded");
     assert!(!validator.is_valid(&value));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

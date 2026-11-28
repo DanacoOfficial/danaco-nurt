@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bench/README.md -->
+<!-- Responsibility:   Documents nurt-bench. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt-bench
 
 `nurt-bench` measures whether Danaco Nurt, used as the tool of an AI agent,
@@ -40,4 +48,8 @@ every command are in [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 A result consists of the run logs, the files written by `nurt-bench
 analyze`, the model configurations and the image digests of the
 containers. Results are submitted as a pull request to
-`github.com/DanacoOfficial/nurt` or to support@danaco-group.pl.
+`github.com/DanacoOfficial/danaco-nurt` or to support@danaco-group.pl.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

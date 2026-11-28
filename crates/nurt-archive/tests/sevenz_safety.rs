@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-archive/tests/sevenz_safety.rs
+// Responsibility:   Containment and decompression limits for 7z archives.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Containment and decompression limits for 7z archives: members that
 //! would leave the destination are rejected by the extraction plan and
 //! never reach the content stream, and declared sizes above the limits fail
@@ -190,3 +198,7 @@ fn symbolic_link_with_an_overlong_target_is_a_format_error() {
     let error = plan(Cursor::new(&bytes), Rules::default(), &Limits::default()).unwrap_err();
     assert_eq!(error.code(), ErrorCode::Format);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

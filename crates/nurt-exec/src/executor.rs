@@ -1,16 +1,25 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec::executor
+// Responsibility:   Execution of plans.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit, rayon, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of plans.
 
-use std::sync::{Arc, OnceLock};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
-use nurt_contracts::bound::Phase;
+use nurt_contracts::bound::{BoundParam, Phase};
 use nurt_contracts::env::Clock;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::journal::RollbackReason;
-use nurt_contracts::report::{Notable, NotableEntry, ReportStatus};
+use nurt_contracts::journal::{MutationTx, RollbackReason};
+use nurt_contracts::report::{IrreversibleEntry, Notable, NotableEntry, ReportPart, ReportStatus};
 use nurt_contracts::stage::{
     BoundArgs, EffectPlan, Event, ExecCtx, ExecFinished, ExecStarted, ExecStep, Extensions,
     StageFrame, StageImpl, StageInput,
@@ -21,7 +30,9 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 use serde_json::json;
 
 use crate::context::limit_context;
-use crate::effect::{AppliedEffect, ProgramSource, apply_effect, change_facts, target_text};
+use crate::effect::{
+    AppliedEffect, ProgramSource, apply_effect, apply_effect_in, change_facts, target_text,
+};
 use crate::env::ExecEnv;
 use crate::eval::ExprBinding;
 use crate::flow::{
@@ -29,7 +40,9 @@ use crate::flow::{
     tag_output,
 };
 use crate::grouped::{Effect, plan_effect};
-use crate::outcome::{EffectReport, OperationOutcome, Outcome, ResultData, StepTiming};
+use crate::outcome::{
+    ChangeFacts, EffectReport, OperationOutcome, Outcome, ResultData, StepTiming,
+};
 use crate::runner::{SubpipelineRunner, named_value};
 
 /// State of a job that has not finished.
@@ -160,6 +173,49 @@ impl<'c> StepClock<'c> {
     }
 }
 
+mod construct;
+
+/// A function defined by the program: its parameters and its planned body.
+#[derive(Clone, Copy)]
+struct FunctionDef<'e> {
+    params: &'e [BoundParam],
+    body: &'e [PlanStatement],
+}
+
+/// What the parts of the running control construct have produced so far.
+#[derive(Default)]
+struct RunState {
+    /// Parts of the construct in order.
+    parts: Vec<ReportPart>,
+    /// Changes of every part.
+    changes: Vec<ChangeFacts>,
+    /// Notable effects of every part.
+    notable: Vec<NotableEntry>,
+    /// Irreversible effects of every part.
+    irreversible: Vec<IrreversibleEntry>,
+    /// Result of the last pipeline.
+    last: ResultData,
+    /// Value of the last statement, the result of a function.
+    last_value: Option<nurt_contracts::value::Value>,
+    /// Exit code of the last program run.
+    exit_code: Option<i64>,
+    /// Place of the running part in the construct.
+    path: Vec<String>,
+    /// Nesting of the calls of functions.
+    depth: u32,
+    /// Irreversible parts listed from the plan before the construct runs.
+    announced: Vec<IrreversibleEntry>,
+    /// Number of iterations completed before a failure of a loop that is not
+    /// atomic.
+    completed: Option<u64>,
+    /// Failure of an iteration of a loop that is not atomic: the iterations
+    /// before it stay in the entry, the loop ends and the entry reports it.
+    deferred: Option<Error>,
+    /// Handle of the last entry committed by an iteration of a loop that is
+    /// not atomic.
+    handle: Option<nurt_contracts::journal::OpHandle>,
+}
+
 struct Execution<'e> {
     plan: &'e Plan,
     env: &'e ExecEnv,
@@ -167,16 +223,68 @@ struct Execution<'e> {
     binding: Arc<ExprBinding>,
     preview: bool,
     preserve_budget: Duration,
+    /// Transaction of the running control construct, shared by its parts.
+    shared: Arc<Mutex<Option<Box<dyn MutationTx + 'e>>>>,
+    /// Functions defined so far.
+    functions: Arc<Mutex<HashMap<String, FunctionDef<'e>>>>,
+    /// What the parts of the running construct have produced.
+    state: Mutex<RunState>,
 }
 
 impl<'e> Execution<'e> {
     fn prepare(plan: &'e Plan, env: &'e ExecEnv) -> Result<Self> {
-        let timeout = env.resolved_timeout()?;
-        let limits = env.limits();
         let binding = Arc::new(match env.seed {
             Some(seed) => ExprBinding::with_seed(seed),
             None => ExprBinding::new(),
         });
+        for (name, expr) in &env.params {
+            let value = binding
+                .evaluate(expr, None, env.clock.as_ref())
+                .map_err(|error| at_step(error, ExecStep::Plan))?;
+            binding.define(name.clone(), value);
+        }
+        Self::build(
+            plan,
+            env,
+            binding,
+            env.preview(),
+            Arc::new(Mutex::new(None)),
+            Arc::new(Mutex::new(HashMap::new())),
+        )
+    }
+
+    /// An execution for another thread of the same construct: the names of
+    /// this one, its own state and the same transaction and functions. With
+    /// `preview` it plans every effect and shares no transaction.
+    fn fork(&self, preview: bool) -> Result<Self> {
+        let binding = Arc::new(self.binding.forked());
+        let shared = if preview {
+            Arc::new(Mutex::new(None))
+        } else {
+            Arc::clone(&self.shared)
+        };
+        let fork = Self::build(
+            self.plan,
+            self.env,
+            binding,
+            preview || self.preview,
+            shared,
+            Arc::clone(&self.functions),
+        )?;
+        fork.with_state_path(self);
+        Ok(fork)
+    }
+
+    fn build(
+        plan: &'e Plan,
+        env: &'e ExecEnv,
+        binding: Arc<ExprBinding>,
+        preview: bool,
+        shared: Arc<Mutex<Option<Box<dyn MutationTx + 'e>>>>,
+        functions: Arc<Mutex<HashMap<String, FunctionDef<'e>>>>,
+    ) -> Result<Self> {
+        let timeout = env.resolved_timeout()?;
+        let limits = env.limits();
         let preserve_budget = Duration::from_millis(env.config.run.preimage_budget.as_millis());
         let runner = SubpipelineRunner::new(Arc::clone(&env.registry), Arc::clone(&binding))
             .with_program(&plan.catalog_rev, &plan.corr_rev, plan.corrections.clone())
@@ -211,8 +319,11 @@ impl<'e> Execution<'e> {
             env,
             ctx: builder.build(),
             binding,
-            preview: env.preview(),
+            preview,
             preserve_budget,
+            shared,
+            functions,
+            state: Mutex::new(RunState::default()),
         })
     }
 
@@ -223,6 +334,15 @@ impl<'e> Execution<'e> {
                 return;
             }
             match statement {
+                PlanStatement::Let(binding) if binding.pipeline.call.is_some() => {
+                    match self.call_let(binding, outcome) {
+                        Some(value) => {
+                            self.binding.define(binding.name.clone(), value);
+                            outcome.lets.push(binding.name.clone());
+                        }
+                        None => return,
+                    }
+                }
                 PlanStatement::Let(binding) => match self.snapshot(&binding.pipeline) {
                     Ok(value) => {
                         self.binding.define(binding.name.clone(), value);
@@ -234,10 +354,20 @@ impl<'e> Execution<'e> {
                     }
                 },
                 PlanStatement::Operation(operation) => {
-                    let result = self.operation(operation);
+                    let result = if operation.pipeline.call.is_some() {
+                        self.call_operation(operation)
+                    } else {
+                        self.operation(operation)
+                    };
                     let failed = result.error.is_some();
                     outcome.push(result);
                     if failed {
+                        return;
+                    }
+                }
+                PlanStatement::Construct(construct) => {
+                    self.construct(construct, outcome);
+                    if outcome.error.is_some() {
                         return;
                     }
                 }
@@ -286,7 +416,10 @@ impl<'e> Execution<'e> {
             Some(reference) => {
                 Ok(ResultData::from_value(named_value(&self.binding, reference)?).into_input())
             }
-            None => Ok(StageInput::none()),
+            None => match &pipeline.call {
+                Some(call) => Ok(ResultData::from_value(self.call_function(call)?).into_input()),
+                None => Ok(StageInput::none()),
+            },
         }
     }
 
@@ -375,9 +508,13 @@ impl<'e> Execution<'e> {
     }
 
     fn operation(&self, operation: &OperationPlan) -> OperationOutcome {
-        let mut outcome = OperationOutcome::new(operation.index);
+        self.operation_of(operation.index, &operation.pipeline)
+    }
+
+    fn operation_of(&self, index: u32, pipeline: &PipelinePlan) -> OperationOutcome {
+        let mut outcome = OperationOutcome::new(index);
         let mut clock = StepClock::new(self.ctx.clock());
-        self.drive(&operation.pipeline, &mut outcome, &mut clock);
+        self.drive(pipeline, &mut outcome, &mut clock);
         outcome.timings = clock.timings;
         let mut notes = self.ctx.take_notes();
         notes.append(&mut outcome.notable);
@@ -422,7 +559,7 @@ impl<'e> Execution<'e> {
         let effect_stage = &stages[effect_index];
         limit_context(&mut plan.changes, self.ctx.options().diff_context());
         let mut report = EffectReport::planned(effect_stage.command(), &plan);
-        if self.preview {
+        if self.preview || stage_previews(&state.args[effect_index]) {
             outcome.status = ReportStatus::Planned;
             outcome.result = ResultData::from_records(plan.preview);
             outcome.effect = Some(report);
@@ -495,6 +632,16 @@ impl<'e> Execution<'e> {
         index: usize,
         plan: EffectPlan,
     ) -> Result<AppliedEffect> {
+        {
+            let mut shared = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
+            if let Some(tx) = shared.as_mut() {
+                let ctx = state.ctxs[index].for_stage(StageFrame {
+                    step: ExecStep::Apply,
+                    ..stage.frame()
+                });
+                return apply_effect_in(effect, &state.args[index], plan, tx.as_mut(), &ctx);
+            }
+        }
         let journal = self.env.journal.as_deref().ok_or_else(|| {
             Error::new(
                 ErrorCode::StageFailed,
@@ -638,6 +785,14 @@ impl<'e> Execution<'e> {
     }
 }
 
+/// Whether the stage was written with `preview` set to `true`.
+fn stage_previews(args: &nurt_contracts::stage::BoundArgs) -> bool {
+    matches!(
+        args.get("preview"),
+        Some(nurt_contracts::stage::ArgValue::Value(Value::Bool(true)))
+    )
+}
+
 /// Whether the error stopped the program by the time limit, a resource limit
 /// or cancellation; such a program ends with the status `failed`, also after
 /// the effect was applied.
@@ -673,7 +828,7 @@ fn thread_pool(env: &ExecEnv, threads: u32) -> Option<Arc<ThreadPool>> {
 
 fn record_applied(
     report: &mut EffectReport,
-    handle: nurt_contracts::journal::OpHandle,
+    handle: Option<nurt_contracts::journal::OpHandle>,
     applied: &AppliedEffect,
     planned: Vec<nurt_contracts::record::Change>,
     diff_context: u32,
@@ -685,13 +840,15 @@ fn record_applied(
     };
     limit_context(&mut changes, diff_context);
     report.applied = true;
-    report.changes = change_facts(changes, Some(&handle));
+    report.changes = change_facts(changes, handle.as_ref());
     report.notable.extend(applied.notable.iter().cloned());
     report.add_irreversible(&applied.irreversible);
-    report.add_irreversible(&handle.irreversible);
-    report.bulk = report.bulk || handle.bulk;
+    if let Some(handle) = &handle {
+        report.add_irreversible(&handle.irreversible);
+        report.bulk = report.bulk || handle.bulk;
+    }
     report.detached = applied.detached;
-    report.handle = Some(handle);
+    report.handle = handle;
 }
 
 fn rolled_back(check: Error, restored: &[String]) -> Error {
@@ -741,3 +898,7 @@ fn verify_input(records: &ResultData, report: &EffectReport) -> ResultData {
     }
     ResultData::from_records(vec![record])
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

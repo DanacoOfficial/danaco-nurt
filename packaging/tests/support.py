@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/tests/support.py
+# Responsibility:   Script support.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Shared helpers of the packaging tests.
 
 The tests use a mock release artifact: a directory laid out like a release
@@ -156,3 +164,7 @@ def clean_environment(**extra):
     env = {key: value for key, value in os.environ.items() if not key.startswith("NURT_")}
     env.update(extra)
     return env
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

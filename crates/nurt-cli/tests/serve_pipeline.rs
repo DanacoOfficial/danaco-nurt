@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/serve_pipeline.rs
+// Responsibility:   Pipelines `find |> filter |> count` and `find |> remove` through the protocol server, on an engine over a virtual file system.
+// Dependencies:     nurt_ffi, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pipelines `find |> filter |> count` and `find |> remove` through the
 //! protocol server, on an engine over a virtual file system.
 
@@ -231,7 +239,10 @@ fn removal_deletes_the_found_entries_and_reports_the_changes() {
     assert_eq!(removed["status"], "ok", "{removed}");
     assert_eq!(deletions(removed), 2);
     assert!(removed.get("op").is_some());
-    assert_eq!(paths(report(&messages, 3)), ["/data/a.log"]);
+    assert_eq!(
+        paths(report(&messages, 3)),
+        [nurt_testkit::paths::abs("/data/a.log")]
+    );
     assert_eq!(counted(report(&messages, 4)), [0]);
     assert_eq!(journal.committed().len(), 1);
     assert!(!fs.exists(&nurt_testkit::vfs::test_path("/data/b.log").unwrap()));
@@ -251,3 +262,7 @@ fn every_run_is_bracketed_by_its_events() {
         assert_eq!(types.last(), Some(&"exec.finished"), "request {id}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

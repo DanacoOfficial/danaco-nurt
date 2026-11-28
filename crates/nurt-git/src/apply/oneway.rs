@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply::oneway
+// Responsibility:   One-tree updates: the index and the working tree become a given tree, as with `git reset --hard`.
+// Dependencies:     bstr, gix_index, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! One-tree updates: the index and the working tree become a given tree,
 //! as with `git reset --hard`, `git switch --discard-changes` and the
 //! checkout of a new working tree.
@@ -159,3 +167,7 @@ pub fn plan_new_tree(ctx: &ApplyContext<'_>, tree: &gix::oid) -> Result<ApplyPla
     }
     super::layout::finish(ctx, &mut worktree, changes, true, false)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

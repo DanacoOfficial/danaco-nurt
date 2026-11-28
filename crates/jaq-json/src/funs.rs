@@ -1,3 +1,14 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           jaq-json::funs
+// Responsibility:   Return 0 for null, the absolute value for numbers, and the length for strings, arrays, and objects.
+// Dependencies:     bstr, bytes, jaq_core, jaq_std
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use crate::{Error, Val, ValR, ValX, read};
 use alloc::{boxed::Box, vec::Vec};
 use bstr::ByteSlice;
@@ -184,3 +195,7 @@ fn base<D: for<'a> DataT<V<'a> = Val>>() -> Box<[Filter<RunPtr<D>>]> {
         }),
     ])
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,12 +1,19 @@
 ---
 command: disable
-group: admin
+group: administration
 summary: Stop the input services from starting automatically.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/disable.md -->
+<!-- Responsibility:   Documents disable. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # disable
 
@@ -29,6 +36,12 @@ already `disabled` is not passed to the manager; its effect record has
 service the operation is marked irreversible with `service_changed` before
 the manager is asked to act. Services are processed in input order; an error
 stops the processing of the remaining services.
+
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry enables the services again, when their start type before was `automatic`.
+
+```nurt
+services name: "cron" |> disable privilege: elevated
+```
 
 ## Parameters
 
@@ -87,5 +100,9 @@ services name: /^legacy/ state: "stopped" |> disable
 ## Related
 
 `services` produces the input records. `enable` makes a service start
-automatically and `stop` stops it now. The `admin` group page lists the other
+automatically and `stop` stops it now. The `administration` group page lists the other
 commands of the group.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

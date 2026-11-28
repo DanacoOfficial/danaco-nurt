@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::facade
+// Responsibility:   Binding of program text with notation correction.
+// Dependencies:     ScalarType, nurt_contracts, nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding of program text with notation correction.
 //!
 //! [`bind_with_correction`] reads the text with the lexical correction of
@@ -661,13 +669,7 @@ fn write_edits<'e>(
         placed: vec![false; unique.len()],
         edits: unique,
     };
-    for statement in &mut document.program.statements {
-        match statement {
-            Statement::Let(binding) => editor.pipeline(&mut binding.value),
-            Statement::Pipeline(pipeline) => editor.pipeline(pipeline),
-            _ => {}
-        }
-    }
+    editor.statements(&mut document.program.statements);
     if editor.placed.iter().all(|placed| *placed) {
         Ok(())
     } else {
@@ -684,6 +686,38 @@ struct Editor<'e> {
 }
 
 impl Editor<'_> {
+    /// Writes the edits into the statements, the blocks of the constructs
+    /// included.
+    fn statements(&mut self, statements: &mut [Statement]) {
+        for statement in statements {
+            match statement {
+                Statement::Let(binding) => self.pipeline(&mut binding.value),
+                Statement::Pipeline(pipeline) => self.pipeline(pipeline),
+                Statement::When(construct) => {
+                    for branch in &mut construct.branches {
+                        self.expr(&mut branch.cond);
+                        self.statements(&mut branch.body);
+                    }
+                    if let Some(body) = &mut construct.otherwise {
+                        self.statements(body);
+                    }
+                }
+                Statement::Each(construct) => {
+                    self.expr(&mut construct.source);
+                    self.statements(&mut construct.body);
+                }
+                Statement::Repeat(construct) => self.statements(&mut construct.body),
+                Statement::While(construct) => {
+                    self.expr(&mut construct.cond);
+                    self.statements(&mut construct.body);
+                }
+                Statement::Steps(construct) => self.statements(&mut construct.body),
+                Statement::Define(construct) => self.statements(&mut construct.body),
+                _ => {}
+            }
+        }
+    }
+
     /// Takes the first edit not yet placed at the span whose change fits.
     fn take(
         &mut self,
@@ -712,6 +746,18 @@ impl Editor<'_> {
     }
 
     fn stage(&mut self, stage: &mut SurfaceStage) {
+        if let Some(Change::Elevate {
+            index,
+            command,
+            extra,
+        }) = self.take(stage.span, |change| {
+            matches!(change, Change::Elevate { .. })
+        }) {
+            if let Some(arg) = stage.args.get_mut(index) {
+                arg.value = command;
+            }
+            stage.args.extend(extra);
+        }
         if let Some(Change::Command(name)) =
             self.take(stage.span, |change| matches!(change, Change::Command(_)))
         {
@@ -969,3 +1015,7 @@ mod tests {
         assert!(!takes(&order, ArgumentShape::Number));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

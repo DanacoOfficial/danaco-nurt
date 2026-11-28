@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-plan::planner
+// Responsibility:   Construction of a plan from a bound document.
+// Dependencies:     nurt_catalog, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Construction of a plan from a bound document.
 //!
 //! Binding assigns every stage its phase. The planner checks the order of
@@ -11,8 +19,11 @@
 
 use nurt_catalog::Registry;
 use nurt_contracts::ast::Span;
+use std::collections::HashMap;
+
 use nurt_contracts::bound::{
-    BoundDocument, BoundExpr, BoundHead, BoundPipeline, BoundRef, BoundStage, BoundStatement, Phase,
+    BoundCall, BoundDocument, BoundExpr, BoundHead, BoundPipeline, BoundRef, BoundStage,
+    BoundStatement, Phase,
 };
 use nurt_contracts::error::{At, Error, ErrorCode, Result};
 use nurt_contracts::kinds::EffectKind;
@@ -21,7 +32,8 @@ use nurt_contracts::stage::{Demand, ExecStep};
 use crate::effect::{EffectClass, stage_reversibility};
 use crate::hints;
 use crate::model::{
-    LetPlan, OperationPlan, PipelinePlan, Plan, PlanOptions, PlanStatement, PlannedStage,
+    BranchPlan, ConstructPlan, ConstructShape, LetPlan, OperationPlan, PipelinePlan, Plan,
+    PlanOptions, PlanStatement, PlannedStage,
 };
 use crate::text;
 
@@ -69,26 +81,29 @@ struct Layout {
 /// A pipeline split into its named head and its stages.
 struct Stages<'a> {
     head: Option<&'a BoundRef>,
+    call: Option<&'a BoundCall>,
     list: Vec<&'a BoundStage>,
     span: Option<Span>,
 }
 
 impl<'a> Stages<'a> {
     fn of(pipeline: &'a BoundPipeline) -> Result<Self> {
-        let (head, first) = match &pipeline.head {
-            BoundHead::Stage(stage) => (None, Some(stage)),
-            BoundHead::Ref(reference) => (Some(reference), None),
+        let (head, call, first) = match &pipeline.head {
+            BoundHead::Stage(stage) => (None, None, Some(stage)),
+            BoundHead::Ref(reference) => (Some(reference), None, None),
+            BoundHead::Call(call) => (None, Some(call), None),
             _ => return Err(malformed("the pipeline head has an unsupported kind", None)),
         };
         Ok(Self {
             head,
+            call,
             list: first.into_iter().chain(&pipeline.stages).collect(),
             span: pipeline.span,
         })
     }
 
     fn offset(&self) -> usize {
-        usize::from(self.head.is_some())
+        usize::from(self.head.is_some() || self.call.is_some())
     }
 
     fn text(&self, stages: &[&BoundStage]) -> Option<String> {
@@ -376,6 +391,42 @@ fn violation_error(stages: &Stages<'_>, violation: Violation) -> Error {
 }
 
 /// Builds plans of bound documents.
+/// State of one planning: operation numbers, depth of blocks and the effect
+/// class of the functions defined so far.
+#[derive(Default)]
+struct State {
+    operations: u32,
+    depth: usize,
+    functions: HashMap<String, EffectClass>,
+}
+
+impl State {
+    /// Number of the next operation; only the operations at the top of the
+    /// program are numbered.
+    fn next_index(&mut self, top: bool) -> u32 {
+        if !top {
+            return 0;
+        }
+        let index = self.operations;
+        self.operations = self.operations.saturating_add(1);
+        index
+    }
+}
+
+/// Effect class of planned statements, constructs included.
+fn class_of(statements: &[PlanStatement]) -> EffectClass {
+    statements
+        .iter()
+        .fold(EffectClass::READ, |class, statement| match statement {
+            PlanStatement::Construct(construct) => {
+                class.join(construct.effect, construct.reversibility)
+            }
+            other => other.pipeline().map_or(class, |pipeline| {
+                class.join(pipeline.effect, pipeline.reversibility)
+            }),
+        })
+}
+
 pub(crate) struct Planner<'a> {
     registry: &'a Registry,
     options: &'a PlanOptions,
@@ -387,37 +438,10 @@ impl<'a> Planner<'a> {
     }
 
     pub(crate) fn plan(&self, document: &BoundDocument) -> Result<Plan> {
-        let statements = &document.program.statements;
-        let mut planned = Vec::with_capacity(statements.len());
-        let mut operations: u32 = 0;
-        for (position, statement) in statements.iter().enumerate() {
-            match statement {
-                BoundStatement::Let(binding) => {
-                    let pipeline = self
-                        .pipeline(&binding.value, Role::Let)
-                        .map_err(|error| split_let(error, statements, position))?;
-                    planned.push(PlanStatement::Let(LetPlan {
-                        name: binding.name.clone(),
-                        pipeline,
-                        span: binding.span,
-                    }));
-                }
-                BoundStatement::Pipeline(pipeline) => {
-                    let pipeline = self.pipeline(pipeline, Role::Operation)?;
-                    planned.push(PlanStatement::Operation(OperationPlan {
-                        index: operations,
-                        pipeline,
-                    }));
-                    operations = operations.saturating_add(1);
-                }
-                _ => return Err(malformed("the statement has an unsupported kind", None)),
-            }
-        }
+        let mut state = State::default();
+        let mut planned = self.statements(&document.program.statements, &mut state)?;
         hints::annotate(&mut planned, self.registry, self.options);
-        let class = planned.iter().fold(EffectClass::READ, |class, statement| {
-            let pipeline = statement.pipeline();
-            class.join(pipeline.effect, pipeline.reversibility)
-        });
+        let class = class_of(&planned);
         Ok(Plan {
             catalog_rev: document.catalog_rev.clone(),
             corr_rev: document.corr_rev.clone(),
@@ -428,16 +452,190 @@ impl<'a> Planner<'a> {
         })
     }
 
-    fn pipeline(&self, pipeline: &BoundPipeline, role: Role) -> Result<PipelinePlan> {
+    /// Plans the statements of a program or of a block.
+    fn statements(
+        &self,
+        statements: &[BoundStatement],
+        state: &mut State,
+    ) -> Result<Vec<PlanStatement>> {
+        let top = state.depth == 0;
+        let mut planned = Vec::with_capacity(statements.len());
+        for (position, statement) in statements.iter().enumerate() {
+            match statement {
+                BoundStatement::Let(binding) => {
+                    let pipeline = self
+                        .pipeline(
+                            &binding.value,
+                            if top { Role::Let } else { Role::Operation },
+                            state,
+                        )
+                        .map_err(|error| split_let(error, statements, position))?;
+                    planned.push(PlanStatement::Let(LetPlan {
+                        name: binding.name.clone(),
+                        pipeline,
+                        span: binding.span,
+                    }));
+                }
+                BoundStatement::Pipeline(pipeline) => {
+                    let pipeline = self.pipeline(pipeline, Role::Operation, state)?;
+                    let index = state.next_index(top);
+                    planned.push(PlanStatement::Operation(OperationPlan { index, pipeline }));
+                }
+                other => {
+                    let index = state.next_index(top);
+                    planned.push(PlanStatement::Construct(Box::new(
+                        self.construct(other, index, state)?,
+                    )));
+                }
+            }
+        }
+        Ok(planned)
+    }
+
+    fn block(&self, body: &[BoundStatement], state: &mut State) -> Result<Vec<PlanStatement>> {
+        state.depth += 1;
+        let planned = self.statements(body, state);
+        state.depth -= 1;
+        planned
+    }
+
+    fn construct(
+        &self,
+        statement: &BoundStatement,
+        index: u32,
+        state: &mut State,
+    ) -> Result<ConstructPlan> {
+        let (shape, span) = match statement {
+            BoundStatement::When(construct) => {
+                let mut branches = Vec::with_capacity(construct.branches.len());
+                for branch in &construct.branches {
+                    branches.push(BranchPlan {
+                        cond: branch.cond.clone(),
+                        body: self.block(&branch.body, state)?,
+                    });
+                }
+                let otherwise = match &construct.otherwise {
+                    Some(body) => Some(self.block(body, state)?),
+                    None => None,
+                };
+                (
+                    ConstructShape::When {
+                        branches,
+                        otherwise,
+                    },
+                    construct.span,
+                )
+            }
+            BoundStatement::Each(construct) => (
+                ConstructShape::Each {
+                    source: construct.source.clone(),
+                    name: construct.name.clone(),
+                    parallel: construct.parallel,
+                    atomic: construct.atomic,
+                    body: self.block(&construct.body, state)?,
+                },
+                construct.span,
+            ),
+            BoundStatement::Repeat(construct) => (
+                ConstructShape::Repeat {
+                    until: construct.until.clone(),
+                    every_ms: construct.every_ms,
+                    limit: construct.limit,
+                    atomic: construct.atomic,
+                    body: self.block(&construct.body, state)?,
+                },
+                construct.span,
+            ),
+            BoundStatement::While(construct) => (
+                ConstructShape::While {
+                    cond: construct.cond.clone(),
+                    limit: construct.limit,
+                    atomic: construct.atomic,
+                    body: self.block(&construct.body, state)?,
+                },
+                construct.span,
+            ),
+            BoundStatement::Steps(construct) => (
+                ConstructShape::Steps {
+                    body: self.block(&construct.body, state)?,
+                },
+                construct.span,
+            ),
+            BoundStatement::Define(construct) => {
+                state
+                    .functions
+                    .insert(construct.name.clone(), EffectClass::READ);
+                let body = self.block(&construct.body, state)?;
+                state
+                    .functions
+                    .insert(construct.name.clone(), class_of(&body));
+                (
+                    ConstructShape::Define {
+                        name: construct.name.clone(),
+                        params: construct.params.clone(),
+                        body,
+                    },
+                    construct.span,
+                )
+            }
+            BoundStatement::Params(construct) => (
+                ConstructShape::Params {
+                    params: construct.params.clone(),
+                },
+                construct.span,
+            ),
+            BoundStatement::Break(jump) => (ConstructShape::Break, jump.span),
+            BoundStatement::Continue(jump) => (ConstructShape::Continue, jump.span),
+            _ => return Err(malformed("the statement has an unsupported kind", None)),
+        };
+        let mut plan = ConstructPlan {
+            index,
+            shape,
+            program: statement.clone(),
+            effect: EffectKind::Read,
+            reversibility: nurt_contracts::kinds::Reversibility::Read,
+            span,
+        };
+        let class = plan
+            .blocks()
+            .into_iter()
+            .fold(EffectClass::READ, |class, block| {
+                let inner = class_of(block);
+                class.join(inner.effect, inner.reversibility)
+            });
+        if matches!(plan.shape, ConstructShape::Define { .. }) {
+            plan.effect = EffectKind::Read;
+        } else {
+            plan.effect = class.effect;
+            plan.reversibility = class.reversibility;
+        }
+        Ok(plan)
+    }
+
+    fn pipeline(
+        &self,
+        pipeline: &BoundPipeline,
+        role: Role,
+        state: &State,
+    ) -> Result<PipelinePlan> {
         let stages = Stages::of(pipeline)?;
         validate(&stages, role).map_err(|violation| violation_error(&stages, violation))?;
         let mut planned = Vec::with_capacity(stages.list.len());
         for (index, stage) in stages.list.iter().enumerate() {
             planned.push(self.stage(stage, index + stages.offset())?);
         }
-        let class = EffectClass::of_stages(&planned);
+        let mut class = EffectClass::of_stages(&planned);
+        if let Some(call) = stages.call {
+            let called = state
+                .functions
+                .get(&call.name)
+                .copied()
+                .unwrap_or(EffectClass::READ);
+            class = class.join(called.effect, called.reversibility);
+        }
         Ok(PipelinePlan {
             head: stages.head.cloned(),
+            call: stages.call.cloned(),
             stages: planned,
             effect: class.effect,
             reversibility: class.reversibility,
@@ -472,7 +670,7 @@ impl<'a> Planner<'a> {
             .find(|arg| arg.name == VERIFY_CHECK)
             .map(|arg| &arg.value);
         match check {
-            Some(BoundExpr::Sub { p }) => self.pipeline(p, Role::Verify),
+            Some(BoundExpr::Sub { p }) => self.pipeline(p, Role::Verify, &State::default()),
             _ => Err(with_span(
                 Error::new(
                     ErrorCode::MissingParam,
@@ -509,3 +707,7 @@ fn split_let(error: Error, statements: &[BoundStatement], position: usize) -> Er
         .into_iter()
         .fold(error, Error::with_next_step)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

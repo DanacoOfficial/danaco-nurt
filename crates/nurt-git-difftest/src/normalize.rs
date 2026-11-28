@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::normalize
+// Responsibility:   Normalized state of repositories, read with the `git` program.
+// Dependencies:     sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Normalized state of repositories, read with the `git` program.
 //!
 //! Every section is a map from a key (path, reference name, configuration
@@ -1194,3 +1202,7 @@ mod tests {
         assert_eq!(repos_of(&selectors), vec![None, Some("../up".to_owned())]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::journal_setup
+// Responsibility:   Assembly of the journal of the running process.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_journal, nurt_space, nurt_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Assembly of the journal of the running process.
 //!
 //! The journal is built over the system file system with space admission
@@ -213,10 +221,43 @@ pub(crate) fn open_journal(
     clock: Arc<dyn Clock>,
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
+    account: Option<&crate::elevation::AccountJournal>,
 ) -> std::result::Result<Arc<dyn JournalStore>, EngineError> {
-    build(layers, loaded, project_trusted, clock, state_root, registry)
-        .map(|journal| journal as Arc<dyn JournalStore>)
-        .map_err(|error| EngineError::journal(&error))
+    build(
+        layers,
+        loaded,
+        project_trusted,
+        clock,
+        state_root,
+        registry,
+        account,
+    )
+    .map(|journal| journal as Arc<dyn JournalStore>)
+    .map_err(|error| EngineError::journal(&error))
+}
+
+/// The file system of the journal: the system file system, or, for a process
+/// that writes the journal of an account with the rights of the administrator,
+/// one that creates everything below the journal with that account.
+fn journal_fs(
+    account: Option<&crate::elevation::AccountJournal>,
+    _state_root: &Path,
+) -> Arc<dyn FsWrite> {
+    #[cfg(unix)]
+    if let Some(account) = account
+        && let Ok(state_dir) = AbsPath::new(account.state_dir.clone())
+    {
+        return Arc::new(nurt_fs::account::AccountFs::new(
+            nurt_fs::system_fs(),
+            nurt_fs::account::AccountIdentity {
+                uid: account.uid,
+                gid: account.gid,
+                state_dir,
+            },
+        ));
+    }
+    let _ = account;
+    nurt_fs::system_fs()
 }
 
 fn with_providers(
@@ -236,9 +277,10 @@ fn build(
     clock: Arc<dyn Clock>,
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
+    account: Option<&crate::elevation::AccountJournal>,
 ) -> Result<Arc<Journal>> {
     let state_dir = AbsPath::new(state_root.to_path_buf()).map_err(Error::from)?;
-    let fs: Arc<dyn FsWrite> = nurt_fs::system_fs();
+    let fs: Arc<dyn FsWrite> = journal_fs(account, state_root);
     let reader: Arc<dyn Fs> = fs.clone();
     let settings = loaded.config();
     let catalog = Arc::new(LateCatalog::default());
@@ -296,3 +338,7 @@ fn build(
     locked(&module).start()?;
     Ok(journal)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

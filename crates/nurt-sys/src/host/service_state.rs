@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::host::service_state
+// Responsibility:   State of the background service of the instance, for `host.service`.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! State of the background service of the instance, for `host.service`.
 //!
 //! The service is `running` when its heartbeat file `service.hb` in the state
@@ -270,3 +278,7 @@ fn is_installed(probe: &Probe<'_>) -> bool {
 fn is_installed(_probe: &Probe<'_>) -> bool {
     super::windows::service_exists(WINDOWS_SERVICE)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

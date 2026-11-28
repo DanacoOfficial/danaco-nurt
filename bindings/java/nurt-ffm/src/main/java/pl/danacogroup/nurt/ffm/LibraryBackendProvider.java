@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/java/nurt-ffm/src/main/java/pl/danacogroup/nurt/ffm/LibraryBackendProvider.java
+// Responsibility:   Source file bindings/java/nurt-ffm/src/main/java/pl/danacogroup/nurt/ffm/LibraryBackendProvider.java.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 package pl.danacogroup.nurt.ffm;
 
 import java.nio.file.Path;
@@ -48,3 +56,7 @@ public final class LibraryBackendProvider implements BackendProvider {
         return LOADED.computeIfAbsent(path, Library::load);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

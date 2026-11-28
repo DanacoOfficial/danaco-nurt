@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::local::upload_pack
+// Responsibility:   Server side of `git-upload-pack` with protocol version 2, run in a thread of the client process.
+// Dependencies:     bstr, gix, gix_packetline
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Server side of `git-upload-pack` with protocol version 2, run in a
 //! thread of the client process.
 //!
@@ -304,3 +312,7 @@ fn fetch(
     common.clear();
     encode::flush_to_write(&mut *out).map(|_| ())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/catalog_files.rs
+// Responsibility:   Tests of the catalog files in `catalog/`: every file parses, is consistent, agrees with the index and validates against the published schema.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests of the catalog files in `catalog/`: every file parses, is consistent,
 //! agrees with the index and validates against the published schema.
@@ -19,12 +26,12 @@ use nurt_contracts::spec::{
 };
 
 /// Number of commands in the whole catalog.
-const EXPECTED_TOTAL: u32 = 148;
+const EXPECTED_TOTAL: u32 = 177;
 
 /// Number of mutually exclusive conditions of `assert`.
 const ASSERT_CONDITIONS: usize = 8;
 
-const CORE_COMMANDS: [&str; 33] = [
+const CORE_COMMANDS: [&str; 34] = [
     "list",
     "find",
     "info",
@@ -55,6 +62,7 @@ const CORE_COMMANDS: [&str; 33] = [
     "stop",
     "retry",
     "history",
+    "next",
     "undo",
     "redo",
     "help",
@@ -68,7 +76,7 @@ const GROUPS: [&str; 14] = [
     "git",
     "archive",
     "system",
-    "admin",
+    "administration",
     "package",
     "network",
     "schedule",
@@ -96,7 +104,12 @@ const CALL_PARAMETERS: [&str; 15] = [
 ];
 
 fn catalog_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog")
 }
 
 fn read_text(path: &Path) -> String {
@@ -363,7 +376,10 @@ fn core_signatures_keep_the_safety_rules() {
     let create = core.command("create").unwrap();
     let kind = create.param("type").unwrap();
     assert!(kind.required && kind.default.is_none());
-    assert_eq!(kind.values, ["file", "directory", "link", "junction"]);
+    assert_eq!(
+        kind.values,
+        ["file", "directory", "link", "junction", "fifo", "device"]
+    );
     let assert = core.command("assert").unwrap();
     assert_eq!(assert.required_groups, ["condition"]);
     assert_eq!(
@@ -476,7 +492,7 @@ fn core_categories_match_the_catalog_legend() {
             .filter(|command| command.category == category)
             .count()
     };
-    assert_eq!(count(Category::Source), 7);
+    assert_eq!(count(Category::Source), 8);
     assert_eq!(count(Category::Transform), 7);
     assert_eq!(count(Category::Check), 2);
     assert_eq!(count(Category::Change), 10);
@@ -487,8 +503,12 @@ fn core_categories_match_the_catalog_legend() {
 
 #[test]
 fn catalog_files_validate_against_the_published_schema() {
-    let schema_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-catalog-1.schema.json");
+    let schema_path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-catalog-1.schema.json");
     let schema: serde_json::Value = serde_json::from_str(&read_text(&schema_path)).unwrap();
     let validator = jsonschema::validator_for(&schema).unwrap();
     for path in catalog_paths() {
@@ -515,3 +535,7 @@ fn catalog_files_round_trip_through_json() {
         assert_eq!(back, file, "{}", path.display());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

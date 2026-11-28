@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::commit::prepare
+// Responsibility:   Planning of a commit: the content selected for the tree, the parents, the identities, the message settings and the checks that run before any change.
+// Dependencies:     bstr, gix, gix_ref, nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Planning of a commit: the content selected for the tree, the parents, the
 //! identities, the message settings and the checks that run before any
 //! change.
@@ -812,3 +820,7 @@ fn planned_changes(repo: &GitRepo, prepared: &Prepared) -> Vec<Change> {
     changes.push(Change::new(display(&ref_file), ref_action));
     changes
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

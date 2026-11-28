@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::error
+// Responsibility:   Failures of the test runner itself, as opposed to differences found by a scenario.
+// Dependencies:     thiserror
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Failures of the test runner itself, as opposed to differences found by a
 //! scenario.
 
@@ -94,3 +102,7 @@ pub(crate) fn scenario_error(path: &Path, message: impl Into<String>) -> Difftes
         message: message.into(),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

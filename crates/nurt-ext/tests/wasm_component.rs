@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ext/tests/wasm_component.rs
+// Responsibility:   The WebAssembly host on components assembled from their text form.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The WebAssembly host on components assembled from their text form.
 //!
 //! The component `reader` implements `nurt:ext/stage@1.0.0`: its `run`
@@ -119,6 +127,15 @@ fn component(body: &str) -> String {
     )
 }
 
+/// Manifest of the extension; the granted directory is `/project` with the
+/// root of `nurt_testkit::paths`.
+fn manifest() -> String {
+    MANIFEST.replace(
+        "\"/project\"",
+        &format!("\"{}\"", nurt_testkit::paths::abs("/project")),
+    )
+}
+
 const MANIFEST: &str = r#"[ext]
 name = "acme"
 version = "1.0.0"
@@ -140,7 +157,7 @@ const RECORD: &str = r#"{"kind":"item","fields":{"name":"a"}}"#;
 fn source_dir(root: &Path) -> std::path::PathBuf {
     let dir = root.join("acme-src");
     fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join(MANIFEST_FILE), MANIFEST).unwrap();
+    fs::write(dir.join(MANIFEST_FILE), manifest()).unwrap();
     fs::write(dir.join("acme.wasm"), component(READER)).unwrap();
     dir
 }
@@ -189,7 +206,8 @@ fn show(stage: &dyn StageImpl, context: &TestContext, path: &str) -> Result<Vec<
 fn component_commands_return_records_read_through_the_host() {
     let temp = tempfile::tempdir().unwrap();
     let stage = installed_stage(temp.path());
-    let records = show(stage.as_ref(), &context(), "/project/record.json").unwrap();
+    let path = nurt_testkit::paths::abs("/project/record.json");
+    let records = show(stage.as_ref(), &context(), &path).unwrap();
     assert_eq!(
         records,
         [Record::new(RecordKind::Item).with("name", Value::from("a"))]
@@ -200,14 +218,16 @@ fn component_commands_return_records_read_through_the_host() {
 fn paths_outside_the_manifest_are_refused() {
     let temp = tempfile::tempdir().unwrap();
     let stage = installed_stage(temp.path());
-    let error = show(stage.as_ref(), &context(), "/secret/key").unwrap_err();
+    let secret = nurt_testkit::paths::abs("/secret/key");
+    let error = show(stage.as_ref(), &context(), &secret).unwrap_err();
     assert_eq!(error.code(), ErrorCode::Permission);
     assert!(
         error.message.contains("permissions.read"),
         "{}",
         error.message
     );
-    let missing = show(stage.as_ref(), &context(), "/project/missing.json").unwrap_err();
+    let absent = nurt_testkit::paths::abs("/project/missing.json");
+    let missing = show(stage.as_ref(), &context(), &absent).unwrap_err();
     assert_eq!(missing.code(), ErrorCode::StageFailed);
 }
 
@@ -270,6 +290,10 @@ fn unusable_components_are_rejected() {
 /// refusal.
 fn worker_component() -> String {
     let record = RECORD.replace('"', "\\\"");
+    // The paths carry the root of `nurt_testkit::paths`; their data segments
+    // leave room for the drive.
+    let out = nurt_testkit::paths::abs("/project/out.txt");
+    let project = nurt_testkit::paths::abs("/project");
     format!(
         r#"(component
   (import "nurt:ext/host@1.0.0" (instance $host
@@ -283,9 +307,9 @@ fn worker_component() -> String {
   (core module $libc-module
     (memory (export "memory") 1)
     (data (i32.const 100) "hello")
-    (data (i32.const 112) "/project/out.txt")
+    (data (i32.const 112) "{out}")
     (data (i32.const 160) "abc")
-    (data (i32.const 176) "/project")
+    (data (i32.const 176) "{project}")
     (data (i32.const 200) "{record}")
     (global $heap (mut i32) (i32.const 1024))
     (func (export "realloc") (param $old i32) (param $old-size i32) (param $align i32) (param $size i32) (result i32)
@@ -327,14 +351,14 @@ fn worker_component() -> String {
       (param $input i32) (param $input-len i32)
       (result i32)
       (call $log (i32.const 2) (i32.const 100) (i32.const 5))
-      (call $write-file (i32.const 112) (i32.const 16) (i32.const 160) (i32.const 3) (i32.const 16))
+      (call $write-file (i32.const 112) (i32.const {out_len}) (i32.const 160) (i32.const 3) (i32.const 16))
       (if (i32.load8_u (i32.const 16))
         (then
           (i32.store8 (i32.const 80) (i32.const 1))
           (i32.store (i32.const 84) (i32.load (i32.const 28)))
           (i32.store (i32.const 88) (i32.load (i32.const 32)))
           (return (i32.const 80))))
-      (call $list-dir (i32.const 176) (i32.const 8) (i32.const 32))
+      (call $list-dir (i32.const 176) (i32.const {project_len}) (i32.const 32))
       (i32.store (i32.const 256) (i32.const 200))
       (i32.store (i32.const 260) (i32.const {length}))
       (i32.store8 (i32.const 80) (i32.const 0))
@@ -351,15 +375,17 @@ fn worker_component() -> String {
   (instance $stage (export "run" (func $run)))
   (export "nurt:ext/stage@1.0.0" (instance $stage)))
 "#,
-        length = RECORD.len()
+        length = RECORD.len(),
+        out_len = out.len(),
+        project_len = project.len()
     )
 }
 
 fn worker_policy(write: bool) -> PathPolicy {
     let permissions = Permissions {
-        read: vec!["/project".to_owned()],
+        read: vec![nurt_testkit::paths::abs("/project")],
         write: if write {
-            vec!["/project".to_owned()]
+            vec![nurt_testkit::paths::abs("/project")]
         } else {
             Vec::new()
         },
@@ -445,3 +471,7 @@ fn writes_are_refused_without_the_declaration_or_the_grant() {
     let (ungranted, _) = run_worker(true, false);
     assert_eq!(ungranted.unwrap_err().code(), ErrorCode::Permission);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

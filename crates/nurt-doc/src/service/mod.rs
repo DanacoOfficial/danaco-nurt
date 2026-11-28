@@ -1,10 +1,18 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::service
+// Responsibility:   Implementation of the document service used by other commands.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Implementation of the document service used by other commands.
 //!
 //! [`DocumentService`] implements the contract trait
-//! [`DocService`](nurt_contracts::services::DocService) over a [`Registry`]:
+//! [`nurt_contracts::services::DocService`] over a [`Registry`]:
 //! commands of other groups detect formats, read values by key, check the
 //! syntax of content before it is written and write records as JSON, YAML,
 //! TOML, CSV or TSV without depending on the document formats themselves.
@@ -274,3 +282,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

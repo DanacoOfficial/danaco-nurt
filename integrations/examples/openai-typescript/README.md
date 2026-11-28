@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/examples/openai-typescript/README.md -->
+<!-- Responsibility:   Documents OpenAI SDK (TypeScript). -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # OpenAI SDK (TypeScript)
 
 Agent loop with the OpenAI Responses API and the `nurt` tool in the `openai-responses-strict` format.
@@ -24,3 +32,7 @@ Each turn sends the outputs of the function calls with `previous_response_id`. I
 ```sh
 npm test
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

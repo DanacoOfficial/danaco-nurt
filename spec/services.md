@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/services.md -->
+<!-- Responsibility:   Documents Shared services. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Shared services
 
 Command crates depend only on `nurt-contracts`. When a command of one group
@@ -118,3 +126,7 @@ excluded.
 return `Option<&dyn Trait>`; `available()` lists the registered services by
 their stable names (`doc`, `code`, `process_host`, `file_list`, `git_query`,
 `text_codec`, `file_holders`, `review_rules`).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -25,6 +25,31 @@
       "format": "uint64",
       "minimum": 0
     },
+    "elevated": {
+      "description": "Whether the operation ran with elevated rights; present only when\n`true`.",
+      "type": "boolean"
+    },
+    "backend": {
+      "description": "Elevation backend that ran the operation (`self`, `sudo`, `doas`,\n`run0`); present only when `elevated` is `true`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "as_user": {
+      "description": "Account the operation ran as, when the call gave `as_user`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "elevation_reason": {
+      "description": "Why the operation was elevated without being asked to: `permission_denied`\nwhen `privilege: auto` repeated the stage after a denial, or\n`elevated_entry` when `undo` or `redo` of an elevated entry was sent to a backend.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "ran": {
       "description": "Canonical text of the program that ran; present only when corrections\nwere applied.",
       "type": [
@@ -198,6 +223,17 @@
         "null"
       ]
     },
+    "continuation": {
+      "description": "Continuation of a shortened response: what remains and how `next`\nreads it; absent when the response leaves nothing out.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Continuation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "timing": {
       "description": "Durations of the processing steps (verbosity `detailed`).",
       "anyOf": [
@@ -208,6 +244,22 @@
           "type": "null"
         }
       ]
+    },
+    "parts": {
+      "description": "The parts of a control construct in order: the chosen branch, every\niteration, every step, with their effects. Empty for a program that\nhas no construct. A construct with more parts than the report keeps\nlists the first ones and states the total in [`Report::parts_total`].",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReportPart"
+      }
+    },
+    "parts_total": {
+      "description": "Number of parts of the construct when [`Report::parts`] is shortened.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
     }
   },
   "required": [
@@ -2326,6 +2378,13 @@
             "string",
             "null"
           ]
+        },
+        "continuation": {
+          "description": "Identifier of the continuation (`c3`) that reads what the effect\nconcerns, for `truncated_lines` and `limit_reached`; absent when\nnothing continues.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -3177,6 +3236,11 @@
           "const": "E_ARG"
         },
         {
+          "description": "A continuation read by `next` has expired or was removed by the limits\nof `[continuation]`; `next_steps` holds the call that produced it.",
+          "type": "string",
+          "const": "E_CONTINUATION_EXPIRED"
+        },
+        {
           "description": "A program required by the command is not installed; `fix` shows how\nto install it.",
           "type": "string",
           "const": "E_EXTERNAL_MISSING"
@@ -3307,7 +3371,7 @@
           "const": "E_IN_USE"
         },
         {
-          "description": "The operation requires a privilege the account does not have.",
+          "description": "The operation needs privileges that are not available: no elevation\nbackend, or the system denied the elevation to the account; `backend`\nlists the tried backends and `next_steps` the way forward.",
           "type": "string",
           "const": "E_PRIVILEGE"
         },
@@ -3719,6 +3783,64 @@
         "program"
       ]
     },
+    "Continuation": {
+      "description": "Field `continuation` of a response that leaves something out.\n\n# Examples\n\n```\nuse nurt_contracts::continuation::{Continuation, ContinuationUnit};\n\nlet continuation = Continuation {\n    id: \"c1\".to_owned(),\n    unit: ContinuationUnit::Lines,\n    shown: 25,\n    remaining: 975,\n    cut_lines: 0,\n    older: false,\n};\nassert_eq!(continuation.more_text(), \"more: next\");\nlet older = Continuation { older: true, ..continuation };\nassert_eq!(older.more_text(), \"more: next c1\");\n```",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Short identifier, `c1`, `c2`, … within the session of the console.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit of the parts.",
+          "$ref": "#/$defs/ContinuationUnit"
+        },
+        "shown": {
+          "description": "Units in the responses given so far.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "remaining": {
+          "description": "Units not yet given; `-1` when not known in advance.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "cut_lines": {
+          "description": "Lines of the shown part that were shortened by `max_line` or\n`max_chars`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [
+        "id",
+        "unit",
+        "shown",
+        "remaining"
+      ]
+    },
+    "ContinuationUnit": {
+      "description": "Unit of the parts of a continuation.",
+      "oneOf": [
+        {
+          "description": "Lines of text.",
+          "type": "string",
+          "const": "lines"
+        },
+        {
+          "description": "Records of a result.",
+          "type": "string",
+          "const": "records"
+        },
+        {
+          "description": "Bytes of content.",
+          "type": "string",
+          "const": "bytes"
+        }
+      ]
+    },
     "Timing": {
       "description": "Durations of the processing steps, in milliseconds.",
       "type": "object",
@@ -3760,6 +3882,101 @@
           "minimum": 0
         }
       }
+    },
+    "ReportPart": {
+      "description": "One part of a control construct in a report.",
+      "type": "object",
+      "properties": {
+        "at": {
+          "description": "Place of the part in the construct: `when`, `when.branch[1]`,\n`each.iteration[3]`, `steps[2]`, `call rotate_logs`.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "What happened: `condition`, `branch`, `iteration`, `step`, `call`.",
+          "type": "string"
+        },
+        "condition": {
+          "description": "Value of the condition for a `condition` part.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "branch": {
+          "description": "Number of the chosen branch for a `branch` part; counted from 1,\nthe branch of `otherwise` is one past the last condition.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "command": {
+          "description": "Command whose effect the part reports, for a `step` part.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "description": "Number of targets the part changed.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ok": {
+          "description": "Whether the part ran to its end: `false` for the part that failed and\nfor a part rolled back.",
+          "type": "boolean"
+        },
+        "rolled_back": {
+          "description": "Whether the effects of the part were rolled back.",
+          "type": "boolean"
+        },
+        "irreversible": {
+          "description": "Whether the effects of the part cannot be rolled back.",
+          "type": "boolean"
+        },
+        "error": {
+          "description": "Code of the error that ended the part.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "iterations": {
+          "description": "Number of iterations of a `loop` part.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "op": {
+          "description": "Number of the journal entry of the part, when the part has an entry\nof its own (`atomic: false`).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "note": {
+          "description": "Remark on the part, for example that a limit ended the loop.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "at",
+        "kind",
+        "ok"
+      ]
     }
   }
 }

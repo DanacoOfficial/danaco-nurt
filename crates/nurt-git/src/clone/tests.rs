@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::clone::tests
+// Responsibility:   Repository with three commits on `main`, a branch `topic` one commit behind, a branch `gone` two commits behind and an annotated tag `v1` on the first commit.
+// Dependencies:     gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::path::{Path, PathBuf};
 
 use gix::ObjectId;
@@ -48,7 +56,7 @@ impl Cloned {
     }
 
     fn id(&self, name: &str) -> Option<ObjectId> {
-        gix::open(&self.root)
+        crate::testutil::open_isolated(&self.root)
             .expect("clone opens")
             .try_find_reference(name)
             .expect("readable reference")
@@ -101,7 +109,8 @@ fn upstream_id(up: &Fixture, name: &str) -> ObjectId {
 fn full_clone_has_the_layout_of_git() {
     let up = upstream();
     let clone = run(up.path(), |_| {});
-    let url = up.path().to_string_lossy().into_owned();
+    // Git stores a local path with `/` separators, on Windows too.
+    let url = up.path().to_string_lossy().replace('\\', "/");
     assert_eq!(clone.read("HEAD"), "ref: refs/heads/main\n");
     let config = clone.read("config");
     assert!(
@@ -156,7 +165,7 @@ fn full_clone_checks_out_the_files_and_the_index() {
             .mode();
         assert_ne!(mode & 0o111, 0);
     }
-    let repo = gix::open(&clone.root).unwrap();
+    let repo = crate::testutil::open_isolated(&clone.root).unwrap();
     let index = repo.index().expect("index is written");
     assert_eq!(index.entries().len(), 3);
     assert_eq!(clone.outcome.files_written, 3);
@@ -167,7 +176,8 @@ fn full_clone_checks_out_the_files_and_the_index() {
 fn reflogs_record_the_clone() {
     let up = upstream();
     let clone = run(up.path(), |_| {});
-    let url = up.path().to_string_lossy().into_owned();
+    // Git stores a local path with `/` separators, on Windows too.
+    let url = up.path().to_string_lossy().replace('\\', "/");
     for log in ["HEAD", "refs/heads/main", "refs/remotes/origin/HEAD"] {
         let text = clone.read(&format!("logs/{log}"));
         assert_eq!(text.lines().count(), 1, "{log}");
@@ -458,3 +468,7 @@ fn clone_of_a_clone_follows_its_branches() {
         first.id("refs/heads/main")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           .github/PULL_REQUEST_TEMPLATE.md -->
+<!-- Responsibility:   Documents PULL_REQUEST_TEMPLATE.md. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 ## Description
 
 Describe the change and its motivation. Link the related issue, for example
@@ -25,3 +33,7 @@ Describe how the change was tested, including the operating systems.
 - [ ] `cargo deny check` passes; new dependencies are justified above.
 - [ ] User-visible changes are recorded in `CHANGELOG.md` under `Unreleased`.
 - [ ] Compatibility of the language, the syntax tree, the report format and the C interface is preserved, or the breaking change is described above.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

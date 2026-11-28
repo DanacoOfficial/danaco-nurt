@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/keypath.md -->
+<!-- Responsibility:   Documents Key paths. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Key paths
 
 A key path addresses values inside a structured document: JSON, JSONC, YAML,
@@ -164,3 +172,7 @@ written as expressions. `KeyPath::from_key_segs` converts the structured form;
 filters may use fields, identifiers, literals, comparisons and `and`, `or`,
 `not`. In the bound syntax tree a key is a `key` node holding the canonical
 text.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::tests::preimage
+// Responsibility:   Keeping previous content before a run: clone, copy, budget and limits.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Keeping previous content before a run: clone, copy, budget and limits.
 
 use std::sync::Arc;
@@ -182,11 +190,12 @@ fn a_file_above_the_copy_limit_is_kept_on_a_volume_that_clones() {
 #[test]
 fn excluded_names_are_not_kept() {
     let h = Harness::new();
-    h.write("node_modules/pkg/index.js", "module.exports = 1");
+    h.write_racy("node_modules/pkg/index.js", "module.exports = 1");
     h.write("src/main.js", "main");
+    let kept = h.modified("node_modules/pkg/index.js");
     let mut tx = RecordingTx::new();
     let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
-        h.write("node_modules/pkg/index.js", "module.exports = 2");
+        h.write_keeping_time("node_modules/pkg/index.js", "module.exports = 2", kept);
     });
     assert_eq!(tx.declared.len(), 1);
     let change = h.change(&outcome, "node_modules/pkg/index.js");
@@ -200,15 +209,16 @@ fn explicit_paths_are_kept_regardless_of_limits() {
     let h = Harness::with_config(config(|config| {
         config.run.preimage_max_entries = 0;
     }));
-    h.write("important/state.json", "{\"v\":1}");
+    h.write_racy("important/state.json", "{\"v\":1}");
     h.write("other.txt", "other");
     let spec = TrackSpec {
         preserve: vec![h.path("important")],
         ..h.spec(TrackMode::Scan)
     };
+    let kept = h.modified("important/state.json");
     let mut tx = RecordingTx::new();
     let outcome = h.run(&spec, &mut tx, |h| {
-        h.write("important/state.json", "{\"v\":2}");
+        h.write_keeping_time("important/state.json", "{\"v\":2}", kept);
         h.write("other.txt", "changed");
     });
     assert_eq!(
@@ -243,3 +253,7 @@ fn disabled_preimage_marks_changes_without_flag() {
     assert_eq!(change.flags, None);
     assert_eq!(tx.declared_indexes(), vec![None]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

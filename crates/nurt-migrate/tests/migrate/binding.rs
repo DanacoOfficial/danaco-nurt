@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-migrate/tests/migrate/binding.rs
+// Responsibility:   Binding of migrated programs to the command catalog.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding of migrated programs to the command catalog.
 //!
 //! Every statement of the table scripts and of the common command set that is
@@ -25,7 +33,12 @@ use crate::golden::{assert_matches_file, data_directory};
 const CATALOG_DIRECTORY: &str = "../../catalog";
 
 pub(crate) fn translator(host_os: Os) -> TableTranslator {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(CATALOG_DIRECTORY);
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(CATALOG_DIRECTORY);
     let catalog = match Catalog::load_dir(&dir) {
         Ok(catalog) => catalog,
         Err(error) => panic!("cannot load the catalog: {error}"),
@@ -146,3 +159,7 @@ fn translated_table_scripts_bind() {
     );
     assert_matches_file(&data_directory().join("binding-scripts.expected"), &text);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

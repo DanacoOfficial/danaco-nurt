@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           .github/workflows/hygiene.yml
+# Responsibility:   Configuration or workflow definition of .github/workflows/hygiene.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: Repository hygiene
 
@@ -55,7 +62,9 @@ jobs:
           persist-credentials: false
       - name: ShellCheck
         run: |
-          git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --shell=bash
+          # The scripts under tests/d1/migrate and tests/d5/code are inputs of the
+          # migration and symbol tests and contain faulty shell code on purpose.
+          git ls-files -z '*.sh' ':!tests/d1/migrate' ':!tests/d5/code' | xargs -0 --no-run-if-empty shellcheck --shell=bash
 
   workflows:
     name: Workflow files
@@ -67,7 +76,7 @@ jobs:
           persist-credentials: false
       - name: actionlint
         run: |
-          docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
+          docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
 
   commits:
     name: Commit messages and sign-off
@@ -86,3 +95,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash tools/ci/check-commits.sh "${BASE_SHA}..${HEAD_SHA}"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

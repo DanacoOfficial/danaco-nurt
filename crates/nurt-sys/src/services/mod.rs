@@ -1,11 +1,19 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::services
+// Responsibility:   Service managers: systemd, the Windows service control manager and launchd.
+// Dependencies:     linux, macos, nurt_contracts, windows
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Service managers: systemd, the Windows service control manager and launchd.
 //!
 //! The stages `services`, `start`, `restart`, `enable` and `disable` do not
 //! depend on the operating system. They call the service manager of the
-//! system through [`ServiceBackend`], whose implementation is selected at
+//! system through `ServiceBackend`, whose implementation is selected at
 //! compile time: systemd over D-Bus on Linux, the service control manager on
 //! Windows and launchd on macOS.
 //!
@@ -563,7 +571,7 @@ impl ServiceControl for SystemServiceControl {
 ///     .iter()
 ///     .map(|stage| stage.descriptor().command)
 ///     .collect();
-/// assert_eq!(commands, ["services", "start", "restart", "enable", "disable"]);
+/// assert_eq!(commands, ["services", "start", "stop", "restart", "enable", "disable"]);
 /// ```
 #[must_use]
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {
@@ -760,6 +768,11 @@ impl ServiceCommand {
     pub const START: Self = Self {
         action: ServiceAction::Start,
     };
+    /// The `stop` command for service records; jobs and processes are
+    /// stopped by the program host.
+    pub const STOP: Self = Self {
+        action: ServiceAction::Stop,
+    };
     /// The `restart` command.
     pub const RESTART: Self = Self {
         action: ServiceAction::Restart,
@@ -773,7 +786,13 @@ impl ServiceCommand {
         action: ServiceAction::Disable,
     };
     /// Every command, in catalog order.
-    pub const ALL: [Self; 4] = [Self::START, Self::RESTART, Self::ENABLE, Self::DISABLE];
+    pub const ALL: [Self; 5] = [
+        Self::START,
+        Self::STOP,
+        Self::RESTART,
+        Self::ENABLE,
+        Self::DISABLE,
+    ];
 
     /// Action of the command.
     #[must_use]
@@ -1143,3 +1162,7 @@ fn effect_record(transition: &ServiceTransition, status: EffectStatus) -> Record
     };
     Record::from(effect)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

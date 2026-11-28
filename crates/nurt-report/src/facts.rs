@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-report::facts
+// Responsibility:   Statements about a report that the text, Markdown and compact renderers have in common.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Statements about a report that the text, Markdown and compact renderers
 //! have in common.
 
@@ -141,6 +149,18 @@ pub(crate) fn header_parts(report: &Report) -> Vec<String> {
     parts.push(report.status.to_string());
     if report.bulk.is_some() {
         parts.push("(bulk)".to_owned());
+    }
+    if report.elevated {
+        let mut elevated = String::from("elevated");
+        if let Some(backend) = &report.backend {
+            elevated.push(' ');
+            elevated.push_str(backend);
+        }
+        if let Some(user) = &report.as_user {
+            elevated.push_str(" as ");
+            elevated.push_str(user);
+        }
+        parts.push(elevated);
     }
     parts
 }
@@ -643,3 +663,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

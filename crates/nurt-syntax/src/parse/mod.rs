@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::parse
+// Responsibility:   Parsers of the syntax variants A, B and C.
+// Dependencies:     nurt_contracts, repair
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsers of the syntax variants A, B and C.
 //!
 //! [`parse`] turns program text into a surface tree `nurt-ast/1` with spans.
@@ -25,6 +33,7 @@ mod b;
 mod c;
 pub(crate) mod error;
 pub(crate) mod expr;
+mod flow;
 pub mod repair;
 
 use std::ops::Range;
@@ -289,6 +298,12 @@ pub(crate) struct Parser<'a> {
     /// Whether a text with escapes that the language does not have keeps
     /// their characters instead of being an `E_ESCAPE` error.
     keep_escapes: bool,
+    /// Whether a condition of a construct is being parsed, where `exists`
+    /// is an operator.
+    condition: bool,
+    /// Names of the functions defined so far, which a call writes with
+    /// parentheses in every variant.
+    functions: std::collections::HashSet<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -334,6 +349,8 @@ impl<'a> Parser<'a> {
             brackets: Vec::new(),
             trace: tolerant.then(Vec::new),
             keep_escapes,
+            condition: false,
+            functions: std::collections::HashSet::new(),
         })
     }
 
@@ -548,6 +565,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self, syntax: &dyn StageSyntax) -> Result<Statement, SyntaxError> {
+        if flow::starts_construct(self) {
+            return flow::parse_construct(self, syntax);
+        }
         if self.at(&TokenKind::Let) {
             return self.parse_let(syntax).map(Statement::Let);
         }
@@ -597,7 +617,11 @@ impl<'a> Parser<'a> {
                 height: reference.height,
             }
         } else {
-            let stage = syntax.parse_stage(self)?;
+            let stage = if self.at_function_call() {
+                b::CallNotation::new(self.text()).parse_stage(self)?
+            } else {
+                syntax.parse_stage(self)?
+            };
             Parsed {
                 value: Head::Stage(stage.value),
                 span: stage.span,
@@ -606,6 +630,14 @@ impl<'a> Parser<'a> {
             }
         };
         self.parse_pipeline_tail(head, syntax)
+    }
+
+    /// Whether the current token is the name of a defined function directly
+    /// followed by `(`.
+    pub(crate) fn at_function_call(&self) -> bool {
+        self.current.kind == TokenKind::Ident
+            && self.current.glued == Glued::LParen
+            && self.functions.contains(self.slice(&self.current))
     }
 
     /// Parses the stages after a head that is already parsed.
@@ -787,3 +819,7 @@ pub(crate) fn join(first: Span, last: Span) -> Span {
         end_column: last.end_column,
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

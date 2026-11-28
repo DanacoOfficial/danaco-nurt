@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           conformance/tools/parity_safety.py
+# Responsibility:   Script parity_safety.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Parity scenarios of the safety tools: undo, redo, transactions, checks and unusual effects.
 
 Scenarios that undo or redo need the journal and belong to the class
@@ -267,3 +275,7 @@ def check_scenarios() -> Collection:
 def collections() -> list[Collection]:
     """Returns every parity collection of the safety tools."""
     return [undo_scenarios(), journal_scenarios(), transaction_scenarios(), check_scenarios()]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

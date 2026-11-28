@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::json
+// Responsibility:   JSON codec of syntax trees.
+// Dependencies:     Child, nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON codec of syntax trees.
 //!
 //! Decoding checks, in this order: JSON syntax, the nesting depth
@@ -12,7 +20,7 @@
 //! minor version or of another major version is rejected with
 //! `E_AST_VERSION`, naming the node kinds the reader does not know; every
 //! other failure is `E_AST_SCHEMA`. Both carry the JSON Pointer (RFC 6901) of
-//! the offending value in [`SyntaxError::found`]; the empty pointer denotes
+//! the offending value in the field `found` of [`SyntaxError`]; the empty pointer denotes
 //! the whole document.
 //!
 //! Encoding writes members in declaration order ([`encode`],
@@ -44,8 +52,8 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 use nurt_contracts::ast::{
-    AST_VERSION, Arg, AstDocument, Expr, Head, KeySeg, MapEntry, Pipeline, Program, SURFACE_KINDS,
-    Stage, Statement,
+    AST_VERSION, Arg, AstDocument, Branch, Expr, Head, KeySeg, MapEntry, Param, Pipeline, Program,
+    SURFACE_KINDS, Stage, Statement,
 };
 use nurt_contracts::bound::{BOUND_KINDS, BOUND_VERSION, BoundDocument};
 use serde::{Deserialize, Serialize};
@@ -425,6 +433,8 @@ enum Role {
     Expr,
     Entry,
     KeySeg,
+    Branch,
+    Param,
 }
 
 /// Values held by a member of a node: one value or an array of values.
@@ -452,6 +462,18 @@ fn child_role(role: Role, kind: &str, member: &str) -> Option<Child> {
         (Role::Expr, "list", "items") | (Role::Expr, "call", "args") => Many(Role::Expr),
         (Role::Expr, "map", "entries") => Many(Role::Entry),
         (Role::Expr, "key", "segs") => Many(Role::KeySeg),
+        (Role::Statement, "when", "branches") => Many(Role::Branch),
+        (Role::Statement, "when", "otherwise")
+        | (Role::Branch, _, "body")
+        | (Role::Statement, "each" | "repeat" | "while" | "steps" | "define", "body") => {
+            Many(Role::Statement)
+        }
+        (Role::Branch, _, "cond")
+        | (Role::Statement, "each", "source")
+        | (Role::Statement, "while", "cond")
+        | (Role::Param, _, "default") => One(Role::Expr),
+        (Role::Statement, "each" | "repeat" | "while", "options") => Many(Role::Arg),
+        (Role::Statement, "define" | "params", "params") => Many(Role::Param),
         (Role::Expr, "spread" | "un", "x")
         | (Role::Expr, "field", "of")
         | (Role::Expr, "bin", "l" | "r") => One(Role::Expr),
@@ -574,6 +596,14 @@ fn node_members(kind: &str) -> Option<&'static [&'static str]> {
         "bin" => &["t", "op", "l", "r", "span"],
         "range" => &["t", "lo", "hi", "span"],
         "sub" => &["t", "p", "span"],
+        "when" => &["t", "branches", "otherwise", "span"],
+        "each" => &["t", "source", "name", "options", "body", "span"],
+        "repeat" => &["t", "options", "body", "span"],
+        "while" => &["t", "cond", "options", "body", "span"],
+        "break" | "continue" => &["t", "span"],
+        "steps" => &["t", "body", "span"],
+        "define" => &["t", "name", "params", "body", "span"],
+        "params" => &["t", "params", "span"],
         _ => return None,
     };
     Some(members)
@@ -587,13 +617,33 @@ fn allowed_members(role: Role, kind: &str) -> Option<&'static [&'static str]> {
         Role::Arg => Some(&["name", "value", "span"]),
         Role::Entry => Some(&["k", "v", "span"]),
         Role::KeySeg => Some(&["wild", "filter"]),
-        Role::Statement if matches!(kind, "let" | "pipeline") => node_members(kind),
+        Role::Branch => Some(&["cond", "body", "span"]),
+        Role::Param => Some(&["name", "type", "default", "span"]),
+        Role::Statement if is_statement_kind(kind) => node_members(kind),
         Role::Pipeline if kind == "pipeline" => node_members(kind),
         Role::Head if matches!(kind, "stage" | "ref") => node_members(kind),
         Role::Stage if kind == "stage" => node_members(kind),
-        Role::Expr if !matches!(kind, "let" | "pipeline" | "stage") => node_members(kind),
+        Role::Expr if !is_statement_kind(kind) && kind != "stage" => node_members(kind),
         _ => None,
     }
+}
+
+/// Whether `kind` names a statement of the surface tree.
+fn is_statement_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "let"
+            | "pipeline"
+            | "when"
+            | "each"
+            | "repeat"
+            | "while"
+            | "break"
+            | "continue"
+            | "steps"
+            | "define"
+            | "params"
+    )
 }
 
 fn check_members(value: &Value, role: Role, pointer: &str) -> Result<(), Fault> {
@@ -642,6 +692,12 @@ fn check_type(value: &Value, role: Role, pointer: &str) -> Result<(), Fault> {
         Role::Expr => Expr::deserialize(value).map(drop),
         Role::Entry => MapEntry::deserialize(value).map(drop),
         Role::KeySeg => KeySeg::deserialize(value).map(drop),
+        Role::Branch => Branch::deserialize(value).map(drop),
+        Role::Param => Param::deserialize(value).map(drop),
     };
     result.map_err(|error| Fault::new(pointer.to_owned(), error.to_string()))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

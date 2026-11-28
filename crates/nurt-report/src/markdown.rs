@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-report::markdown
+// Responsibility:   Renderer of the Markdown format.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Renderer of the Markdown format.
 
 use nurt_contracts::error::Error;
@@ -73,8 +81,13 @@ pub(crate) fn render(shaped: &Shaped) -> String {
     if let Some(error) = &report.error {
         blocks.push(error_block(error, "error"));
     }
-    if let Some(cursor) = &report.next_cursor {
+    if report.continuation.is_none()
+        && let Some(cursor) = &report.next_cursor
+    {
         blocks.push(format!("next cursor {}", code(cursor)));
+    }
+    if let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more()) {
+        blocks.push(continuation.more_text());
     }
     if let Some(path) = &report.result_file {
         blocks.push(format!("result file {}", code(path)));
@@ -334,3 +347,7 @@ mod tests {
         assert_eq!(code("`a"), "`` `a ``");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

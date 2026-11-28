@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/lex_literals.rs
+// Responsibility:   Literal tokens and their decoders: integers, numbers, sizes, durations, texts, raw texts and regular expressions.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Literal tokens and their decoders: integers, numbers, sizes, durations,
 //! texts, raw texts and regular expressions.
 
@@ -448,3 +456,7 @@ fn converts_into_the_contract_error() {
     assert_eq!(escape.fix.len(), 2);
     assert_eq!(escape.data().code, ErrorCode::Escape);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

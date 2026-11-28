@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/install/install.ps1
+# Responsibility:   Script install.ps1.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 <#
 .SYNOPSIS
@@ -34,7 +41,7 @@ Environment variables:
     NURT_NO_PATH_UPDATE set to 1 to leave PATH unchanged
     NURT_RELEASES_URL   release location; URL or directory with the layout of
                         GitHub releases (default:
-                        https://github.com/DanacoOfficial/nurt/releases)
+                        https://github.com/DanacoOfficial/danaco-nurt/releases)
 #>
 
 function Get-NurtFile {
@@ -68,7 +75,7 @@ function Install-Nurt {
     if ($scope -eq 'machine' -and -not (Test-NurtAdministrator)) {
         throw 'NURT_SCOPE=machine needs a terminal that runs as administrator: start PowerShell with "Run as administrator"'
     }
-    $releasesUrl = if ($env:NURT_RELEASES_URL) { $env:NURT_RELEASES_URL.TrimEnd('/', '\') } else { 'https://github.com/DanacoOfficial/nurt/releases' }
+    $releasesUrl = if ($env:NURT_RELEASES_URL) { $env:NURT_RELEASES_URL.TrimEnd('/', '\') } else { 'https://github.com/DanacoOfficial/danaco-nurt/releases' }
     $version = if ($env:NURT_VERSION) { $env:NURT_VERSION.TrimStart('v') } else { '' }
     $defaultRoot = if ($scope -eq 'machine') { Join-Path $env:ProgramFiles 'Nurt' } else { Join-Path $env:LOCALAPPDATA 'Programs\Nurt' }
     $installDir = if ($env:NURT_INSTALL_DIR) { $env:NURT_INSTALL_DIR } else { Join-Path $defaultRoot 'bin' }
@@ -174,3 +181,7 @@ function Install-Nurt {
 }
 
 Install-Nurt
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

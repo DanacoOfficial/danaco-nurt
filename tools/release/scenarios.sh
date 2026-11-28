@@ -3,10 +3,19 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/release/scenarios.sh
+# Responsibility:   Functional scenarios of the release check.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Functional scenarios of the release check.
 #
-# Repeats the scenarios T01 to T19 of the 0.1.0 verification and the scenario
-# 2.11 (`options.base` of `nurt serve`) against a built executable. Every
+# Repeats the scenarios T01 to T19 of the 0.1.0 verification, the elevated
+# scenarios T20 (Linux, needs sudo without a password) and T21 (Windows, needs an
+# elevated console) and the scenario 2.11 (`options.base` of `nurt serve`) against a built executable. Every
 # scenario runs in its own empty directory with its own HOME, XDG_STATE_HOME
 # and XDG_CONFIG_HOME. The directories lie under $TMPDIR, so they share the
 # journal of that volume, as scenario T01 requires.
@@ -29,6 +38,8 @@
 #
 # Exit code: 0 without FAIL, 1 with at least one FAIL, 2 for a usage error.
 
+# The scenario functions are called by name from the dispatcher at the end.
+# shellcheck disable=SC2329
 set -u
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -299,8 +310,9 @@ scn_T17() {
   printf 'x\n' > "$PWD/t/a/b/c/x.txt"
   n "find \"$PWD/t\" glob: \"**/*.txt\""
   [ "$RC" -eq 0 ] || fail "find ended with $RC"
-  printf '%s\n' "$OUT" | grep -q 'a/' && printf '%s\n' "$OUT" | grep -q 'b/' && printf '%s\n' "$OUT" | grep -q 'c/' \
-    || fail "the tree view omits intermediate directories"
+  for part in a/ b/ c/; do
+    printf '%s\n' "$OUT" | grep -q "$part" || fail "the tree view omits intermediate directories"
+  done
   printf 'x\n' > "$PWD/p2/$(printf 'a\nb')"
   n "find \"$PWD/p2\""
   [ "$RC" -eq 0 ] || fail "find of a name with a line feed ended with $RC"
@@ -342,6 +354,38 @@ scn_T19() {
   ok "preview and execution agree (\"$preview\"); undo restores the tree"
 }
 
+scn_T20() {
+  local target="/etc/nurt-scenario-T20.conf" number
+  [ "$(uname -s)" = "Linux" ] || skip "needs Linux"
+  command -v sudo > /dev/null 2>&1 || skip "needs sudo"
+  sudo -n true > /dev/null 2>&1 || skip "needs sudo without a password"
+  sudo -n rm -f "$target"
+  n "write \"$target\" text: \"a=1\\n\" mode: overwrite privilege: elevated"
+  [ "$RC" -eq 0 ] || fail "elevated write ended with $RC"
+  [ -f "$target" ] || fail "elevated write did not create the file"
+  [ "$(stat -c %U "$target")" = "root" ] || fail "the file is not owned by root"
+  case "$OUT" in *elevated*sudo* | *sudo*elevated*) ;; *) fail "the report does not state the elevation and the backend" ;; esac
+  number="$(op_number)"
+  [ -n "$number" ] || fail "the report has no operation number"
+  n "undo $number"
+  [ "$RC" -eq 0 ] || fail "undo of the elevated entry ended with $RC"
+  [ ! -e "$target" ] || { sudo -n rm -f "$target"; fail "undo did not remove the file"; }
+  ok "elevated write through sudo, entry $number undone through the backend"
+}
+
+scn_T21() {
+  local target number
+  case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) ;; *) skip "needs Windows" ;; esac
+  target="C:/Program Files/nurt-scenario-T21.txt"
+  n "write \"$target\" text: \"a\" mode: overwrite privilege: elevated"
+  [ "$RC" -eq 0 ] || fail "elevated write into Program Files ended with $RC"
+  number="$(op_number)"
+  n "undo $number"
+  [ "$RC" -eq 0 ] || fail "undo of the elevated entry ended with $RC"
+  [ ! -e "$target" ] || fail "undo did not remove the file"
+  ok "elevated write into Program Files with the self backend, entry $number undone"
+}
+
 scn_2_11() {
   mkdir -p "$PWD/cfg"
   printf 'a = 1\n' > "$PWD/cfg/c.toml"
@@ -379,7 +423,7 @@ PY
 
 # --- runner ------------------------------------------------------------------
 
-scenarios="T01 T02 T03 T04 T05 T06 T07 T08 T09 T10 T11 T12 T13 T14 T15 T16 T17 T18 T19 2.11"
+scenarios="T01 T02 T03 T04 T05 T06 T07 T08 T09 T10 T11 T12 T13 T14 T15 T16 T17 T18 T19 T20 T21 2.11"
 if [ -n "${NURT_SCENARIO_ONLY:-}" ]; then scenarios="$NURT_SCENARIO_ONLY"; fi
 
 for id in $scenarios; do
@@ -389,11 +433,11 @@ for id in $scenarios; do
     exit 2
   fi
   dir="$BASE/$id"
-  mkdir -p "$dir/work" "$dir/home"
+  mkdir -p "$dir/work" "$dir/account"
   (
     cd "$dir/work" || exit 1
-    export HOME="$dir/home" XDG_STATE_HOME="$dir/home/state" XDG_CONFIG_HOME="$dir/home/config"
-    export XDG_DATA_HOME="$dir/home/data" XDG_CACHE_HOME="$dir/home/cache" LANG=C.UTF-8
+    export HOME="$dir/account" XDG_STATE_HOME="$dir/account/state" XDG_CONFIG_HOME="$dir/account/config"
+    export XDG_DATA_HOME="$dir/account/data" XDG_CACHE_HOME="$dir/account/cache" LANG=C.UTF-8
     export LOG="$RESULTS/$id.log" REASON="$dir/reason"
     : > "$LOG"
     "$function_name"
@@ -413,3 +457,7 @@ done
 
 python3 -I "$here/scenario_table.py" "$RESULTS/results.tsv" | tee "$RESULTS/table.txt"
 exit "${PIPESTATUS[0]}"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

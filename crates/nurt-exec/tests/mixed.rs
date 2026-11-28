@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/mixed.rs
+// Responsibility:   Execution of pipelines over streams of mixed record kinds, early stop of sources and the records read before a failed stage.
+// Dependencies:     common, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of pipelines over streams of mixed record kinds, early stop of
 //! sources and the records read before a failed stage.
 
@@ -74,7 +82,10 @@ fn applies_a_mixed_stream_in_one_transaction() {
     assert_eq!(world.journal.committed().len(), 1);
     for file in ["a.txt", "b.txt", "c.txt", "d.txt"] {
         let path = format!("/data/{file}");
-        assert_eq!(world.content(&path), format!("written {path}").into_bytes());
+        assert_eq!(
+            world.content(&path),
+            format!("written {}", nurt_testkit::paths::abs(&path)).into_bytes()
+        );
     }
     let operation = outcome.last().unwrap();
     let effect = operation.effect.as_ref().unwrap();
@@ -86,7 +97,7 @@ fn applies_a_mixed_stream_in_one_transaction() {
         .collect();
     assert_eq!(
         paths,
-        ["/data/a.txt", "/data/c.txt", "/data/b.txt", "/data/d.txt"]
+        ["/data/a.txt", "/data/c.txt", "/data/b.txt", "/data/d.txt"].map(nurt_testkit::paths::abs)
     );
     assert_eq!(operation.result.records.len(), 2);
 }
@@ -265,10 +276,10 @@ fn joins_the_outputs_of_a_read_stage_by_kind() {
     assert_eq!(
         seen,
         [
-            ("/data/a".to_owned(), Some("entry")),
-            ("/data/c".to_owned(), Some("entry")),
-            ("/data/b".to_owned(), Some("finding")),
-            ("/data/d".to_owned(), Some("finding")),
+            (nurt_testkit::paths::abs("/data/a"), Some("entry")),
+            (nurt_testkit::paths::abs("/data/c"), Some("entry")),
+            (nurt_testkit::paths::abs("/data/b"), Some("finding")),
+            (nurt_testkit::paths::abs("/data/d"), Some("finding")),
         ]
     );
 }
@@ -363,3 +374,7 @@ fn reports_the_records_read_before_a_failed_stage() {
     assert_eq!(partial["records"].as_array().unwrap().len(), 3);
     assert!(outcome.last().unwrap().result.records.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

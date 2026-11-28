@@ -16,7 +16,7 @@
       {
         "path": "tools/migrate.py",
         "type": "file",
-        "content_utf8": "import pathlib\n\nif input(\"Type MIGRATE to continue: \") == \"MIGRATE\":\n    pathlib.Path(\"db/version\").write_text(\"2\\n\")\n"
+        "content_utf8": "if input(\"Type MIGRATE to continue: \") == \"MIGRATE\":\n    with open(\"db/version\", \"w\", newline=\"\\n\") as handle:\n        handle.write(\"2\\n\")\n"
       }
     ]
   },

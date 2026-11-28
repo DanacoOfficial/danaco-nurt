@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply::changes
+// Responsibility:   Path-level decisions shared by the planners.
+// Dependencies:     bstr, gix, gix_index, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Path-level decisions shared by the planners: what happens to each index
 //! entry and to each working tree file, before the decisions are laid out
 //! as journal targets.
@@ -399,3 +407,7 @@ pub(crate) fn build_index(base: &gix_index::State, changes: &Changes) -> Result<
     }
     Ok(state)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

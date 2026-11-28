@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::testing
+// Responsibility:   Round-trip harness for document formats.
+// Dependencies:     harness, journal, kv, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round-trip harness for document formats.
 //!
 //! Enabled by the `testing` feature. The harness opens every file of a
@@ -40,3 +48,7 @@ pub use harness::{
 };
 pub use journal::{MemoryJournal, MemoryTx};
 pub use kv::{KeyValueFormat, KeyValueReference};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

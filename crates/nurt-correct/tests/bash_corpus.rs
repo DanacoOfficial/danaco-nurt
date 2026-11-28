@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/bash_corpus.rs
+// Responsibility:   Corpus of bash habits: every case of `tests/d1/correction/bash` is translated in a live call and compared with its expected reaction.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Corpus of bash habits: every case of `tests/d1/correction/bash` is
 //! translated in a live call and compared with its expected reaction.
 
@@ -40,7 +48,12 @@ const REQUIRED: [&str; 7] = [
 type CorpusFile = (PathBuf, Vec<Value>);
 
 fn corpus_files() -> Result<Vec<CorpusFile>, String> {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/d1/correction/bash");
+    let dir = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/correction/bash");
     let mut paths = Vec::new();
     for entry in fs::read_dir(&dir).map_err(|error| format!("{}: {error}", dir.display()))? {
         let path = entry.map_err(|error| error.to_string())?.path();
@@ -92,6 +105,7 @@ fn reaction(case: &Value) -> Value {
     let context = TranslateContext {
         base: case["context"]["base"].as_str(),
         lets: &lets,
+        functions: &[],
         mode: Mode::Live,
     };
     match translate_with(text(&case["input"]), &context) {
@@ -241,6 +255,7 @@ fn translated_paths_keep_the_written_segments() {
         let context = TranslateContext {
             base,
             lets: &lets,
+            functions: &[],
             mode: Mode::Live,
         };
         let input = text(&case["input"]);
@@ -303,3 +318,7 @@ fn expr_texts(expr: &Expr, texts: &mut Vec<String>) {
         _ => {}
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

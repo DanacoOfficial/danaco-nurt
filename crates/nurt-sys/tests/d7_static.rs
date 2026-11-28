@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sys/tests/d7_static.rs
+// Responsibility:   Static checks of the system, administration, network, schedule and program crates.
+// Dependencies:     regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Static checks of the system, administration, network, schedule and program
 //! crates.
 //!
@@ -36,7 +44,12 @@ const CRATES: [&str; 6] = [
 
 /// Catalog groups implemented by [`CRATES`].
 const GROUPS: [&str; 6] = [
-    "system", "admin", "package", "network", "schedule", "program",
+    "system",
+    "administration",
+    "package",
+    "network",
+    "schedule",
+    "program",
 ];
 
 /// Commands of the `system` catalog group implemented by other crates.
@@ -80,6 +93,10 @@ enum Allowed {
     PackageManagers,
     /// The program named by the caller; literal program names are rejected.
     DescribedProgram,
+    /// The programs named by the literals of `Call::new` and `Call::owned`
+    /// in the administration module, all in the listed set; the site itself
+    /// runs the program of the call.
+    NamedByCall(&'static [&'static str]),
 }
 
 /// Source file permitted to start programs through the process host.
@@ -99,8 +116,93 @@ struct Site {
 /// Commands that manage services.
 const SERVICE_COMMANDS: &[&str] = &["services", "start", "restart", "enable", "disable"];
 
+/// Programs of the firewall, network and clock commands (`admin/tool.rs`).
+const NETWORK_PROGRAMS: &[&str] = &[
+    "nft",
+    "firewall-cmd",
+    "ufw",
+    "pfctl",
+    "ip",
+    "route",
+    "netstat",
+    "resolvectl",
+    "networksetup",
+    "timedatectl",
+    "systemsetup",
+    "tzutil",
+    "date",
+    "powershell",
+];
+
+/// Commands that change the firewall, the routes, the DNS and the clock.
+const NETWORK_COMMANDS: &[&str] = &[
+    "firewall.rules",
+    "firewall.allow",
+    "firewall.deny",
+    "firewall.remove",
+    "network.route_add",
+    "network.route_remove",
+    "network.dns_set",
+    "clock.timezone_set",
+    "clock.set",
+    "clock.ntp",
+];
+
+/// Commands that change accounts, groups, mounts, kernel parameters, power
+/// and disks through system programs.
+const ADMIN_COMMANDS: &[&str] = &[
+    "accounts.create",
+    "accounts.modify",
+    "accounts.remove",
+    "accounts.password",
+    "groups.create",
+    "groups.remove",
+    "groups.add_member",
+    "groups.remove_member",
+    "mount",
+    "unmount",
+    "sysctl.set",
+    "modules.load",
+    "modules.unload",
+    "power.restart",
+    "power.shutdown",
+    "power.cancel",
+    "disks.partition",
+    "disks.format",
+];
+
+/// Programs that the administration commands start; they build the program
+/// from the plan of the command, so the site of the execution takes the
+/// program named by the caller.
+const ADMIN_PROGRAMS: &[&str] = &[
+    "useradd",
+    "sysadminctl",
+    "net",
+    "usermod",
+    "dscl",
+    "userdel",
+    "chpasswd",
+    "powershell",
+    "groupadd",
+    "dseditgroup",
+    "groupdel",
+    "gpasswd",
+    "mount",
+    "mountvol",
+    "umount",
+    "sysctl",
+    "modprobe",
+    "lsmod",
+    "shutdown",
+    "pkill",
+    "parted",
+    "lsblk",
+    "diskutil",
+    "mkfs",
+];
+
 /// Sites permitted to start programs.
-const SITES: [Site; 4] = [
+const SITES: [Site; 7] = [
     Site {
         path: "crates/nurt-sys/src/services/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
@@ -114,6 +216,18 @@ const SITES: [Site; 4] = [
         approved: true,
     },
     Site {
+        path: "crates/nurt-sys/src/admin/sys.rs",
+        allowed: Allowed::DescribedProgram,
+        commands: &[],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/mod.rs",
+        allowed: Allowed::Only(ADMIN_PROGRAMS),
+        commands: ADMIN_COMMANDS,
+        approved: true,
+    },
+    Site {
         path: "crates/nurt-sys/src/package/exec.rs",
         allowed: Allowed::PackageManagers,
         commands: &["package.install", "package.remove", "package.upgrade"],
@@ -123,6 +237,12 @@ const SITES: [Site; 4] = [
         path: "crates/nurt-programs/src/help.rs",
         allowed: Allowed::DescribedProgram,
         commands: &["program.describe"],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/tool.rs",
+        allowed: Allowed::NamedByCall(NETWORK_PROGRAMS),
+        commands: NETWORK_COMMANDS,
         approved: true,
     },
 ];
@@ -149,11 +269,15 @@ const DELEGATIONS: [Delegation; 1] = [Delegation {
 }];
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("the crate lies two levels below the workspace root")
-        .to_path_buf()
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .ancestors()
+    .nth(2)
+    .expect("the crate lies two levels below the workspace root")
+    .to_path_buf()
 }
 
 fn relative(root: &Path, path: &Path) -> String {
@@ -821,6 +945,20 @@ fn program_findings(site: &Site, rel: &str, exec: &ExecSite) -> Option<String> {
         (Allowed::DescribedProgram, ProgramName::Literal(name)) => Some(format!(
             "{location}: only the described program is run, found `{name}`"
         )),
+        (Allowed::NamedByCall(names), ProgramName::Literal(name))
+            if !names.contains(&program_file_name(name)) =>
+        {
+            Some(format!(
+                "{location}: program `{name}` is not permitted here"
+            ))
+        }
+        (Allowed::NamedByCall(_), ProgramName::Dynamic(expr))
+            if !expr.trim_start().starts_with("call.program") =>
+        {
+            Some(format!(
+                "{location}: the program must be the program of the call, found `{expr}`"
+            ))
+        }
         _ => None,
     }
 }
@@ -942,7 +1080,7 @@ fn declaration_findings(
     let declared = external_programs(command);
     let mut findings = Vec::new();
     match site.allowed {
-        Allowed::Only(_) => {
+        Allowed::Only(_) | Allowed::NamedByCall(_) => {
             if kind != Some("system_program") {
                 findings.push(format!(
                     "{name}: external kind `system_program` is not declared"
@@ -989,6 +1127,46 @@ fn used_programs(files: &[ProductionFile], site: &Site) -> Option<Vec<String>> {
 }
 
 #[test]
+fn static_admin_calls_name_approved_programs() {
+    let root = workspace_root();
+    let call = Regex::new(r#"Call\s*::\s*(?:new|owned)\s*\(\s*""#).expect("pattern is valid");
+    let admin = Regex::new(
+        r"^crates/nurt-sys/src/admin/(clock\.rs|effects\.rs|tool\.rs|firewall/|network/)",
+    )
+    .expect("pattern is valid");
+    let mut findings = Vec::new();
+    let mut named = BTreeSet::new();
+    for file in production_files(&root)
+        .iter()
+        .filter(|file| admin.is_match(&file.rel))
+    {
+        for found in call.find_iter(&file.scanned.code) {
+            let Some(program) = file.scanned.literals.get(&(found.end() - 1)).cloned() else {
+                continue;
+            };
+            if !NETWORK_PROGRAMS.contains(&program.as_str()) {
+                let line = line_of(&file.scanned.code, found.start());
+                findings.push(format!(
+                    "{}:{line}: `{program}` is not an approved program",
+                    file.rel
+                ));
+            }
+            named.insert(program);
+        }
+    }
+    for program in NETWORK_PROGRAMS {
+        if !named.contains(*program) && *program != "powershell" {
+            findings.push(format!("approved program `{program}` is not used"));
+        }
+    }
+    assert!(
+        findings.is_empty(),
+        "the administration module starts only approved programs:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
 fn static_external_calls_have_stage_spec_external() {
     let root = workspace_root();
     let commands = domain_commands(&root);
@@ -1008,7 +1186,7 @@ fn static_external_calls_have_stage_spec_external() {
     let approved: BTreeSet<&str> = SITES
         .iter()
         .filter_map(|s| match s.allowed {
-            Allowed::Only(names) => Some(names),
+            Allowed::Only(names) | Allowed::NamedByCall(names) => Some(names),
             _ => None,
         })
         .flatten()
@@ -1053,13 +1231,37 @@ fn producer() -> String {
     format!("{name} Official | {name} Holding Group Sp. z o.o. All rights reserved.")
 }
 
-/// Line of the producer header, permitted to name the producer.
+/// Line of the producer header or footer, permitted to name the producer.
+///
+/// The lines of the fixed header and of the fixed footer that name the
+/// producer are permitted at any position and behind any comment mark (`//`,
+/// `#` or a one-line `<!-- -->`); among the first lines of a file the
+/// copyright, license and contact lines of other forms are permitted as well.
 fn is_header_line(index: usize, line: &str) -> bool {
-    let contact = ["support@", "dan", "aco-group.pl"].concat();
-    index < HEADER_LINES
-        && (line.contains("Copyright (c) ")
-            || line.contains("Use is subject to license terms")
-            || line.contains(&contact))
+    let name = ["Dan", "aco"].concat();
+    let domain = format!("{}-group.pl", name.to_lowercase());
+    let contact = format!("support@{domain}");
+    let license = format!("see the LICENSE file or https://www.{domain}");
+    let content = line
+        .trim()
+        .trim_start_matches("<!--")
+        .trim_end_matches("-->")
+        .trim_start_matches("//")
+        .trim_start_matches('#')
+        .trim();
+    let fixed = [
+        format!("Use is subject to license terms: {license}"),
+        format!("https://github.com/{name}Official | {contact}"),
+        format!("Author:           {name} Official"),
+        format!("License:          {license}"),
+        format!("Support: {contact}"),
+    ];
+    (content.starts_with("Copyright (c) ") && content.ends_with(&producer()))
+        || fixed.iter().any(|text| content == text)
+        || (index < HEADER_LINES
+            && (line.contains("Copyright (c) ")
+                || line.contains("Use is subject to license terms")
+                || line.contains(&contact)))
 }
 
 /// The line names the producer other than in the product name and in the
@@ -1069,7 +1271,7 @@ fn names_producer_outside_product_name(line: &str) -> bool {
     let lower = line.to_lowercase();
     lower
         .replace(&format!("{name} nurt"), "")
-        .replace(&format!("github.com/{name}official/nurt"), "")
+        .replace(&format!("github.com/{name}official/{name}-nurt"), "")
         .contains(&name)
 }
 
@@ -1276,6 +1478,266 @@ fn portability_license_headers_present() {
     );
 }
 
+/// Directories whose files are test data and carry no header.
+const DATA_DIRECTORIES: [&str; 9] = [
+    "golden",
+    "fixtures",
+    "corpus",
+    "testdata",
+    "data",
+    "snapshots",
+    "conformance",
+    "third_party",
+    "node_modules",
+];
+
+/// Comment marks of the descriptive comment that follows a header, longest
+/// first.
+const DESCRIPTION_MARKS: [&str; 4] = ["//!", "///", "#", ";"];
+
+/// Text of a comment line without its mark; `None` for other lines.
+fn comment_text(line: &str) -> Option<&str> {
+    let line = line.trim();
+    for mark in ["//!", "///", "//", "#", ";", "<!--", "/*", "*"] {
+        if let Some(rest) = line.strip_prefix(mark) {
+            let rest = rest.trim();
+            let rest = rest.strip_suffix("-->").unwrap_or(rest);
+            let rest = rest.strip_suffix("*/").unwrap_or(rest);
+            return Some(rest.trim());
+        }
+    }
+    None
+}
+
+/// Responsibility field of the header with the index of its line.
+fn header_responsibility(text: &str) -> Option<(usize, String)> {
+    text.lines()
+        .take(HEADER_LINES)
+        .enumerate()
+        .find_map(|(index, line)| {
+            let field = comment_text(line)?.strip_prefix("Responsibility:")?;
+            Some((index, field.trim().to_owned()))
+        })
+}
+
+/// Lines, without their marks, of the first descriptive comment paragraph
+/// that follows the header.
+///
+/// In Rust sources it is the first paragraph of the inner documentation or,
+/// failing that, of the first item documentation; in other files it is the
+/// first comment paragraph after the header block.
+fn description_paragraph(text: &str, responsibility_line: usize) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let rust = lines
+        .get(responsibility_line)
+        .is_some_and(|l| l.trim_start().starts_with("//"));
+    let start = if rust {
+        ["//!", "///"].iter().find_map(|mark| {
+            lines
+                .iter()
+                .position(|l| l.trim_start().starts_with(mark))
+                .map(|index| (index, *mark))
+        })
+    } else {
+        let mark = lines[responsibility_line]
+            .trim_start()
+            .chars()
+            .next()
+            .map(String::from)
+            .unwrap_or_default();
+        let mark = DESCRIPTION_MARKS.iter().find(|m| **m == mark);
+        mark.and_then(|mark| {
+            let after_header = (responsibility_line + 1..lines.len()).find(|&i| {
+                comment_text(lines[i]).is_none_or(|t| {
+                    !["Dependencies:", "Author:", "Version:", "License:"]
+                        .iter()
+                        .any(|field| t.starts_with(field))
+                })
+            })?;
+            (after_header..lines.len())
+                .find(|&i| {
+                    lines[i].trim_start().starts_with(*mark)
+                        && comment_text(lines[i]).is_some_and(|t| !t.is_empty())
+                })
+                .map(|index| (index, *mark))
+        })
+    };
+    let Some((first, mark)) = start else {
+        return Vec::new();
+    };
+    lines[first..]
+        .iter()
+        .map_while(|l| {
+            let l = l.trim_start();
+            let rest = l.strip_prefix(mark)?.trim();
+            (!rest.is_empty() && !rest.contains("Copyright (c)")).then(|| rest.to_owned())
+        })
+        .collect()
+}
+
+/// Finding for a Responsibility field that stops where the sentence of the
+/// description continues in the next line.
+///
+/// Such a field is the first line of a wrapped paragraph without its closing
+/// punctuation, followed by a full stop.
+fn truncated_responsibility(text: &str) -> Option<String> {
+    let (index, field) = header_responsibility(text)?;
+    let paragraph = description_paragraph(text, index);
+    if paragraph.len() < 2 {
+        return None;
+    }
+    let first = paragraph[0].as_str();
+    if first.ends_with(['.', ':', '!', '?']) {
+        return None;
+    }
+    let cut = format!("{}.", first.trim_end_matches([',', ';']));
+    (field == cut).then_some(field)
+}
+
+/// Finding for an executable file without an extension that lacks the
+/// producer header.
+fn shebang_without_header(rel: &str, text: &str, copyright: &Regex) -> Option<String> {
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    if name.contains('.') || !text.starts_with("#!") {
+        return None;
+    }
+    let has_header = text
+        .lines()
+        .take(HEADER_LINES)
+        .any(|l| copyright.is_match(l));
+    (!has_header).then(|| format!("{rel}: executable file without the producer header"))
+}
+
+/// Text files of the workspace outside build output and test data, with
+/// their paths relative to the workspace root.
+fn repository_text_files(root: &Path) -> Vec<(String, String)> {
+    files_under(root)
+        .into_iter()
+        .map(|path| relative(root, &path))
+        .filter(|rel| !rel.split('/').any(|part| DATA_DIRECTORIES.contains(&part)))
+        .filter_map(|rel| read_text(&root.join(&rel)).map(|text| (rel, text)))
+        .collect()
+}
+
+#[test]
+fn headers_responsibility_is_not_truncated() {
+    let root = workspace_root();
+    let findings: Vec<String> = repository_text_files(&root)
+        .iter()
+        .filter_map(|(rel, text)| {
+            truncated_responsibility(text).map(|field| format!("{rel}: {field}"))
+        })
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "the Responsibility field of a header is a whole sentence:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn headers_present_in_executable_files_without_extension() {
+    let root = workspace_root();
+    let copyright = Regex::new(&format!(
+        r"Copyright \(c\) \d{{4}} {}",
+        regex::escape(&producer())
+    ))
+    .expect("copyright pattern is valid");
+    let allow = hygiene_allow_list(&root);
+    let findings: Vec<String> = repository_text_files(&root)
+        .iter()
+        .filter(|(rel, _)| !is_allowed(&allow, "producer-header", rel))
+        .filter_map(|(rel, text)| shebang_without_header(rel, text, &copyright))
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "executable files without an extension start with the producer header:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn truncated_responsibility_is_detected_in_every_comment_syntax() {
+    let rust = concat!(
+        "// Module:           a\n",
+        "// Responsibility:   Whole-stream decompression and the names of.\n",
+        "// Dependencies:     none\n",
+        "\n",
+        "//! Whole-stream decompression and the names of\n",
+        "//! decompressed files.\n",
+    );
+    assert!(truncated_responsibility(rust).is_some());
+    let by_comma = rust
+        .replace("names of.", "names.")
+        .replace("names of\n", "names,\n");
+    assert!(truncated_responsibility(&by_comma).is_some());
+    let item = concat!(
+        "// Responsibility:   Offsets of line starts in a text, for converting byte offsets to lines and.\n",
+        "\n",
+        "use a::b;\n",
+        "\n",
+        "/// Offsets of line starts in a text, for converting byte offsets to lines and\n",
+        "/// columns.\n",
+    );
+    assert!(truncated_responsibility(item).is_some());
+    let script = concat!(
+        "#!/bin/sh\n",
+        "# Module:           a.sh\n",
+        "# Responsibility:   Installs the packages of a directory and checks the.\n",
+        "# Dependencies:     none\n",
+        "# Author:           a\n",
+        "# Version:          0.1.1, 2026-11-27\n",
+        "# License:          none\n",
+        "\n",
+        "# Installs the packages of a directory and checks the\n",
+        "# result.\n",
+    );
+    assert!(truncated_responsibility(script).is_some());
+}
+
+#[test]
+fn whole_responsibility_sentences_are_accepted() {
+    let shortened = concat!(
+        "// Responsibility:   Whole-stream decompression.\n",
+        "\n",
+        "//! Whole-stream decompression and the names of\n",
+        "//! decompressed files.\n",
+    );
+    assert!(truncated_responsibility(shortened).is_none());
+    let colon = concat!(
+        "// Responsibility:   Behaviour of the program.\n",
+        "\n",
+        "//! Behaviour of the program:\n",
+        "//! positions and revisions.\n",
+    );
+    assert!(truncated_responsibility(colon).is_none());
+    let single = concat!(
+        "// Responsibility:   One line only.\n",
+        "\n",
+        "//! One line only.\n",
+    );
+    assert!(truncated_responsibility(single).is_none());
+    assert!(truncated_responsibility("no header\n").is_none());
+}
+
+#[test]
+fn executable_files_without_extension_require_the_header() {
+    let copyright = Regex::new(&format!(
+        r"Copyright \(c\) \d{{4}} {}",
+        regex::escape(&producer())
+    ))
+    .expect("copyright pattern is valid");
+    let bare = "#!/bin/sh\nexec true\n";
+    let headed = format!(
+        "#!/bin/sh\n# Copyright (c) 2026 {}\nexec true\n",
+        producer()
+    );
+    assert!(shebang_without_header("tools/run", bare, &copyright).is_some());
+    assert!(shebang_without_header("tools/run", &headed, &copyright).is_none());
+    assert!(shebang_without_header("tools/run.sh", bare, &copyright).is_none());
+    assert!(shebang_without_header("tools/run", "plain text\n", &copyright).is_none());
+}
+
 /// Configuration, error and catalog sources that define keys and codes.
 fn policy_sources(root: &Path) -> Vec<PathBuf> {
     let mut files = vec![
@@ -1379,7 +1841,7 @@ fn site_rules_reject_programs_outside_the_site() {
         program: Some(program),
     };
     let launchd = &SITES[0];
-    let help = &SITES[3];
+    let help = &SITES[5];
     let rel = launchd.path;
     assert!(
         program_findings(
@@ -1476,7 +1938,7 @@ fn delegated_runs_require_specs_from_the_site_builder() {
 const SYSTEMS: [&str; 3] = ["linux", "windows", "macos"];
 
 /// Number of commands in the catalog groups of [`GROUPS`].
-const COMMAND_COUNT: usize = 36;
+const COMMAND_COUNT: usize = 64;
 
 /// Levels of a matrix case: a test on synthetic data or doubles, a test on
 /// the running system, a comparison with a system program, and the
@@ -1633,7 +2095,7 @@ fn coverage_findings(name: &str, command: &toml::Table, cases: &[&toml::Table]) 
 }
 
 #[test]
-fn matrix_covers_all_36_commands() {
+fn matrix_covers_all_64_commands() {
     let root = workspace_root();
     let commands = domain_commands(&root);
     assert_eq!(
@@ -1729,3 +2191,7 @@ fn matrix_suites_match_the_run_scripts() {
         findings.join("\n")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

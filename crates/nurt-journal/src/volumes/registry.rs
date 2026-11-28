@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::volumes::registry
+// Responsibility:   Registry of journal directories of the account (`volumes.json` in the state directory).
+// Dependencies:     nurt_contracts, nurt_testkit, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Registry of journal directories of the account (`volumes.json` in the
 //! state directory).
 //!
@@ -318,7 +326,6 @@ fn absolute_var(host: &dyn Host, name: &str) -> Option<PathBuf> {
 mod tests {
     use std::collections::BTreeMap;
     use std::ffi::OsString;
-    use std::path::PathBuf;
     use std::sync::Arc;
     use std::thread;
 
@@ -388,11 +395,22 @@ mod tests {
         let calls = fs.calls();
         let write = calls
             .iter()
-            .position(|call| call.starts_with("create_temp_in /home/user/.local/state/nurt/"))
+            .position(|call| {
+                call.starts_with(&format!(
+                    "create_temp_in {}/",
+                    nurt_testkit::paths::abs("/home/user/.local/state/nurt")
+                ))
+            })
             .unwrap();
         let rename = calls
             .iter()
-            .position(|call| call == "rename /home/user/.local/state/nurt/volumes.json")
+            .position(|call| {
+                *call
+                    == format!(
+                        "rename {}",
+                        nurt_testkit::paths::abs("/home/user/.local/state/nurt/volumes.json")
+                    )
+            })
             .unwrap();
         assert!(write < rename);
         let mut children = fs.children("/home/user/.local/state/nurt");
@@ -600,8 +618,8 @@ mod tests {
                     architecture: "x86_64".to_owned(),
                     hostname: "example".to_owned(),
                     user: "user".to_owned(),
-                    home: PathBuf::from("/home/user"),
-                    temp: PathBuf::from("/tmp"),
+                    home: nurt_testkit::paths::abs_path("/home/user"),
+                    temp: nurt_testkit::paths::abs_path("/tmp"),
                     path_style: PathStyle::Posix,
                     timezone: "UTC".to_owned(),
                     locale: None,
@@ -609,7 +627,14 @@ mod tests {
                 },
                 vars: vars
                     .iter()
-                    .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+                    .map(|(name, value)| {
+                        let value = if value.starts_with('/') {
+                            nurt_testkit::paths::abs(value)
+                        } else {
+                            (*value).to_owned()
+                        };
+                        ((*name).to_owned(), value)
+                    })
                     .collect(),
             }
         }
@@ -669,7 +694,7 @@ mod tests {
     fn state_directory_setting_takes_precedence() {
         let host = TestHost::new(Os::Linux, &[("XDG_STATE_HOME", "/var/state")]);
         let mut config = StateConfig::default();
-        config.dir = Some("/srv/nurt-state".to_owned());
+        config.dir = Some(nurt_testkit::paths::abs("/srv/nurt-state"));
         assert_eq!(state_dir(&host, &config).unwrap(), abs("/srv/nurt-state"));
         config.dir = Some("relative".to_owned());
         assert_eq!(
@@ -678,3 +703,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

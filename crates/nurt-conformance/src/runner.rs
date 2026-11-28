@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-conformance::runner
+// Responsibility:   Execution of a suite and the conformance report.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Execution of a suite and the conformance report.
 //!
@@ -698,7 +705,12 @@ mod tests {
     fn implementations_that_do_not_start_are_errors() {
         let options = RunOptions {
             command: "no-such-program-of-the-suite".to_owned(),
-            cases: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance"),
+            cases: Path::new(
+                std::env::var("CARGO_MANIFEST_DIR")
+                    .as_deref()
+                    .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+            )
+            .join("../../conformance"),
             filters: Vec::new(),
             kinds: Vec::new(),
             jobs: 1,
@@ -748,3 +760,7 @@ mod tests {
         assert!(write_report(&report, &dir.path().join("none/r.json")).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

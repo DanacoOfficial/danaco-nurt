@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/retention/precedence.rs
+// Responsibility:   Precedence of the retention settings over the seven configuration levels, for the step, age and size limits.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Precedence of the retention settings over the seven configuration levels,
 //! for the step, age and size limits: every pair of level and dimension, with
 //! a distinct value set at that level and at every lower level, yields the
@@ -189,3 +197,7 @@ fn retention_settings_follow_configuration_level_precedence() {
         failures.join("\n")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

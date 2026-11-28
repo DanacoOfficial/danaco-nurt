@@ -1,12 +1,19 @@
 ---
 command: start
-group: admin
+group: administration
 summary: Start the input services.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/start.md -->
+<!-- Responsibility:   Documents start. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # start
 
@@ -33,6 +40,12 @@ the notable code `unchanged`. For every other service the operation is marked
 irreversible with `service_changed` before the manager is asked to act, so the
 effect is reported even when the wait fails. Services are processed in input
 order; an error stops the processing of the remaining services.
+
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry stops the services that the command started.
+
+```nurt
+services name: "nginx" |> start privilege: elevated
+```
 
 ## Parameters
 
@@ -95,5 +108,9 @@ services name: "postgresql" |> start wait: 1m
 ## Related
 
 `services` produces the input records. `restart` restarts services and `stop`
-stops them. `logs unit:` shows why a service failed. The `admin` group page
+stops them. `logs unit:` shows why a service failed. The `administration` group page
 lists the other commands of the group.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

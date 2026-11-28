@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/corpus_bind.rs
+// Responsibility:   Corpus of the type and value rules applied during binding (`tests/d1/bind/corpus`), run through the full correction pipeline.
+// Dependencies:     corpus_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -64,3 +72,7 @@ fn the_binding_corpus_has_mistakes_and_adversarial_cases() {
     ids.dedup();
     assert_eq!(ids.len(), total, "identifiers are not unique");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc
+// Responsibility:   Program execution for Danaco Nurt.
+// Dependencies:     api, classify, control, jobs, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Program execution for Danaco Nurt.
 //!
 //! The crate runs programs without a shell, in their own process group or job
@@ -15,8 +23,10 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 pub mod api;
+pub mod elevation;
 
 mod classify;
+mod continuation;
 mod control;
 mod host;
 mod iface;
@@ -76,3 +86,7 @@ pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
         .into_iter()
         .try_for_each(|stage| registrar.register(stage))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           crates/nurt-tooldef/tests/provider-schemas/README.md -->
+<!-- Responsibility:   Documents Provider schemas. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Provider schemas
 
 JSON Schema documents that describe the tool objects accepted by each
@@ -37,3 +45,7 @@ Constraints recorded in the schemas:
 | `openai-responses` | as `openai`; `strict` is given explicitly, because the Responses API otherwise converts the schema into strict mode when it can |
 | `gemini` | function name `^[a-zA-Z0-9_:.-]{1,128}$`; `parameters` uses the fields of `Schema` only (no `additionalProperties`); type names are `STRING`, `INTEGER`, `OBJECT` and the other enumeration values; an `OBJECT` declares at least one property; `enum` applies to `STRING`; `default` is accepted and ignored |
 | `mcp` | tool name 1 to 128 characters of `A-Z`, `a-z`, `0-9`, `_`, `-` and `.`; `inputSchema` is an object schema; `_meta` keys use an optional reverse-DNS prefix ending in `/` |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

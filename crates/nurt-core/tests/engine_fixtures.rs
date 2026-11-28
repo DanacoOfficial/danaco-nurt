@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_fixtures.rs
+// Responsibility:   Requests through the fixture front end on the bound trees of the specification (`nurt-bound/1`).
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Requests through the fixture front end on the bound trees of the
 //! specification (`nurt-bound/1`): the check without effect, the catalog
 //! queries, planning and the responses of programs that the planner rejects.
@@ -36,9 +44,13 @@ const EFFECT_IN_LET: &str = "@x = find \"/srv/app/build\" |> remove\n@x";
 const AFTER_WITHOUT_EFFECT: &str = "find \"/srv/app\" |> assert exit_code: 0";
 
 fn golden(dir: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden")
-        .join(dir)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden")
+    .join(dir)
 }
 
 fn bound(name: &str) -> BoundDocument {
@@ -359,3 +371,7 @@ fn responses_are_rendered_in_the_requested_format() {
     );
     assert_eq!(unknown.report.kind, "program");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

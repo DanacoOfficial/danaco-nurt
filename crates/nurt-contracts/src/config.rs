@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::config
+// Responsibility:   Configuration `nurt-config/1`: keys, defaults, levels, precedence and trust.
+// Dependencies:     indexmap, schemars, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Configuration `nurt-config/1`: keys, defaults, levels, precedence and trust.
 //!
 //! A configuration is assembled from seven levels, from the weakest to the
@@ -49,6 +57,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value as Json, json};
 
+use crate::envelope::Privilege;
 use crate::kinds::SyntaxVariant;
 
 /// Format identifier of configuration files.
@@ -84,7 +93,7 @@ pub const TRUSTED_PROJECT_KEYS: &[&str] = &["journal.*"];
 /// Keys that a project file can never set; they are ignored and reported as
 /// `trust_config_ignored`. `scope.trust*` is also refused at the run-time
 /// level.
-pub const TRUST_KEYS: &[&str] = &["scope.trust*", "service.*"];
+pub const TRUST_KEYS: &[&str] = &["scope.trust*", "service.*", "privilege.*"];
 
 /// Tables whose keys are chosen by the user (names of variables, languages,
 /// mount points) rather than fixed by the format.
@@ -1254,10 +1263,17 @@ pub struct Config {
     pub output: OutputConfig,
     /// Thresholds of the effect report.
     pub report: ReportConfig,
+    /// Continuation of shortened results: lifetime and space.
+    pub continuation: ContinuationConfig,
     /// Text encodings and line endings.
     pub text: TextConfig,
     /// Resource limits.
     pub limits: LimitsConfig,
+    /// Limits of the loops of the language.
+    #[serde(rename = "loop")]
+    pub loop_limits: LoopConfig,
+    /// Limits of the functions of the language.
+    pub function: FunctionConfig,
     /// File system behaviour.
     pub fs: FsConfig,
     /// Source code analysis and language servers.
@@ -1284,6 +1300,8 @@ pub struct Config {
     pub log: LogConfig,
     /// Session recorded in the journal.
     pub session: SessionConfig,
+    /// Privilege elevation.
+    pub privilege: PrivilegeConfig,
 }
 
 /// Section `[syntax]`.
@@ -1711,6 +1729,32 @@ impl Default for OutputConfig {
     }
 }
 
+/// Section `[continuation]`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct ContinuationConfig {
+    /// Key `continuation.max_age`: a continuation older than this expires.
+    /// Default `1h`.
+    pub max_age: DurationSetting,
+    /// Key `continuation.max_count`: most continuations kept; the oldest is
+    /// removed first. Default `50`.
+    pub max_count: u32,
+    /// Key `continuation.max_size`: most space of all kept results; the
+    /// oldest is removed first. Default `256mib`.
+    pub max_size: SizeSetting,
+}
+
+impl Default for ContinuationConfig {
+    fn default() -> Self {
+        Self {
+            max_age: DurationSetting::from_secs(3600),
+            max_count: 50,
+            max_size: SizeSetting::from_bytes(256 << 20),
+        }
+    }
+}
+
 /// Section `[report]`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -1826,6 +1870,63 @@ impl Default for LimitsConfig {
             max_file_bytes_text: SizeSetting::from_gib(1),
             threads: None,
         }
+    }
+}
+
+/// Section `[loop]`: limits of a `repeat` or a `while` without `limit`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct LoopConfig {
+    /// Key `loop.max_iterations`: largest number of iterations of a loop
+    /// without `limit`; reaching it ends the loop with `E_LIMIT` in `repeat`
+    /// and normally in `while`. Default `10000`.
+    pub max_iterations: u64,
+    /// Key `loop.max_time`: longest time of a loop without `limit`. Default
+    /// `10m`.
+    pub max_time: DurationSetting,
+}
+
+impl Default for LoopConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 10_000,
+            max_time: DurationSetting::from_millis(600_000),
+        }
+    }
+}
+
+/// Section `[function]`: limits of the functions defined with `define`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct FunctionConfig {
+    /// Key `function.max_depth`: deepest nesting of calls of functions;
+    /// deeper recursion ends with `E_LIMIT`. From 1 to
+    /// [`FUNCTION_DEPTH_LIMIT`]; default `64`.
+    #[serde(deserialize_with = "function_depth")]
+    #[schemars(range(min = 1, max = 1024))]
+    pub max_depth: u32,
+}
+
+/// Largest value of `function.max_depth`: calls of functions nest on the stack
+/// of the executor, and a larger depth could overflow it before `E_LIMIT`.
+pub const FUNCTION_DEPTH_LIMIT: u32 = 1024;
+
+fn function_depth<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+    let depth = u32::deserialize(deserializer)?;
+    if (1..=FUNCTION_DEPTH_LIMIT).contains(&depth) {
+        Ok(depth)
+    } else {
+        Err(serde::de::Error::custom(format!(
+            "function.max_depth is from 1 to {FUNCTION_DEPTH_LIMIT}, found {depth}"
+        )))
+    }
+}
+
+impl Default for FunctionConfig {
+    fn default() -> Self {
+        Self { max_depth: 64 }
     }
 }
 
@@ -2197,6 +2298,42 @@ pub struct LogConfig {
     pub level: LogLevel,
 }
 
+/// Section `[privilege]`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct PrivilegeConfig {
+    /// Key `privilege.default`: value of the call parameter `privilege` when
+    /// a call does not give it; the embedding engine may set it. Default
+    /// `account`.
+    pub default: Privilege,
+    /// Key `privilege.allowed`: when `false`, `elevated` and `auto` end with
+    /// `E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch
+    /// with which the embedding engine applies its policy. Default `true`.
+    pub allowed: bool,
+    /// Key `privilege.backends`: allowed elevation backends in order of
+    /// trial (`self`, `broker`, `sudo`, `doas`, `run0`). Default none: the
+    /// list of the system, `["self", "broker", "sudo", "doas", "run0"]` on
+    /// Linux, `["self", "broker", "sudo"]` on macOS and `["self", "broker"]`
+    /// on Windows.
+    pub backends: Option<Vec<String>>,
+    /// Key `privilege.group`: group allowed to connect to the service
+    /// `nurt-elevation`. Default none: `sudo` or `wheel` on Linux, `admin` on
+    /// macOS.
+    pub group: Option<String>,
+}
+
+impl Default for PrivilegeConfig {
+    fn default() -> Self {
+        Self {
+            default: Privilege::Account,
+            allowed: true,
+            backends: None,
+            group: None,
+        }
+    }
+}
+
 /// Section `[session]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -2343,7 +2480,7 @@ impl KeyAccess {
 ///
 /// * trust keys (`scope.trust*`) are ignored in a project file and at run
 ///   time, so that neither a repository nor a request can grant trust;
-/// * `service.*` is ignored in a project file;
+/// * `service.*` and `privilege.*` are ignored in a project file;
 /// * a project file may set `scope.base`, `scope.project_roots`, `report.*`
 ///   and `run.*`, and `journal.*` only for a trusted project; other keys are
 ///   ignored.
@@ -2381,7 +2518,7 @@ fn access(level: ConfigLevel, section: &str, field: &str) -> KeyAccess {
         return KeyAccess::Allowed;
     }
     match section {
-        "service" => KeyAccess::Ignored(ConfigNoteKind::TrustConfigIgnored),
+        "service" | "privilege" => KeyAccess::Ignored(ConfigNoteKind::TrustConfigIgnored),
         "report" | "run" => KeyAccess::Allowed,
         "scope" if matches!(field, "base" | "project_roots") => KeyAccess::Allowed,
         "journal" => KeyAccess::TrustedProjectOnly,
@@ -3185,3 +3322,7 @@ mod tests {
         assert!(!known.iter().any(|key| key.starts_with("journal.volume.")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

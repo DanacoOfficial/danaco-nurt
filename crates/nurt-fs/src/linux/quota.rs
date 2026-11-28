@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::quota
+// Responsibility:   Account quota figures from the result of `quotactl(Q_GETQUOTA)`.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Account quota figures from the result of `quotactl(Q_GETQUOTA)`.
 //!
 //! Block limits of `struct if_dqblk` are counted in quota blocks of
@@ -135,3 +143,7 @@ mod tests {
         assert!(quota_figures(VALID | 0x3c, 10, 20, 0).is_some());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

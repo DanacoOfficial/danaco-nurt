@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-langserver/tests/lsp_scenarios.rs
+// Responsibility:   Protocol scenarios of `tests/d1/lsp/scenarios` and the end of sessions.
+// Dependencies:     lsp_server, lsp_support, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Protocol scenarios of `tests/d1/lsp/scenarios` and the end of sessions.
 //!
 //! A scenario file holds the `initialize` parameters, the expected subset of
@@ -280,3 +288,7 @@ fn ignores_notifications_with_invalid_parameters() {
     assert_eq!(response.unwrap_err()["code"], -32602);
     client.shutdown().unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

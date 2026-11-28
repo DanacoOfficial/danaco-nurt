@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::syntax_check
+// Responsibility:   Syntax errors of source code.
+// Dependencies:     nurt_contracts, tree_sitter
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Syntax errors of source code.
 //!
 //! The parser recovers from errors by inserting `ERROR` nodes around text it
@@ -230,3 +238,7 @@ mod tests {
         assert!(check("javascript", &source).len() <= MAX_ISSUES);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

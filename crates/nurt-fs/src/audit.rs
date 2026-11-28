@@ -1,14 +1,23 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::audit
+// Responsibility:   Wrapper that detects mutations made outside an active journal entry.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Wrapper that detects mutations made outside an active journal entry.
 //!
 //! [`AuditFs`] wraps any [`FsWrite`] and classifies every mutating call
-//! before forwarding it. A call is admitted in one of three classes:
+//! before forwarding it. A call is admitted in one of four classes:
 //!
 //! | Class | Condition |
 //! |---|---|
 //! | [`WriteClass::Internal`] | every path lies inside a registered internal directory (state directory of the account, `.nurt-journal*` directories); any scope purpose |
+//! | [`WriteClass::Unjournaled`] | every path lies inside a registered directory of a volume without a journal; scope purpose [`ScopePurpose::Operation`] |
 //! | [`WriteClass::Transaction`] | scope purpose [`ScopePurpose::Operation`] and entry state `prepared` or `rolling_back` |
 //! | [`WriteClass::Recovery`] | scope purpose [`ScopePurpose::Recovery`] or [`ScopePurpose::Reclaim`] and entry state `prepared`, `rolling_back` or `expiring` |
 //!
@@ -29,8 +38,8 @@ use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, ExtendedMeta, FileLock, FileMeta, Follow, Fs, FsResult,
     FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport, PathKey, Provider, ProviderCaps,
     ProviderChild, ProviderKey, ProviderScheme, ProviderSnapshot, ProviderValue, ProviderWrite,
-    ReadHandle, RemoveStats, RenameMode, ScopePurpose, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    ReadHandle, RemoveStats, RenameMode, ScopePurpose, SpaceInfo, SpecialNode, TxScope, VolumeId,
+    VolumeInfo, WriteHandle,
 };
 use nurt_contracts::journal::{EntryState, OpId};
 
@@ -78,6 +87,9 @@ pub enum WriteClass {
     /// Recovery or reclaim of an entry that is prepared, rolling back or
     /// expiring.
     Recovery,
+    /// Mutation of user data on a volume that keeps no journal, so no entry
+    /// can exist.
+    Unjournaled,
     /// Mutation confined to registered internal directories.
     Internal,
 }
@@ -150,7 +162,8 @@ fn reject(method: &str, targets: &str, scope: &TxScope, state: Option<EntryState
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let oracle = |_: OpId| Some(EntryState::Committed);
 /// let audited = AuditFs::new(Arc::new(MemFs::new()?), Arc::new(oracle));
-/// audited.add_internal_root(AbsPath::new("/state")?);
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// audited.add_internal_root(AbsPath::new(format!("{root}/state"))?);
 /// assert!(audited.recorded().is_empty());
 /// # Ok(())
 /// # }
@@ -159,6 +172,7 @@ pub struct AuditFs<F: ?Sized> {
     inner: Arc<F>,
     oracle: Arc<dyn StateOracle>,
     internal: RwLock<Vec<AbsPath>>,
+    unjournaled: RwLock<Vec<AbsPath>>,
     records: Mutex<Vec<AuditRecord>>,
 }
 
@@ -178,6 +192,7 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
             inner,
             oracle,
             internal: RwLock::new(Vec::new()),
+            unjournaled: RwLock::new(Vec::new()),
             records: Mutex::new(Vec::new()),
         }
     }
@@ -185,6 +200,15 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
     /// Registers a directory whose subtree holds internal state.
     pub fn add_internal_root(&self, root: AbsPath) {
         self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(root);
+    }
+
+    /// Registers a directory of a volume that keeps no journal; operations
+    /// below it may change user data without an entry.
+    pub fn add_unjournaled_root(&self, root: AbsPath) {
+        self.unjournaled
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .push(root);
@@ -215,9 +239,21 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
             .any(|root| path.starts_with(root))
     }
 
+    fn is_unjournaled(&self, path: &AbsPath) -> bool {
+        self.unjournaled
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .any(|root| path.starts_with(root))
+    }
+
     fn admit(&self, scope: &TxScope, method: &'static str, paths: &[&AbsPath]) {
         let class = if paths.iter().all(|path| self.is_internal(path)) {
             WriteClass::Internal
+        } else if scope.purpose() == ScopePurpose::Operation
+            && paths.iter().all(|path| self.is_unjournaled(path))
+        {
+            WriteClass::Unjournaled
         } else {
             let state = self.oracle.state(scope.op());
             classify_user_write(scope.purpose(), state).unwrap_or_else(|| {
@@ -239,6 +275,10 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
 impl<F: ?Sized + FsWrite> Fs for AuditFs<F> {
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
         self.inner.metadata(path, follow)
+    }
+
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        self.inner.special_node(path)
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -385,6 +425,17 @@ impl<F: ?Sized + FsWrite> FsWrite for AuditFs<F> {
     ) -> FsResult<RemoveStats> {
         self.admit(scope, "remove_tree", &[path]);
         self.inner.remove_tree(scope, path, parallelism)
+    }
+
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: Option<u32>,
+    ) -> FsResult<()> {
+        self.admit(scope, "create_node", &[path]);
+        self.inner.create_node(scope, path, node, mode)
     }
 
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {
@@ -542,7 +593,7 @@ mod tests {
     use crate::mem::MemFs;
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     // Tests stand in for the journal, the only producer of scopes.
@@ -606,6 +657,32 @@ mod tests {
     }
 
     #[test]
+    fn operation_on_a_volume_without_journal_is_admitted_as_unjournaled() {
+        let fs = audited(&[]);
+        fs.add_unjournaled_root(p("/home/user"));
+        fs.create_dir(
+            &scope(2, ScopePurpose::Operation),
+            &p("/home/user/project/d"),
+            0o755,
+        )
+        .expect("unjournaled write");
+        let classes: Vec<WriteClass> = fs.recorded().iter().map(|record| record.class).collect();
+        assert_eq!(classes, [WriteClass::Unjournaled]);
+    }
+
+    #[test]
+    #[should_panic(expected = "purpose Recovery")]
+    fn recovery_on_a_volume_without_journal_panics() {
+        let fs = audited(&[]);
+        fs.add_unjournaled_root(p("/home/user"));
+        let _ = fs.create_dir(
+            &scope(2, ScopePurpose::Recovery),
+            &p("/home/user/project/d"),
+            0o755,
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "purpose Maintenance")]
     fn maintenance_outside_internal_roots_panics() {
         let fs = audited(&[(3, EntryState::Prepared)]);
@@ -617,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "rename on /state/a, /home/user/project/a")]
+    #[should_panic(expected = "/home/user/project/a (operation 4, purpose Reclaim")]
     fn move_from_internal_to_user_data_needs_a_transaction() {
         let fs = audited(&[]);
         let _ = fs.rename(
@@ -865,3 +942,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

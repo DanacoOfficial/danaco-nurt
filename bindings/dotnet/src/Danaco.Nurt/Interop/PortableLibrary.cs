@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           bindings/dotnet/src/Danaco.Nurt/Interop/PortableLibrary.cs
+// Responsibility:   Source file bindings/dotnet/src/Danaco.Nurt/Interop/PortableLibrary.cs.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
 using System.Reflection;
@@ -17,7 +24,7 @@ namespace Danaco.Nurt;
 /// later (also .NET 5 and later). On a runtime without it <see cref="IsAvailable"/> is
 /// <see langword="false"/> and the runtime searches its default locations for <c>libnurt</c>.
 /// </remarks>
-#pragma warning disable IL2026, IL2057, IL2075 // Reflection on a framework type that is present on every runtime that has it.
+#pragma warning disable IL2026, IL2057, IL2075, IL2080 // Reflection on a framework type that is present on every runtime that has it.
 internal static class PortableLibrary
 {
     private const string TypeName = "System.Runtime.InteropServices.NativeLibrary";
@@ -83,3 +90,7 @@ internal static class PortableLibrary
     }
 }
 #pragma warning restore IL2026, IL2057, IL2075
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

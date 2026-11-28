@@ -1,10 +1,18 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-migrate/tests/migrate/language.rs
+// Responsibility:   Detection of the script language.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection of the script language.
 
 use nurt_contracts::error::ErrorCode;
-use nurt_migrate::ScriptLanguage;
+use nurt_migrate::{MigrateOptions, ScriptLanguage, Status, migrate};
 
 #[test]
 fn detects_language_from_extension() {
@@ -89,3 +97,29 @@ fn names_language_and_interpreter() {
     assert_eq!(ScriptLanguage::Bash.interpreter(), "bash");
     assert_eq!(ScriptLanguage::PowerShell.interpreter(), "pwsh");
 }
+
+#[test]
+fn habit_table_follows_the_language_of_the_script_and_not_the_shape_of_the_text() {
+    // The table is chosen by the language given for the script (from its name
+    // or shebang), so a statement is never read with the table of the other shell.
+    let source = "rm -rf /srv/app/build\n";
+    let options = MigrateOptions::new().with_script("table.sh");
+    let status = |language| {
+        migrate(source, language, &options)
+            .map(|migration| migration.report.items.first().map(|item| item.status))
+    };
+    let bash = status(ScriptLanguage::Bash);
+    let powershell = status(ScriptLanguage::PowerShell);
+    assert!(
+        matches!(bash, Ok(Some(Status::Translated | Status::Assumption))),
+        "{bash:?}"
+    );
+    assert!(
+        matches!(powershell, Ok(Some(Status::Impossible | Status::Error))),
+        "{powershell:?}"
+    );
+}
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

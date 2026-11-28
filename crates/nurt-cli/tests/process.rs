@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/process.rs
+// Responsibility:   Tests of the `nurt` executable as a process.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `nurt` executable as a process.
 
 #![allow(
@@ -41,6 +49,12 @@ fn nurt(args: &[&str], stdin: &str) -> Output {
         .write_all(stdin.as_bytes())
         .unwrap();
     child.wait_with_output().unwrap()
+}
+
+/// `path` as a text literal of the language: `/` separators, which a text
+/// takes without escapes on every system.
+fn quoted(path: &std::path::Path) -> String {
+    format!("\"{}\"", path.display().to_string().replace('\\', "/"))
 }
 
 fn stdout(output: &Output) -> String {
@@ -101,7 +115,8 @@ fn help_option_after_a_subcommand_prints_its_usage_and_succeeds() {
 
 #[test]
 fn program_with_the_front_end_prints_a_valid_json_response() {
-    let output = nurt(&["--format", "json", "find", "\"/srv\""], "");
+    let dir = tempfile::tempdir().unwrap();
+    let output = nurt(&["--format", "json", "find", &quoted(dir.path())], "");
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     let response: Response = serde_json::from_str(&stdout(&output)).unwrap();
@@ -364,7 +379,7 @@ fn read_of_a_key_uses_the_document_service() {
     let home = tempfile::tempdir().unwrap();
     let document = home.path().join("settings.json");
     std::fs::write(&document, "{\"server\": {\"port\": 8080}}\n").unwrap();
-    let program = format!("read \"{}\" key: \"server.port\"", document.display());
+    let program = format!("read {} key: \"server.port\"", quoted(&document));
     let output = nurt(&[program.as_str()], "");
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let text = stdout(&output);
@@ -455,7 +470,8 @@ fn protocol_server_rejects_invalid_arguments() {
 
 #[test]
 fn session_reads_programs_from_a_pipe() {
-    let output = nurt(&["repl"], "find \"/srv\"\nexit\n");
+    let dir = tempfile::tempdir().unwrap();
+    let output = nurt(&["repl"], &format!("find {}\nexit\n", quoted(dir.path())));
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     assert!(!stderr(&output).contains("E_UNSUPPORTED"));
@@ -480,18 +496,39 @@ fn framed(body: &str) -> String {
     format!("Content-Length: {}\r\n\r\n{body}", body.len())
 }
 
-/// Next reply with the identifier `id` in the output of a server that writes
-/// one JSON-RPC message per line.
+#[cfg(feature = "mcp")]
+thread_local! {
+    /// Replies read from the server before the test asked for them; the
+    /// server answers concurrent requests in the order they finish.
+    static EARLY_REPLIES: std::cell::RefCell<Vec<serde_json::Value>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Reply with the identifier `id` in the output of a server that writes one
+/// JSON-RPC message per line. Replies to other requests read on the way are
+/// kept for a later call, because JSON-RPC does not order replies.
 #[cfg(feature = "mcp")]
 fn reply_of(
     lines: &mut std::io::Lines<BufReader<std::process::ChildStdout>>,
     id: u64,
 ) -> serde_json::Value {
+    let early = EARLY_REPLIES.with_borrow_mut(|early| {
+        early
+            .iter()
+            .position(|message| message["id"] == id)
+            .map(|index| early.remove(index))
+    });
+    if let Some(message) = early {
+        return message;
+    }
     loop {
         let line = lines.next().expect("the server closed its output").unwrap();
         let message: serde_json::Value = serde_json::from_str(&line).unwrap();
         if message["id"] == id {
             return message;
+        }
+        if !message["id"].is_null() {
+            EARLY_REPLIES.with_borrow_mut(|early| early.push(message));
         }
     }
 }
@@ -720,7 +757,7 @@ fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output
 }
 
 /// Rows of the records of a program run as JSON.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "macos")))]
 fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
     let output = program_in(home, &["--format", "json"], program);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
@@ -731,14 +768,34 @@ fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
-#[cfg(unix)]
+// APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt;
 
-    let work = tempfile::tempdir().unwrap();
-    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+    let home = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+    // The journal of a volume is shared by every process on it and numbers
+    // its operations per state directory, so the test keeps its own journal
+    // directory and removes it at the end. The space reserve is small, so that
+    // a disk filled below the default 15 % by other work does not make the
+    // journal skip the preservation of the file.
+    let journal_name = format!(
+        ".nurt-journal-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_nanos())
+    );
+    let config_dir = home.path().join("config").join("nurt");
+    std::fs::create_dir_all(&config_dir).unwrap();
+    std::fs::write(
+        config_dir.join("nurt.toml"),
+        format!("[journal]\ndir_name = \"{journal_name}\"\n[space]\nreserve = \"1mib\"\n"),
+    )
+    .unwrap();
     let dir = work.path().to_str().unwrap().to_owned();
     let bad = work.path().join(OsStr::from_bytes(b"bad\xffname.txt"));
     std::fs::write(&bad, b"raw").unwrap();
@@ -777,6 +834,9 @@ fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
         .unwrap();
     assert_eq!(undone.status.code(), Some(0), "{}", stdout(&undone));
     assert_eq!(std::fs::read(&bad).unwrap(), b"raw", "{}", stdout(&undone));
+    if let Some(user_home) = std::env::var_os("HOME") {
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&user_home).join(&journal_name));
+    }
 }
 
 #[cfg(unix)]
@@ -858,13 +918,13 @@ fn a_misspelt_changing_command_is_offered_and_not_run() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("a.txt");
     std::fs::write(&file, "x").unwrap();
-    let program = format!("remvoe \"{}\"", file.display());
+    let program = format!("remvoe {}", quoted(&file));
     let output = nurt(&[&program], "");
     assert_eq!(output.status.code(), Some(1), "{}", combined(&output));
     let text = combined(&output);
     assert!(text.contains("E_AMBIGUOUS"), "{text}");
     assert!(
-        text.contains(&format!("remove \"{}\"", file.display())),
+        text.contains(&format!("remove {}", quoted(&file))),
         "{text}"
     );
     assert!(file.exists());
@@ -876,7 +936,7 @@ fn a_misspelt_changing_command_is_offered_and_not_run() {
 fn a_misspelt_reading_command_is_corrected_and_run() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.txt"), "x").unwrap();
-    let program = format!("lsit \"{}\"", dir.path().display());
+    let program = format!("lsit {}", quoted(dir.path()));
     let output = nurt(&[&program], "");
     assert_eq!(output.status.code(), Some(0), "{}", combined(&output));
     assert!(
@@ -944,18 +1004,8 @@ fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_comma
             "params": {"name": "nurt", "arguments": {"program": program}}
         })
     };
-    writeln!(
-        input,
-        "{}",
-        call(2, format!("remvoe \"{}\"", file.display()))
-    )
-    .unwrap();
-    writeln!(
-        input,
-        "{}",
-        call(3, format!("lsit \"{}\"", dir.path().display()))
-    )
-    .unwrap();
+    writeln!(input, "{}", call(2, format!("remvoe {}", quoted(&file)))).unwrap();
+    writeln!(input, "{}", call(3, format!("lsit {}", quoted(dir.path())))).unwrap();
     input.flush().unwrap();
     let offered = reply_of(&mut lines, 2).to_string();
     assert!(offered.contains("E_AMBIGUOUS"), "{offered}");
@@ -966,3 +1016,7 @@ fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_comma
     drop(input);
     assert_eq!(child.wait().unwrap().code(), Some(0));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

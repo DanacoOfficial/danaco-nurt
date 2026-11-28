@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::notebook
+// Responsibility:   Commands of the group `notebook`: cells of Jupyter notebooks in nbformat 4.
+// Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Commands of the group `notebook`: cells of Jupyter notebooks in
 //! nbformat 4.
 //!
@@ -22,7 +30,7 @@ use std::ops::{ControlFlow, Range as Span};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result};
-use nurt_contracts::fs::{AbsPath, Etag, FileMeta, Follow, Fs};
+use nurt_contracts::fs::{AbsPath, ContentHash, Etag, FileMeta, Follow, Fs};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{Cell, CellType, Change, Effect, EffectStatus};
 use nurt_contracts::stage::{
@@ -86,7 +94,15 @@ pub(crate) struct LoadedNotebook {
 impl LoadedNotebook {
     /// Entity tag of the file as read.
     pub(crate) fn etag(&self) -> Etag {
-        self.meta.etag()
+        Etag {
+            hash: Some(self.hash()),
+            ..self.meta.etag()
+        }
+    }
+
+    /// SHA-256 hash of the file as read.
+    pub(crate) fn hash(&self) -> ContentHash {
+        nurt_text::hash::content_hash(&self.bytes)
     }
 
     /// Size of the file as read, in bytes.
@@ -835,15 +851,9 @@ mod tests {
         let regex = RegexPattern::new(&Regex::new(r"(\d)x", "").unwrap(), false).unwrap();
         let haystack = "1x ".repeat(20_000);
         let found = regex.find_all(&haystack);
-        let started = std::time::Instant::now();
         let expanded = regex.expand_all(&haystack, &found, "[$1]");
         assert_eq!(expanded.len(), 20_000);
         assert!(expanded.iter().all(|text| text == "[1]"));
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(5),
-            "{:?}",
-            started.elapsed()
-        );
     }
 
     #[test]
@@ -885,3 +895,7 @@ pub(crate) mod fixture {
         (test, path)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

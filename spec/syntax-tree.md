@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/syntax-tree.md -->
+<!-- Responsibility:   Documents Syntax trees: `nurt-ast/1` and `nurt-bound/1`. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Syntax trees: `nurt-ast/1` and `nurt-bound/1`
 
 Nurt executes and records a syntax tree, never program text. Program text in
@@ -22,7 +30,7 @@ serialize to exactly these documents.
 | Item | Surface tree | Bound tree |
 |---|---|---|
 | Format name | `nurt-ast/1` | `nurt-bound/1` |
-| Version member | `"nurt": "1.0"` | `"nurt": "1.0"` and `"bound": "1.0"` |
+| Version member | `"nurt": "1.1"` | `"nurt": "1.1"` and `"bound": "1.1"` |
 | Media type | `application/vnd.nurt.ast+json; v=1`, `application/vnd.nurt.ast+cbor; v=1` | `application/vnd.nurt.bound+json; v=1`, `application/vnd.nurt.bound+cbor; v=1` |
 | File extension | `.nurt.json` (tree), `.nurt` (program text, UTF-8) | — |
 | Schema | `nurt-ast-1.schema.json` | `nurt-bound-1.schema.json` |
@@ -118,6 +126,40 @@ Root members: `nurt` (required), `program` (required), `meta`.
 | `sub` | `p: pipeline` | `(run […] \|> assert exit_code: 0)` |
 | `key` | `segs` | structured key: names, indexes, `{"wild": "*" \| "**" \| "+"}`, `{"filter": expr}` |
 
+### Control constructs (version 1.1)
+
+Version 1.1 adds the statements below. A block is an array of at least one
+statement; a reader of version 1.0 rejects a document that holds one with
+`E_AST_VERSION`, naming the node kinds it does not know. A document of version
+1.0 is read unchanged. The words that start a construct are reserved only at
+the start of a statement, so `steps`, `params` and the other words stay
+admissible as parameter names and map keys.
+
+| `t` | Members | Text form |
+|---|---|---|
+| `when` | `branches: [{cond, body, span?}]`, `otherwise?: block` | `when COND { … } otherwise when COND { … } otherwise { … }` |
+| `each` | `source`, `name`, `options?: [{name, value}]`, `body` | `each (find "/d") as f parallel: 4 { … }` |
+| `repeat` | `options: [{name, value}]` (`until` required), `body` | `repeat until: COND every: 5s limit: 2m { … }` |
+| `while` | `cond`, `options?`, `body` | `while COND limit: 20 { … }` |
+| `break`, `continue` | — | `break` |
+| `steps` | `body` | `steps { … }` |
+| `define` | `name`, `params?: [{name, type, default?}]`, `body` | `define rotate(dir: path, keep: int = 7) { … }` |
+| `params` | `params: [{name, type, default?}]` | `params { dir: path  days: int = 30 }` |
+
+Rules of the constructs:
+
+1. A call of a function is a `stage` whose name is the function; the parser
+   reads `name(…)` as the notation of a call for every name defined earlier in
+   the program, in all three variants.
+2. `type` is written as in the catalog: `path`, `int`, `list<text>`,
+   `enum(a, b)`. A parameter name is declared once.
+3. Options are named; a bare option name is `true` (`atomic`). The options of
+   `each` are `parallel` and `atomic`, of `repeat` `until`, `every`, `limit`
+   and `atomic`, of `while` `limit` and `atomic`.
+4. In a condition `exists <operand>` is a `call` of `exists`.
+5. The spans of a construct cover it from its first word to the closing brace.
+   The formatter keeps the comments of a construct before it.
+
 Rules of the surface tree:
 
 1. The tree does not depend on the catalog. Positional arguments keep their
@@ -150,7 +192,7 @@ Rules of the surface tree:
 Example: `ports state: listen |> filter port == 8080`
 
 ```json
-{"nurt": "1.0", "program": {"statements": [{"t": "pipeline",
+{"nurt": "1.1", "program": {"statements": [{"t": "pipeline",
   "head": {"t": "stage", "name": "ports", "args": [
     {"name": "state", "value": {"t": "ident", "v": "listen", "span": [1, 14, 1, 20]}, "span": [1, 7, 1, 20]}],
     "span": [1, 1, 1, 20]},
@@ -181,7 +223,7 @@ A stage has the members:
 | `effect` | effect kind from the catalog: `read`, `local`, `external`, `process` |
 | `phase` | execution phase (section 5); required |
 | `waits` | `true` when the stage blocks the call by waiting; omitted when `false`. The catalog marks the command `waits`, or a parameter marked `waits` has a value greater than its default or the value `forever` |
-| `args` | every parameter of the signature, in signature order |
+| `args` | every parameter of the signature, in signature order, followed by the call parameters `privilege` and `as_user` when they were written on the stage (`catalog.md`, section 2) |
 | `span` | source range of the surface stage |
 
 An argument has `name`, `value`, `default` (`true` when the value comes from
@@ -236,6 +278,24 @@ Binding rules:
 8. `effect` always comes from the catalog, never from the program. Stages of
    the phases `source`, `transform`, `check`, `after` and `verify` have the
    effect `read`.
+
+### Control constructs of the bound tree (version 1.1)
+
+The statements `when`, `each`, `repeat`, `while`, `break`, `continue`,
+`steps`, `define` and `params` have the same names and blocks as in the
+surface tree, with these differences: a condition and a source are bound
+expressions of type `bool` and of a list; the options of a loop are members
+(`parallel`, `atomic` (omitted when `true`), `every_ms`, `limit`); a limit is
+`{"kind": "iterations", "n": N}` or `{"kind": "time", "ms": N}`; a parameter
+has a canonical `type` and a bound `default`. A function call is a pipeline
+head `{"t": "call", "name", "args"}` whose `args` list every parameter by name,
+with `default: true` on the values that come from the declaration. A reading
+pipeline inside an expression is a `sub` value and `exists` is a `call`.
+Binding checks, before any effect: conditions are not statically another type
+than `bool`; options have their names and types; `break` and `continue` stand
+inside a loop; `params` is the first statement; functions are defined before
+their first call, the body of a function sees only its parameters, and a call
+names every required parameter with a value of its type.
 
 ## 5. Phases
 
@@ -304,3 +364,7 @@ serializes back to the same JSON value, survives a CBOR round trip unchanged
 and has the recorded `ast_hash`, and that every invalid document is rejected
 at its layer. Setting `NURT_BLESS=1` regenerates the generated schemas and the
 recorded hashes after a reviewed change.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

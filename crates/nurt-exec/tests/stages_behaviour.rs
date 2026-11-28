@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/stages_behaviour.rs
+// Responsibility:   Behaviour of the record stages on streams built in the tests.
+// Dependencies:     harness, nurt_catalog, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Behaviour of the record stages on streams built in the tests.
 
 // Tests fail through unwrap, expect and panic by design.
@@ -1082,3 +1090,7 @@ fn verify_needs_a_pipeline_and_a_runner() {
         ErrorCode::StageFailed
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

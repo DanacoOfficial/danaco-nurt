@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-tooldef/tests/api_limits.rs
+// Responsibility:   Rendered definitions against the limits of tool-calling APIs: names, nesting, the keywords each platform rejects, and the types of the values.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rendered definitions against the limits of tool-calling APIs: names,
 //! nesting, the keywords each platform rejects, and the types of the values.
 
@@ -233,3 +241,7 @@ fn the_description_carries_multibyte_text_unchanged() {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

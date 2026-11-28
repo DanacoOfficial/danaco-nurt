@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           CONTRIBUTING.md -->
+<!-- Responsibility:   Documents Contributing to Danaco Nurt. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Contributing to Danaco Nurt
 
@@ -168,6 +175,16 @@ bash tools/ci/check-commits.sh origin/main..HEAD
 `tools/ci/repo-hygiene.sh --list` lists the checks of repository content,
 language and style, and file headers.
 
+Property tests (`proptest`) generate a few hundred cases per property in a
+regular run, so that every test of `nurt-syntax` takes less than 30 seconds in a
+debug build. The scheduled nightly run of `ci.yml` sets `NURT_PROPTEST_FULL=1`
+and generates the full number of cases (100 000 for most properties).
+`PROPTEST_CASES=<n>` overrides the number in both runs:
+
+```sh
+NURT_PROPTEST_FULL=1 cargo nextest run -p nurt-syntax -E 'binary(cbor_roundtrip) or binary(roundtrip_print)'
+```
+
 Test coverage is measured with
 [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov). The minimum line
 coverage is 80% for the workspace and 90% for the crates `nurt-contracts`,
@@ -187,3 +204,7 @@ cargo llvm-cov nextest --workspace --locked --fail-under-lines 80
 - Do not commit build outputs, logs, editor files or local configuration.
 - A maintainer reviews every pull request. Commits are merged as they are, so
   each commit must satisfy the commit message and sign-off rules.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

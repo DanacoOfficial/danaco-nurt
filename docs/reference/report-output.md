@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/reference/report-output.md -->
+<!-- Responsibility:   Documents Report output. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Report output
 
 The result of a program is the report `nurt-report/1`. The crate `nurt-report`
@@ -47,7 +55,10 @@ stay in the changes.
 - Changes beyond `limit` are counted, not listed. `targets.listed` is set to
   the number of listed changes.
 - Rows of a reading program beyond `limit` are counted, not listed. The cursor
-  of the next page is `next_cursor`, set by the engine.
+  of the next page is `next_cursor`, set by the engine. The field
+  `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`) names the
+  kept remainder and the text of the response ends with `more: next`; the
+  command `next` reads the next part from it.
 - Differences are limited as given under Verbosity.
 
 ## Field shortening
@@ -206,3 +217,7 @@ The error of a report is written with the fields `code`, `at`, `fix`, `help`,
 `expected`, `actual`, `sample`, `candidates`, `next_steps` and `cause`. Every
 code of the error enumeration produces a report that validates against
 `nurt-report/1` and renders in all four formats.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

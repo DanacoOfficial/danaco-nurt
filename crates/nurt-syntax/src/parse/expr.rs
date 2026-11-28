@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::parse::expr
+// Responsibility:   Expressions, lists, maps, ranges and sub-pipelines shared by all variants.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Expressions, lists, maps, ranges and sub-pipelines shared by all variants.
 //!
 //! Binding strength, from the loosest: `or`; `and`; unary `not`; the
@@ -195,6 +203,9 @@ impl<'s> ExprParser<'s> {
             | TokenKind::False
             | TokenKind::Null => parse_literal(p),
             TokenKind::Ident if p.current().glued == Glued::LParen => self.parse_call(p),
+            TokenKind::Ident if p.condition && p.slice(p.current()) == "exists" => {
+                self.parse_exists(p)
+            }
             TokenKind::Ident => parse_ident(p),
             TokenKind::At => parse_reference(p),
             TokenKind::DotDot => parse_range_after(p, None),
@@ -207,6 +218,26 @@ impl<'s> ExprParser<'s> {
             }
             _ => Err(error::missing_operand(p)),
         }
+    }
+
+    /// Parses `exists <operand>` of a condition into a call of `exists`.
+    fn parse_exists(&self, p: &mut Parser<'_>) -> Result<Boxed, SyntaxError> {
+        let word = p.bump(LexContext::Value)?;
+        let operand = self.parse_postfix(p)?;
+        let span = join(word.span, operand.span);
+        let range = word.range.start..operand.range.end;
+        let height = operand.height + 1;
+        p.check_height(height, span)?;
+        Ok(Box::new(Parsed {
+            value: Expr::Call {
+                function: "exists".to_owned(),
+                args: vec![operand.value],
+                span: Some(span),
+            },
+            span,
+            range,
+            height,
+        }))
     }
 
     /// Error for `...x` outside a list, with the extent of the spread.
@@ -324,7 +355,29 @@ impl<'s> ExprParser<'s> {
         if !p.at(&TokenKind::PipeGt) {
             return Ok(Inner::Expression(expression));
         }
-        let head = into_head(p, *expression)?;
+        let Parsed {
+            value, span, range, ..
+        } = *expression;
+        if let Expr::Sub { p: inner, .. } = value {
+            let head = Parsed {
+                value: inner.head,
+                span,
+                range,
+                height: 1,
+            };
+            let mut tail = p.parse_pipeline_tail(head, self.syntax)?;
+            tail.value.stages.splice(0..0, inner.stages);
+            return Ok(Inner::Pipeline(Box::new(tail)));
+        }
+        let head = into_head(
+            p,
+            Parsed {
+                value,
+                span,
+                range,
+                height: 1,
+            },
+        )?;
         Ok(Inner::Pipeline(Box::new(
             p.parse_pipeline_tail(head, self.syntax)?,
         )))
@@ -335,6 +388,9 @@ impl<'s> ExprParser<'s> {
     fn starts_sub_pipeline(&self, p: &mut Parser<'_>) -> bool {
         if p.kind() != &TokenKind::Ident {
             return false;
+        }
+        if p.at_function_call() {
+            return true;
         }
         let checkpoint = p.checkpoint();
         let starts = match p.parse_command_name(LexContext::Operator) {
@@ -807,3 +863,7 @@ fn set_span(expression: &mut Expr, new: Span) {
         _ => {}
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

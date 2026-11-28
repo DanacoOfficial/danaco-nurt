@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-verify/tests/analyze_support/mod.rs
+// Responsibility:   Execution context, test project and tool programs for the tests of the analysis commands.
+// Dependencies:     nurt_contracts, nurt_testkit, services
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution context, test project and tool programs for the tests of the
 //! analysis commands.
 
@@ -90,9 +98,13 @@ pub(crate) fn fixture_path() -> PathBuf {
 }
 
 fn compile_fixture() -> PathBuf {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples")
-        .join(format!("{FIXTURE}.rs"));
+    let source = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("examples")
+    .join(format!("{FIXTURE}.rs"));
     let dir = std::env::temp_dir().join(format!("nurt-verify-{FIXTURE}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let output = dir.join(format!("{FIXTURE}{}", std::env::consts::EXE_SUFFIX));
@@ -343,3 +355,7 @@ pub(crate) struct EffectOutcomeSummary {
 pub(crate) fn field<'a>(record: &'a Record, name: &str) -> Option<&'a str> {
     record.get(name).and_then(Value::as_str)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

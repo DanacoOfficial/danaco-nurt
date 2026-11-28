@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sys/tests/registry_journal.rs
+// Responsibility:   Journal scenarios of the `registry:` provider on the in-memory registry.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Journal scenarios of the `registry:` provider on the in-memory registry.
 //!
 //! Each scenario takes the snapshots the journal takes before a change,
@@ -755,7 +763,12 @@ fn subtree_document_matches_fixture() {
     let snapshot = provider.snapshot(&example.to_provider_key()).unwrap();
     let actual: serde_json::Value = serde_json::from_slice(&snapshot.subtree.unwrap()).unwrap();
     let fixture = std::fs::read(
-        StdPath::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/registry/subtree.json"),
+        StdPath::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("tests/fixtures/registry/subtree.json"),
     )
     .unwrap();
     let expected: serde_json::Value = serde_json::from_slice(&fixture).unwrap();
@@ -764,7 +777,12 @@ fn subtree_document_matches_fixture() {
 
 #[test]
 fn catalog_signatures_match_frozen() {
-    let root = StdPath::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+    let root = StdPath::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog");
     let core = command_table(&root.join("core.toml"));
     let write = &core["write"];
     let value_type = param(write, "value_type");
@@ -782,7 +800,7 @@ fn catalog_signatures_match_frozen() {
     for name in ["list", "find", "read", "info", "remove", "copy", "move"] {
         assert!(core.contains_key(name), "core command {name}");
     }
-    let admin = command_table(&root.join("admin.toml"));
+    let admin = command_table(&root.join("administration.toml"));
     let scope = param(&admin["services"], "scope");
     assert_eq!(scope["type"].as_str(), Some("enum(system|user)"));
     assert_eq!(scope["default"].as_str(), Some("system"));
@@ -819,3 +837,7 @@ fn param<'a>(command: &'a toml::Value, name: &str) -> &'a toml::Value {
         .find(|param| param["name"].as_str() == Some(name))
         .unwrap_or_else(|| panic!("parameter {name}"))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

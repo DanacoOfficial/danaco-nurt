@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-migrate::translate
+// Responsibility:   Interface between the migration and the translation of the bash and PowerShell habit tables.
+// Dependencies:     nurt_bind, nurt_contracts, nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface between the migration and the translation of the bash and
 //! PowerShell habit tables.
 //!
@@ -18,7 +26,7 @@ use nurt_contracts::ast::AstDocument;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::Correction;
 use nurt_contracts::spec::Os;
-use nurt_correct::bash::{self, Assumption, BashTable, Mode, TranslateContext};
+use nurt_correct::bash::{self, Assumption, BashTable, FunctionSignature, Mode, TranslateContext};
 use nurt_correct::policy::{InvariantInput, check_invariants, is_effecting};
 use nurt_correct::powershell::{self, PowerShellTable};
 use nurt_correct::record::Log;
@@ -70,6 +78,8 @@ pub struct TranslateRequest<'a> {
     pub statement: &'a str,
     /// Variables bound by earlier statements, in script order.
     pub lets: &'a [LetBinding],
+    /// Functions defined by earlier statements, in script order.
+    pub functions: &'a [FunctionSignature],
 }
 
 /// Translation engine used by the migration.
@@ -121,6 +131,7 @@ pub trait Translator {
 ///     language: ScriptLanguage::Bash,
 ///     statement: "mkdir -p /srv/out",
 ///     lets: &[],
+///     functions: &[],
 /// };
 /// let translation = translator.translate(&request)?;
 /// assert_eq!(translator.print(&translation.tree), "create \"/srv/out\" type: directory");
@@ -287,6 +298,7 @@ impl Translator for TableTranslator {
         let context = TranslateContext {
             base: None,
             lets: &names,
+            functions: request.functions,
             mode: Mode::Script,
         };
         let outcome = match request.language {
@@ -375,6 +387,7 @@ mod tests {
             language,
             statement,
             lets,
+            functions: &[],
         }
     }
 
@@ -408,15 +421,26 @@ mod tests {
     }
 
     #[test]
-    fn rejects_privilege_elevation_with_fix() {
+    fn translates_privilege_elevation_with_the_call_parameter_on_the_stage() -> Result<(), Error> {
+        let translator = TableTranslator::new();
+        let translation =
+            translator.translate(&request(ScriptLanguage::Bash, "sudo rm -f /etc/x", &[]))?;
+        assert_eq!(
+            translator.print(&translation.tree),
+            "remove \"/etc/x\" privilege: elevated"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_an_elevated_session_with_next_steps() {
         let translator = TableTranslator::new();
         let error = translator
-            .translate(&request(ScriptLanguage::Bash, "sudo rm -f /etc/x", &[]))
+            .translate(&request(ScriptLanguage::Bash, "sudo -i", &[]))
             .err();
-        assert_eq!(
-            error.map(|error| error.code()),
-            Some(ErrorCode::Uncorrectable)
-        );
+        let data = error.as_ref().map(Error::data);
+        assert_eq!(data.map(|data| data.code), Some(ErrorCode::Ambiguous));
+        assert!(data.is_some_and(|data| !data.next_steps.is_empty()));
     }
 
     #[test]
@@ -460,3 +484,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

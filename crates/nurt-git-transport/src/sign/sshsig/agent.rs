@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::sshsig::agent
+// Responsibility:   Signing through an SSH agent.
+// Dependencies:     nurt_contracts, ssh_key
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Signing through an SSH agent.
 //!
 //! The agent listens on a Unix domain socket or, on Windows, on a named
@@ -357,3 +365,7 @@ mod tests {
         assert!(get_string(b"\x00\x00").is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

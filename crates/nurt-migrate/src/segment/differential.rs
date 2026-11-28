@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-migrate::segment::differential
+// Responsibility:   Differential test of the division of scripts into statements: the tree-sitter grammars against the lexers of the bash and PowerShell habit tables.
+// Dependencies:     nurt_correct
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential test of the division of scripts into statements: the
 //! tree-sitter grammars against the lexers of the bash and PowerShell habit
 //! tables.
@@ -44,13 +52,35 @@ const COMMON_SETS: [(&str, ScriptLanguage); 2] = [
 type Start = (u32, u32);
 
 fn data_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(DATA_DIRECTORY)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(DATA_DIRECTORY)
+}
+
+/// Whether the statement is a compound command of bash (`for`, `while`,
+/// `until`, `if`, `case`, a function). It is translated as a whole into a
+/// construct of the language, so the statements inside it are not compared.
+fn is_compound(segment: &Segment, source: &str) -> bool {
+    let text = segment.text(source);
+    let word: String = text
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        .collect();
+    let rest = text[word.len()..].trim_start();
+    matches!(
+        word.as_str(),
+        "for" | "while" | "until" | "if" | "case" | "function"
+    ) || (!word.is_empty() && rest.starts_with("()"))
 }
 
 /// Starts of the statements and list parts found by the grammar.
-fn grammar_starts(segments: &[Segment]) -> BTreeSet<Start> {
+fn grammar_starts(segments: &[Segment], source: &str) -> BTreeSet<Start> {
     segments
         .iter()
+        .filter(|segment| !is_compound(segment, source))
         .filter_map(|segment| match &segment.kind {
             SegmentKind::Statement(statement) => Some(statement),
             _ => None,
@@ -61,9 +91,10 @@ fn grammar_starts(segments: &[Segment]) -> BTreeSet<Start> {
 }
 
 /// Whether a position lies in a statement found by the grammar.
-fn in_statement(segments: &[Segment], (line, column): Start) -> bool {
+fn in_statement(segments: &[Segment], source: &str, (line, column): Start) -> bool {
     segments.iter().any(|segment| {
         matches!(segment.kind, SegmentKind::Statement(_))
+            && !is_compound(segment, source)
             && (segment.start.line, segment.start.column) <= (line, column)
             && line <= segment.end_line
     })
@@ -166,11 +197,11 @@ fn segment_lexer_starts(
 /// Differences between the two divisions of one script, as readable lines.
 fn differences(name: &str, source: &str, language: ScriptLanguage) -> Vec<String> {
     let segments = segment(source, language).unwrap();
-    let grammar = grammar_starts(&segments);
+    let grammar = grammar_starts(&segments, source);
     let lexer: BTreeSet<Start> = lexer_starts(source, language)
         .unwrap_or_else(|| segment_lexer_starts(source, &segments, language))
         .into_iter()
-        .filter(|start| in_statement(&segments, *start))
+        .filter(|start| in_statement(&segments, source, *start))
         .collect();
     let only_grammar = grammar
         .difference(&lexer)
@@ -233,3 +264,7 @@ fn lexer_starts_split_lists() {
     let starts = bash_starts("mkdir /a && cp /b /a; ls /a || echo x\n");
     assert_eq!(starts, Some(vec![(1, 1), (1, 13), (1, 23), (1, 32)]));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

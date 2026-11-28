@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/policy_invariants.rs
+// Responsibility:   Correction invariants checked on surface and bound trees, and a property test of path literals.
+// Dependencies:     nurt_contracts, proptest, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Correction invariants checked on surface and bound trees, and a property
 //! test of path literals.
 
@@ -515,3 +523,7 @@ proptest! {
         prop_assert_eq!(path_check(&changed, &canonical, None), PathCheck::Changed, "{}", changed);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

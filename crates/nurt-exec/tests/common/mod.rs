@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/common/mod.rs
+// Responsibility:   Shared fixtures of the end-to-end tests: a registry with commands of the mock extension, a virtual world and builders of plans.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Shared fixtures of the end-to-end tests: a registry with commands of the
 //! mock extension, a virtual world and builders of plans.
 
@@ -46,12 +54,12 @@ pub(crate) fn descriptor(command: &str, source: bool, input: InputKinds) -> Stag
 
 pub(crate) fn entry(path: &str, size: i64) -> Record {
     Record::new(RecordKind::Entry)
-        .with("path", Value::Path(path.to_owned()))
+        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
         .with("size", Value::Int(size))
 }
 
 pub(crate) fn finding(path: &str) -> Record {
-    Record::new(RecordKind::Finding).with("path", Value::Path(path.to_owned()))
+    Record::new(RecordKind::Finding).with("path", Value::Path(nurt_testkit::paths::abs(path)))
 }
 
 pub(crate) fn path_of(record: &Record) -> String {
@@ -255,7 +263,7 @@ impl EffectStage for FileEffect {
         let ops = targets
             .into_iter()
             .map(|(path, etag)| {
-                let content = format!("written {}", path.as_path().display()).into_bytes();
+                let content = format!("written {path}").into_bytes();
                 match self.action {
                     Action::Write => FileOp::write(path, content),
                     Action::Remove => FileOp::remove(path),
@@ -457,6 +465,7 @@ pub(crate) fn pipeline_with_limits(
             name: name.to_owned(),
             fields: Vec::new(),
         }),
+        call: None,
         stages: stages
             .into_iter()
             .zip(offset..)
@@ -500,3 +509,7 @@ pub(crate) fn single(pipeline: PipelinePlan) -> Plan {
 pub(crate) fn error_of(outcome: &Outcome) -> &Error {
     outcome.error.as_ref().expect("the execution failed")
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl
