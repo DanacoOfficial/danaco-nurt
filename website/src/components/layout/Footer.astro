@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.layout.Footer
-// Responsibility:   The site footer: the lockup and the sentence of the product, the columns of links to the sections, the legal links and the licence line.
+// Responsibility:   The site footer: the lockup and the sentence of the product, the columns of links to the sections, the legal links, the licence line and the imprint with the one-colour mark and the version.
 // Dependencies:     website.config.navigation, website.config.site, website.config.sections, website.src.lib.pages, website.src.lib.urls, website.src.components.brand.Lockup, website.src.i18n
 
 import '../../styles/components/footer.css';
@@ -14,6 +14,7 @@ import type { Locale } from '../../../config/i18n';
 import { findPage, pageSlug } from '../../lib/pages';
 import { href } from '../../lib/urls';
 import Lockup from '../brand/Lockup.astro';
+import Mark from '../brand/Mark.astro';
 import { useUi } from '../../i18n';
 
 interface Props {
@@ -92,14 +93,23 @@ const legal = legalLinks.map((link) => ({
     </div>
 
     <div class="site-footer__bottom">
-      <p>
-        © {site.copyrightYear} <a href={site.companyUrl} rel="noopener">{site.company}</a> {ui.footer.licence}
-      </p>
-      <p class="text-faint">{ui.footer.names}</p>
-      <ul class="site-footer__legal" role="list" aria-label={ui.footer.legal}>
-        {legal.map((link) => <li><a href={href(link.path, locale)}>{link.label}</a></li>)}
-        <li><a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a></li>
-      </ul>
+      <div class="site-footer__terms">
+        <p>
+          © {site.copyrightYear} <a href={site.companyUrl} rel="noopener">{site.company}</a> {ui.footer.licence}
+        </p>
+        <p class="text-faint">{ui.footer.names}</p>
+        <ul class="site-footer__legal" role="list" aria-label={ui.footer.legal}>
+          {legal.map((link) => <li><a href={href(link.path, locale)}>{link.label}</a></li>)}
+          <li><a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a></li>
+        </ul>
+      </div>
+      <div class="site-footer__imprint">
+        <Mark class="site-footer__mark" size={44} />
+        <p class="site-footer__build">
+          <span>{site.name} {product.version}</span>
+          <span>{ui.footer.builtFrom}</span>
+        </p>
+      </div>
     </div>
   </div>
 </footer>
