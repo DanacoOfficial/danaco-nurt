@@ -124,12 +124,12 @@
   column-gap: var(--space-4);
   row-gap: var(--space-1);
   align-content: start;
-  padding: var(--space-4) var(--space-2) var(--space-4) 0;
+  padding: var(--space-4);
   border-top: 1px solid var(--line-strong);
   background: none;
   clip-path: none;
   transform: none !important;
-  transition: background var(--duration-base) var(--ease-out), padding-left var(--duration-base) var(--ease-out);
+  transition: none;
 }
 
 .card::before {
@@ -166,9 +166,19 @@
   grid-column: 3;
 }
 
-.card--link:hover {
-  padding-left: var(--space-3);
+/* The content of a row stands inside the rule with a margin on every side, so the fill under the pointer stays within the rule and the text keeps its place. */
+.card--link::before {
+  display: block;
+  inset: 0;
   background: var(--accent-soft);
+  clip-path: none;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.card--link:hover::before,
+.card--link:focus-visible::before {
+  opacity: 1;
 }
 
 .card--link:hover .card__arrow {

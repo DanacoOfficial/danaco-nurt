@@ -64,11 +64,23 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--space-4);
   align-items: start;
-  padding: var(--space-4) var(--space-2) var(--space-4) 0;
+  position: relative;
+  isolation: isolate;
+  padding: var(--space-4);
   border-bottom: 1px solid var(--line);
   color: var(--text);
   text-decoration: none;
-  transition: background var(--duration-base) var(--ease-out), padding-left var(--duration-base) var(--ease-out);
+}
+
+/* The content of a row stands inside the rules with a margin on every side, so the fill under the pointer stays within the rules and the text keeps its place. */
+.directory__link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--accent-soft);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
 }
 
 .directory__link > svg:first-child {
@@ -76,9 +88,9 @@
   color: var(--accent-text);
 }
 
-.directory__link:hover {
-  padding-left: var(--space-3);
-  background: var(--accent-soft);
+.directory__link:hover::before,
+.directory__link:focus-visible::before {
+  opacity: 1;
 }
 
 .directory__text {

@@ -92,21 +92,12 @@
   animation: motion-stream 11s linear infinite;
 }
 
-/* Cards tilt in perspective towards the pointer and carry a highlight under it. */
+/* Linked rows and figures carry a highlight under the pointer; the highlight reaches past the text, and the text itself stays still. */
 .motion .card--link,
 .motion .stat {
-  transform-style: preserve-3d;
   transition:
     opacity var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms),
-    translate var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms),
-    transform 240ms var(--motion-ease),
-    border-color var(--duration-base) var(--ease-out),
-    background var(--duration-base) var(--ease-out);
-}
-
-.motion .card--link.is-tilted,
-.motion .stat.is-tilted {
-  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px);
+    translate var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms);
 }
 
 .motion .card--link::after,
@@ -114,6 +105,7 @@
   content: '';
   position: absolute;
   inset: 0;
+  z-index: -1;
   pointer-events: none;
   opacity: 0;
   background: radial-gradient(240px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgb(201 161 90 / 0.16), transparent 70%);
@@ -122,6 +114,7 @@
 
 .motion .stat {
   position: relative;
+  isolation: isolate;
 }
 
 .motion .card--link.is-tilted::after,
