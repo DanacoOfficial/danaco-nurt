@@ -11,6 +11,8 @@ import '../../styles/components/cards.css';
 import Icon from '../base/Icon.astro';
 import type { IconName } from '../../../config/icons';
 import { withBase } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import type { Locale } from '../../../config/i18n';
 interface Props {
   title: string;
   href?: string;
@@ -18,14 +20,16 @@ interface Props {
   eyebrow?: string;
 }
 const { title, href, icon, eyebrow } = Astro.props;
+const pageLocale: Locale = /\/pl(\/|$)/.test(Astro.url.pathname) ? 'pl' : 'en';
+const ui = useUi(pageLocale);
 const link = href && href.startsWith('/') ? withBase(href) : href;
 const Tag = link ? 'a' : 'div';
 ---
 
-<Tag class:list={['card', 'cut', link && 'card--link']} href={link}>
+<Tag class:list={['card', link && 'card--link']} href={link}>
   {icon && <Icon name={icon} size={22} class="card__icon" />}
   {eyebrow && <p class="card__eyebrow">{eyebrow}</p>}
   <h3 class="card__title">{title}</h3>
   <div class="card__body"><slot /></div>
-  {link && <Icon name="arrow-right" size={20} class="card__arrow" />}
+  {link && <span class="card__more">{ui.common.readMore}<Icon name="arrow-right" size={16} /></span>}
 </Tag>

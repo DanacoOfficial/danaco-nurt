@@ -56,8 +56,10 @@ const items = mainNavigation.map((item) => ({
     </nav>
 
     <div class="site-header__tools">
-      <a class="site-header__icon-link" href={href('/search/', locale)} aria-label={ui.nav.search} title={ui.nav.search}>
-        <Icon name="search" />
+      <a class="site-header__search" href={href('/search/', locale)} aria-label={ui.nav.search} title={ui.nav.search} data-search-shortcut>
+        <Icon name="search" size={16} />
+        <span>{ui.nav.search}</span>
+        <kbd aria-hidden="true">/</kbd>
       </a>
       <a class="site-header__icon-link site-header__github" href={repository.url} aria-label={ui.header.github} title={ui.header.github} rel="noopener">
         <Icon name="git-branch" />
@@ -106,4 +108,5 @@ const items = mainNavigation.map((item) => ({
 
 <script>
   import '../../scripts/menu';
+  import '../../scripts/search-shortcut';
 </script>

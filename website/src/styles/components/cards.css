@@ -32,45 +32,34 @@
   }
 }
 
-/* The card is drawn as a frame: the element is filled with the line colour and clipped to the cut corners, and its ::before, one pixel inside, carries the fill under the same cut. The border therefore follows the diagonal of each cut corner. */
+/* The card of the design proposal: a soft surface with a line of one pixel, a radius of 8 px and a short gold dash above the title. */
 .card {
-  --cut: 16px;
-  --card-line: var(--line);
-  --card-fill: var(--bg-raised);
   position: relative;
-  isolation: isolate;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-5);
-  background: var(--card-line);
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--bg-raised);
   color: var(--text);
   text-decoration: none;
-  transition: background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  transition: border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
 }
 
 .card::before {
-  --cut-x: calc(var(--cut) - 0.6px);
-  --cut-y: calc(var(--cut-x) * var(--stream-slope));
   content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: -1;
-  background: var(--card-fill);
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--cut-x)) 0,
-    100% var(--cut-y),
-    100% 100%,
-    var(--cut-x) 100%,
-    0 calc(100% - var(--cut-y))
-  );
-  transition: background var(--duration-base) var(--ease-out);
+  width: 1.5rem;
+  height: 2px;
+  background: var(--accent);
+}
+
+.card:has(.card__icon)::before {
+  display: none;
 }
 
 .card--link:hover {
-  --card-line: var(--accent);
-  --card-fill: color-mix(in srgb, var(--accent) 5%, var(--bg-raised));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
   transform: translateY(-2px);
   color: var(--text);
 }
@@ -101,13 +90,21 @@
   margin-top: var(--space-2);
 }
 
-.card__arrow {
+.card__more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-top: auto;
   padding-top: var(--space-2);
   color: var(--accent-strong);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.card__more .icon {
   transition: transform var(--duration-base) var(--ease-out);
 }
 
-.card--link:hover .card__arrow {
+.card--link:hover .card__more .icon {
   transform: translateX(4px);
 }
