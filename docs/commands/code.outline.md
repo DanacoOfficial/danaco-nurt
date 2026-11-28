@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents code.outline. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # code.outline
@@ -64,19 +64,19 @@ Local variables declared inside functions are not part of an outline.
 Outline a file.
 
 ```nurt example
-code.outline "src/server.py"
+code.outline "/home/user/app/src/server.py"
 ```
 
 List the top-level symbols only.
 
 ```nurt example
-code.outline "src/lib.rs" depth: 0
+code.outline "/home/user/app/src/lib.rs" depth: 0
 ```
 
 List the methods of one class.
 
 ```nurt example
-code.outline "src/Cart.java" |> filter container == "Cart" and kind == "method"
+code.outline "/home/user/app/src/Cart.java" |> filter container == "Cart" and kind == "method"
 ```
 
 ## Errors

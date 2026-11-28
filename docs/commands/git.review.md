@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.review. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.review
@@ -129,7 +129,7 @@ finding path: src/parse.rs kind: whitespace severity: warning rule: whitespace l
 Check only the white space of the working tree changes below `src`.
 
 ```nurt example
-git.review "/home/user/repo" scope: working paths: ["src"] checks: [whitespace, final_newline]
+git.review "/home/user/repo" scope: working paths: ["/home/user/repo/src"] checks: [whitespace, final_newline]
 ```
 
 Review the commits of a branch against `main`, without generated files.

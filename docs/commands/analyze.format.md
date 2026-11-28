@@ -72,13 +72,13 @@ analyze.format changed_only: true
 Format one directory and show more changed lines.
 
 ```nurt example
-analyze.format "src" sample_lines: 40
+analyze.format "/home/user/app/src" sample_lines: 40
 ```
 
 Format two directories.
 
 ```nurt example
-analyze.format "src" "tests"
+analyze.format "/home/user/app/src" "/home/user/app/tests"
 ```
 
 ## Errors

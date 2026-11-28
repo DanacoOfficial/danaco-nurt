@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents code.symbols. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # code.symbols
@@ -114,7 +114,7 @@ code.symbols "getUser" kind: function
 List the exported classes of a directory without test files.
 
 ```nurt example
-code.symbols path: ["src"] kind: class exported_only: true exclude_preset: [tests]
+code.symbols path: ["/home/user/app/src"] kind: class exported_only: true exclude_preset: [tests]
 ```
 
 Find the handlers with their signatures and reference counts from syntax analysis.

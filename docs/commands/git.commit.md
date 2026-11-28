@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.commit. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.commit
@@ -142,7 +142,7 @@ commit short_id: 3f2a9c1 subject: "feat: add the parser" refs: [main]
 Commit two files only, leaving other staged changes in the index.
 
 ```nurt example
-git.commit "/home/user/repo" message: "fix: handle empty input" paths: ["src/parse.rs", "tests/parse.rs"]
+git.commit "/home/user/repo" message: "fix: handle empty input" paths: ["/home/user/repo/src/parse.rs", "/home/user/repo/tests/parse.rs"]
 ```
 
 Add a co-author trailer to the staged changes and skip the hooks.

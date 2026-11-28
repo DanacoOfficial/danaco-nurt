@@ -47,7 +47,7 @@ files
 Show the last ten commits that changed a file.
 
 ```nurt example
-git.log "/home/user/app" count: 10 path: ["src/main.go"]
+git.log "/home/user/app" count: 10 path: ["/home/user/app/src/main.go"]
 ```
 
 ```text expected
@@ -223,7 +223,7 @@ git status --short --untracked-files=all
 Show the changes between two revisions of a path.
 
 ```nurt example
-git.diff "/home/user/app" from: "v1.0.0" to: "HEAD" path: ["src"] stat: true
+git.diff "/home/user/app" from: "v1.0.0" to: "HEAD" path: ["/home/user/app/src"] stat: true
 ```
 
 ```text expected
@@ -267,7 +267,7 @@ git log --author=ann --since=2026-10-01 -n 50
 Find the commits that added or removed a given text.
 
 ```nurt example
-git.log "/home/user/app" pickaxe: "retryLimit" path: ["src"]
+git.log "/home/user/app" pickaxe: "retryLimit" path: ["/home/user/app/src"]
 ```
 
 ```text expected

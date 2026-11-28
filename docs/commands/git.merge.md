@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.merge. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.merge
@@ -121,7 +121,7 @@ git.merge "/home/user/project" branch: "release/1.4" fast_forward: never message
 Conclude a merge after the conflicts were resolved and staged.
 
 ```nurt example
-git.stage "/home/user/project" action: add paths: ["src/main.rs"]
+git.stage "/home/user/project" action: add paths: ["/home/user/project/src/main.rs"]
 git.merge "/home/user/project" action: continue
 ```
 

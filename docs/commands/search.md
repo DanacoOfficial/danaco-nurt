@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents search. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # search
@@ -169,44 +169,44 @@ the text with verbosity `detailed` or when the request names them in
 Find literal text in the files of a directory.
 
 ```nurt example
-search "fn main" "src"
+search "fn main" "/home/user/app/src"
 ```
 
 ```text expected
-src/main.rs:1:1: fn main() {
+/home/user/app/src/main.rs:1:1: fn main() {
 ```
 
 Show the names captured by a regular expression, one record per match.
 
 ```nurt example
-search /fn (?<name>\w+)/ "src" only_matching: true
+search /fn (?<name>\w+)/ "/home/user/app/src" only_matching: true
 ```
 
 ```text expected
-src/lib.rs:1:5: fn run
-src/main.rs:1:1: fn main
+/home/user/app/src/lib.rs:1:5: fn run
+/home/user/app/src/main.rs:1:1: fn main
 ```
 
 Search a log without regard to case, with one line of context.
 
 ```nurt example
-search "warning" "logs" case_sensitive: false context: 1
+search "warning" "/home/user/app/logs" case_sensitive: false context: 1
 ```
 
 ```text expected
-logs/app.log:2:1: WARNING: disk almost full
+/home/user/app/logs/app.log:2:1: WARNING: disk almost full
 ```
 
 Count the matches of each pattern of a list per file.
 
 ```nurt example
-search ["run", "main"] "src" output: counts
+search ["run", "main"] "/home/user/app/src" output: counts
 ```
 
 List the files with matches, the files with the most matches first.
 
 ```nurt example
-search /\brun\b|\bmain\b/ "." output: files sort: count
+search /\brun\b|\bmain\b/ "/home/user/app" output: files sort: count
 ```
 
 A response that leaves records out ends with the hint "more: next" and carries the field

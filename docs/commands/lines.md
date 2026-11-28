@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents lines. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # lines
@@ -78,29 +78,29 @@ out for `content` records that hold a range of lines.
 Show the second and third line of a file.
 
 ```nurt example
-lines "notes.txt" 2..3
+lines "/home/user/app/notes.txt" 2..3
 ```
 
 ```text expected
-notes.txt:2: beta
-notes.txt:3: gamma
+/home/user/app/notes.txt:2: beta
+/home/user/app/notes.txt:3: gamma
 ```
 
 Split the lines read by `read`, keeping the line numbers of the file.
 
 ```nurt example
-read "notes.txt" lines: 3..4 |> lines
+read "/home/user/app/notes.txt" lines: 3..4 |> lines
 ```
 
 ```text expected
-notes.txt:3: gamma
-notes.txt:4: delta
+/home/user/app/notes.txt:3: gamma
+/home/user/app/notes.txt:4: delta
 ```
 
 Show the first line of every text file found.
 
 ```nurt example
-find "." glob: "*.txt" |> lines 1
+find "/home/user/app" glob: "*.txt" |> lines 1
 ```
 
 A response that leaves lines out ends with the hint "more: next" and carries the field

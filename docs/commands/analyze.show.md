@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents analyze.show. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # analyze.show
@@ -69,7 +69,7 @@ analyze.show
 Show lint errors of one analysis in one file.
 
 ```nurt example
-analyze.show "an-3" check: "lint" file: "src/app.py" min_severity: error
+analyze.show "an-3" check: "lint" file: "/home/user/app/src/app.py" min_severity: error
 ```
 
 Show the second page of findings.

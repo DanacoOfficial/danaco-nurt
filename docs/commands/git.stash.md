@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.stash. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.stash
@@ -118,7 +118,7 @@ git.stash "/home/user/repo" action: pop
 Save only the changes of one directory, leaving out environment files.
 
 ```nurt example
-git.stash "/home/user/repo" action: push paths: ["src"] exclude: ["*.env"]
+git.stash "/home/user/repo" action: push paths: ["/home/user/repo/src"] exclude: ["*.env"]
 ```
 
 Remove the second newest entry.
