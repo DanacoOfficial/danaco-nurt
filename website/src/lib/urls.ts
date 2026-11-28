@@ -62,3 +62,8 @@ export function alternates(path: string): { locale: Locale; htmlLang: string; hr
     absolute: absoluteUrl(path, locale),
   }));
 }
+
+/** Inline custom properties that point the class `ground` at the grounds of the identity (the graphite ground with the trace of the stream, dark and light). */
+export function groundStyle(): string {
+  return `--ground-dark: url(${withBase('/brand/ground/stream-dark.svg')}); --ground-light: url(${withBase('/brand/ground/stream-light.svg')});`;
+}

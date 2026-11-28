@@ -110,7 +110,7 @@ The training packages in `training/` are committed. `scripts/build_training_pack
 
 The motion layer is optional for the reader. A script in the head sets the class `motion` on the document only when the reader has not asked for reduced motion; every animation rule in `src/styles/motion.css` applies under that class. Without scripts, without WebGL or with reduced motion the site shows the same content at rest: the studio render replaces the live mark, and the terminal session is shown complete.
 
-The three-dimensional mark (`src/scripts/motion/mark-scene.ts`) is built from the path data of the identity, loads only on pages that contain it, and renders only while it is in view and the tab is visible.
+The hero shows the render of the mark made in Blender for the identity (`public/brand/render/hero-transparent.webp`, from `branding/render/render-hero-transparent.png`) on the ground of the identity (`public/brand/ground/stream-dark.svg` and `stream-light.svg`, from `branding/svg`). The render floats slowly under the class `motion`.
 
 ## 9. Regenerating derived files
 

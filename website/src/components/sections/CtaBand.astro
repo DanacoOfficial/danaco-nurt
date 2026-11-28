@@ -12,10 +12,11 @@ interface Props {
   title: string;
   text?: string;
 }
+import { groundStyle } from '../../lib/urls';
 const { title, text } = Astro.props;
 ---
 
-<section class="cta-band stream-trace">
+<section class="cta-band ground" style={groundStyle()}>
   <div class="container cta-band__inner">
     <div class="cta-band__text">
       <h2>{title}</h2>

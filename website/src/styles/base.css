@@ -3,7 +3,7 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.base
- * Responsibility:   Base look of the document: the page ground, the text, links, focus rings, selection and the stream trace used behind hero areas.
+ * Responsibility:   Base look of the document: the page ground, the text, links, focus rings and selection.
  * Dependencies:     website.src.styles.tokens
  */
 
@@ -84,19 +84,4 @@ kbd {
   background: var(--bg-raised);
   font-size: 0.85em;
   line-height: 1.5;
-}
-
-.stream-trace {
-  position: relative;
-  isolation: isolate;
-}
-
-/* A soft glow behind the mark of the home page; the other bands keep a plain ground. */
-.hero.stream-trace::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(48% 70% at 74% 46%, var(--trace-glow), transparent 72%);
 }

@@ -17,10 +17,11 @@ interface Props {
   role: string;
 }
 
+import { groundStyle } from '../../lib/urls';
 const { eyebrow, quote, name, role } = Astro.props;
 ---
 
-<section class="statement stream-trace theme-dark">
+<section class="statement ground theme-dark" style={groundStyle()}>
   <div class="container statement__inner">
     <Mark class="statement__mark" size={56} />
     <figure class="statement__figure">

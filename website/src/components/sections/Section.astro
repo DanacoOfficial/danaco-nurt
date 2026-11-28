@@ -17,8 +17,9 @@ interface Props {
   tone?: 'plain' | 'raised';
   tight?: boolean;
   split?: boolean;
+  index?: number;
 }
-const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = false } = Astro.props;
+const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = false, index } = Astro.props;
 ---
 
 <section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised', split && 'section--split']} aria-labelledby={title && id ? `${id}-title` : undefined}>
@@ -26,7 +27,7 @@ const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = false }
     <div class:list={[split && 'section__layout']}>
       {(eyebrow || title || lead) && (
         <div class="section__head stack" style={split ? '--stack-gap: var(--space-3);' : '--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;'}>
-          {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+          {eyebrow && <p class="eyebrow">{index !== undefined && <span class="eyebrow__num">{String(index).padStart(2, '0')}</span>}<span>{eyebrow}</span></p>}
           {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
           {lead && <p class="lead">{lead}</p>}
         </div>

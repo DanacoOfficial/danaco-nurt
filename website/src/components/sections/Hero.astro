@@ -5,15 +5,14 @@
 //
 // Module:           website.src.components.sections.Hero
 // Responsibility:   The opening of the home page: the eyebrow, the promise, the lead, the actions and the install command beside the start banner of the program.
-// Dependencies:     website.src.components.motion.MarkScene, website.src.components.sections.InstallTabs, website.src.components.base.Button, website.src.styles.components.hero
+// Dependencies:     website.src.components.sections.InstallTabs, website.src.components.base.Button, website.src.styles.components.hero
 
 import '../../styles/components/hero.css';
-import MarkScene from '../motion/MarkScene.astro';
 import Button from '../base/Button.astro';
 import InstallTabs from './InstallTabs.astro';
 import type { Locale } from '../../../config/i18n';
 import { repository } from '../../../config/site';
-import { href } from '../../lib/urls';
+import { groundStyle, href, withBase } from '../../lib/urls';
 import { useUi } from '../../i18n';
 import type { HomeContent } from '../../data/home-page/types';
 
@@ -26,7 +25,7 @@ const { locale, content } = Astro.props;
 const ui = useUi(locale);
 ---
 
-<section class="hero stream-trace">
+<section class="hero ground" style={groundStyle()}>
   <div class="container hero__inner">
     <div class="hero__copy">
       <p class="eyebrow">{content.eyebrow}</p>
@@ -44,7 +43,10 @@ const ui = useUi(locale);
       </div>
     </div>
     <div class="hero__visual">
-      <MarkScene label={content.sceneLabel} caption={content.sceneCaption} />
+      <figure class="hero__render">
+        <img src={withBase('/brand/render/hero-transparent.webp')} width="1024" height="1024" alt={content.sceneLabel} fetchpriority="high" decoding="async" />
+        {content.sceneCaption && <figcaption>{content.sceneCaption}</figcaption>}
+      </figure>
     </div>
   </div>
 </section>

@@ -20,47 +20,6 @@
   border: 0;
 }
 
-.cut {
-  --cut-x: var(--cut);
-  --cut-y: calc(var(--cut) * var(--stream-slope));
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--cut-x)) 0,
-    100% var(--cut-y),
-    100% 100%,
-    var(--cut-x) 100%,
-    0 calc(100% - var(--cut-y))
-  );
-}
-
-.cut--small {
-  --cut: var(--cut-small);
-}
-
-.cut-frame {
-  position: relative;
-  isolation: isolate;
-  background: var(--frame-line, var(--line));
-}
-
-.cut-frame::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: -1;
-  background: var(--frame-fill, var(--bg-raised));
-  --cut-x: var(--cut);
-  --cut-y: calc(var(--cut) * var(--stream-slope));
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--cut-x)) 0,
-    100% var(--cut-y),
-    100% 100%,
-    var(--cut-x) 100%,
-    0 calc(100% - var(--cut-y))
-  );
-}
-
 .text-muted {
   color: var(--text-muted);
 }
@@ -79,4 +38,18 @@
 
 .balance {
   text-wrap: balance;
+}
+
+/* The grounds of the identity: graphite with the trace of the stream on the dark theme, paper with the trace on the light theme. */
+.ground {
+  --ground: var(--ground-dark);
+  background: var(--bg) var(--ground) center / cover no-repeat;
+}
+
+:root[data-theme='light'] .ground {
+  --ground: var(--ground-light);
+}
+
+:root[data-theme] .theme-dark.ground {
+  --ground: var(--ground-dark);
 }

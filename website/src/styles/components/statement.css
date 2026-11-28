@@ -10,7 +10,6 @@
 .statement {
   padding-block: var(--space-9);
   border-block: 1px solid var(--line);
-  background: var(--bg);
   color: var(--text);
 }
 

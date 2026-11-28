@@ -3,7 +3,7 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.motion
- * Responsibility:   The motion layer: entrances of elements as they scroll into view, the opening of the hero, the flow of the stream trace, the perspective tilt and highlight of cards, and the movement of buttons. Every rule applies only under the class motion of the document, which the head script sets when the reader has not asked for reduced motion; the list of entering elements equals the list in website.src.scripts.motion.targets.
+ * Responsibility:   The motion layer: entrances of elements as they scroll into view, the opening of the hero, the slow float of the render of the mark, the perspective tilt and highlight of cards, and the movement of buttons. Every rule applies only under the class motion of the document, which the head script sets when the reader has not asked for reduced motion; the list of entering elements equals the list in website.src.scripts.motion.targets.
  * Dependencies:     website.src.styles.tokens
  */
 
@@ -76,6 +76,11 @@
 
 .motion .hero__visual {
   animation: motion-stage 1200ms var(--motion-ease) 200ms both;
+}
+
+/* The render of the mark floats slowly; its shadow stays. */
+.motion .hero__render img {
+  animation: motion-float 9s ease-in-out infinite;
 }
 
 /* Cards tilt in perspective towards the pointer and carry a highlight under it. */
@@ -188,5 +193,15 @@
   .motion *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@keyframes motion-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
   }
 }

@@ -3,8 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.scripts.motion
-// Responsibility:   Starts the motion layer of the site when the document is marked for motion: entrances, counters, tilting cards, the terminal session and, on pages that have it, the three-dimensional mark, whose WebGL code is loaded only there. A reader who asks for reduced motion receives none of it.
-// Dependencies:     website.src.scripts.motion.reveal, website.src.scripts.motion.counter, website.src.scripts.motion.tilt, website.src.scripts.motion.session, website.src.scripts.motion.mark-scene
+// Responsibility:   Starts the motion layer of the site when the document is marked for motion: entrances, counters, tilting cards and the terminal session. A reader who asks for reduced motion receives none of it.
+// Dependencies:     website.src.scripts.motion.reveal, website.src.scripts.motion.counter, website.src.scripts.motion.tilt, website.src.scripts.motion.session
 
 import { startCounters } from './counter';
 import { startReveal } from './reveal';
@@ -21,9 +21,4 @@ export function startMotion(): void {
   startCounters();
   startTilt();
   startSessions();
-  if (document.querySelector('[data-mark-scene]')) {
-    import('./mark-scene')
-      .then((module) => module.startMarkScene())
-      .catch(() => undefined);
-  }
 }
