@@ -45,6 +45,13 @@ function inspect() {
       break;
     }
   }
+  // The cut corner of a button clips what does not fit, so a label wider than its button loses its end without a scroll bar.
+  for (const element of document.querySelectorAll('.button')) {
+    if (element.getClientRects().length > 0 && element.scrollWidth > element.clientWidth + 1) {
+      issues.push(`label cut by its button: ${element.textContent.trim().slice(0, 40)} ${element.scrollWidth}>${element.clientWidth}`);
+      break;
+    }
+  }
   const main = document.querySelector('.docs-page__main, .page-shell__main');
   const prose = main ? main.querySelector('.prose') : null;
   if (main && prose && width >= 1200) {

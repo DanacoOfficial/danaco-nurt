@@ -39,6 +39,14 @@
   transition: transform var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out);
 }
 
+/* On a narrow window a long label takes a second line instead of leaving the window or being cut by the corner. */
+@media (max-width: 30rem) {
+  .button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 .button::before {
   content: '';
   position: absolute;
