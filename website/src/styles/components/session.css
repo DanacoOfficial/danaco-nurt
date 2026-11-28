@@ -3,7 +3,7 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.components.session
- * Responsibility:   The terminal window of the recorded session: the bar with the replay button, the banner, the screen with the tones of the program output (prompt gold, indicator silver, status, differences), and the typing cursor. Lines keep their space while hidden, so the window never changes its height during the play.
+ * Responsibility:   The terminal window of the recorded session: the bar with the replay button, the banner, the screen with the tones of the program output (prompt gold, indicator silver, status, differences), and the typing cursor. Lines still to come are shown faintly and keep their space, so the window never changes its height and is never empty during the play.
  * Dependencies:     website.src.styles.tokens
  */
 
@@ -80,11 +80,12 @@
 .session__screen {
   margin: 0;
   padding: 0 var(--space-5);
-  overflow-x: auto;
   font-family: var(--font-mono);
   font-size: clamp(0.68rem, 0.6rem + 0.25vw, 0.82rem);
   line-height: 1.6;
-  white-space: pre;
+  /* Long command lines wrap inside the window instead of adding a horizontal scroll bar. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   tab-size: 4;
 }
 
@@ -93,8 +94,13 @@
   min-height: 1.6em;
 }
 
+/* While the session plays, the lines still to come stay faintly visible, so the window is never an empty box; each line lights up when its turn comes. */
+.session__line {
+  transition: opacity 260ms var(--ease-out);
+}
+
 .session.is-playing .session__line:not(.is-shown) {
-  visibility: hidden;
+  opacity: 0.16;
 }
 
 .session__prompt {

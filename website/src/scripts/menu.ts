@@ -41,3 +41,26 @@ if (button && panel) {
     }
   });
 }
+
+/** Switches the header to its compact form whenever the navigation is wider than the room left beside the tools. */
+function fitHeader(): void {
+  const header = document.querySelector<HTMLElement>('.site-header');
+  const navigation = header?.querySelector<HTMLElement>('.site-header__nav');
+  if (!header || !navigation) {
+    return;
+  }
+  const measure = (): void => {
+    header.classList.remove('is-compact');
+    if (navigation.scrollWidth > navigation.clientWidth + 1) {
+      header.classList.add('is-compact');
+    } else {
+      setOpen(false);
+    }
+  };
+  measure();
+  new ResizeObserver(measure).observe(header);
+  new MutationObserver(measure).observe(navigation, { childList: true, characterData: true, subtree: true });
+  document.fonts?.ready.then(measure);
+}
+
+fitHeader();

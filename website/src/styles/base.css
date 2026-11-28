@@ -98,7 +98,6 @@ kbd {
   z-index: -1;
   pointer-events: none;
   background:
-    repeating-linear-gradient(36.87deg, transparent 0 23px, var(--trace) 23px 24px),
     linear-gradient(36.87deg, transparent 74%, var(--trace-silver) 74.04%, transparent 74.12%, transparent 74.5%, var(--trace-gold) 74.54%, transparent 74.62%);
   -webkit-mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.35) 0 40%, #000 85%);
   mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.35) 0 40%, #000 85%);

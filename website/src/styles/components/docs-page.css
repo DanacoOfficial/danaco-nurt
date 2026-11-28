@@ -79,3 +79,51 @@
     display: block;
   }
 }
+
+/* The text of a documentation page fills its column, so a wide window leaves no empty band between the text and the table of contents. */
+.docs-page__main .prose {
+  max-width: min(100%, 64rem);
+}
+
+/* On a narrow screen the navigation of the documentation opens from a button, so the text of the page starts on the first screen. */
+.docs-page__menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.docs-page__menu-button svg {
+  flex: none;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.docs-page__menu-button[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 63.99rem) {
+  .docs-page {
+    gap: var(--space-5);
+  }
+
+  .docs-page__sidebar:not([data-open]) {
+    display: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .docs-page__menu-button {
+    display: none;
+  }
+}

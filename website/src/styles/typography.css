@@ -147,11 +147,11 @@ h4 {
   color: var(--text-muted);
 }
 
+/* A table takes the full width of the text and its cells wrap, so no table needs a horizontal scroll bar. */
 .prose table {
-  display: block;
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  border-collapse: collapse;
   font-size: var(--text-sm);
 }
 
@@ -161,6 +161,12 @@ h4 {
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.prose th:first-child,
+.prose td:first-child {
+  padding-left: 0;
 }
 
 .prose th {
@@ -171,16 +177,56 @@ h4 {
   text-transform: uppercase;
   color: var(--text-faint);
   border-bottom-color: var(--line-strong);
-  white-space: nowrap;
 }
 
-/* An identifier in the first column stays on one line when the rest of the row is text. In a row that pairs commands (code in a later column) every cell wraps at its spaces, so that the columns share the width. */
-.prose tr:not(:has(td + td > code)) > td:first-child > code:only-child {
-  white-space: nowrap;
+/* On a wide window a column heading and an identifier in the first column stay on one line when the rest of the row is text. In a row that pairs commands (code in a later column) every cell wraps, so that the columns share the width; on narrower windows everything wraps, so a table never exceeds the text. */
+@media (min-width: 80rem) {
+  .prose th {
+    white-space: nowrap;
+  }
+
+  .prose tr:not(:has(td + td > code)) > td:first-child > code:only-child {
+    white-space: nowrap;
+  }
 }
 
 .prose td > code {
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* On a narrow screen every row becomes a block and each cell carries the heading of its column, set by the script of the tables. */
+@media (max-width: 46rem) {
+  .prose table,
+  .prose tbody,
+  .prose tr,
+  .prose td {
+    display: block;
+    width: 100%;
+  }
+
+  .prose thead {
+    display: none;
+  }
+
+  .prose tr {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .prose td {
+    padding: var(--space-1) 0;
+    border-bottom: 0;
+  }
+
+  .prose td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
 }
 
 .prose tbody tr:hover td {

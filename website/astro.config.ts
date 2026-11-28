@@ -41,7 +41,7 @@ export default defineConfig({
     shikiConfig: {
       theme: 'github-dark-default',
       langs: ['sh', 'bash', 'json', 'toml', 'yaml', 'rust', 'c', 'python', 'powershell', 'text', 'ini', 'diff', 'markdown', nurtGrammar],
-      wrap: false,
+      wrap: true,
     },
     processor: satteri({ hastPlugins: [baseLinks] }),
   },

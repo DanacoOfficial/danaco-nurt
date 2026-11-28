@@ -47,19 +47,26 @@
 .grid {
   display: grid;
   gap: var(--grid-gap, var(--space-5));
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--grid-min, 18rem)), 1fr));
+  /* The columns never exceed --grid-max, so a wider container widens the cards instead of adding a column with a single card. */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--grid-min, 18rem), calc((100% - (var(--grid-max, 3) - 1) * var(--grid-gap, var(--space-5))) / var(--grid-max, 3)))), 1fr)
+  );
 }
 
 .grid--2 {
   --grid-min: 26rem;
+  --grid-max: 2;
 }
 
 .grid--3 {
   --grid-min: 18rem;
+  --grid-max: 3;
 }
 
 .grid--4 {
   --grid-min: 14rem;
+  --grid-max: 4;
 }
 
 .split {

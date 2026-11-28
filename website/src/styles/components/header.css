@@ -167,3 +167,24 @@
     display: inline-grid;
   }
 }
+
+/* Compact header: when the navigation does not fit beside the tools (long labels, a translated page), the script hides it and shows the menu button instead of letting the labels run under the tools. */
+.site-header__nav {
+  min-width: 0;
+}
+
+.site-header.is-compact .site-header__nav {
+  display: none;
+}
+
+.site-header.is-compact .site-header__menu-button {
+  display: inline-grid !important;
+}
+
+.site-header.is-compact .site-header__panel[data-open] {
+  display: block !important;
+}
+
+.site-header.is-compact .site-header__tools {
+  margin-left: auto;
+}

@@ -18,7 +18,8 @@ import CardGrid from '../components/content/CardGrid.astro';
 import type { Locale } from '../../config/i18n';
 import type { SectionKey } from '../../config/sections';
 import { findPage, getSectionPages, pagePath, type PageEntry } from '../lib/pages';
-import { localisedPath } from '../lib/urls';
+import { href, localisedPath } from '../lib/urls';
+import '../styles/components/docs-sidebar.css';
 import { useUi } from '../i18n';
 import '../styles/components/page-shell.css';
 
@@ -52,7 +53,17 @@ const crumbs = [{ label: sectionTitle, path: `/${section}/` }, { label: entry.da
 >
   <PageHeader locale={locale} title={entry.data.title} lead={entry.data.lead ?? entry.data.description} eyebrow={entry.data.eyebrow ?? sectionTitle} crumbs={crumbs} updated={entry.data.updated} />
   <div class="container">
-    <div class:list={['page-shell', entry.data.toc && headings.length > 2 && 'page-shell--with-toc']}>
+    <div class:list={['page-shell', 'page-shell--with-nav', entry.data.toc && headings.length > 2 && 'page-shell--with-toc']}>
+      <nav class="page-shell__nav docs-sidebar" aria-label={sectionTitle}>
+        <a class="docs-sidebar__home" href={href(`/${section}/`, locale)}>{sectionTitle}</a>
+        <div class="docs-sidebar__group">
+          <ul role="list">
+            {siblings.map((page) => (
+              <li><a href={href(pagePath(page), locale)} aria-current={page.id === entry.id ? 'page' : undefined}>{page.data.title}</a></li>
+            ))}
+          </ul>
+        </div>
+      </nav>
       <div class="page-shell__main">
         <Prose>
           <slot />

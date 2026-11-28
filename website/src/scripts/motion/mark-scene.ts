@@ -3,15 +3,11 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.scripts.motion.mark-scene
-// Responsibility:   The three-dimensional mark of the home page drawn with WebGL on a transparent ground: the two chevrons extruded from the path data of the identity, in brushed metal under a studio environment, with the stream of particles flowing past at the angle of the mark. The colours are the mark colours of the current theme and follow a change of theme. The chevrons part and close again in a slow cycle (a change and its undo) and turn towards the pointer. The scene renders only while it is in view and the page is visible.
+// Responsibility:   The three-dimensional mark of the home page drawn with WebGL on a transparent ground: the two chevrons extruded from the path data of the identity, in brushed metal under a studio environment. The colours are the mark colours of the current theme and follow a change of theme. The chevrons part and close again in a slow cycle (a change and its undo) and turn towards the pointer. The scene renders only while it is in view and the page is visible.
 // Dependencies:     three (MIT), website.src.components.brand.brand-data
 
 import {
   ACESFilmicToneMapping,
-  AdditiveBlending,
-  NormalBlending,
-  BufferAttribute,
-  BufferGeometry,
   CanvasTexture,
   Color,
   DirectionalLight,
@@ -22,8 +18,6 @@ import {
   MeshPhysicalMaterial,
   PerspectiveCamera,
   PMREMGenerator,
-  Points,
-  PointsMaterial,
   SRGBColorSpace,
   Scene,
   WebGLRenderer,
@@ -33,8 +27,6 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { markPaths, markViewBox } from '../../components/brand/brand-data';
 
-const streamAngle = Math.atan2(3, 4);
-const particleCount = 180;
 const cycleSeconds = 9;
 const cameraDistance = 285;
 
@@ -81,42 +73,6 @@ function brushedTexture(): CanvasTexture {
   const texture = new CanvasTexture(canvas);
   texture.anisotropy = 4;
   return texture;
-}
-
-function stream(): Points {
-  const positions = new Float32Array(particleCount * 3);
-  const speeds = new Float32Array(particleCount);
-  for (let index = 0; index < particleCount; index += 1) {
-    positions[index * 3] = (Math.random() - 0.5) * 180;
-    positions[index * 3 + 1] = (Math.random() - 0.5) * 180;
-    positions[index * 3 + 2] = -30 + Math.random() * 40;
-    speeds[index] = 6 + Math.random() * 14;
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new BufferAttribute(positions, 3));
-  geometry.setAttribute('speed', new BufferAttribute(speeds, 1));
-  const material = new PointsMaterial({ size: 1.1, transparent: true, opacity: 0.7, depthWrite: false });
-  return new Points(geometry, material);
-}
-
-function advanceStream(points: Points, delta: number): void {
-  const position = points.geometry.getAttribute('position') as BufferAttribute;
-  const speed = points.geometry.getAttribute('speed') as BufferAttribute;
-  const dx = Math.cos(streamAngle);
-  const dy = Math.sin(streamAngle);
-  for (let index = 0; index < particleCount; index += 1) {
-    let x = position.getX(index) + dx * speed.getX(index) * delta;
-    let y = position.getY(index) + dy * speed.getX(index) * delta;
-    if (x > 90 || y > 90) {
-      x -= 200 * dx;
-      y -= 200 * dy;
-      if (y < -90) {
-        y += 180;
-      }
-    }
-    position.setXY(index, x, y);
-  }
-  position.needsUpdate = true;
 }
 
 function easeInOut(value: number): number {
@@ -171,10 +127,7 @@ export function startMarkScene(): void {
     mark.add(drawing);
     scene.add(mark);
 
-    const particles = stream();
-    scene.add(particles);
-
-    // The back chevron takes the mark colour of the theme in force and the forward chevron the gold of the identity; a dark back chevron means the light theme, where particles are drawn opaque because added light does not show on a light ground.
+    // The back chevron takes the mark colour of the theme in force and the forward chevron the gold of the identity ; a dark back chevron means the light theme.
     const applyTheme = (): void => {
       const style = getComputedStyle(stage);
       const backColour = new Color(style.getPropertyValue('--mark-back').trim() || '#dde1e6');
@@ -183,11 +136,6 @@ export function startMarkScene(): void {
       backMaterial.color.copy(backColour);
       backMaterial.envMapIntensity = lightGround ? 2.6 : 1.9;
       forwardMaterial.color.copy(forwardColour);
-      const particleMaterial = particles.material as PointsMaterial;
-      particleMaterial.color.copy(forwardColour);
-      particleMaterial.blending = lightGround ? NormalBlending : AdditiveBlending;
-      particleMaterial.opacity = lightGround ? 0.55 : 0.75;
-      particleMaterial.needsUpdate = true;
     };
     applyTheme();
     new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -245,7 +193,6 @@ export function startMarkScene(): void {
       mark.rotation.x = 0.08 + Math.sin(elapsed * 0.27) * 0.06 + pointer.y * 0.22;
       mark.position.y = Math.sin(elapsed * 0.8) * 1.6;
 
-      advanceStream(particles, delta);
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     };

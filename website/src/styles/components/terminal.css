@@ -51,7 +51,9 @@
   position: relative;
   margin: 0;
   padding: var(--space-4) var(--space-5);
-  overflow-x: auto;
+  /* Long lines wrap inside the block instead of adding a horizontal scroll bar. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   border-radius: 0;
   background: transparent;
   color: #e4e7eb;
