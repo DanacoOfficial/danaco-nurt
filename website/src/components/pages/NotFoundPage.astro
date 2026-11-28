@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.pages.NotFoundPage
-// Responsibility:   The page for an address that does not exist, in both languages of the site, with ways back to the home page, the documentation and the search beside the sections of the site. The English page is the answer of the server for every missing address and carries both languages for a browser without scripts; with scripts it shows English, and under a Polish address it puts the Polish page in its place, so the header and the footer are Polish as well. The Polish page carries Polish only.
+// Responsibility:   The page for an address that does not exist, in both languages of the site, with ways back to the home page, the documentation and the search beside the sections of the site. The English page is the answer of the server for every missing address and carries both languages for a browser without scripts; with scripts it shows English, and under a Polish address it opens the Polish page, which then puts the address that was asked for back in the address bar. The Polish page is a page of its own, so its header, its footer and its scripts are those of every Polish page. It carries Polish only.
 // Dependencies:     website.src.layouts.BaseLayout, website.src.components.base.Button, website.src.components.brand.Mark, website.src.components.sections.SiteSections
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
@@ -23,7 +23,8 @@ interface Props {
 const { locale: pageLocale = 'en' } = Astro.props;
 const shown: readonly Locale[] = pageLocale === 'en' ? ['en', 'pl'] : ['pl'];
 const polishPage = href('/404/', 'pl');
-const selectLanguage = `(function(){var parts=document.querySelectorAll('[data-not-found]');function keep(locale){for(var i=0;i<parts.length;i++){parts[i].hidden=parts[i].getAttribute('data-not-found')!==locale;}}if(!/^\\/pl(\\/|$)/.test(location.pathname)){keep('en');return;}var root=document.documentElement;root.style.visibility='hidden';function fallback(){root.lang='pl';keep('pl');root.style.visibility='';}fetch(${JSON.stringify(polishPage)}).then(function(response){if(!response.ok){throw new Error('status');}return response.text();}).then(function(page){document.open();document.write(page);document.close();}).catch(fallback);})();`;
+const selectLanguage = `(function(){var parts=document.querySelectorAll('[data-not-found]');for(var i=0;i<parts.length;i++){parts[i].hidden=parts[i].getAttribute('data-not-found')!=='en';}if(/^\\/pl(\\/|$)/.test(location.pathname)){document.documentElement.style.visibility='hidden';location.replace(${JSON.stringify(polishPage)}+'#'+encodeURIComponent(location.pathname+location.search));}})();`;
+const restoreAddress = `(function(){try{var asked=decodeURIComponent(location.hash.slice(1));if(/^\\/pl\\/[^/]/.test(asked)){history.replaceState(null,'',asked);}}catch(error){}})();`;
 const ui = useUi(pageLocale);
 ---
 
@@ -49,5 +50,5 @@ const ui = useUi(pageLocale);
       );
     })}
   </div>
-  {pageLocale === 'en' && <script is:inline set:html={selectLanguage} />}
+  <script is:inline set:html={pageLocale === 'en' ? selectLanguage : restoreAddress} />
 </BaseLayout>

@@ -145,6 +145,14 @@ function inspect() {
     await page.goto(`${base}/`, { waitUntil: 'load' });
     if (!(await menuStaysOpen())) report.push(`${narrow} /: the menu does not stay open`);
   }
+  // A missing Polish address must show the Polish page for a missing address with the address that was asked for, and its menu must work. A server that does not answer a missing address with the page of the site (a plain file server) is skipped.
+  const missing = '/pl/no-such-page-of-the-site/';
+  await page.goto(base + missing, { waitUntil: 'networkidle2' });
+  if (await page.evaluate(() => Boolean(document.querySelector('.not-found')))) {
+    const state = await page.evaluate(() => ({ lang: document.documentElement.lang, address: location.pathname, header: document.querySelector('.site-header__panel a').getAttribute('href') }));
+    if (!state.lang.startsWith('pl') || state.address !== missing || !state.header.startsWith('/pl/')) report.push(`768 ${missing}: the page for a missing Polish address: ${JSON.stringify(state)}`);
+    if (!(await menuStaysOpen())) report.push(`768 ${missing}: the menu does not stay open`);
+  }
   // The parts of a page that answer a click must answer it: the navigation of the documentation on a narrow window, the colour theme, the install tabs, the feature tour and the search.
   const pause = () => new Promise((resolve) => setTimeout(resolve, 500));
   await page.goto(`${base}/pl/docs/guide/`, { waitUntil: 'load' });
