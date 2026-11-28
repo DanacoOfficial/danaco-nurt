@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Danaco Nurt devcontainer Feature. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Danaco Nurt devcontainer Feature
@@ -51,7 +51,7 @@ Environment variables for testing against a different release location:
 | `bash test/install-offline.sh` | `bash`, `curl`, `tar`, `sha256sum` | Version selection, checksum verification and installation against a release tree in a temporary directory. |
 | `devcontainer features test --project-folder . --features nurt` | `@devcontainers/cli`, Docker, network | Scenarios in `test/nurt`: default options, major prefix, Alpine image. |
 
-The workflow in `ci/devcontainer.yml` runs both and publishes the Feature to `ghcr.io/danacoofficial/features/nurt` when a release is published.
+The workflow `.github/workflows/integrations-devcontainer.yml` (its copy in this directory is `ci/devcontainer.yml`) runs both and publishes the Feature to `ghcr.io/danacoofficial/features/nurt` when a release is published.
 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->

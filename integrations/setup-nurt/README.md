@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents setup-nurt. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # setup-nurt
@@ -90,7 +90,7 @@ The installation is stored in `$RUNNER_TOOL_CACHE/nurt/<version>/<arch>` with a 
 bash integrations/setup-nurt/tests/run.sh
 ```
 
-The tests resolve versions, select artifacts and verify checksums against a release tree created in a temporary directory. They require `bash`, `curl`, `tar` and `sha256sum` or `shasum`. The workflow in `ci/setup-nurt.yml` runs them on the three operating systems.
+The tests resolve versions, select artifacts and verify checksums against a release tree created in a temporary directory. They require `bash`, `curl`, `tar` and `sha256sum` or `shasum`. The workflow `.github/workflows/integrations-setup-nurt.yml` (its copy in this directory is `ci/setup-nurt.yml`) runs them on the three operating systems.
 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->

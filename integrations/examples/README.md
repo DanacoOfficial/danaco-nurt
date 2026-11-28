@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Integration examples. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Integration examples
@@ -34,7 +34,7 @@ python -m unittest discover -s integrations/examples/tests
 (cd integrations/examples/anthropic-typescript && npm test)
 ```
 
-`ci/workflow.yml` runs the tests of every example. The integrator guide is in `docs/integrators/`.
+The workflow `.github/workflows/integrations-examples.yml` (its copy in this directory is `ci/workflow.yml`) runs the tests of every example. The integrator guide is in `docs/integrators/`.
 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
