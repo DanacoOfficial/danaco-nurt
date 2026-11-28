@@ -701,7 +701,7 @@ def files_page(f):
         ("svg/", "marks, application icons, lockups, wordmarks, favicon"),
         ("raster/", "nurt.ico, favicon.ico, hicolor PNG files, social card"),
         ("render/", "the render of the mark in silver and gold, and its Blender script"),
-        ("guidelines.pdf", "this book"),
+        ("guidelines-0.1.0.pdf", "this book"),
         ("build.py", "the construction of the mark and the application icons"),
         ("letters.py", "the drawn letters of the name"),
         ("lockup.py", "the lockups and the wordmarks"),
@@ -727,7 +727,7 @@ def closing(f):
 def main(argv):
     parser = argparse.ArgumentParser(description="Write the identity guidelines as a PDF.")
     parser.add_argument("--fonts", required=True, type=Path)
-    parser.add_argument("--out", type=Path, default=HERE / "guidelines.pdf")
+    parser.add_argument("--out", type=Path, default=HERE / "guidelines-0.1.0.pdf")
     parser.add_argument("--hero", type=Path, help="PNG of the rendered mark, added as the last page")
     arguments = parser.parse_args(argv)
     f = Fonts(arguments.fonts)

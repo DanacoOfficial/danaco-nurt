@@ -54,7 +54,8 @@ The variant `-mono` of the lockups sets the name in JetBrains Mono, "Danaco" in 
 | `raster/hicolor/` | application icon in the sizes of the hicolor icon theme |
 | `raster/favicon.ico`, `raster/apple-touch-icon.png`, `raster/social-card.png` | icons of the web and the card of 1200 x 630 pixels |
 | `render/` | render of the mark in silver and gold and the Blender script that makes it |
-| `guidelines.pdf` | the identity guidelines |
+| `guidelines-0.1.1.pdf` | the identity guidelines of the production identity 1.0.0 as shipped in release 0.1.1: mark, name, colour, grounds, finishing, print, icons and terminal banner; the sources of this edition are in the branch of release 0.1.1 |
+| `guidelines-0.1.0.pdf` | the identity guidelines of the identity of this directory, written by `book.py` |
 
 ## Regeneration
 
