@@ -378,7 +378,7 @@
       ]
     },
     {
-      "id": "journal/coverage/write-size",
+      "id": "journal/coverage/write-truncate",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a truncation restores the removed bytes.",
@@ -398,7 +398,7 @@
       },
       "step": [
         {
-          "program": "write \"a.txt\" size: 5",
+          "program": "write \"a.txt\" mode: overwrite size: 5b",
           "expect": {
             "report": {
               "status": "ok",
@@ -446,7 +446,7 @@
       ]
     },
     {
-      "id": "journal/coverage/write-size/extend",
+      "id": "journal/coverage/write-extend",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of an extension restores the previous length.",
@@ -461,7 +461,7 @@
       },
       "step": [
         {
-          "program": "write \"a.txt\" size: 4",
+          "program": "write \"a.txt\" mode: overwrite size: 4b",
           "expect": {
             "report": {
               "status": "ok",
@@ -718,7 +718,7 @@
       ]
     },
     {
-      "id": "journal/coverage/insert/end",
+      "id": "journal/coverage/insert-end",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of an insertion at the end restores the previous length.",
@@ -948,7 +948,7 @@
       ]
     },
     {
-      "id": "journal/coverage/copy/overwrite",
+      "id": "journal/coverage/copy-overwrite",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a copy onto an existing file restores the destination.",
@@ -1093,14 +1093,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "registry_value",
+                "type": "entry",
                 "rows": [
                   {
-                    "kind": "registry_value",
+                    "kind": "entry",
                     "fields": {
-                      "name": {
-                        "t": "text",
-                        "v": "value"
+                      "exists": {
+                        "t": "bool",
+                        "v": true
                       }
                     }
                   },
@@ -1126,7 +1126,7 @@
       ]
     },
     {
-      "id": "journal/coverage/move",
+      "id": "journal/coverage/move-overwrite",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a move onto an existing file restores both files.",
@@ -1189,7 +1189,7 @@
       ]
     },
     {
-      "id": "journal/coverage/move/new-name",
+      "id": "journal/coverage/move",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a move to a new name restores the old name.",
@@ -1304,14 +1304,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "registry_value",
+                "type": "entry",
                 "rows": [
                   {
-                    "kind": "registry_value",
+                    "kind": "entry",
                     "fields": {
-                      "name": {
-                        "t": "text",
-                        "v": "value"
+                      "exists": {
+                        "t": "bool",
+                        "v": true
                       }
                     }
                   },
@@ -1628,14 +1628,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "registry_value",
+                "type": "entry",
                 "rows": [
                   {
-                    "kind": "registry_value",
+                    "kind": "entry",
                     "fields": {
-                      "name": {
-                        "t": "text",
-                        "v": "value"
+                      "exists": {
+                        "t": "bool",
+                        "v": true
                       }
                     }
                   }
@@ -1667,10 +1667,10 @@
           "program": "run [\"sh\", \"-c\", \"echo done\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" wait: 10s"
+          "program": "jobs \"${step1/report/job/fields/id/v}\" wait: 10s"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> remove",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> remove",
           "expect": {
             "report": {
               "status": "ok",
@@ -1889,7 +1889,7 @@
       ]
     },
     {
-      "id": "journal/coverage/create-file",
+      "id": "journal/coverage/create",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a created file removes it.",
@@ -2537,7 +2537,7 @@
           "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> stop",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> stop",
           "expect": {
             "report": {
               "status": "ok",
@@ -2568,7 +2568,7 @@
           "program": "run [\"sh\", \"-c\", \"echo x >> log.txt\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" wait: 10s",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" wait: 10s",
           "fs_after": {
             "entries": [
               {
@@ -2580,7 +2580,7 @@
           }
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> retry wait: forever",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> retry wait: forever",
           "expect": {
             "report": {
               "status": "ok",
@@ -2634,10 +2634,10 @@
           "program": "run [\"sh\", \"-c\", \"echo x >> log.txt\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" wait: 10s"
+          "program": "jobs \"${step1/report/job/fields/id/v}\" wait: 10s"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> retry wait: forever",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> retry wait: forever",
           "expect": {
             "report": {
               "status": "ok",
@@ -3718,7 +3718,7 @@
       ]
     },
     {
-      "id": "journal/coverage/archive.extract/overwrite",
+      "id": "journal/coverage/archive.extract-overwrite",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of an extraction over existing files restores them.",
@@ -3833,6 +3833,50 @@
       "id": "journal/coverage/compress",
       "kind": "journal",
       "class": "optional:journal",
+      "summary": "Undo of a compression removes the compressed file and keeps the source.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log",
+            "type": "file",
+            "content_utf8": "line\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "compress \"a.log\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "compress"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log",
+                "type": "file",
+                "content_utf8": "line\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/compress-remove-source",
+      "kind": "journal",
+      "class": "optional:journal",
       "summary": "Undo of a compression without a kept source restores the source.",
       "fs_before": {
         "entries": [
@@ -3875,6 +3919,64 @@
     },
     {
       "id": "journal/coverage/decompress",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a decompression removes the decompressed file and keeps the source.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log.gz",
+            "type": "file",
+            "content_base64": "H4sIAAAAAAAA/wEFAPr/bGluZQoORdhmBQAAAA=="
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "decompress \"a.log.gz\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "decompress"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log.gz",
+                "type": "file",
+                "content_base64": "H4sIAAAAAAAA/wEFAPr/bGluZQoORdhmBQAAAA=="
+              },
+              {
+                "path": "a.log",
+                "type": "file",
+                "content_utf8": "line\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log.gz",
+                "type": "file",
+                "content_base64": "H4sIAAAAAAAA/wEFAPr/bGluZQoORdhmBQAAAA=="
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/decompress-remove-source",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "Undo of a decompression without a kept source restores the compressed file.",
@@ -3974,7 +4076,7 @@
           "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> suspend",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> suspend",
           "expect": {
             "report": {
               "status": "ok",
@@ -3988,7 +4090,7 @@
           }
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> stop signal: kill",
           "setup_only": true
         }
       ]
@@ -4009,10 +4111,10 @@
           "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> suspend"
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> suspend"
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> resume",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> resume",
           "expect": {
             "report": {
               "status": "ok",
@@ -4026,7 +4128,7 @@
           }
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill",
+          "program": "jobs \"${step1/report/job/fields/id/v}\" |> stop signal: kill",
           "setup_only": true
         }
       ]
@@ -4979,10 +5081,10 @@
       ]
     },
     {
-      "id": "journal/coverage/journal.limits",
+      "id": "journal/coverage/journal.limits-session",
       "kind": "journal",
       "class": "optional:journal",
-      "summary": "Lowered limits expire entries; undo of the limits does not restore them.",
+      "summary": "Lowered limits of the session expire entries; undo of the limits does not restore them.",
       "fs_before": {
         "entries": [
           {
@@ -5066,7 +5168,7 @@
       ]
     },
     {
-      "id": "journal/coverage/journal.purge",
+      "id": "journal/coverage/journal.purge-id",
       "kind": "journal",
       "class": "optional:journal",
       "summary": "A purged entry is reported as irreversible and cannot be undone.",
@@ -5340,6 +5442,4014 @@
               }
             ]
           }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove-item",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a removed document key restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "query \".version\" path: \"c.json\" |> remove",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/set-create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created document removes it.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "set \"n.json\" key: \"a\" value: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "set"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/rename-overwrite",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a rename onto an existing file restores both files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "rename path: \"b.txt\" to: \"a.txt\" on_conflict: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "rename"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/attributes-system-attributes",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a changed read-only attribute restores the previous attribute.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "attributes \"a.txt\" readonly: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "attributes"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/run-background",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a background job restores the watched files that the job changed.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo new > a.txt\"] cwd: \"${base}\" background: true watch: [\"${base}\"]"
+        },
+        {
+          "program": "jobs \"${step1/report/job/fields/id/v}\" wait: 10s",
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "old\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/run-external",
+      "kind": "journal",
+      "config": "../exec/config/external-pattern.toml",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "A program that matches a pattern of effects outside the computer is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "run [\"echo\", \"external\"] cwd: \"${base}\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "run",
+          "irreversible": [
+            {
+              "reason": "external_effect"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/patch-create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a patch that adds a file removes the file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"--- /dev/null\\n+++ b/n.txt\\n@@ -0,0 +1 @@\\n+new\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/patch-delete",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a patch that deletes a file restores the file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"--- a/b.txt\\n+++ /dev/null\\n@@ -1 +0,0 @@\\n-bravo\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/patch-rename",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a patch that renames a file restores the name.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"diff --git a/b.txt b/r.txt\\nsimilarity index 100%\\nrename from b.txt\\nrename to r.txt\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "r.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/patch-mode",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a patch that changes a mode restores the mode.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\n",
+            "mode": "0644"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"diff --git a/a.txt b/a.txt\\nold mode 100644\\nnew mode 100755\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mode": "0755"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mode": "0644"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.create-run-now",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a schedule that ran at once removes the schedule record.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jn\" every: 1h action: (sleep 10ms) run_now: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "schedule.list |> filter label == \"jn\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "matched": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.purge",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Purged entries up to an operation are reported as irreversible and cannot be undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.purge up_to: ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.purge",
+              "irreversible": [
+                {
+                  "reason": "purged"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.download-overwrite",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "Undo of a download over an existing file restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "http_files": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "served\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.download \"${http_base}/files/a.txt\" \"d.txt\" resume: false",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.download"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "d.txt",
+                "type": "file",
+                "content_utf8": "served\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "d.txt",
+                "type": "file",
+                "content_utf8": "old\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.download-resume",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "Undo of a resumed download restores the partial file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "serv"
+          }
+        ]
+      },
+      "http_files": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "served\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.download \"${http_base}/files/a.txt\" \"d.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.download"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "d.txt",
+                "type": "file",
+                "content_utf8": "served\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "d.txt",
+                "type": "file",
+                "content_utf8": "serv"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo-to",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo to an operation reverts every later operation as one undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo to: ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "x.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo-file",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of one file restores only that file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"a\" \"A\" in: [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo file: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "brAvo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo-paths",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of selected paths of one operation restores those paths only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} paths: [\"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo-on-conflict",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with force restores the content despite a later change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: force",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo-partial",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a partial entry restores the remaining items when partial asks for them.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} paths: [\"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: partial",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/list",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command list only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b"
+          },
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a"
+          },
+          {
+            "path": "sub/c.txt",
+            "type": "file",
+            "content_utf8": "c"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "list \".\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/find",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command find only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" glob: \"**/*.go\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/info",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command info only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "info \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/read",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command read only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "read \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/lines",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command lines only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "x\ny\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/search",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command search only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\nfunc oldName() {}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "search \"oldName\" \".\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/filter",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command filter only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxx"
+          },
+          {
+            "path": "b.log",
+            "type": "file",
+            "content_utf8": "x"
+          },
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxx"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> filter size > 5b and extension == \"log\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/select",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command select only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "abc"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> select name upper: upper(name)",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/sort",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command sort only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a",
+            "type": "file",
+            "content_utf8": "x"
+          },
+          {
+            "path": "b",
+            "type": "file",
+            "content_utf8": "xxx"
+          },
+          {
+            "path": "c",
+            "type": "file",
+            "content_utf8": "xx"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> sort size order: desc",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/first",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command first only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "1\n2\n3\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.txt\" |> first 2",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/last",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command last only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "1\n2\n3\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.txt\" |> last 2",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/skip",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command skip only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "1\n2\n3\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.txt\" |> skip 2",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/count",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command count only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "b.go",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" glob: \"*.go\" depth: 1 |> count",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/assert",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command assert only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> assert count: 1",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/history",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command history only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "history",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/next",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command next only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "long.txt",
+            "type": "file",
+            "content_utf8": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"long.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "next",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/help",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command help only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "help \"find\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/query",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command query only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "p.json",
+            "type": "file",
+            "content_utf8": "{\"name\": \"app\", \"deps\": [\"a\", \"b\"]}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "query \".deps | length\" path: \"p.json\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/diff",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command diff only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "one\nTWO\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "diff \"a.txt\" \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/hash",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command hash only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "h.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "hash \"h.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/evaluate",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command evaluate only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "evaluate 1kib + 24b",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/group",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command group only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "b.go",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "c.md",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> group extension",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/summarize",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command summarize only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a",
+            "type": "file",
+            "content_utf8": "xx"
+          },
+          {
+            "path": "b",
+            "type": "file",
+            "content_utf8": "xxxx"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> summarize size",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/distinct",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command distinct only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "a\nb\na\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"d.txt\" |> distinct text",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/describe",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command describe only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \".\" |> describe",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/parse",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command parse only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log",
+            "type": "file",
+            "content_utf8": "ERROR: disk full\nINFO: ok\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.log\" |> parse /(?P<level>[A-Z]+): (?P<message>.*)/ |> filter level == \"ERROR\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/split",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command split only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.csv",
+            "type": "file",
+            "content_utf8": "1,ann\n2,bob\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.csv\" |> split \",\" names: [\"id\", \"name\"] |> filter name == \"bob\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.symbols",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.symbols only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.py",
+            "type": "file",
+            "content_utf8": "def old_name():\n    return 1\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.symbols \"old_name\" path: [\"${base}/src\"] source: syntax match: exact",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.outline",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.outline only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "class A:\n    def m(self):\n        pass\n\ndef f():\n    pass\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.outline \"a.py\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.definition",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.definition only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def f():\n    pass\n\nf()\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.definition \"a.py\" symbol: \"f\" root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.references",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.references only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def f():\n    pass\n\nf()\nf()\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.references \"a.py\" line: 1 column: 5 root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.hover",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.hover only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def f(x):\n    \"\"\"Doubles x.\"\"\"\n    return 2 * x\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.hover \"a.py\" line: 1 column: 5 root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.diagnostics",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.diagnostics only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def f(:\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.diagnostics \"a.py\" source: syntax",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.languages",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.languages only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "code.languages |> filter name == \"python\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.implementations",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.implementations only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\ntype I interface{ M() }\n\ntype T struct{}\n\nfunc (T) M() {}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.implementations \"a.go\" symbol: \"I\" root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.type-definition",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.type_definition only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\ntype T struct{}\n\nvar v T\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.type_definition \"a.go\" symbol: \"v\" root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.call-hierarchy",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.call_hierarchy only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def f():\n    pass\n\ndef g():\n    f()\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.call_hierarchy \"a.py\" symbol: \"f\" direction: incoming root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.actions",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.actions only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "import os\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.actions \"a.py\" line: 1 root: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.profile",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "The command code.profile only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "Makefile",
+            "type": "file",
+            "content_utf8": "test:\n\techo test\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.profile \"${base}\" sections: [commands]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.cells",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command notebook.cells only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.cells \"a.ipynb\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/processes",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command processes only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "processes |> assert count: 1..",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/ports",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command ports only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "ports state: listen",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/disks",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command disks only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "disks |> assert count: 1..",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/host",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command host only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "host",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/environment",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "The command environment only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "environment \"PATH\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/open-files",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command open_files only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "open_files \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/accounts",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command accounts only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "accounts kind: user |> assert count: 1..",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/logs",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:system-logs"
+      ],
+      "summary": "The command logs only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "logs limit: 5",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/services",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:services"
+      ],
+      "summary": "The command services only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "services name: \"nurt-conformance-absent-service\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/package.list",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:packages"
+      ],
+      "summary": "The command package.list only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "package.list name: \"nurt-conformance-absent-package\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/package.search",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:packages"
+      ],
+      "summary": "The command package.search only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "package.search \"nurt-conformance-absent-package\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/network.ping",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:network"
+      ],
+      "summary": "The command network.ping only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "network.ping \"127.0.0.1\" count: 1",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/network.resolve",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:network"
+      ],
+      "summary": "The command network.resolve only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "network.resolve \"localhost\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/network.interfaces",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command network.interfaces only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "network.interfaces |> assert count: 1..",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.list",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command schedule.list only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.list",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.space",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command journal.space only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "journal.space volume: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.status",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command journal.status only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "journal.status",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.limits",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command journal.limits only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "journal.limits",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/program.find",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "The command program.find only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "program.find \"sh\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/program.search",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command program.search only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "program.search \"archive\" limit: 3",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/program.describe",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "The command program.describe only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "program.describe \"sh\" include_guide: false",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/program.catalog",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command program.catalog only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "program.catalog",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/test.list",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The command test.list only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "test.list",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/analyze.check-complexity",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:analysis"
+      ],
+      "summary": "The command analyze.check only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "README.md",
+            "type": "file",
+            "content_utf8": "# x\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "analyze.check \"${base}\" wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/analyze.tools",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:analysis"
+      ],
+      "summary": "The command analyze.tools only reads and creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "x = 1\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "analyze.tools \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/sql",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A read of a database creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "sql \"app.db\" \"create table t(x integer)\" write: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql"
+            }
+          }
+        },
+        {
+          "program": "sql \"app.db\" \"select x from t\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/jobs",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Reading a job creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo done\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/fields/id/v}\" wait: 10s",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/archive.list",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Listing an archive creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "in.zip",
+            "type": "file",
+            "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "archive.list \"in.zip\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "archive.list"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A request that only reads a resource creates no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "http_files": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "served\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/files/a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.history",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Reading the history of a schedule creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jh\" every: 1h action: (sleep 1s) enabled: false"
+        },
+        {
+          "program": "schedule.list |> filter label == \"jh\""
+        },
+        {
+          "program": "schedule.history \"${step2/report/records/rows/0/fields/id/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.history"
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/test.show",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Showing an unknown test run creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "test.show \"r-absent\"",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_UNKNOWN_RUN"
+              }
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/analyze.show",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Showing an unknown analysis creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "analyze.show \"a-absent\"",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_UNKNOWN_ANALYSIS"
+              }
+            }
+          },
+          "absent": [
+            "/report/op"
+          ]
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
         }
       ]
     }

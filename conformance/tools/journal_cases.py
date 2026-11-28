@@ -6,7 +6,7 @@
 # Responsibility:   Script journal_cases.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Journal cases: undo of every row of the coverage table, and the semantics of undo and redo.
@@ -27,6 +27,7 @@ test clock of the feature `testkit`.
 
 from __future__ import annotations
 
+import suite
 from parity_model import (
     REMOVED, UNCHANGED, Collection, changed, entry, gzip_bytes, records, row, tree, zip_bytes,
 )
@@ -34,6 +35,7 @@ from parity_model import (
 JOURNAL = "journal"
 NO_PREIMAGE = "../exec/config/no-preimage.toml"
 JOURNAL_DISABLED = "../exec/config/journal-disabled.toml"
+EXTERNAL_PATTERN = "../exec/config/external-pattern.toml"
 BELOW_RESERVE = "../exec/config/below-reserve.toml"
 OP_SIZE_LIMIT = "../exec/config/op-size-limit.toml"
 SIZE_BUDGET = "../exec/config/size-budget.toml"
@@ -48,9 +50,37 @@ REGISTRY = "registry:/HKCU/Software/NurtConformance"
 OLD_TIME = "2020-01-01T00:00:00Z"
 NEW_TIME = "2026-01-01T00:00:00Z"
 
+ADMINISTRATION_REASON = (
+    "the command changes the system and needs administrator rights, and the state it changes belongs to the host, "
+    "so the suite can neither establish the state before the call nor restore it afterwards; the exec cases of the "
+    "command check its parameters and its preview"
+)
+ADMINISTRATION_ROWS = (
+    "accounts.create", "accounts.modify", "accounts.remove", "accounts.password", "groups.create", "groups.remove",
+    "groups.add-member", "groups.remove-member", "clock.set", "clock.timezone-set", "clock.ntp", "firewall.allow",
+    "firewall.deny", "firewall.remove", "firewall.rules", "network.route-add", "network.route-remove",
+    "network.dns-set", "mount", "unmount", "sysctl.set", "modules.load", "modules.unload", "power.restart",
+    "power.shutdown", "power.cancel", "disks.partition", "disks.format",
+)
+
 PENDING_ROWS = {
     "write-data": "the language has no literal of type bytes, so a program cannot state the bytes of the parameter data",
     "analyze.format-in-place": "the in-place mode is chosen by the formatter, not by the program",
+    **{key: ADMINISTRATION_REASON for key in ADMINISTRATION_ROWS},
+    "windows.cim": "the effect is that of a method called with invoke on a Windows management object of the host, "
+                   "which the suite can neither establish nor restore",
+    "stop-service": "stopping a service needs a service manager of the host and administrator rights, and the "
+                    "suite cannot establish the state of a service",
+    "journal.limits-user": "the call writes the configuration file of the user outside the directory of the case, "
+                           "which the suite must not change",
+    "code.rename-file-operations": "the files are renamed, created or deleted by the edit of a language server of the "
+                                   "host, whose answer the suite cannot state",
+    "replace-item": "the stage replace names the record kind item as its input, but the specification gives no "
+                    "command and no program form that produces item records for it, so the suite cannot state the call",
+    "notebook.export-overwrite": "the command never overwrites a file: an existing output fails with E_EXISTS "
+                                 "before anything is changed",
+    "archive.create-overwrite": "the command never overwrites a file: an existing archive fails with E_EXISTS "
+                                "before anything is changed",
 }
 """Coverage rows without a case, with the precondition the suite cannot yet establish."""
 
@@ -97,7 +127,7 @@ def op(n: int) -> str:
 
 def job(n: int) -> str:
     """Returns the placeholder of the job started by step `n`."""
-    return f"${{step{n}/report/job/id}}"
+    return f"${{step{n}/report/job/fields/id/v}}"
 
 
 def schedule(n: int) -> str:
@@ -243,10 +273,10 @@ def core_rows(b: Coverage) -> None:
                  '{path: "${base}/a.txt", text: "gamma\\n", mode: "append"}, '
                  '{path: "${base}/b.txt", text: "B\\n", mode: "overwrite"}]', "write",
                  changed(TEXT, n_dot_txt="new\n", a_dot_txt="alpha\nbeta\ngamma\n", b_dot_txt="B\n"))
-    b.reversible("write-size", "Undo of a truncation restores the removed bytes.", text,
-                 'write "a.txt" size: 5', "write", changed(TEXT, a_dot_txt="alpha"))
-    b.reversible("write-size/extend", "Undo of an extension restores the previous length.", tree({"a.txt": "ab"}),
-                 'write "a.txt" size: 4', "write", tree({"a.txt": b"ab\x00\x00"}))
+    b.reversible("write-truncate", "Undo of a truncation restores the removed bytes.", text,
+                 'write "a.txt" mode: overwrite size: 5b', "write", changed(TEXT, a_dot_txt="alpha"))
+    b.reversible("write-extend", "Undo of an extension restores the previous length.", tree({"a.txt": "ab"}),
+                 'write "a.txt" mode: overwrite size: 4b', "write", tree({"a.txt": b"ab\x00\x00"}))
     windows = ("os:windows",)
     b.steps("write-registry", "Undo of a written registry value removes the value.", tree({}), [
         call(f'write "{REGISTRY}/value" "data" value_type: string', report=ok("write")),
@@ -259,14 +289,14 @@ def core_rows(b: Coverage) -> None:
                  'replace "beta" "BETA" in: ["a.txt"]', "replace", changed(TEXT, a_dot_txt="alpha\nBETA\n"))
     b.reversible("insert", "Undo of an insertion restores the previous bytes.", text,
                  'insert "middle" in: "a.txt" line: 1', "insert", changed(TEXT, a_dot_txt="alpha\nmiddle\nbeta\n"))
-    b.reversible("insert/end", "Undo of an insertion at the end restores the previous length.", text,
+    b.reversible("insert-end", "Undo of an insertion at the end restores the previous length.", text,
                  'insert "omega" in: "a.txt" position: end', "insert")
     b.reversible("edit", "Undo of an edit restores the previous bytes.", text,
                  'edit "a.txt" changes: [{replace: "alpha", with: "ALPHA"}, {replace: "beta", with: "BETA"}]',
                  "edit", changed(TEXT, a_dot_txt="ALPHA\nBETA\n"))
     b.reversible("copy", "Undo of a copied tree removes the copy.", dirs, 'copy "dir" to: "dir2"', "copy",
                  changed(DIRS, dir2__c_dot_txt="charlie\n", dir2__sub__d_dot_txt="delta\n"))
-    b.reversible("copy/overwrite", "Undo of a copy onto an existing file restores the destination.", dirs,
+    b.reversible("copy-overwrite", "Undo of a copy onto an existing file restores the destination.", dirs,
                  'copy "e.txt" to: "a.txt"', "copy", changed(DIRS, a_dot_txt="echo\n"))
     b.steps("copy-registry", "Undo of a copied registry value removes the copy.", tree({}), [
         call(f'write "{REGISTRY}/value" "data" value_type: string', report=ok("write")),
@@ -276,9 +306,9 @@ def core_rows(b: Coverage) -> None:
              report={"status": "ok", "records": entry_rows(True, False)}),
         call(f'remove "{REGISTRY}"', setup_only=True),
     ], requires=windows)
-    b.reversible("move", "Undo of a move onto an existing file restores both files.", text,
+    b.reversible("move-overwrite", "Undo of a move onto an existing file restores both files.", text,
                  'move "b.txt" to: "a.txt"', "move", changed(TEXT, b_dot_txt=REMOVED, a_dot_txt="bravo\n"))
-    b.reversible("move/new-name", "Undo of a move to a new name restores the old name.", text,
+    b.reversible("move", "Undo of a move to a new name restores the old name.", text,
                  'move "b.txt" to: "m.txt"', "move", changed(TEXT, b_dot_txt=REMOVED, m_dot_txt="bravo\n"))
     b.steps("move-registry", "Undo of a moved registry value restores it under its old name.", tree({}), [
         call(f'write "{REGISTRY}/value" "data" value_type: string', report=ok("write")),
@@ -318,7 +348,7 @@ def core_rows(b: Coverage) -> None:
     ])
     b.reversible("rename", "Undo of a rename restores the old name.", text, 'rename path: "b.txt" to: "r.txt"', "rename",
                  changed(TEXT, b_dot_txt=REMOVED, r_dot_txt="bravo\n"))
-    b.reversible("create-file", "Undo of a created file removes it.", text, 'create "n.txt" type: file', "create",
+    b.reversible("create", "Undo of a created file removes it.", text, 'create "n.txt" type: file', "create",
                  changed(TEXT, n_dot_txt=""))
     b.reversible("create-directory", "Undo of created directories removes them, parents included.", text,
                  'create "out/logs" type: directory', "create", changed(TEXT, out__logs=None))
@@ -427,14 +457,20 @@ def group_rows(b: Coverage) -> None:
     b.reversible("archive.extract", "Undo of an extraction removes the extracted files.",
                  tree({"in.zip": archive}), 'archive.extract "in.zip" into: "out"', "archive.extract",
                  tree({"in.zip": archive, "out/a.txt": "alpha\n"}))
-    b.reversible("archive.extract/overwrite", "Undo of an extraction over existing files restores them.",
+    b.reversible("archive.extract-overwrite", "Undo of an extraction over existing files restores them.",
                  tree({"in.zip": archive, "a.txt": "old\n"}), 'archive.extract "in.zip" into: "${base}"',
                  "archive.extract", tree({"in.zip": archive, "a.txt": "alpha\n"}))
     b.reversible("archive.create", "Undo of a created archive removes it.", tree({"dist/a.txt": "a"}),
                  'find "dist" |> archive.create "out.zip" base: "${base}/dist"', "archive.create")
-    b.reversible("compress", "Undo of a compression without a kept source restores the source.",
+    b.reversible("compress", "Undo of a compression removes the compressed file and keeps the source.",
+                 tree({"a.log": "line\n"}), 'compress "a.log"', "compress")
+    b.reversible("compress-remove-source", "Undo of a compression without a kept source restores the source.",
                  tree({"a.log": "line\n"}), 'compress "a.log" keep: false', "compress")
-    b.reversible("decompress", "Undo of a decompression without a kept source restores the compressed file.",
+    b.reversible("decompress", "Undo of a decompression removes the decompressed file and keeps the source.",
+                 tree({"a.log.gz": gzip_bytes(b"line\n")}), 'decompress "a.log.gz"', "decompress",
+                 tree({"a.log.gz": gzip_bytes(b"line\n"), "a.log": "line\n"}))
+    b.reversible("decompress-remove-source",
+                 "Undo of a decompression without a kept source restores the compressed file.",
                  tree({"a.log.gz": gzip_bytes(b"line\n")}), 'decompress "a.log.gz" keep: false', "decompress",
                  tree({"a.log": "line\n"}))
     b.steps("sleep", "A command without an effect creates no journal entry.", tree({}), [
@@ -543,7 +579,8 @@ def schedule_and_tool_rows(b: Coverage) -> None:
                 call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
                 call(f"history {op(1)}", report={"status": "ok", "records": operation(state=enum("expired"))}),
             ])
-    b.steps("journal.limits", "Lowered limits expire entries; undo of the limits does not restore them.", text, [
+    b.steps("journal.limits-session",
+            "Lowered limits of the session expire entries; undo of the limits does not restore them.", text, [
         call('write "n.txt" "new\\n" mode: create', report=ok("write")),
         call('write "m.txt" "more\\n" mode: create', report=ok("write")),
         call("journal.limits steps: 1", report=irreversible("journal.limits", "journal_entries_expired")),
@@ -551,7 +588,7 @@ def schedule_and_tool_rows(b: Coverage) -> None:
         call(f"undo {op(3)}", report=UNDONE),
         call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
     ])
-    b.steps("journal.purge", "A purged entry is reported as irreversible and cannot be undone.", text, [
+    b.steps("journal.purge-id", "A purged entry is reported as irreversible and cannot be undone.", text, [
         call('write "n.txt" "new\\n" mode: create', report=ok("write")),
         call(f"journal.purge id: [{op(1)}]", report=irreversible("journal.purge", "purged")),
         call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
@@ -575,6 +612,193 @@ def schedule_and_tool_rows(b: Coverage) -> None:
                  'analyze.format "${base}"', "analyze.format", requires=analysis)
 
 
+def forms_rows(b: Coverage) -> None:
+    """Rows of the forms of the core and file commands that the other functions do not cover."""
+    text = tree(TEXT)
+    unix = ("os:unix",)
+    b.reversible("remove-item", "Undo of a removed document key restores the previous bytes.", tree(DOCUMENT),
+                 'query ".version" path: "c.json" |> remove', "remove")
+    b.reversible("set-create", "Undo of a created document removes it.", tree({}),
+                 'set "n.json" key: "a" value: 1', "set")
+    b.reversible("rename-overwrite", "Undo of a rename onto an existing file restores both files.", text,
+                 'rename path: "b.txt" to: "a.txt" on_conflict: overwrite', "rename",
+                 changed(TEXT, b_dot_txt=REMOVED, a_dot_txt="bravo\n"))
+    b.steps("attributes-system-attributes", "Undo of a changed read-only attribute restores the previous attribute.",
+            text, [
+                call('attributes "a.txt" readonly: true', report=ok("attributes"), after=text),
+                undo(1, text),
+            ], requires=("os:windows",))
+    b.steps("run-background", "Undo of a background job restores the watched files that the job changed.",
+            tree({"a.txt": "old\n"}), [
+                call('run ["sh", "-c", "echo new > a.txt"] cwd: "${base}" background: true watch: ["${base}"]'),
+                call(f'jobs "{job(1)}" wait: 10s', after=tree({"a.txt": "new\n"})),
+                call("undo", report=UNDONE, after=tree({"a.txt": "old\n"})),
+            ], requires=unix)
+    b.c.add("run-external", "A program that matches a pattern of effects outside the computer is reported as "
+            "irreversible.", tree({}), 'run ["echo", "external"] cwd: "${base}"', feature=JOURNAL, requires=unix,
+            config=EXTERNAL_PATTERN, report=irreversible("run", "external_effect"))
+    b.c.add("patch-create", "Undo of a patch that adds a file removes the file.", tree(TEXT), feature=JOURNAL, steps=[
+        call('patch "--- /dev/null\\n+++ b/n.txt\\n@@ -0,0 +1 @@\\n+new\\n" root: "${base}" strip: 1',
+             report=ok("patch"), after=changed(TEXT, n_dot_txt="new\n")),
+        undo(1, text),
+    ])
+    b.reversible("patch-delete", "Undo of a patch that deletes a file restores the file.", text,
+                 'patch "--- a/b.txt\\n+++ /dev/null\\n@@ -1 +0,0 @@\\n-bravo\\n" root: "${base}" strip: 1', "patch",
+                 changed(TEXT, b_dot_txt=REMOVED))
+    b.reversible("patch-rename", "Undo of a patch that renames a file restores the name.", text,
+                 'patch "diff --git a/b.txt b/r.txt\\nsimilarity index 100%\\nrename from b.txt\\nrename to r.txt\\n" '
+                 'root: "${base}" strip: 1', "patch", changed(TEXT, b_dot_txt=REMOVED, r_dot_txt="bravo\n"))
+    b.reversible("patch-mode", "Undo of a patch that changes a mode restores the mode.",
+                 snapshot(entry("a.txt", "alpha\n", mode="0644")),
+                 'patch "diff --git a/a.txt b/a.txt\\nold mode 100644\\nnew mode 100755\\n" root: "${base}" strip: 1',
+                 "patch", snapshot(entry("a.txt", "alpha\n", mode="0755")), requires=unix)
+    b.steps("schedule.create-run-now", "Undo of a schedule that ran at once removes the schedule record.", tree({}), [
+        call('schedule.create "jn" every: 1h action: (sleep 10ms) run_now: true', report=ok("schedule.create")),
+        call(f"undo {op(1)}", report=UNDONE),
+        call('schedule.list |> filter label == "jn"', report={"status": "ok", "records": {"matched": 0}}),
+    ])
+    b.steps("journal.purge", "Purged entries up to an operation are reported as irreversible and cannot be undone.",
+            text, [
+                call('write "n.txt" "new\\n" mode: create', report=ok("write")),
+                call(f"journal.purge up_to: {op(1)}", report=irreversible("journal.purge", "purged")),
+                call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
+            ])
+    http = ("fixture:http",)
+    old = changed(TEXT, d_dot_txt="old\n")
+    b.steps("http.download-overwrite", "Undo of a download over an existing file restores the previous bytes.",
+            old, [
+                call('http.download "${http_base}/files/a.txt" "d.txt" resume: false', report=ok("http.download"),
+                     after=changed(TEXT, d_dot_txt="served\n")),
+                undo(1, old),
+            ], requires=http, extra={"http_files": tree({"a.txt": "served\n"})})
+    partial = changed(TEXT, d_dot_txt="serv")
+    b.steps("http.download-resume", "Undo of a resumed download restores the partial file.", partial, [
+        call('http.download "${http_base}/files/a.txt" "d.txt"', report=ok("http.download"),
+             after=changed(TEXT, d_dot_txt="served\n")),
+        undo(1, partial),
+    ], requires=http, extra={"http_files": tree({"a.txt": "served\n"})})
+    replace = 'replace "beta" "BETA" in: ["a.txt"]'
+    later = 'write "a.txt" "later\\n" mode: append'
+    b.steps("undo-to", "Undo to an operation reverts every later operation as one undo.", text, [
+        call('write "x.txt" "x\\n" mode: create', report=ok("write")),
+        call(replace, report=ok("replace")),
+        call('remove "b.txt"', report=ok("remove")),
+        call(f"undo to: {op(1)}", report=UNDONE, after=changed(TEXT, x_dot_txt="x\n")),
+    ])
+    b.steps("undo-file", "Undo of one file restores only that file.", text, [
+        call('replace "a" "A" in: ["a.txt", "b.txt"]', report=ok("replace")),
+        call('undo file: "a.txt"', report=UNDONE, after=changed(TEXT, b_dot_txt="brAvo\n")),
+    ])
+    b.steps("undo-paths", "Undo of selected paths of one operation restores those paths only.", text, [
+        call('remove ["a.txt", "b.txt"]', report=ok("remove")),
+        call(f'undo {op(1)} paths: ["b.txt"]', report=UNDONE, after=changed(TEXT, a_dot_txt=REMOVED)),
+    ])
+    b.steps("undo-on-conflict", "Undo with force restores the content despite a later change.", text, [
+        call(replace, report=ok("replace")),
+        call(later, report=ok("write")),
+        call(f"undo {op(1)} on_conflict: force", report=UNDONE, after=text),
+    ])
+    b.steps("undo-partial", "Undo of a partial entry restores the remaining items when partial asks for them.",
+            text, [
+                call('remove ["a.txt", "b.txt"]', report=ok("remove")),
+                call(f'undo {op(1)} paths: ["b.txt"]', report=UNDONE),
+                call(f"undo {op(1)} on_conflict: partial", report=UNDONE, after=text),
+            ])
+
+
+def exec_steps(case: suite.Case) -> list[dict] | None:
+    """Returns the read steps of an exec case, or None when the case does more than read.
+
+    A usable case states only the program, its options and the status ok of every step, and changes no file.
+    """
+    data = case.data
+    if set(data) - {"id", "kind", "class", "requires", "summary", "fs_before", "step", "program", "options", "expect",
+                    "fs_after"}:
+        return None
+    steps = []
+    for raw in case.steps():
+        raw = raw if "step" in data else {k: v for k, v in data.items() if k in ("program", "options", "expect", "fs_after")}
+        expect = raw.get("expect")
+        if set(raw) - {"program", "options", "expect", "fs_after"} or not isinstance(expect, dict):
+            return None
+        if set(expect) != {"report"} or expect["report"].get("status", "ok") != "ok":
+            return None
+        if raw.get("fs_after", UNCHANGED) != UNCHANGED or "${step" in raw.get("program", "${step"):
+            return None
+        steps.append(call(raw["program"], options=raw.get("options"), report={"status": "ok"},
+                          absent=["/report/op"]))
+    return steps
+
+
+NO_EFFECT_OWN_CASES = ("sql", "jobs", "archive.list", "http.request", "schedule.history", "test.show", "analyze.show")
+"""No-effect rows without a derived case: no exec case only reads for them, so `no_effect_own_rows` writes them out.
+
+A row that has a case of its own in the other functions, such as `sleep` and `remove-job`, is not derived either."""
+
+
+def no_effect_rows(b: Coverage) -> None:
+    """Cases of the rows without an effect: the command of an exec case that only reads creates no entry."""
+    by_command: dict[str, list[suite.Case]] = {}
+    for case in suite.load_cases("exec"):
+        by_command.setdefault(case.id.split("/")[2], []).append(case)
+    skipped = set(PENDING_ROWS) | set(NO_EFFECT_OWN_CASES) | {c["id"].rsplit("/", 1)[1] for c in b.c.cases}
+    for table_row in suite.journal_coverage():
+        key = suite.coverage_key(table_row)
+        if table_row["group"] == "git" or table_row["coverage"] != "no_effect" or key in skipped:
+            continue
+        for case in by_command.get(table_row["command"], []):
+            steps = exec_steps(case)
+            if steps is None:
+                continue
+            requires = tuple(case.data.get("requires", []))
+            kind = case.data.get("class", "")
+            if kind.startswith("optional:") and kind != f"optional:{JOURNAL}":
+                requires += (f"feature:{kind.split(':', 1)[1]}",)
+            steps.append(call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED))
+            b.steps(key, f"The command {table_row['command']} only reads and creates no journal entry.",
+                    case.data.get("fs_before"), steps, requires=requires)
+            break
+        else:
+            raise ValueError(f"no exec case of the row {key} only reads")
+
+
+def no_effect_own_rows(b: Coverage) -> None:
+    """Cases of the rows without an effect that need a setup of their own."""
+    unix = ("os:unix",)
+    no_entry = ["/report/op"]
+    b.steps("sql", "A read of a database creates no journal entry.", tree({}), [
+        call('sql "app.db" "create table t(x integer)" write: true', report=ok("sql")),
+        call('sql "app.db" "select x from t"', report=ok("sql"), absent=no_entry),
+    ])
+    b.steps("jobs", "Reading a job creates no journal entry.", tree({}), [
+        call('run ["sh", "-c", "echo done"] cwd: "${base}" background: true'),
+        call(f'jobs "{job(1)}" wait: 10s', report={"status": "ok"}, absent=no_entry),
+        call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+    ], requires=unix)
+    archive = zip_bytes({"a.txt": "alpha\n"})
+    b.steps("archive.list", "Listing an archive creates no journal entry.", tree({"in.zip": archive}), [
+        call('archive.list "in.zip"', report=ok("archive.list"), absent=no_entry),
+        call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+    ])
+    b.steps("http.request", "A request that only reads a resource creates no journal entry.", tree(TEXT), [
+        call('http.request "${http_base}/files/a.txt"', report=ok("http.request"), absent=no_entry),
+        call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+    ], requires=("fixture:http",), extra={"http_files": tree({"a.txt": "served\n"})})
+    b.steps("schedule.history", "Reading the history of a schedule creates no journal entry.", tree({}), [
+        call('schedule.create "jh" every: 1h action: (sleep 1s) enabled: false'),
+        call('schedule.list |> filter label == "jh"'),
+        call(f'schedule.history "{schedule(2)}"', report=ok("schedule.history"), absent=no_entry),
+    ])
+    b.steps("test.show", "Showing an unknown test run creates no journal entry.", tree({}), [
+        call('test.show "r-absent"', report=failed("E_UNKNOWN_RUN"), absent=no_entry),
+        call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+    ])
+    b.steps("analyze.show", "Showing an unknown analysis creates no journal entry.", tree({}), [
+        call('analyze.show "a-absent"', report=failed("E_UNKNOWN_ANALYSIS"), absent=no_entry),
+        call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+    ])
+
+
 def coverage() -> Collection:
     """Returns the coverage cases, one or more per row of the coverage table."""
     b = Coverage()
@@ -582,6 +806,9 @@ def coverage() -> Collection:
     group_rows(b)
     network_rows(b)
     schedule_and_tool_rows(b)
+    forms_rows(b)
+    no_effect_rows(b)
+    no_effect_own_rows(b)
     return b.c
 
 
