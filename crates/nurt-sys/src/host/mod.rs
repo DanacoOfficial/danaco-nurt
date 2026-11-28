@@ -6,7 +6,7 @@
 // Responsibility:   Description of the device: the `host` command.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Description of the device: the `host` command.
@@ -251,6 +251,7 @@ fn locate_program(
             .and_then(|path| versions::read_version(path)),
         source: first.map(|_| ProgramSource::Path),
         all_paths: Some(matches.iter().map(|path| canonical_path(path)).collect()),
+        ..ProgramLocation::default()
     }
 }
 

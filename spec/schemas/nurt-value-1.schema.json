@@ -6457,6 +6457,24 @@
             "$ref": "#/$defs/Path"
           },
           "description": "Every match in the search path, in order of resolution."
+        },
+        "version_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Source that gave the version."
+        },
+        "alias_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Program the name is an alias of."
         }
       },
       "required": [
@@ -8743,6 +8761,246 @@
           ],
           "format": "double",
           "description": "Relevance in a search."
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Kind of the card."
+        },
+        "category_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramCategorySource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Origin of the category."
+        },
+        "has_guide": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "The program has instructions of use."
+        },
+        "guide_required": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Instructions must be read before use."
+        },
+        "guide_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Name of the instructions of use."
+        },
+        "guide_shared_with": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Programs that share the instructions of use."
+        },
+        "overview": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Overview of the program."
+        },
+        "alternatives": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Other paths of the program in the search path."
+        },
+        "catalog_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Path of the entry in the program catalog."
+        },
+        "manager": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Package manager of the package."
+        },
+        "app_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Identifier of the application."
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Language of the summary."
+        },
+        "query": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Query of a search that found the card."
+        },
+        "instead": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Program to use instead of the one asked for."
+        },
+        "etag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Entity tag of the description."
+        },
+        "requested": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Name as requested, when it differs from the name of the card."
+        },
+        "alias_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramAliasKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How the requested name relates to the card."
+        },
+        "unchanged": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "The description is unchanged since the entity tag that was given."
+        },
+        "guide_sections": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Headings of the sections of the instructions."
+        },
+        "guide_files": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Files of the instructions."
+        },
+        "guide_etag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Entity tag of the instructions."
+        },
+        "when_to_use": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Situations the program is meant for."
+        },
+        "not_for": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProgramNotFor"
+          },
+          "description": "Tasks the program is not meant for."
+        },
+        "example": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Example of use."
+        },
+        "pitfalls": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Pitfalls of use."
+        },
+        "man": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Line of the manual page."
+        },
+        "help": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Help text of the program."
+        },
+        "help_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramHelpStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Outcome of reading the help text."
+        },
+        "executed": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Command line that was run to read the help text."
         }
       },
       "required": [
@@ -8754,6 +9012,146 @@
         "sources"
       ],
       "description": "Description of a program."
+    },
+    "ProgramKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "program",
+          "description": "A command started by name."
+        },
+        {
+          "type": "string",
+          "const": "app",
+          "description": "An application without a command in the search path."
+        },
+        {
+          "type": "string",
+          "const": "guide",
+          "description": "A usage guide not bound to a program."
+        }
+      ],
+      "description": "Kind of a program card."
+    },
+    "ProgramCategorySource": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "catalog",
+          "description": "An external catalog."
+        },
+        {
+          "type": "string",
+          "const": "desktop",
+          "description": "A desktop entry or an application bundle."
+        },
+        {
+          "type": "string",
+          "const": "package",
+          "description": "Package metadata."
+        },
+        {
+          "type": "string",
+          "const": "man",
+          "description": "The section of the manual page."
+        },
+        {
+          "type": "string",
+          "const": "inferred",
+          "description": "The keyword classifier."
+        }
+      ],
+      "description": "Origin of the category of a program card."
+    },
+    "ProgramAliasKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "alias",
+          "description": "Another name of the same function."
+        },
+        {
+          "type": "string",
+          "const": "versioned",
+          "description": "The same program with a version in its name."
+        },
+        {
+          "type": "string",
+          "const": "companion",
+          "description": "A helper command of the same package."
+        },
+        {
+          "type": "string",
+          "const": "symlink",
+          "description": "A symbolic link in the search path to another program there."
+        },
+        {
+          "type": "string",
+          "const": "alternative",
+          "description": "A Debian alternative."
+        },
+        {
+          "type": "string",
+          "const": "shim",
+          "description": "A shim of Scoop or Chocolatey."
+        },
+        {
+          "type": "string",
+          "const": "app_alias",
+          "description": "A Windows application execution alias."
+        }
+      ],
+      "description": "How a requested name relates to the program that answered it."
+    },
+    "ProgramNotFor": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "description": "Task."
+        },
+        "use": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Program to use instead."
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "description": "Task a program is not meant for."
+    },
+    "ProgramHelpStatus": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "ok",
+          "description": "The help text was read."
+        },
+        {
+          "type": "string",
+          "const": "timeout",
+          "description": "The program did not answer in time."
+        },
+        {
+          "type": "string",
+          "const": "refused",
+          "description": "The program is never started for its help."
+        },
+        {
+          "type": "string",
+          "const": "failed",
+          "description": "The program failed."
+        },
+        {
+          "type": "string",
+          "const": "empty",
+          "description": "The program printed no help text."
+        }
+      ],
+      "description": "Outcome of reading the help text of a program."
     },
     "ArchiveEntry": {
       "type": "object",
@@ -11601,6 +11999,63 @@
             "type": "string"
           },
           "description": "Subcategories."
+        },
+        "level": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgramCategoryLevel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Level of the category."
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Category a subcategory belongs to."
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "One sentence."
+        },
+        "aliases": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Other names that resolve to the category."
+        },
+        "sources": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Sources the category was declared in."
+        },
+        "counts_by_source": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "description": "Number of programs by source."
         }
       },
       "required": [
@@ -11609,6 +12064,21 @@
         "source"
       ],
       "description": "Category of programs."
+    },
+    "ProgramCategoryLevel": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "category",
+          "description": "A category."
+        },
+        {
+          "type": "string",
+          "const": "subcategory",
+          "description": "A subcategory of a category."
+        }
+      ],
+      "description": "Level of a category of programs."
     },
     "ScheduleRun": {
       "type": "object",

@@ -82,6 +82,14 @@ their own version numbers, described in the specification.
   811 MB to 298 MB and the archive of `x86_64-unknown-linux-musl` from 235 MB to
   63 MB. The exported functions are unchanged and a C program still links with
   the library.
+- The fields that `program.find`, `program.describe`, `program.search` and
+  `program.catalog` add to their records (`version_source`, `alias_of`,
+  `guide_sections`, `guide_etag`, `requested`, `alias_kind`, `query` and the
+  others of the command pages) are declared as optional fields by the record
+  kinds `program_card`, `program_location` and `program_category`, so `select`,
+  `filter`, `sort` and `evaluate` accept them; the examples of the command
+  pages no longer fail with `E_UNKNOWN_FIELD`. The values and the order of the
+  fields in the result are unchanged.
 
 ### Known issues
 
