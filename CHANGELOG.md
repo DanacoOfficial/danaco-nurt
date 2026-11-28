@@ -139,6 +139,14 @@ their own version numbers, described in the specification.
   transport; the option is recognised and ends with exit code 3. The integrator
   guide, the pages of the site and the module comment now say that it is
   reserved and that a host connects with `nurt serve --stdio`.
+- Documentation: the `initialize` example of the versions guide shows the
+  values the server returns (`ast` 1.1, `language` and `catalog_rev` null,
+  `max_inflight` 16); the readme states the state of release 0.1.2; the
+  installation page separates the systems on which the code is built from the
+  release archives (Linux glibc and musl and Windows MSVC, each on x86_64 and
+  aarch64; no macOS archive) and marks the NuGet and Maven channels as planned;
+  the ban reasons of `deny.toml` name `saphyr` instead of `yaml-edit`; the
+  readmes of the integrations name the workflow files of `.github/workflows`.
 
 ### Known issues
 
