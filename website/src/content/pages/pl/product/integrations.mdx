@@ -24,7 +24,7 @@ Katalog `bindings/` zawiera klientów dla pięciu języków. Każdy oferuje to s
 | TypeScript, Node.js | `npm install nurt` | `library` (dodatek Node-API), `process`, `auto`; Node.js 18 lub nowszy, Bun i Deno |
 | Go | `go get github.com/DanacoOfficial/danaco-nurt/bindings/go` | domyślnie `process`, czyste Go; `library` przez cgo z `-tags nurt_cgo` |
 | Java | `pl.danaco-group:nurt` oraz `nurt-ffm` dla zaplecza biblioteki | `PROCESS` w Javie 17 lub nowszej; `LIBRARY` przez Foreign Function and Memory API w Javie 22 lub nowszej |
-| .NET | `dotnet add package Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 i .NET Standard 2.0 |
+| .NET | `Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 i .NET Standard 2.0 |
 
 Koła Pythona, pakiety platformowe Node oraz pakiety Java i .NET zawierają plik wykonywalny `nurt` i `libnurt` dla systemów Linux, macOS i Windows na architekturach x86-64 i ARM64. Moduł Go odnajduje plik wykonywalny przez `ClientOptions.Executable`, `NURT_EXECUTABLE` lub `PATH`. Każde powiązanie ma testy, które działają względem silnika, gdy wskazuje go `NURT_TEST_EXECUTABLE`.
 
