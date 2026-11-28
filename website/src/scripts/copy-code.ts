@@ -3,13 +3,43 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.scripts.copy-code
-// Responsibility:   Adds a copy button to every code block of a page and copies the text of the block to the clipboard.
+// Responsibility:   Adds a copy button to every code block of a page and copies the text of the block to the clipboard: through the clipboard interface of the browser and, where the browser refuses it, through a selection in a hidden field.
 // Dependencies:     none.
 
 function label(name: 'copy' | 'copied' | 'failed'): string {
   const root = document.documentElement;
   const map = { copy: root.dataset.labelCopy, copied: root.dataset.labelCopied, failed: root.dataset.labelCopyFailed };
   return map[name] ?? name;
+}
+
+/** Copies a text through a selection in a field outside the view; the way for a browser that refuses the clipboard interface. */
+function copyBySelection(text: string): boolean {
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.top = '-100vh';
+  document.body.append(field);
+  field.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+  field.remove();
+  return copied;
+}
+
+/** The text of a block without the label of its copy button. */
+function blockText(block: HTMLElement): string {
+  const code = block.querySelector('code');
+  if (code) {
+    return code.textContent ?? '';
+  }
+  const copy = block.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('.copy-button').forEach((button) => button.remove());
+  return copy.textContent ?? '';
 }
 
 function attach(block: HTMLElement): void {
@@ -21,14 +51,15 @@ function attach(block: HTMLElement): void {
   button.className = 'copy-button';
   button.textContent = label('copy');
   button.addEventListener('click', async () => {
-    const code = block.querySelector('code');
-    const text = (code ?? block).textContent ?? '';
+    const text = blockText(block).replace(/\n$/, '');
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(text.replace(/\n$/, ''));
-      button.textContent = label('copied');
-    } catch (error) {
-      button.textContent = label('failed');
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      copied = copyBySelection(text);
     }
+    button.textContent = label(copied ? 'copied' : 'failed');
     window.setTimeout(() => {
       button.textContent = label('copy');
     }, 1800);

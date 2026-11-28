@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.scripts.menu
-// Responsibility:   Opens and closes the navigation panel on narrow screens: the toggle state, the Escape key and the click outside the panel.
+// Responsibility:   Opens and closes the navigation panel on narrow screens: the toggle state, the Escape key and the click outside the panel. Fits the header to the width of its navigation, and records a choice made with the language switch, so the first visit of a Polish browser to an English page does not undo it.
 // Dependencies:     none.
 
 const button = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
@@ -68,3 +68,14 @@ function fitHeader(): void {
 }
 
 fitHeader();
+
+/** A click on the language switch is a choice of language: it sets the mark that the first-visit script reads, so that script leaves the chosen page as it is. */
+document.querySelectorAll<HTMLAnchorElement>('.language-switch a').forEach((link) => {
+  link.addEventListener('click', () => {
+    try {
+      localStorage.setItem('nurt-locale', 'chosen');
+    } catch {
+      // Storage is unavailable in some private modes; the link works without the mark.
+    }
+  });
+});

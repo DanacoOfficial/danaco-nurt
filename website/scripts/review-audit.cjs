@@ -174,6 +174,13 @@ function inspect() {
     const found = await page.evaluate(() => document.querySelectorAll('.search__result').length);
     if (found === 0) report.push(`1440 ${address}: the search finds nothing for ${query}`);
   }
+  await page.goto(`${base}/docs/commands/copy/`, { waitUntil: 'load' });
+  await (await page.$('.prose pre .copy-button')).click();
+  const copied = await page
+    .waitForFunction(() => document.querySelector('.prose pre .copy-button').textContent === document.documentElement.dataset.labelCopied, { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!copied) report.push('1440 /docs/commands/copy/: the copy button does not report a copy');
   // A browser set to Polish that opens the English home page for the first time must land on the Polish home page, and must stay on the English page when it returns to it.
   const context = await browser.createBrowserContext();
   const visitor = await context.newPage();
@@ -185,6 +192,17 @@ function inspect() {
   const second = new URL(visitor.url()).pathname;
   if (first !== '/pl/' || second !== '/') report.push(`1280 /: Polish browser: first visit ${first}, return ${second}`);
   await context.close();
+  // A browser set to Polish that starts on a Polish page and chooses English with the language switch must stay on the English page.
+  const secondContext = await browser.createBrowserContext();
+  const chooser = await secondContext.newPage();
+  await chooser.setViewport({ width: 1440, height: 900 });
+  await chooser.evaluateOnNewDocument(() => Object.defineProperty(navigator, 'language', { get: () => 'pl-PL' }));
+  await chooser.goto(`${base}/pl/product/overview/`, { waitUntil: 'load' });
+  await Promise.all([chooser.waitForNavigation({ waitUntil: 'load' }), chooser.click('.language-switch a')]);
+  await chooser.waitForFunction(() => location.pathname.startsWith('/pl/'), { timeout: 1500 }).catch(() => undefined);
+  const chosen = new URL(chooser.url()).pathname;
+  if (chosen !== '/product/overview/') report.push(`1440 /pl/product/overview/: the language switch to English ends on ${chosen}`);
+  await secondContext.close();
   await browser.close();
   console.log(report.join('\n'));
   console.log(`pages=${list.length} widths=${widths.join(',')} with issues=${report.length}`);
