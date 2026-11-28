@@ -306,6 +306,60 @@ fn paths_that_match_nothing_are_rejected() {
     assert_eq!(error.data().problem.as_deref(), Some("path_not_found"));
 }
 
+/// Size that the index holds for the stage 0 entry of `path`.
+fn index_size(fixture: &Fixture, path: &str) -> u32 {
+    let ctx = context(None);
+    let repo = GitRepo::open(fixture.path(), &ctx).unwrap();
+    let index = repo.read_index().unwrap();
+    index
+        .state
+        .entry_by_path(BStr::new(path))
+        .unwrap()
+        .stat
+        .size
+}
+
+#[test]
+fn a_file_changed_in_the_second_of_the_index_write_is_marked_when_other_paths_are_committed() {
+    let fixture = with_identity(RepoBuilder::new().config("core.trustctime", "false"))
+        .worktree_file("kept.txt", "1\n")
+        .worktree_file("same.txt", "s\n")
+        .worktree_file("other.txt", "a\n")
+        .build();
+    commit(&fixture, &CommitRequest::new("first", Selection::All)).unwrap();
+    assert_eq!(index_size(&fixture, "kept.txt"), 2);
+
+    // The change keeps the size, and the file and the index keep the time of
+    // the entry: by its statistics the file is unchanged, and only the age of
+    // the index tells a reader to compare the content.
+    let kept = fixture.path().join("kept.txt");
+    let written = std::fs::metadata(&kept).unwrap().modified().unwrap();
+    std::fs::write(&kept, "2\n").unwrap();
+    for path in [kept, fixture.git_dir().join("index")] {
+        let file = std::fs::File::options().write(true).open(path).unwrap();
+        file.set_modified(written).unwrap();
+    }
+    std::fs::write(fixture.path().join("other.txt"), "b\n").unwrap();
+
+    let request = CommitRequest::new("second", Selection::Paths(vec!["other.txt".to_owned()]));
+    let outcome = commit(&fixture, &request).unwrap();
+    assert_eq!(
+        tree_paths(&fixture, outcome.id),
+        vec![
+            ("kept.txt".to_owned(), "1\n".to_owned()),
+            ("other.txt".to_owned(), "b\n".to_owned()),
+            ("same.txt".to_owned(), "s\n".to_owned()),
+        ]
+    );
+    assert_eq!(
+        index_size(&fixture, "kept.txt"),
+        0,
+        "the changed file is compared by content from now on"
+    );
+    assert_eq!(index_size(&fixture, "same.txt"), 2);
+    assert_eq!(index_size(&fixture, "other.txt"), 2);
+}
+
 #[test]
 fn amend_alone_replaces_only_the_message() {
     let fixture = with_identity(RepoBuilder::new())

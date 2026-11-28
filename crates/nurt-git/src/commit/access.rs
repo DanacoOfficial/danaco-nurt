@@ -6,7 +6,7 @@
 // Responsibility:   Working tree access of `git.commit`: files in their stored form, untracked files, index entry updates, tree contents and changed line counts.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Working tree access of `git.commit`: files in their stored form, untracked
@@ -104,6 +104,15 @@ impl<'r> Worktree<'r> {
             .with_problem("special_file")
             .with_found(absolute.display().to_string()));
         }
+        // The statistics are taken before the content, as `git` takes them. A
+        // file that another process changes while it is read then has an
+        // index entry whose statistics no longer describe it, so every reader
+        // compares the content. Taken after the content, they would describe
+        // the changed file and hide the change.
+        let fs_metadata = gix::index::fs::Metadata::from_path_no_follow(&absolute)
+            .map_err(|error| repo_error::io(&absolute, &error))?;
+        let stat = gix::index::entry::Stat::from_fs(&fs_metadata)
+            .map_err(|error| lib_error("read the file time", error))?;
         let (data, kind) = if metadata.file_type().is_symlink() {
             let target =
                 std::fs::read_link(&absolute).map_err(|error| repo_error::io(&absolute, &error))?;
@@ -122,10 +131,6 @@ impl<'r> Worktree<'r> {
             };
             (data, kind)
         };
-        let fs_metadata = gix::index::fs::Metadata::from_path_no_follow(&absolute)
-            .map_err(|error| repo_error::io(&absolute, &error))?;
-        let stat = gix::index::entry::Stat::from_fs(&fs_metadata)
-            .map_err(|error| lib_error("read the file time", error))?;
         Ok(Some(WorkFile { data, kind, stat }))
     }
 

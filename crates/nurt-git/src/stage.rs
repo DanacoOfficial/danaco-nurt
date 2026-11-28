@@ -6,7 +6,7 @@
 // Responsibility:   The `git.stage` command: staging and unstaging files and hunks.
 // Dependencies:     bstr, command, gix, gix_hash, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The `git.stage` command: staging and unstaging files and hunks.
@@ -164,6 +164,7 @@ impl StagePlan {
         if !self.blobs.is_empty() {
             record_object_writes(tx, repo);
         }
+        repo.smudge_racily_clean(&mut self.index)?;
         write_index(tx, &mut self.index)?;
         Ok(self.changes)
     }

@@ -6,7 +6,7 @@
 // Responsibility:   Reading and writing the index, and building trees from it.
 // Dependencies:     bstr, gix, nurt_contracts, sha1
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Reading and writing the index, and building trees from it.
@@ -125,6 +125,43 @@ impl GitRepo {
             path,
             expect: Expect::Hash(content_hash(&bytes)),
         })
+    }
+
+    /// Marks the entries of `file` that have the statistics of their working
+    /// tree file and another content, when the file may have changed in the
+    /// second in which the index read into `file` was written. Call it before
+    /// `file` replaces that index: the new index file is younger than the
+    /// change, so `git` would trust the statistics of such an entry and would
+    /// not report the change. `git` marks these entries with size 0 when it
+    /// writes an index, and so does this method. A repository without a
+    /// working tree has no such entries.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the settings or the filters of the repository cannot be
+    /// read.
+    pub fn smudge_racily_clean(&self, file: &mut IndexFile) -> Result<(), Error> {
+        let Some(root) = self.workdir() else {
+            return Ok(());
+        };
+        // The time of the index file on disk is what readers compared the
+        // entries with until now; the state may come from a copy that a hook
+        // rewrote later.
+        let Some(replaced_at) = std::fs::metadata(&file.path)
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        else {
+            return Ok(());
+        };
+        let seconds = i64::try_from(replaced_at.as_secs()).unwrap_or(i64::MAX);
+        crate::apply::smudge_racily_clean(
+            self.gix(),
+            root,
+            (seconds, replaced_at.subsec_nanos()),
+            &mut file.state,
+            &|_| false,
+        )
     }
 }
 
