@@ -123,11 +123,11 @@ impl<'s, 'h> HitSource<'s, 'h> {
         Some((start, end))
     }
 
-    fn last_line_end(&self, found: RawMatch) -> usize {
+    fn last_line_end(&mut self, found: RawMatch) -> usize {
         if self.multiline && found.end > found.start {
             line_end(self.haystack, found.end - 1)
         } else {
-            line_end(self.haystack, found.start)
+            self.scanner.line_bounds(found.start).1
         }
     }
 

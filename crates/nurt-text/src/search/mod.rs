@@ -369,7 +369,7 @@ impl Searcher {
         let (from, to) = if self.options.multiline {
             (0, haystack.len())
         } else {
-            (line_start(haystack, start), line_end(haystack, start))
+            line_bounds(hit, haystack, offset, start)
         };
         let (text, base) = if !self.options.multiline && pattern.searches_by_line() {
             (haystack.get(from..to)?, from)
@@ -394,6 +394,33 @@ impl Searcher {
             names: pattern.names(),
         })
     }
+}
+
+/// Bounds of the line that contains the offset `start` of `haystack`.
+///
+/// Without `multiline` a hit is one line, so its own bounds answer in constant
+/// time; searching the text for the line breaks costs the length of the line
+/// for every match, and a line of many matches would take time that grows
+/// with the square of the number of matches.
+fn line_bounds(hit: &Hit<'_>, haystack: &[u8], offset: u64, start: usize) -> (usize, usize) {
+    let from = hit
+        .start
+        .checked_sub(offset)
+        .and_then(|from| usize::try_from(from).ok());
+    if let Some(from) = from {
+        let content_end = from + hit.bytes.len();
+        let to = if haystack.get(content_end) == Some(&b'\r')
+            && haystack.get(content_end + 1) == Some(&b'\n')
+        {
+            content_end + 1
+        } else {
+            content_end
+        };
+        if from <= start && start <= to && to <= haystack.len() {
+            return (from, to);
+        }
+    }
+    (line_start(haystack, start), line_end(haystack, start))
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
