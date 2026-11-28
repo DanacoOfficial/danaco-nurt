@@ -55,7 +55,7 @@ Steps: build of `nurt-cli` and `nurt-ffi` for the targets of the table below; `n
 | `x86_64-unknown-linux-musl` | `NURT_RELEASE_MUSL=auto` (target installed), `1` or `0` | compiler `packaging/release/zig-cc-musl.sh` (zig cc), linker `cc` |
 | `aarch64-unknown-linux-gnu` | `NURT_RELEASE_AARCH64=auto` (both aarch64 Linux targets installed and zig available), `1` or `0` | `packaging/release/zig-cc-aarch64-linux-gnu.sh` (`-target aarch64-linux-gnu.2.31`) |
 | `aarch64-unknown-linux-musl` | together with the previous one | `packaging/release/zig-cc-aarch64-linux-musl.sh` |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | unless `--no-windows` | `cargo xwin build --target <target>`; the setup wizard unless `--no-setup` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | unless `--no-windows` | `cargo xwin build --target <target>` with `NURT_REQUIRE_RESOURCES=1` (no resource compiler: the build stops); the setup wizard unless `--no-setup` |
 
 For the targets built with zig the script sets `CC_<target>`, `AR_<target>` (`packaging/release/zig-ar.sh`, `zig ar`) and `CFLAGS_<target>=-fno-sanitize=undefined` and, for aarch64, `CARGO_TARGET_<TARGET>_LINKER`, unless the caller has set them; `ZIG` names the zig executable (`zig` by default). The wrappers drop the option `--target=...` of the `cc` crate and, for aarch64, the linker options `-Wl,--fix-cortex-a53-843419` and `-Wl,-O1`, which zig rejects or warns about.
 

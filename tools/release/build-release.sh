@@ -65,7 +65,9 @@
 #   ZIG                 the zig executable of the zig cc wrappers; zig when unset
 #   NURT_MSVC_CLANG     the clang executable of the MSVC wrappers of
 #                       packaging/release/msvc-clang; /usr/bin/clang when unset
-#   NURT_RC             the resource compiler of the setup wizard; when unset
+#   NURT_RC             the resource compiler of nurt.exe and of the setup wizard
+#                       (a Windows target is built with NURT_REQUIRE_RESOURCES=1,
+#                       so without a compiler the build stops); when unset
 #                       and neither llvm-rc nor rc is in PATH, the llvm-rc next
 #                       to the clang of NURT_MSVC_CLANG
 #   NURT_OSSLSIGNCODE   the osslsigncode executable of --codesign;
@@ -245,8 +247,12 @@ build_target() {
     "$WINDOWS" | "$WINDOWS_ARM")
       # The wrappers of packaging/release/msvc-clang translate the options
       # of cargo-xwin that clang (ring, aarch64 assembly) and clang-cl (aws-lc,
-      # /FI with an absolute path) do not take from a Linux host.
-      PATH="$root/packaging/release/msvc-clang:$PATH" \
+      # /FI with an absolute path) do not take from a Linux host. The icon, the
+      # version information and the manifest of nurt.exe are required: a missing
+      # resource compiler stops the build instead of producing a program without
+      # them.
+      resource_compiler_environment
+      PATH="$root/packaging/release/msvc-clang:$PATH" NURT_REQUIRE_RESOURCES=1 \
         cargo xwin build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;
     *)
       zig_environment "$1"
