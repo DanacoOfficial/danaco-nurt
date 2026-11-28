@@ -24,13 +24,15 @@ The code is built and tested on the systems of the first table. The second table
 |---|---|---|---|
 | Linux | x86_64, aarch64 | glibc and musl, each x86_64 and aarch64 | continuous integration |
 | Windows | x86_64, aarch64 | MSVC, x86_64 and aarch64 | continuous integration |
-| macOS | x86_64, aarch64 | none; build from source | continuous integration on macOS runners; some tests fail intermittently, see "Known issues" of release 0.1.2 in `CHANGELOG.md` |
+| macOS | x86_64, aarch64 | none; build from source | continuous integration on macOS runners; no archive is published for release 0.1.2, see "Known issues" of release 0.1.2 in `CHANGELOG.md` |
 
 | Target of the archive | System |
 |---|---|
 | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | Linux with glibc |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | Linux, static executable |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Windows |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Windows 10 or later |
+
+The setup program for Windows requires Windows 10 version 1809 (build 17763) or later and checks it after it starts. `nurt.exe` is built with a Rust toolchain whose Windows targets support Windows 10 and later.
 
 ## Release artifacts
 

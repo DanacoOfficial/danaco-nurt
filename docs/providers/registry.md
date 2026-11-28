@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents registry:. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # registry:
@@ -38,6 +38,7 @@ program is started.
 |---|---|
 | Root | `HKLM`, `HKCU`, `HKCR`, `HKU` or `HKCC`. The full names `HKEY_LOCAL_MACHINE`, `HKEY_CURRENT_USER`, `HKEY_CLASSES_ROOT`, `HKEY_USERS` and `HKEY_CURRENT_CONFIG` are accepted and shown in the short form. |
 | Separator | `/`. A `/` inside a key or value name is written `%2F`, and `%` is written `%25`. |
+| `\` | Does not separate keys. It is accepted only in the last segment, as part of the name of a value (`registry:/HKCU/Example/C:\Tools\app.exe`). A path with `\` in a segment that names a key, or in its only segment below the root, is rejected with `E_INVALID_VALUE`: write `registry:/HKCU/Software/Example`, not `registry:/HKCU/Software\Example`. |
 | Case | Names are compared without regard to case. Results show the spelling stored in the registry. |
 | Last segment | Names a value when the key before it has a value of that name, otherwise a key. |
 | `(default)` | Names the default value of a key, whose `name` is empty in `registry_value`. |

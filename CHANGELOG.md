@@ -40,6 +40,67 @@ their own version numbers, described in the specification.
 
 ### Fixed
 
+- Git: a tracked file changed in the second in which the index was written,
+  without a change of its size, was no longer reported after a command of
+  `nurt` rewrote the index (`git.commit`, `git.stage`, `git.reset`,
+  `git.switch`, `git.merge`, `git.restore`, `git.stash`, `git.pull`,
+  `git.rebase`): `git status` and `git diff` showed nothing, and `git add -A`
+  and `git commit -a` left the change out. The index keeps the statistics of
+  such a file from before the change, and `git` compares its content only as
+  long as the index file is not younger than the entry. Before `nurt` writes
+  an index it now compares these files by content and stores size 0 for an
+  entry whose file differs, as `git` does, so every later reader compares the
+  content. The releases 0.1.0 and 0.1.1 have the defect.
+- Git: `git.commit` read the content of a file and took its statistics
+  afterwards. A file that another program changed between the two steps was
+  recorded in the index with the statistics of the changed file and the
+  content from before the change, so `git` did not report the change. The
+  statistics are now taken before the content, as `git` takes them.
+- The start banner of an interactive session no longer touches the left edge of
+  the terminal: as in the brand book, it stands three columns from the edge with
+  one empty line above and below it.
+- In the console of Windows that is not Windows Terminal (the window that opens
+  from the Start menu without the profile), `nurt` turns on the processing of
+  the escape sequences at the start, so the colours and the banner are drawn
+  instead of being printed as `←[38;2;…m`; the console that processes them gets
+  the drawing in half blocks.
+- The setup wizard of Windows no longer copies the offline documentation (about
+  200 HTML pages) by default: the option "Install the offline documentation" is
+  off until the user switches it on. The silent mode still installs it unless
+  `--no-docs` is given.
+- `nurt migrate`, `script`, `run`, `check` and `fmt` read a file saved as UTF-16
+  with a byte order mark (the form in which Windows PowerShell and the
+  redirection of its output write a file); before, such a file ended with
+  "stream did not contain valid UTF-8".
+- The configuration files (`nurt.toml`, `.nurt.toml` and the file of
+  `NURT_CONFIG`) are read when they start with a UTF-8 byte order mark or are
+  saved as UTF-16 with a byte order mark, as Windows editors and Windows
+  PowerShell 5.1 save them; before, every command failed with an error about
+  the configuration file.
+- When the line editor of `nurt repl` stops because of an error, the session
+  reports the error on the error output and continues with plain line input,
+  without editing, completion and history, instead of ending without a word.
+  Before, a terminal that the line editor cannot use ended the session at its
+  first prompt; started from the shortcut, the window closed at once.
+- The application manifest embedded in `nurt.exe` no longer carries comments:
+  the template had the footer comments after the closing element of the root,
+  a form that the loader of Windows may refuse for the manifest of an
+  executable (the message is "the application has failed to start because its
+  side-by-side configuration is incorrect"). The footer of the template stands
+  inside the root, as in the manifest of the setup wizard, and the build
+  removes every comment from the embedded copy.
+- A failure of the journal at the start no longer ends the program. When the
+  recovery of the journal fails (an entry that cannot be recovered, a journal
+  directory that cannot be read), the program starts as the documentation of
+  the journal describes: programs that only read run, and a program that
+  changes files runs without preserving the previous content and reports the
+  change as irreversible. The entries that could not be recovered are retried
+  at the next start. The interactive session writes the error of the journal
+  and the advice `nurt journal salvage <volume>` below its banner, and `nurt
+  doctor` reports the journal as unavailable with the same error; both list the
+  causes that the journal recorded for the entries, at most five. Before, every
+  command that used the engine ended with `cannot assemble the journal` at
+  every start.
 - Search and replace with a regular expression no longer take time quadratic in
   the number of matches on one line: the bounds of the line of a match are
   derived from the match instead of being searched again from the start of the
@@ -118,6 +179,40 @@ their own version numbers, described in the specification.
   50 ms, such as the liveness check of the journal, produced closed connections
   faster than the loop removed them, so every ping timed out. The write timeout
   is now best effort.
+- The engine opens when the extension directory cannot be listed or the
+  WebAssembly host cannot start; the extensions are left out instead of ending
+  the start of the program.
+- On Windows, the recursive removal enters the directory placeholders of cloud
+  providers (OneDrive files on demand) and removes them entry by entry; links,
+  junctions and network links of a distributed file system are still removed
+  themselves and never entered.
+- The manifest of an extension is read in UTF-8 with or without a byte order
+  mark and in UTF-16 with one, which is how Windows PowerShell 5.1 and Notepad
+  write a file.
+- `nurt ast --to cbor` refuses to write the binary output to a terminal.
+- The setup counts the space for the files that it installs: without the
+  documentation, not for the whole archive.
+- The setup asks for confirmation before it undoes a setup that has just
+  finished.
+- The shortcut that starts the program in Windows Terminal is made only when
+  `wt.exe` exists, and not for an installation for all users, because the
+  launcher is the alias of the account that runs the setup.
+- Setup: the shortcut of the Windows Terminal profile and the start of the
+  program at the end of the wizard named only the profile (`wt.exe -p "Danaco
+  Nurt"`). Windows Terminal opens its default profile when it does not know
+  the named one, so a Windows Terminal that was open before the setup wrote
+  the profile, or one whose profile was removed, opened another shell and
+  `nurt` did not start. Both now pass `nurt.exe` as the command line of the
+  tab besides the profile, and the end of the wizard opens a console window
+  when Windows Terminal cannot be started. An installation folder with `;`
+  in its path, which Windows Terminal reads as the separator of its commands,
+  gets the shortcut that starts `nurt.exe` itself.
+- Setup: a `Path` of the user or of the machine that is stored as `REG_SZ`
+  keeps that type when the folder of `nurt.exe` is added or removed; before,
+  the value was rewritten as `REG_EXPAND_SZ`, which makes Windows expand a
+  `%NAME%` that was a literal text.
+- The documentation of the command line explains how to quote a text of the
+  language in PowerShell.
 
 ### Changed
 
@@ -189,11 +284,180 @@ their own version numbers, described in the specification.
   readmes of the integrations name the workflow files of `.github/workflows`;
   35 examples of the command pages, the cookbook and the git group use absolute
   paths, because the language rejects a relative path (`E_PATH_RELATIVE`).
+- Windows: the record of `host` took the version of the system from a file of
+  Linux and reported `unknown`. The command now reads the version from the
+  system, as it does on macOS.
+- Windows: `undo` of a change of packages that must install an earlier version
+  was always reported as irreversible, because only `apt` and `dnf` were asked
+  whether the repository still offers the version. `winget` (`winget show
+  --versions`) and Chocolatey (`choco search --all-versions`) are asked too.
+- `package.install` with `version` did not pass the option that lets the
+  manager replace an installed version with an earlier one, so `undo` of
+  `package.upgrade` failed on `apt` (`apt-get` refuses a downgrade under `-y`
+  without `--allow-downgrades`), on Chocolatey (`--allow-downgrade`) and on
+  `zypper` (`--oldpackage`). The option is passed whenever `version` is given.
+- Windows: `winget install --version` refuses a version earlier than the
+  installed one ("No newer package versions are available") unless `--force`
+  is given, so `undo` of `package.upgrade` through `winget` failed.
+  `package.install` with `version` passes `--force` to `winget`. Run on
+  Windows 11 with winget 1.29 and a portable package: version 1.8.2 was
+  replaced by 1.7.1.
+- Windows: the commands of the group `package` took every row of the tracking
+  database of `winget` for an installed package. `winget` keeps the row of a
+  removed package and one row for every version of an upgraded one, so
+  `package.list` showed a removed package as installed, and `package.remove`
+  reported the version before as the version after, stayed irreversible and
+  kept no inverse operation. A row now counts only when the system confirms
+  it: the package has a directory or a link of `winget`, or an uninstall entry
+  of the registry carries the identifier of the package, a product code of
+  the row or the name of the program (compared without version, architecture
+  and punctuation, because an installer that updates the program outside
+  `winget` writes a new product code); of several rows the one whose version
+  the uninstall entry shows is taken. A row without a product code counts as
+  before. The defect was present in 0.1.1.
+- `undo` without a number did not run the inverse operation kept for a change
+  of packages, of services or of the system configuration; it ended with
+  `E_JOURNAL_NOOP` ("has nothing left to restore"), while `undo` with the
+  number of the entry ran it. `undo` without a number now runs the inverse
+  operation of the entry that the journal chooses. An entry that an inverse
+  operation wrote is undone by its number, and `undo` without a number of an
+  elevated entry ends with `E_PRIVILEGE` and the next step, as before.
+- `undo` and `redo` with a journal that did not start (for example after a
+  failed recovery) applied the restoration, recorded nothing and then failed
+  with `E_INTERNAL`. They now refuse before the first change with `E_IO` and
+  the problem `journal_unavailable`; `nurt doctor` names the cause.
+- An operation that was interrupted (a program started with `run` that was
+  killed, a closed window, a crash) is rolled back by the recovery of the
+  journal at a later start. When the directory that held a target had been
+  removed in the meantime, the rollback failed with `E_NOT_FOUND`, and the
+  entry was tried again at every start, without end: the recovery reported
+  "journal entries could not be recovered", and the releases 0.1.0 and 0.1.1
+  then refused to start. Such an entry now ends as corrupt at the first pass,
+  before anything is changed, with the content it preserved kept for
+  `nurt journal salvage`; the recovery succeeds and the journal works.
+- Windows: a write to a file that a program has mapped into memory, for
+  example the file of a running program (system error 1224), was reported as
+  `E_IO`. It is reported as `E_IN_USE` and goes through the lookup of the
+  programs that use the file, like a sharing violation; the write is not
+  retried.
+- Windows with a display language other than English: `privilege: auto` did
+  not repeat an administration command elevated, because a refusal for missing
+  rights was recognised only by its English text. The error category and the
+  error identifier of Windows PowerShell, which are the same in every display
+  language, and the Polish text of the system error 5 are recognised too.
+- Windows with a display language other than English: `accounts.modify`,
+  `accounts.remove` and `accounts.password` recorded an empty state of the
+  account (full name, home directory, groups, disabled flag), because the
+  labels of `net user` were read in English only; `undo` then restored the
+  account without them. Such a listing is now read through ADSI. The members
+  of a group (`groups.*`) included the closing line of `net localgroup`.
+- The error of a failed `package.install`, `package.remove` or
+  `package.upgrade` quoted only the standard error of the manager, so on
+  Windows it ended with an empty reason: `winget`, Chocolatey and Scoop report
+  a failure on standard output. The end of the standard output is quoted when
+  the standard error is empty.
+- Windows: the registry back end read the class name of a key only when a
+  subkey of the key carried a class name, so `undo` restored a key that
+  carries a class name and has no such subkey without it. The class name of
+  the key is now always read.
+- Windows: a write of a registry value, a copy and `undo` created every key of
+  the path again, also the keys that exist, and so asked each parent key for
+  the right to create subkeys. A change below a key whose parent refuses that
+  right to the account failed with `permission_denied`. Only the missing keys
+  are created now.
+- Windows: a `registry:` path written with the separator of the registry
+  (`registry:/HKCU/Software\Example\Name`) was read as one name. A read
+  failed with `not_found` or showed paths with wrong names, and a write of a
+  value created a value of that name on the root key. Such a path is now
+  rejected with `E_INVALID_VALUE` and the advice to write `/` between the
+  keys; `\` stays valid in the name of a value below a key. Where the
+  correction of the program text applies, it writes `/` and the program runs.
+- Windows: a command that reads a drive without a medium (`disks` on a
+  computer with an empty card reader or optical drive, a file command on such
+  a drive) could stop behind the dialog of the system "There is no disk in the
+  drive", which waits for a person. The program now asks the system to return
+  the error instead; the programs it starts inherit the setting.
+- Windows: `kill` of a process that ended at that moment answered
+  `E_PERMISSION`, because the system reports the request for an ended
+  process as a refused access; it now answers `E_NOT_FOUND`. The error of a
+  program that cannot be started is read before the resources of the start are
+  released, so its text is the one of the failed start.
+- Windows: the time zone of the host was `UTC` unless the variable `TZ` was
+  set, so a commit made by the program carried the offset `+0000` and a new
+  schedule counted its hours in UTC. Without `TZ` the program now takes the
+  zone of the system under its name of the IANA database.
+- Windows: `nurt.exe` reserves 8 MiB for the stack of its main thread, the size
+  of the stack on Linux. The linker reserved 1 MiB, and the program parses,
+  binds and runs a program on the main thread, so a nesting that Linux accepts
+  could end the process on Windows.
+- Windows: when `nurt` started without arguments (the shortcut of the Start
+  menu or of the desktop, a double click) cannot open the session, the window
+  of the console closed together with the message of the error. The program
+  now writes the message and waits for Enter when it is the only process of
+  its console; a start from the prompt of a shell is unchanged. The same holds
+  for a panic of the main thread: its message stays in the window until Enter
+  is pressed.
+- Documentation: the installation page states the earliest version of Windows:
+  Windows 10 for `nurt.exe` and Windows 10 version 1809 (build 17763) for the
+  setup program.
+- The recovery of a journal of one million entries was measured again on the
+  code of this release: 1.3 s in each of three runs of a release build on
+  Linux x86_64, against the 5 s that the design assumes. The measurement of
+  6.2 s reported for the releases 0.1.0 and 0.1.1 preceded later corrections.
 
 ### Known issues
 
 - No macOS archive is published for this release. The code for macOS passes
   `cargo check` and the tests of the continuous integration on the macOS runner.
+- The corrections of this release for Windows were built and run on one
+  system, Windows 11 (build 26300, English display language): the start of
+  `nurt.exe` in a console window and in Windows Terminal, the setup wizard, and
+  the tests of the changed packages and of the wizard, a setup for all users
+  with its undo, and the installation, upgrade, removal and undo of one
+  portable package through `winget`. Not run: the removal of a directory with
+  cloud placeholders (OneDrive), the administration commands on a system in
+  another display language, the undo of a package change through Chocolatey,
+  and through `winget` for a package that has an installer of its own.
+- The unit tests of the setup wizard write the entry in "Installed apps",
+  `App Paths` and `Path` of the account that runs them. On a machine with an
+  installation of Danaco Nurt the installation loses its entry, and
+  `uninstall.exe --undo` reports that Danaco Nurt is not installed until the
+  setup is run again.
+- On Windows, the registry back end does not report whether a key is volatile
+  (the Win32 interface has no call for it), so an undone change restores a
+  volatile key as an ordinary one.
+- The undo of a package change that must install an earlier version is
+  reported as irreversible for the managers other than `apt`, `dnf`, `winget`
+  and Chocolatey (`pacman`, `zypper`, Homebrew, Scoop): they are not asked
+  whether the repository still offers the version.
+- No test covers the installation of an earlier version over a later one by
+  `dnf`; `package.install` passes it no option for it. Through `winget` the
+  installer of the package decides whether an earlier version replaces a
+  later one; `--force` only makes `winget` start it.
+- `undo` without a number does not step over an entry that changed only
+  packages, services or the system configuration and that is already undone
+  or was written by an inverse operation: it ends with `E_JOURNAL_NOOP` for
+  that entry. Earlier entries are undone by their numbers.
+- The administration commands recognise a refusal for missing rights by the
+  text of the system program. On Windows the texts of Windows PowerShell
+  (every display language), of the English system and of the Polish system
+  are recognised; in another display language a refusal by `net`, `shutdown`
+  or `tzutil` is reported as `E_STAGE_FAILED`, and `privilege: auto` does not
+  repeat the call elevated.
+- On Linux and macOS, the time zone of the host is `UTC` unless the variable
+  `TZ` is set; the zone of the system is not read.
+- No test covers `nurt.exe` on Windows 10: the continuous integration runs on
+  the runner `windows-latest`. The setup program refuses a system earlier than
+  Windows 10 version 1809 only after it has started.
+- Every start of the program that opens the engine asks the system for each
+  volume recorded in `volumes.json` of the state directory. A recorded volume
+  that is a network drive which no longer answers delays the start by the
+  time limit of the network for each such record.
+- Every start of the program that opens the engine calibrates the reclaim cost
+  of each recorded volume (up to about 150 ms), and the monotonic time of the
+  heartbeat of the space service counts from the start of the process, so two
+  programs that run at the same time can find the service stopped and keep
+  no previous content for a change.
 
 ## [0.1.1] - 2026-11-27
 

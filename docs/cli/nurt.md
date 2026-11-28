@@ -26,6 +26,8 @@ The first argument selects a subcommand only when it equals the name of a subcom
 
 Without arguments the executable starts the interactive session.
 
+The shell removes the quotes of its own before it starts the program, so a text of the language needs quotes that reach the program. In PowerShell write `nurt find '"C:/logs"'`. Windows PowerShell 5.1 also drops the inner quotes of an argument of a program; there write them escaped, `nurt find '\"C:/logs\"'`, or put the program in a file and run it with `nurt run` or `nurt script`. The texts of the language take `/` as the separator of paths on every system, without escapes.
+
 | Option | Type | Default | Meaning |
 |---|---|---|---|
 | `-V` | flag | | Print `nurt <version>`. |
@@ -147,7 +149,7 @@ Syntax:
 nurt repl
 ```
 
-On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the mark of the product, a silver chevron and a gold chevron, drawn with half blocks (with 7-bit ASCII characters on a terminal without UTF-8), with the name, the canonical sentence, the version, a hint and the copyright line beside it. On a terminal too narrow for both, the text stands below the drawing, and on a terminal narrower than the drawing the banner is the text alone. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
+On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the mark of the product, a silver chevron and a gold chevron, drawn with half blocks (with 7-bit ASCII characters on a terminal without UTF-8), with the name, the canonical sentence, the version, a hint and the copyright line beside it. The banner stands three columns from the left edge, with one empty line above and below it. On a terminal too narrow for both, the text stands below the drawing, and on a terminal narrower than the drawing the banner is the text alone. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
 
 | Word | Meaning |
 |---|---|

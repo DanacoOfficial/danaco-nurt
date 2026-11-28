@@ -42,6 +42,8 @@ Changes outside the file system are undone by inverse operations that the engine
 
 `enable` and `disable` are undone only for the start types `disabled` and `automatic`; other start types make the entry irreversible, with the reason in the report. A package version that the repository no longer offers makes only that package irreversible.
 
+`undo N` runs the inverse operations of entry `N`; `undo` without a number runs them for the entry that the journal chooses, the newest entry of the session that is not an undo. The inverse operations write entries of their own. Such an entry is an undo: `undo` without a number does not undo it and ends with `E_JOURNAL_NOOP`, and `undo` with its number brings back the state before the undo.
+
 Irreversible are `restart`, `stop` of a process, and `run`: files changed by a program started with `run` and `privilege: elevated` are not preserved, and the report states it.
 
 ## Services
