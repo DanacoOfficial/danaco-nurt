@@ -165,3 +165,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* A list of linked rows in two columns on a wide window, used where the rows stand on their own under a section heading. */
+.directory__list--pairs {
+  display: grid;
+  gap: 0 var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 64rem) {
+  .directory__list--pairs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

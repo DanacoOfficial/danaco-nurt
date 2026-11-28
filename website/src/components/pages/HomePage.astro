@@ -14,8 +14,7 @@ import Statement from '../sections/Statement.astro';
 import FeatureTour from '../sections/FeatureTour.astro';
 import Directory from '../sections/Directory.astro';
 import CtaBand from '../sections/CtaBand.astro';
-import Card from '../content/Card.astro';
-import CardGrid from '../content/CardGrid.astro';
+import Icon from '../base/Icon.astro';
 import TerminalSession from '../motion/TerminalSession.astro';
 import Terminal from '../content/Terminal.astro';
 import Fact from '../content/Fact.astro';
@@ -26,7 +25,7 @@ import { seo } from '../../../config/seo';
 import { site } from '../../../config/site';
 import { homeEn } from '../../data/home-page/en';
 import { homePl } from '../../data/home-page/pl';
-import { href, localisedPath } from '../../lib/urls';
+import { href } from '../../lib/urls';
 import { useUi } from '../../i18n';
 import '../../styles/components/how.css';
 
@@ -79,9 +78,20 @@ const content = locale === 'pl' ? homePl : homeEn;
       <Fact id="toolFormats" />
       <Fact id="integrationExamples" />
     </Stats>
-    <CardGrid columns={4}>
-      {content.ai.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+    <ul class="directory__list directory__list--pairs" role="list">
+      {content.ai.cards.map((card) => (
+        <li>
+          <a class="directory__link" href={href(card.path, locale)}>
+            <Icon name={card.icon} size={20} />
+            <span class="directory__text">
+              <span class="directory__name">{card.title}</span>
+              <span class="directory__note">{card.text}</span>
+            </span>
+            <Icon name="arrow-right" size={16} class="directory__arrow" />
+          </a>
+        </li>
+      ))}
+    </ul>
     <div class="cluster">
       <Button href={href('/ai/overview/', locale)} variant="primary" iconAfter="arrow-right">{content.ai.action}</Button>
     </div>
