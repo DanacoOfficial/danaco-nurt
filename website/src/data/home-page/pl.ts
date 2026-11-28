@@ -74,6 +74,7 @@ export const homePl: HomeContent = {
     lead: 'Znak Danaco Nurt to dwa szewrony ustawione pod kątem nurtu: zmiana i jej cofnięcie. Identyfikacja jest opublikowana razem z plikami.',
     cards: [
       { icon: 'layers', title: 'Design Nurt', text: 'Idea znaku, jego konstrukcja, kolor, krój pisma i miejsce identyfikacji w produkcie.', path: '/design/overview/' },
+      { icon: 'pen-line', title: 'Znak, kolor i krój pisma', text: 'Siatka, kąt i tony znaku, paleta ze współczynnikami kontrastu, krój pisma nazwy oraz warianty na każde tło.', path: '/design/mark-and-colour/' },
       { icon: 'download', title: 'Pliki identyfikacji', text: 'Księga identyfikacji, pliki wektorowe i rastrowe, ikony, specyfikacja druku i tokeny kolorów do pobrania.', path: '/design/identity/' },
     ],
   },

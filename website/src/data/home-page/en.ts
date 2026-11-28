@@ -74,6 +74,7 @@ export const homeEn: HomeContent = {
     lead: 'The mark of Danaco Nurt is two chevrons on the angle of the stream: a change and its undo. The identity is published with its files.',
     cards: [
       { icon: 'layers', title: 'The design of Nurt', text: 'The idea of the mark, its construction, the colour, the typeface and the place of the identity in the product.', path: '/design/overview/' },
+      { icon: 'pen-line', title: 'Mark, colour and type', text: 'The grid, the angle and the tones of the mark, the palette with contrast ratios, the typeface of the name and the variants for every ground.', path: '/design/mark-and-colour/' },
       { icon: 'download', title: 'Identity files', text: 'The guidelines, the vector and raster files, the icons, the print specification and the colour tokens to download.', path: '/design/identity/' },
     ],
   },
