@@ -1,0 +1,76 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.button
+ * Responsibility:   Buttons and button links: the primary gold button with the 3:4 cut corners of the identity, the secondary outline button and the quiet text button.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.utilities
+ */
+
+.button {
+  --button-fill: var(--bg-raised);
+  --button-line: var(--line-strong);
+  --button-text: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.75rem 1.4rem;
+  border: 1px solid var(--button-line);
+  border-radius: var(--radius-2);
+  background: var(--button-fill);
+  color: var(--button-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.button:hover {
+  color: var(--button-text);
+  transform: translateY(-1px);
+}
+
+.button:focus-visible {
+  outline-offset: 3px;
+}
+
+.button--primary {
+  --button-fill: var(--accent);
+  --button-line: var(--accent);
+  --button-text: var(--accent-on);
+}
+
+.button--primary:hover {
+  --button-fill: var(--brand-gold-ground);
+  --button-line: var(--brand-gold-ground);
+}
+
+.button--secondary:hover {
+  --button-fill: var(--bg-soft);
+  --button-line: var(--accent);
+}
+
+.button--small {
+  padding: 0.5rem 1rem;
+  font-size: var(--text-xs);
+}
+
+.button--quiet {
+  --button-fill: transparent;
+  --button-line: transparent;
+  --button-text: var(--link);
+  padding-inline: 0.5rem;
+}
+
+.button--quiet:hover {
+  --button-text: var(--link-hover);
+  transform: none;
+}
+
+.button .icon {
+  flex: none;
+}

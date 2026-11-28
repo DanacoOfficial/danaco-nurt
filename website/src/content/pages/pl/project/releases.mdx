@@ -1,0 +1,120 @@
+---
+title: Wydania
+description: "Wydania Danaco Nurt: 0.1.2 z 28 listopada 2026, 0.1.1 z 27 listopada 2026 i 0.1.0 z 22 listopada 2026, wraz z tym, co każde przyniosło, oraz sposobem weryfikacji pobranego pliku."
+section: project
+order: 1
+eyebrow: Projekt
+lead: Trzy wydania między 22 a 28 listopada 2026, każde z dodatkami, zmianami i poprawkami.
+updated: 2026-11-28
+related: [project/status, project/versioning, quality/supply-chain]
+keywords: [wydania, dziennik zmian, archiwa, sumy kontrolne, podpis]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Historia wydań
+
+<Timeline
+  items={[
+    {
+      label: '2026-11-28',
+      title: 'Wersja 0.1.2',
+      text: 'Wyszukiwanie i zamiana wyrażeniem regularnym działają w czasie proporcjonalnym do liczby dopasowań, dziennik działa na woluminie danych macOS, a limity pamięci, listy grup i sterowanie procesami są poprawione w macOS.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
+      current: true,
+    },
+    {
+      label: '2026-11-27',
+      title: 'Wersja 0.1.1',
+      text: 'Konstrukcje sterujące, polecenia administracyjne, podniesienie uprawnień, polecenie next, krótka odpowiedź polecenia run, szybszy dziennik przy wielu małych plikach, zaktualizowane zależności i statyczne łączenie liblzma w Linuksie.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
+    },
+    {
+      label: '2026-11-22',
+      title: 'Wersja 0.1.0',
+      text: 'Pierwsze wydanie: silnik, język, katalog poleceń, dziennik, program wiersza poleceń, serwer Model Context Protocol, serwer języka i interfejs C.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v0.1.0',
+    },
+  ]}
+/>
+
+[Dziennik zmian](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md) stosuje Keep a Changelog 1.1.0 i Semantic Versioning 2.0.0.
+
+## Wersja 0.1.2
+
+Poprawiono:
+
+- Wyszukiwanie i zamiana wyrażeniem regularnym wyznaczają granice wiersza dopasowania na podstawie samego dopasowania. 20 000 dopasowań w wierszu o długości 60 000 bajtów jest zamieniane w około 0,1 s zamiast 2,5 s.
+- macOS: dziennik działa dla ścieżek woluminu danych. Wolumin zgłasza punkt montowania, który zawiera jego ścieżki, więc katalogi woluminu służą jako kotwice dziennika.
+- macOS: `max_memory` obowiązuje przy każdym uruchomieniu programu. Limit przestrzeni adresowej (`RLIMIT_AS`) jest stosowany w Linuksie; w macOS mierzona jest pamięć rezydentna.
+- macOS: lista członków grupy jest czytana bez zakładania wyrównania `gr_mem`.
+- macOS: wstrzymanie, wznowienie i zatrzymanie programu, którego grupa procesów się zakończyła, kończą się bez `EPERM`.
+- Cele Windows są budowane z clangiem spoza `/usr/bin`; wskazuje go `NURT_MSVC_CLANG`.
+
+## Wersja 0.1.1
+
+**Dodano.**
+
+- Potoki nazwane i pliki urządzeń w poleceniu `create` w Linuksie i macOS; `undo` je usuwa.
+- Polecenia administracyjne dla zapory sieciowej, sieci, zegara, kont, grup, montowań, jądra, zasilania i dysków, każde z raportem stanu przed i po oraz z odwrotnością dla `undo`, gdy zmiana jest odwracalna ([przewodnik administracji](/docs/guides/administration/)).
+- Wywołania metod `windows.cim`.
+- Podniesienie uprawnień z parametrami `privilege` i `as_user` oraz z backendami `self`, `sudo`, `doas` i `run0`; wpisy z podniesionymi uprawnieniami w dzienniku konta.
+- Polecenie [`next`](/docs/commands/next/) i pole `continuation` do czytania reszty skróconej odpowiedzi.
+- Tłumaczenie warunków, pętli, funkcji i parametrów skryptów bash na konstrukcje języka ([przewodnik migracji](/docs/guides/bash-migration/)).
+
+**Zmieniono.**
+
+- Konstrukcje sterujące `when`, `each`, `repeat until`, `while`, `steps`, `define` i `params` oraz drzewo składniowe w wersji 1.1; dokumenty wersji 1.0 są czytane bez zmian.
+- `sql` przyjmuje każdą instrukcję: instrukcja zmieniająca dane zapisuje plik bazy do dziennika jako pierwszy.
+- Odpowiedź polecenia `run` jest domyślnie krótka, a `run.spool_max` ma domyślnie wartość `1gib`.
+- Dziennik obsługuje operację na tysiącach małych plików kilka razy szybciej. Manifesty operacji z co najmniej 256 celami mają wersję formatu 2; dzienniki zapisane przez 0.1.0 są czytane bez zmian.
+- W Linuksie plik wykonywalny i biblioteka łączą liblzma statycznie, a program działa w systemie bez `liblzma.so.5`.
+- Baner startowy sesji interaktywnej pokazuje znak Danaco Nurt w srebrze `#DDE1E6` i złocie `#C9A15A`.
+
+**Bezpieczeństwo.** Biblioteka Git `gix` przechodzi na generację 0.91. Nieużywane zależności zostały usunięte. Podpisy OpenPGP commitów i tagów są tworzone i sprawdzane przez GnuPG.
+
+**Poprawiono.** Przegląd kodu wersji 0.1.0 poprawił błędy w każdej skrzynce, w wiązaniach, pakowaniu i dokumentacji. Wiązania dla Pythona, Go, Node, Javy i .NET czytają odpowiedzi silnika w kształcie, w jakim je zwraca. Wykrywanie zmian znajduje plik przepisany z tym samym rozmiarem w obrębie ziarnistości znaczników czasu systemu plików i przywraca go przy cofnięciu.
+
+## Wersja 0.1.0
+
+Pierwsze wydanie z datą 2026-11-22. Dodano:
+
+- przestrzeń roboczą Cargo ze skrzynkami silnika, programu wiersza poleceń i interfejsu C;
+- katalog poleceń i dokumenty specyfikacji;
+- język z trzema wariantami składni, poprawianie programów, pomoc oraz migrację programów Bash i PowerShell;
+- silnik ze strukturalnymi raportami skutków w postaci tekstu, JSON i Markdown;
+- dziennik cofania z odzyskiwaniem, limitami retencji i zapytaniami o historię;
+- program wiersza poleceń z podpoleceniami `exec`, `check`, `script`, `repl`, `serve`, `journal`, `mcp`, `lsp`, `migrate`, `service` i `ext`;
+- serwer Model Context Protocol, serwer języka, interfejs C (`libnurt`, `nurt.h`) i wiązania dla kilku języków;
+- pakowanie dla Linuksa, macOS i Windows oraz podpis OpenPGP pliku `checksums.txt` i tagu wydania.
+
+## Archiwa
+
+Definicje pakowania w [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) nazywają archiwum programu `nurt-<version>-<target>`, a archiwum biblioteki `nurt-lib-<version>-<target>`. Archiwa mają postać `.tar.gz` dla Linuksa i macOS oraz `.zip` dla Windows.
+
+| Cel | Postać |
+|---|---|
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | glibc |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | statyczne archiwum programu |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | MSVC |
+| `x86_64-apple-darwin`, `aarch64-apple-darwin` | macOS |
+
+Archiwum programu dla Linuksa zawiera `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, strony podręcznika, skrypty uzupełniania i witrynę dokumentacji. Archiwum Windows zawiera `nurt.exe` i te same teksty na najwyższym poziomie. Strona instalacji opisuje menedżery pakietów i skrypty: [Instalacja](/docs/guide/installation/).
+
+## Weryfikacja pobranego pliku
+
+Każde wydanie ma plik `checksums.txt` z sumami SHA-256 archiwów oraz odłączony podpis OpenPGP `checksums.txt.asc`. Kluczem jest `Danaco Nurt (Danaco Holding Group Sp. z o.o.)`, odcisk `5BEC C5F4 067A 8392 8961 8DB7 65E3 E606 1204 E0FC`, opublikowany jako `packaging/release/danaco-nurt.asc`.
+
+```sh
+gpg --import danaco-nurt.asc
+gpg --verify checksums.txt.asc checksums.txt
+sha256sum --check checksums.txt
+```
+
+Tag każdego wydania jest podpisany tym samym kluczem (`git tag -v`), a `nurt.exe` ma podpis Authenticode. `install.sh` i `install.ps1` sprawdzają sumę SHA-256 przed instalacją; `install.sh` sprawdza także podpis `checksums.txt`, gdy otrzyma klucz publiczny w opcji `--public-key`. Pełna procedura jest w [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) i na stronie [łańcuch dostaw](/pl/quality/supply-chain/).
+
+## Gdzie publikowane są wydania
+
+Wydanie jest publikowane jako wydanie GitHub repozytorium pod tagiem `v<version>`: [github.com/DanacoOfficial/danaco-nurt/releases](https://github.com/DanacoOfficial/danaco-nurt/releases). Strona [stan bieżący](/pl/project/status/) podaje wersję, systemy i interfejsy.

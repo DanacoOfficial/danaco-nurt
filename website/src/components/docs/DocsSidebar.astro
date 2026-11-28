@@ -1,0 +1,49 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.docs.DocsSidebar
+// Responsibility:   The navigation of the documentation: the sections in order, each with its pages, the current page marked; long sections are collapsed.
+// Dependencies:     website.src.lib.docs.model, website.src.i18n, website.src.styles.components.docs-sidebar
+
+import '../../styles/components/docs-sidebar.css';
+import type { Locale } from '../../../config/i18n';
+import { entryUrl, type DocsGroup } from '../../lib/docs/model';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  groups: DocsGroup[];
+  currentId?: string;
+  currentSection?: string;
+}
+
+const { locale, groups, currentId, currentSection } = Astro.props;
+const ui = useUi(locale);
+const labels = ui.docs.sectionLabels as Record<string, string>;
+---
+
+<nav class="docs-sidebar" aria-label={ui.docs.sidebarLabel}>
+  <a class="docs-sidebar__home" href={href('/docs/', locale)}>{ui.docs.title}</a>
+  {groups.map((group) => {
+    const open = group.section === currentSection || group.entries.length <= 8;
+    const index = group.entries.find((entry) => entry.id.endsWith('/index'));
+    return (
+      <details class="docs-sidebar__group" open={open}>
+        <summary>
+          <span>{labels[group.labelKey] ?? group.section}</span>
+          <span class="docs-sidebar__count">{group.entries.length}</span>
+        </summary>
+        <ul role="list">
+          {group.entries.filter((entry) => entry !== index || group.entries.length > 1).map((entry) => (
+            <li>
+              <a href={href(entryUrl(entry), 'en')} aria-current={entry.id === currentId ? 'page' : undefined}>{entry.data.title}</a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    );
+  })}
+</nav>

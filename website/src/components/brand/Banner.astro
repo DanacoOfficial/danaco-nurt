@@ -1,0 +1,59 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.brand.Banner
+// Responsibility:   The start banner of the program nurt as a block of text: the mark in half blocks beside the five text lines, with the silver and gold roles of the shipped drawing.
+// Dependencies:     website.src.components.brand.banner-data, website.config.site, website.src.styles.components.banner
+
+import '../../styles/components/banner.css';
+import { bannerBlocks, bannerBlocksRoles, bannerGap, bannerHint, bannerTextRows } from './banner-data';
+import { product, site } from '../../../config/site';
+
+interface Props {
+  label?: string;
+}
+
+const { label = 'The start banner of nurt' } = Astro.props;
+
+const text = [
+  { text: site.name, role: 'name' },
+  { text: site.tagline, role: 'plain' },
+  { text: `${site.programName} ${product.version}`, role: 'plain' },
+  { text: bannerHint, role: 'plain' },
+  { text: `Copyright (c) ${site.copyrightYear} ${site.company} All rights reserved.`, role: 'plain' },
+];
+
+interface Run {
+  role: string;
+  text: string;
+}
+
+const rows: Run[][] = bannerBlocks.map((row, index) => {
+  const runs: Run[] = [];
+  const roles = bannerBlocksRoles[index];
+  for (let column = 0; column < row.length; column += 1) {
+    const role = roles[column] === 's' ? 'silver' : roles[column] === 'g' ? 'gold' : 'blank';
+    const last = runs[runs.length - 1];
+    if (last && last.role === role) {
+      last.text += row[column];
+    } else {
+      runs.push({ role, text: row[column] });
+    }
+  }
+  return runs;
+});
+
+// The text lines stand beside the mark on the rows of the shipped drawing; the column wraps long lines instead of cutting them.
+const textStyle = `--banner-first-row: ${bannerTextRows[0]}; --banner-row-step: ${bannerTextRows[1] - bannerTextRows[0]}; --banner-gap: ${bannerGap}ch;`;
+---
+
+<figure class="nurt-banner" role="img" aria-label={label}>
+  <div class="nurt-banner__screen" aria-hidden="true">
+    <pre class="nurt-banner__mark">{rows.map((runs) => (<><Fragment>{runs.map((run) => (<span class:list={[`nurt-banner__${run.role}`]}>{run.text}</span>))}</Fragment>{'\n'}</>))}</pre>
+    <div class="nurt-banner__text" style={textStyle}>
+      {text.map((line) => (<p class:list={['nurt-banner__line', `nurt-banner__${line.role}`]}>{line.text}</p>))}
+    </div>
+  </div>
+</figure>

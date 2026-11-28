@@ -1,0 +1,58 @@
+---
+title: Privacy
+description: "What this website stores and sends, and what the program nurt keeps on your machine: the site is static, serves its own fonts and icons and stores one value, the colour theme, in your browser."
+section: legal
+order: 1
+eyebrow: Legal
+lead: This website is a set of static files that stores one value in your browser, the colour theme.
+updated: 2026-11-28
+related: [legal/accessibility, project/support, quality/security]
+keywords: [privacy, cookies, analytics, local storage, telemetry]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## This website
+
+The website of Danaco Nurt is a static site. Its pages are generated when the site is built and are served as files. A visitor reads pages; the site has no account, no form and no server-side program that processes what a visitor types.
+
+| Subject | What the site does |
+|---|---|
+| Pages | served as static files generated at build time |
+| Fonts, icons and images | served by the site itself as part of its files |
+| Scripts | the scripts of the site itself: theme, search, copy buttons, menu and motion |
+| Stored in the browser | one value, the colour theme, under the key `nurt-theme` |
+| Sent to the site | the requests of the browser for pages and files |
+
+## The colour theme
+
+The site has a light and a dark colour theme. When you choose a theme with the toggle in the header, the choice is stored in the local storage of your browser under the key `nurt-theme`. The value stays in your browser. A small script of the site reads it on the next visit so that the page opens in the theme you chose, and the value is never sent to a server. Clearing the site data of your browser removes it. Without the stored value the site follows the preference of your system.
+
+## Search
+
+The search runs in your browser. The site serves a search index (built with Pagefind) as files, like any other page, and the browser looks up your query in that index locally. The text of the query stays in the browser; the browser requests the files of the index from the site, and those requests appear in the server logs like any other request. Search is one of the functions that use JavaScript; the pages themselves are read without it.
+
+## Server logs
+
+A web server records requests. The logs of this site are those of the hosting on which the site is deployed. The data they hold, the retention period and the readers depend on the hosting of the deployment. A copy of the site that you run yourself writes its own logs, which belong to you.
+
+## Links to other sites
+
+Pages of the site link to the repository on GitHub (`github.com/DanacoOfficial/danaco-nurt`), to the specifications that the project cites, and to the downloads of releases. When you follow such a link, the other site receives your request and its own privacy rules apply. The site embeds no content from those sites.
+
+## The program nurt
+
+This section concerns the program, not the website.
+
+- The extension for Visual Studio Code collects no telemetry and sends no data over the network. Its tests check that the manifest lists no telemetry library and defines no telemetry setting.
+- The program uses the network when a program of the language asks for it, for example with the network and version control commands. The network use is the effect of a command that you write.
+- The journal, the configuration and the state of the program are kept on your machine, in the directories named in the [naming conventions](/docs/conventions/naming/): the journal directory `.nurt-journal` and a user state directory (`$XDG_STATE_HOME/nurt/` on Linux, `~/Library/Application Support/Nurt/` on macOS, `%LOCALAPPDATA%\Nurt\` on Windows).
+- Every run returns a report of its effects to the caller, in text, JSON or Markdown form, and the journal records the changes of files on your volumes for review and undo.
+
+The [security](/quality/security/) page and the [supply chain](/quality/supply-chain/) page describe how the code and its dependencies are checked.
+
+## Questions
+
+Questions about this page or about the handling of data go to `support@danaco-group.pl`; see [Support and contact](/project/support/). The measures for readers who use assistive technology are on the [accessibility](/legal/accessibility/) page.

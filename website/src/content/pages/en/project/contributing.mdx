@@ -1,0 +1,102 @@
+---
+title: Contributing
+description: "How to contribute to Danaco Nurt: issues, the sign-off, commit messages, the code standard, the checks a pull request must pass and the way to add a command page."
+section: project
+order: 4
+eyebrow: Project
+lead: Changes are proposed as pull requests and merged when they satisfy the rules of the repository.
+updated: 2026-11-28
+related: [project/support, project/license, quality/engineering-standards, project/status]
+keywords: [contributing, pull request, DCO, conventional commits, code of conduct]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The rules
+
+The rules of the repository are in [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md). The conventions are in `docs/conventions`:
+
+| Topic | Document |
+|---|---|
+| Commit messages | [Commit conventions](/docs/conventions/commits/) |
+| Code style | [Code style](/docs/conventions/code-style/) |
+| Names | [Naming conventions](/docs/conventions/naming/) |
+| Licenses, headers and dependencies | [Licensing conventions](/docs/conventions/licensing/) |
+| Behaviour of participants | [CODE_OF_CONDUCT.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CODE_OF_CONDUCT.md) |
+
+All participants follow the Code of Conduct, which is the Contributor Covenant 2.1. Conduct that violates it is reported to `support@danaco-group.pl`.
+
+## Issues first
+
+- Search the existing issues before opening a new one.
+- For a defect, give the version, the operating system, a minimal program that reproduces the problem and the actual and expected results. The [bug report form](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/ISSUE_TEMPLATE/bug_report.yml) asks for the same items.
+- For a new command, parameter, record type or a change of the language, open an issue that describes the use case before writing code. Changes of the language, the syntax tree, the report format and the C interface follow the compatibility rules on the [versioning](/project/versioning/) page.
+- Security vulnerabilities are reported privately; see [Support and contact](/project/support/).
+
+The language of code, comments, documentation, commit messages, issues and pull requests is English, in a formal and technical register.
+
+## Sign-off and commit messages
+
+Contributions are accepted under the Developer Certificate of Origin 1.1 and are licensed under the Apache License 2.0. Every commit carries a `Signed-off-by` trailer that matches the author; `git commit --signoff` adds it.
+
+Commit messages follow Conventional Commits 1.0.0:
+
+```text
+<type>(<scope>)[!]: <summary>
+
+[body]
+
+[footers]
+```
+
+`type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` is the name of the affected crate without the `nurt-` prefix (for example `journal` or `git-ops`) or an area such as `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` or `release`. The summary is imperative, starts with a lowercase letter, has no final period and has at most 72 characters. A breaking change is marked with `!` and described in a `BREAKING CHANGE:` footer. The script `tools/ci/check-commits.sh` checks the messages of a pull request.
+
+## Building and testing
+
+The commands are those of the README. The required Rust toolchain is pinned in `rust-toolchain.toml`, and a C compiler is needed because bundled components such as SQLite and the tree-sitter grammars are compiled from source.
+
+```sh
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
+cd danaco-nurt
+cargo build --release --locked
+cargo test --workspace --locked
+```
+
+## What a pull request must satisfy
+
+A pull request is merged only when all of the following succeed; continuous integration runs them on Linux, macOS and Windows.
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo deny --locked check
+cargo nextest run --workspace --locked      # or: cargo test --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+bash tools/ci/repo-hygiene.sh
+bash tools/ci/check-commits.sh origin/main..HEAD
+```
+
+Further requirements from CONTRIBUTING.md and the pull request template:
+
+- minimum line coverage of 80% for the workspace and 90% for `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` and `nurt-ffi`, measured with `cargo-llvm-cov`;
+- no `unwrap`, `expect` or `panic!` in production code; `unsafe` code only in the crates that call operating system interfaces, each block with a `// SAFETY:` comment; every public item documented;
+- every source file in a format with comments starts with the producer header and carries no per-file license identifier;
+- new dependencies are declared in `[workspace.dependencies]`, use an allowed license and are justified in the pull request;
+- one focused change per pull request, with tests and documentation, and user-visible changes recorded under `Unreleased` in `CHANGELOG.md`;
+- a maintainer reviews every pull request, and commits are merged as they are.
+
+## Adding a command
+
+Every command of the catalog has exactly one page in `docs/commands/<command>.md`, and every page belongs to a command of the catalog. The conventions are in `docs/commands/README.md` and the template is `docs/commands/_template.md`.
+
+1. Add the command to the catalog (`catalog/*.toml`, format `nurt-catalog/1`); names, types, defaults and enumeration values come from the catalog, not from the page.
+2. Copy the template. The front matter has `command`, `group`, `summary` (equal to the catalog) and `since` (the version that introduces the command).
+3. Keep the sections in order: Synopsis, Parameters, Input and output and Effect are generated from the catalog and only checked; Description, Examples, Errors and Related are written.
+4. Write at least three examples in fences marked `nurt example`, in variant A of the syntax, optionally with an `fs-before` snapshot and a `text expected` fragment. The build parses, binds and runs each one.
+
+The build fails when a command has no page, a page has no command, the front matter differs from the catalog, a generated section differs, an example does not run or a name in backticks does not exist in the catalog. The existing pages are listed in the [command reference](/docs/commands/).
+
+After the change is merged, the [releases](/project/releases/) page shows which version contains it.

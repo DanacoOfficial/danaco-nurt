@@ -1,0 +1,35 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.DocsEntryPage
+// Responsibility:   Renders one imported documentation entry: the HTML produced from its Markdown inside the documentation layout.
+// Dependencies:     astro:content, website.src.layouts.DocsLayout
+
+import { render } from 'astro:content';
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import type { Locale } from '../../../config/i18n';
+import { entryUrl, type DocsEntry } from '../../lib/docs/model';
+
+interface Props {
+  entry: DocsEntry;
+  available?: Locale[];
+}
+
+const { entry, available } = Astro.props;
+const { Content, headings } = await render(entry);
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  path={entryUrl(entry)}
+  section={entry.data.section}
+  entryId={entry.id}
+  repositoryPath={entry.data.repositoryPath}
+  headings={headings}
+  available={available}
+>
+  <Content />
+</DocsLayout>

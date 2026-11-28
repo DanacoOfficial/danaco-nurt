@@ -1,0 +1,90 @@
+---
+title: Interfejs C i wiązania
+description: Biblioteka współdzielona libnurt i nagłówek nurt.h, reguły ABI i numery wersji, mechanizm rozszerzeń oraz wiązania dla Go, Node.js, .NET, Javy i Pythona wraz ze sposobem docierania do silnika.
+section: architecture
+order: 4
+eyebrow: Architektura
+lead: Skrzynka nurt-ffi eksportuje silnik przez ABI języka C, a wiązania wywołują albo tę bibliotekę, albo proces potomny uruchamiający nurt serve.
+updated: 2026-11-28
+related: [architecture/protocols, architecture/engine, product/integrations]
+keywords: [libnurt, nurt.h, ABI, wiązania, rozszerzenia, wasm]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## libnurt i nurt.h
+
+Biblioteka `libnurt` to skrzynka `nurt-ffi`. Udostępnia silnik z `nurt-core` przez funkcje zadeklarowane w `crates/nurt-ffi/include/nurt.h`. Nagłówek jest utrzymywany ręcznie i stanowi odniesienie interfejsu; eksportowane symbole wymienia `crates/nurt-ffi/nurt.symbols`. Tylko `nurt-ffi` eksportuje symbole języka C. Skrzynka buduje bibliotekę Rust, bibliotekę współdzieloną i bibliotekę statyczną.
+
+| System | Biblioteki |
+|---|---|
+| Linux (glibc) | współdzielona `libnurt.so.1` (SONAME niesie główną wersję interfejsu) i statyczna `libnurt.a` |
+| Linux (musl) | statyczna `libnurt.a` |
+| macOS | współdzielona `libnurt.1.dylib` i statyczna `libnurt.a` |
+| Windows | współdzielona `nurt.dll` z biblioteką importową `nurt.dll.lib` oraz statyczna `nurt.lib` (zdefiniuj `NURT_STATIC`) |
+
+Wydanie publikuje bibliotekę we własnym archiwum `nurt-lib-<version>-<target>` razem z `nurt.h` i `nurt.pc`. Archiwa biblioteki powstają dla Linuksa glibc, Linuksa musl i Windows MSVC, każde dla x86-64 i aarch64. Przykład `examples/c/hello.c` wywołuje bibliotekę z języka C.
+
+Eksportowane funkcje tworzą grupy: wersja i informacje (`nurt_abi_version`, `nurt_abi_check`, `nurt_version`, `nurt_info`), silnik (`nurt_engine_open`, `nurt_engine_close`, `nurt_engine_config_get`), język (`nurt_parse`, `nurt_print`, `nurt_correct`, `nurt_check`), wykonanie (`nurt_run_json`, `nurt_exec_start`, `nurt_exec_wait`, `nurt_exec_cancel`, `nurt_exec_free`, `nurt_page`), opisy i stan (`nurt_catalog`, `nurt_describe`, `nurt_help`, `nurt_schema`, `nurt_history`, `nurt_space`, `nurt_session_end`), rozszerzenia (`nurt_ext_load`, `nurt_ext_list`) oraz pamięć i diagnostyka (`nurt_buf_free`, `nurt_last_error`, `nurt_set_log_callback`).
+
+## Reguły ABI
+
+- **Dane.** Napisy są w UTF-8 i zakończone zerem. Wartości złożone to JSON w opublikowanych formatach (`nurt-ast/1`, `nurt-bound/1`, `nurt-request/1`, `nurt-response/1`, `nurt-config/1`, zdarzenia, błędy). Wyniki wracają w `nurt_buf { ptr, len, cap }` zwalnianym przez `nurt_buf_free`. Gdy wywołanie się nie powiedzie, jego bufory wyjściowe pozostają puste.
+- **Dwa rodzaje niepowodzeń.** `nurt_status` zgłasza tylko niepowodzenia samego wywołania. Błąd języka (składnia, wiązanie, asercja, nieaktualny cel) zwraca `NURT_OK` i przychodzi w wyniku JSON jako `error` ze stabilnym kodem `E_*`.
+- **Paniki.** Każda eksportowana funkcja działa wewnątrz granicy paniki; panika jest przechwytywana i zgłaszana jako `NURT_E_INTERNAL`. Biblioteka jest z tego powodu budowana z `panic = "unwind"`.
+- **Wątki.** Każda funkcja jest bezpieczna wątkowo, a w jednym procesie działa obok siebie kilka silników. Zdarzenia wykonania trafiają do `nurt_event_cb` z jednego wątku biblioteki na wykonanie, z rosnącym `seq`, i kończą się zdarzeniem `exec.finished`.
+- **Silnik testowy.** Przy włączonej cesze cargo `stub` silnik jest zastępowany atrapą odpowiadającą z nagranych przypadków; kompilacje wydania mają tę cechę wyłączoną.
+
+| Status | Wartość | Znaczenie |
+|---|---|---|
+| `NURT_OK` | 0 | wywołanie się powiodło |
+| `NURT_E_TIMEOUT` | 1 | `nurt_exec_wait`: nadal trwa |
+| `NURT_E_CANCELLED` | 2 | `nurt_exec_wait`: zakończone anulowaniem |
+| `NURT_E_ARG` | 3 | wskaźnik pusty, tekst niebędący UTF-8 albo nieprawidłowy JSON |
+| `NURT_E_ABI` | 4 | niezgodna wersja interfejsu |
+| `NURT_E_IO` | 5 | nie można odczytać konfiguracji, dziennika, katalogu stanu ani rozszerzenia |
+| `NURT_E_INTERNAL` | 6 | awaria wewnętrzna, w tym przechwycona panika |
+
+## Numery wersji
+
+Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji, odrębne od wersji produktu 0.1.2; zmiana między wersjami 0.x jest zapisywana w dzienniku zmian.
+
+| Interfejs | Wersja | Reguła |
+|---|---|---|
+| ABI języka C | `NURT_ABI_MAJOR` 1, `NURT_ABI_MINOR` 0 | `nurt_abi_version()` zwraca `(major << 16) \| minor`. Wiązanie wywołuje raz `nurt_abi_check(NURT_ABI_VERSION)`; kończy się ono błędem `NURT_E_ABI`, gdy główne wersje się różnią albo biblioteka jest starsza od nagłówka. W obrębie jednej głównej wersji interfejs tylko rośnie. |
+| Formaty | `nurt: "1.0"` w żądaniu, odpowiedzi i raporcie; `nurt: "1.1"` w drzewach składni | W obrębie głównej wersji 1 dodawane są tylko opcjonalne składowe oraz nowe rodzaje węzłów lub wartości. Czytnik przyjmuje wersję podrzędną nie nowszą od własnej. |
+| Protokół serve | `nurt-rpc/1` | Zobacz [protokoły](/pl/architecture/protocols/). |
+| Interfejs rozszerzeń | `nurt:ext@1.0` | Manifest jest przyjmowany, gdy jego główna wersja równa się wersji hosta, a wersja podrzędna nie jest nowsza. |
+
+Odniesieniem jest [opis interfejsu C](/docs/reference/c-abi/), a krótką postacią [interfejs C w dokumentach architektury](/docs/architecture/c-interface/).
+
+## Rozszerzenia
+
+Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmiany programu. Mechanizm implementuje skrzynka `nurt-ext`. Rozszerzenie to katalog pod `ext.dir` (zmienna środowiskowa `NURT_EXT_DIR`) z manifestem `nurt-ext.toml` oraz komponentem lub biblioteką. Instalacja odczytuje i sprawdza manifest, sprawdza, że istnieje każdy plik, który manifest wymienia, kopiuje katalog przez katalog tymczasowy i włącza go przez zmianę nazwy, więc przerwana instalacja zostawia poprzednią wersję na miejscu. Polecenia rozszerzenia mają nazwy `<rozszerzenie>.<polecenie>`, a manifest deklaruje ich parametry, rodzaje rekordów, które przyjmują i tworzą, oraz uprawnienia, których potrzebują.
+
+| Rodzaj | Mechanizm | Granice wykonania |
+|---|---|---|
+| Komponent WebAssembly | hostowany przez `wasmtime`; świat `extension` pakietu `nurt:ext@1.0.0` z wywołaniami hosta `read-file`, `list-dir`, `write-file` i `log` oraz funkcją `stage.run` | paliwo wykonania 10 000 000 000 jednostek na wywołanie; pamięć liniowa 512 MiB; każde wywołanie działa w nowej instancji; pliki tylko w granicach `permissions.read` i `permissions.write`, sprawdzanych gdy rozszerzenie prosi o ścieżkę i ponownie przy zastosowaniu jego zapisów |
+| Biblioteka natywna | eksportuje `nurt_ext_api`, `nurt_ext_run` i `nurt_ext_free`; ładowana przy `ext.native = true` i w kompilacji z cechą `native` | działa w procesie silnika |
+
+Zobacz [opis rozszerzeń](/docs/reference/extensions/).
+
+## Wiązania
+
+Katalog `bindings/` zawiera pięć wiązań. Każde z nich ma dwa mechanizmy: mechanizm biblioteki ładuje `libnurt` do procesu wywołującego, a mechanizm procesu uruchamia `nurt serve --stdio` i rozmawia z nim przez JSON-RPC 2.0 (`nurt-rpc/1`). Wiązania odnoszą się więc do silnika przez te dwa interfejsy, a każde z nich zwraca te same dokumenty JSON.
+
+| Wiązanie | Pakiet | Mechanizmy | Wymagania |
+|---|---|---|---|
+| Go | moduł `github.com/DanacoOfficial/nurt/bindings/go` | `process` (domyślny, czyste Go); `library` przez cgo ze znacznikiem `nurt_cgo` | Go 1.23 lub nowszy; tylko biblioteka standardowa |
+| Node.js | `nurt` | `library` (dodatek Node-API `nurt.node`, skrzynka `nurt-node`); `process`; domyślnie `auto` | Node.js 18 lub nowszy, Bun i Deno; dodatek wymaga środowiska z Node-API |
+| .NET | `Danaco.Nurt` | `Library`, `Process`, domyślnie `Auto` | cele .NET 8 i .NET Standard 2.0 |
+| Java | `pl.danaco-group:nurt`, `pl.danaco-group:nurt-ffm` | `nurt` uruchamia `nurt serve --stdio` (Java 17 lub nowsza); `nurt-ffm` dodaje mechanizm biblioteki przez Foreign Function and Memory API (Java 22 lub nowsza) | brak zależności uruchomieniowych |
+| Python | `nurt` | `library` przez `ctypes`; `process`; domyślnie `auto` | koła platformowe zawierają program `nurt` i `libnurt` |
+
+Skrzynka `nurt-bind` należy do silnika: wiąże drzewa składni z katalogiem poleceń, co jest jednym z kroków [silnika](/pl/architecture/engine/). Dodatek Node.js to skrzynka `nurt-node`; pozostałe wiązania są pakietami własnych języków. Wiązania współdzielą przypadki zgodności z `conformance/bindings`, które każde wiązanie uruchamia względem implementacji wskazanej zmiennymi środowiskowymi, takimi jak `NURT_TEST_COMMAND` (Go) oraz `NURT_TEST_SERVE` i `NURT_TEST_LIBRARY` (.NET). Zmierzone wyniki są na stronie o [testowaniu](/pl/quality/testing/).
+
+## Dalej
+
+[Protokoły](/pl/architecture/protocols/) opisują mechanizm procesu, serwer Model Context Protocol i serwer języka. Wskazówki integracyjne zawiera [przewodnik integratora](/docs/integrators/).

@@ -1,0 +1,70 @@
+---
+title: Przegląd
+description: Kontrole Danaco Nurt 0.1.2 - testy na trzech systemach, porównanie z git, zgodność pięciu wiązań, scenariusze na czystym systemie, polityka zależności i podpisane wydania.
+section: quality
+order: 1
+eyebrow: Jakość
+lead: Co jest sprawdzane, w jaki sposób i z jakim wynikiem.
+updated: 2026-11-28
+toc: true
+related: [quality/testing, quality/conformance, quality/performance, project/status]
+keywords: [jakość, testy, zgodność, lint, polityka zależności, pokrycie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Kontrole i wyniki
+
+Każda zmiana w Danaco Nurt przechodzi przez przepływy w `.github/workflows` oraz skrypty w `tools/ci` i `tools/release`. Przepływy formatują kod i sprawdzają go lintem, budują i testują przestrzeń roboczą na Linuksie, macOS i Windows, mierzą pokrycie wierszy, budują dokumentację, oceniają politykę zależności, sprawdzają zawartość repozytorium i komunikaty commitów oraz uruchamiają zestawy testów wiązań językowych, integracji, pakietów i benchmarku zadań. Przepływ wydania weryfikuje sumy kontrolne archiwów, podpisuje je i instaluje opublikowane pakiety na czystych systemach.
+
+Zadanie Test buduje przestrzeń roboczą z `--all-targets`, uruchamia każdy test przez `cargo nextest`, a testy dokumentacji przez `cargo test --doc`. Zadanie Clippy uruchamia `cargo clippy --workspace --all-targets --locked -- -D warnings` na trzech systemach operacyjnych, więc ostrzeżenie jest niepowodzeniem. Zadanie Coverage uruchamia sześć skrzynek krytycznych, a potem całą przestrzeń roboczą pod `cargo llvm-cov` z progiem niepowodzenia dla każdego z tych przebiegów. Zadanie Dependency policy uruchamia `cargo deny` dla zakazów, licencji, źródeł i zaleceń bezpieczeństwa. Każde polecenie używa `--locked`, więc budowa korzysta z wersji zapisanych w `Cargo.lock`.
+
+<Stats>
+  <Fact id="tests" />
+  <Fact id="gitComparisons" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+Przestrzeń robocza ma <Fact id="crates" /> skrzynek, a specyfikacja <Fact id="specFiles" /> dokumentów.
+
+## Mapa kontroli
+
+| Kontrola | Co weryfikuje | Gdzie jest zdefiniowana | Wynik |
+|---|---|---|---|
+| Testy przestrzeni roboczej | zachowanie skrzynek, poziom jednostkowy i integracyjny | `ci.yml`, zadanie Test; `tests/` i `crates/*/tests` | 13 965 zaliczonych (wersja 0.1.1, Linux, 27 listopada 2026) |
+| Testy na Windows 11 | ten sam zestaw na Windows, bez testów ignorowanych | `ci.yml`, zadanie Test | 13 455 zaliczonych, żaden niezaliczony (wersja 0.1.1, Windows 11, 27 listopada 2026) |
+| Testy różnicowe względem git | polecenia `git.*` dają stan, który daje `git`, a ich cofnięcie przywraca stan początkowy | skrzynka `nurt-git-difftest` | 775 z 775 zgodnych (wersja 0.1.1, 27 listopada 2026) |
+| Zgodność wiązań | Go, Node, .NET, Java i Python wywołują silnik tak, jak opisuje specyfikacja | `conformance/bindings/api.json`, `bindings-*.yml` | wiązania przechodzą; Python 136 z 136 (wersja 0.1.1, 27 listopada 2026) |
+| Scenariusze na czystym systemie | archiwa wydania działają na minimalnym Debianie 13 | `tools/release/scenarios.sh`, `clean-linux-check.sh` | 19 scenariuszy zaliczonych; archiwa `gnu` i `musl` zaliczone (wersja 0.1.1, Debian 13, 27 listopada 2026) |
+| Pokrycie wierszy | udział wierszy wykonywanych przez testy | `ci.yml`, zadanie Coverage | zadanie wymaga 80 procent dla przestrzeni roboczej i 90 procent dla sześciu skrzynek krytycznych |
+| Lint i format | formatowanie, ostrzeżenia kompilatora i clippy | `ci.yml`, zadania Format i Clippy | `fmt` i `clippy -D warnings` bez uwag na Linuksie i Windows; `cargo check` bez uwag dla obu celów macOS (wersja 0.1.1, 27 listopada 2026) |
+| Kontrola celów krzyżowych | skrzynka kontraktów kompiluje się dla czterech dalszych celów | `ci.yml`, zadanie Check | `cargo check -p nurt-contracts` dla aarch64 Linux, Windows MSVC i obu celów macOS |
+| Polityka zależności | licencje, zakazy, źródła i zalecenia bezpieczeństwa | `deny.toml`, `ci.yml`, zadanie Dependency policy | `cargo deny` 0.20.2 bez błędów; `cargo audit` kod wyjścia 0 (wersja 0.1.1, 27 listopada 2026) |
+| Budowa dokumentacji | rustdoc bez ostrzeżeń; strony poleceń zgodne z katalogiem; każdy przykład z dokumentacji przechodzi kontrolę | `ci.yml`, zadanie Documentation, skrzynka `nurt-docgen` | kod wyjścia 0 (wersja 0.1.1, 27 listopada 2026) |
+| Higiena repozytorium | zawartość, język, styl i nagłówki plików | `tools/ci/repo-hygiene.sh`, `hygiene.yml` | 0 trafień w 10 566 plikach (wersja 0.1.1, 27 listopada 2026) |
+| Komunikaty commitów | tematy, treści i podpis `Signed-off-by` commitów zgodne z konwencją | `tools/ci/check-commits.sh`, `hygiene.yml` | stosowana do każdego commitu pull requestu |
+| Testy pakietów | instalatory, pakiety i manifesty | `packaging/tests`, `packaging.yml` | 174 z 174 (wersja 0.1.1, 27 listopada 2026) |
+| Benchmark zadań | zadania i wyrocznie `nurt-bench` mają poprawną postać | `bench/`, `bench-oracles.yml` | 648 zadań zweryfikowanych, 112 testów wyroczni zaliczonych (wersja 0.1.1, 27 listopada 2026) |
+
+## Warstwy
+
+1. **Testy jednostkowe i integracyjne** działają przez `cargo nextest` lub `cargo test`; układ opisuje strona [testowanie](/pl/quality/testing/).
+2. **Testy różnicowe względem git** uruchamiają każdy scenariusz `git.*` programem `git` i poleceniem Nurt oraz porównują powstałe repozytoria; zobacz [zgodność](/pl/quality/conformance/).
+3. **Zgodność wiązań językowych** uruchamia zapisane przypadki przez program `nurt-conformance` względem każdego wiązania.
+4. **Scenariusze na czystym systemie** uruchamiają zbudowane archiwa, a nie drzewo źródeł.
+5. **Lint, format, pokrycie i polityka zależności** działają przy każdej zmianie w przepływach.
+6. **Kontrole budowy dokumentacji** utrzymują strony w `docs/commands` zgodne z katalogiem.
+7. **Benchmark zadań** porównuje Danaco Nurt z bashem i PowerShell 7 jako narzędzie agenta AI; [wydajność](/pl/quality/performance/) opisuje zestaw zadań.
+
+## Przepływy
+
+Przepływ `ci.yml` działa przy wypchnięciach do `main`, pull requestach, grupach scalania oraz codziennie o 04:17 UTC. Jego zadania to Format, Clippy i Test (Clippy i Test na Linuksie, macOS i Windows), Coverage, Documentation, Dependency policy oraz Check dla czterech dodatkowych celów. Przebieg codzienny ustawia `NURT_PROPTEST_FULL=1`, więc testy własności generują pełną liczbę przypadków.
+
+Przepływ `hygiene.yml` uruchamia trzy grupy kontroli zawartości, ShellCheck dla każdego skryptu powłoki i `actionlint` dla plików przepływów, a przy pull requestach sprawdza komunikaty commitów i podpis `Signed-off-by` każdego commitu. Przepływy `bindings-go`, `bindings-node`, `bindings-python`, `bindings-dotnet` i `bindings-java` budują i testują każde wiązanie na Linuksie, macOS i Windows (oraz na Linuksie aarch64 dla wszystkich poza Go) i sprawdzają je narzędziami jego języka: `gofmt`, `go vet` i `staticcheck` dla Go, `mypy` i `ruff` dla Pythona. Przepływ `bench-oracles.yml` waliduje zadania benchmarku i uruchamia rozwiązania wzorcowe w bashu na Linuksie oraz w PowerShell na Windows.
+
+Przepływ `packaging.yml` uruchamia testy pakietów, ShellCheck dla instalatorów, budowę pakietów Debian i RPM, `lintian` dla pakietów Debian oraz instalację pakietów w czystych kontenerach. Przepływy `integrations-*` obejmują obrazy kontenerów, funkcję kontenera deweloperskiego, przykłady, akcję instalacyjną i rozszerzenie VS Code. Przepływ `release.yml` publikuje pakiety po powodzeniu `sha256sum --check --strict checksums.txt` i `tools/ci/check-dependencies.sh`. Akcje używane w przepływach są przypięte do skrótów commitów, a przepływy działają z dostępem do odczytu zawartości repozytorium.
+
+Strona [stan](/pl/project/status/) opisuje wydanie, a strony [testowanie](/pl/quality/testing/), [zgodność](/pl/quality/conformance/) i [wydajność](/pl/quality/performance/) podają szczegóły każdego wiersza.

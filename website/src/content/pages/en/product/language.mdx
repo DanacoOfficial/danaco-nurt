@@ -1,0 +1,126 @@
+---
+title: The language
+description: "The Danaco Nurt language: programs as pipelines of typed records, values, stages, control constructs, corrections, error codes and the checks that run before a program does."
+section: product
+order: 4
+eyebrow: Product
+lead: A program is a pipeline of typed records. It is parsed, corrected and bound to the command catalog before any effect takes place.
+updated: 2026-11-28
+related: [product/commands, product/effect-reports, product/journal-and-undo, architecture/engine]
+keywords: [language, pipeline, records, stages, control constructs, corrections, error codes, check]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Programs and pipelines
+
+A program is a sequence of statements separated by line breaks. A statement is a pipeline or a `let` binding. A pipeline is a command followed by commands joined with `|>`; a line break before `|>` continues the pipeline. `let name = pipeline` stores a result and `@name` uses it, so a value keeps its type from one statement to the next.
+
+```nurt
+let recent = find "/home/user/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
+@recent |> count
+```
+
+Each stage takes records and returns records, a single value or nothing, so no stage parses the text of another one. The [language guide](/docs/guide/language/) describes every form. A stage that needs the whole input in memory, such as `sort`, `last` or `group`, collects it with a bound: exceeding `limits.max_records` fails with `E_LIMIT`, and records are never dropped silently.
+
+## Values, records and key paths
+
+| Kind | Written as | Example |
+|---|---|---|
+| Text | double quotes | `"/home/user/app"` |
+| Raw text | `r"…"` or `r#"…"#` | `r#"import "fmt""#` |
+| Regular expression | between slashes, flags `i m s x` | `/oldName\(/i` |
+| Size | number and unit | `10mb` (decimal), `10mib` (binary) |
+| Duration | numbers with units | `1h30m` |
+| Range | bounds inclusive | `10..20`, `40..`, `all` |
+| List, map | brackets, braces | `["a", "b"]`, `{CI: "1"}` |
+
+The [records specification](/docs/specification/records/) defines the value types and the kinds of record, among them `entry`, `line`, `match`, `process`, `commit` and `operation`. A record has fields in a fixed order, and sizes are bytes and durations milliseconds in JSON. A path that is not valid Unicode keeps its native bytes beside its display form.
+
+Documents are addressed by key paths, which the binder converts before any command runs; a malformed key is reported as `E_KEY_SYNTAX`:
+
+```nurt
+read "package.json" key: "scripts.test"
+set "package.json" key: "keywords[+]" value: "cli"
+read "users.json" key: "users[?age >= 18 and active].name"
+```
+
+The [key path specification](/docs/specification/keypath/) defines the syntax. Expressions in `filter`, `sort`, `select`, `assert` and `evaluate` use `== != < <= > >= ~ !~ in and or not + - * /`, where `~` matches a regular expression.
+
+## Stages and effects
+
+A pipeline is executed in fixed steps, and steps 0 to 4 have no effect on the world.
+
+| Step | Name | Effect |
+|---|---|---|
+| 0, 1 | parse, bind | none |
+| 2 | read | reads only |
+| 3 | check (`assert`) | none; failure changes nothing |
+| 4 | plan | reads only; `preview` ends here |
+| 5 | apply | the change, through a journal transaction |
+| 5a | after | none |
+| 6 | verify | failure rolls the effect back |
+| 7 | report | none |
+
+A pipeline has one stage that changes the world or runs a program; a second one fails with `E_ONE_EFFECT`, whose first candidate is the same pipelines inside `steps`. Only `assert`, `filter`, `select`, `first`, `last`, `skip`, `count`, `sort` and `group` can follow the effect. `verify` is the last stage and rolls the change back when its check fails:
+
+```nurt
+search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
+|> replace "newName("
+|> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
+```
+
+The cookbook recipe [editing many files](/docs/cookbook/edit-many-files/) uses this form. Syntax variants A and B produce the same syntax tree; variant C writes every argument by name. The program text is not executed: the syntax tree is, and the journal and the report store its hash (`ast_hash`).
+
+## Control constructs
+
+Since 0.1.1 the language has `when` with `otherwise when` and `otherwise`, the loops `each`, `repeat until` and `while` with `break` and `continue`, `steps` for several changes in one call, functions with `define`, and script parameters with `params`. The syntax tree has version 1.1; documents of version 1.0 are read unchanged.
+
+```nurt
+steps {
+    find "/srv/app/old" glob: "*.conf" |> move to: "/srv/app/conf"
+    replace /old\/path/ "conf/path" in: "/srv/app/app.toml" expect: 3
+}
+```
+
+A construct is one journal entry and is all or nothing: when a part fails, the changes already made are rolled back, and the parts that cannot be rolled back, such as a program run, are listed before the change. `preview` computes the chosen branch, the iterations and every effect without a change, and types, names and arity are checked before any effect. Without `limit`, a loop ends at `loop.max_iterations` (10 000) or `loop.max_time` (10 minutes). A parameter of type `bool` written without a value is `true`, so `remove "/tmp/x" preview` is valid.
+
+## Corrections
+
+Danaco Nurt accepts the habits of other shells and forms with small errors. A correction changes the form of a program and never its meaning, and applied corrections are listed in the report. Two rules govern a name that touches a change:
+
+- A misspelt name of a command that only reads is corrected and the program runs.
+- A misspelt name of a command that changes files or runs a program, such as `remvoe`, is answered with `E_AMBIGUOUS` in step 1. Nothing runs, and `candidates` holds ranked programs, the first of them ready to be sent again.
+
+`undo op: 18` is corrected to `undo id: 18` (rule L06). The habits of bash and PowerShell and their forms are in the cheat sheets for [bash](/docs/cheatsheets/nurt-for-bash-users/) and [PowerShell](/docs/cheatsheets/nurt-for-powershell-users/).
+
+## Error codes
+
+An error has a stable code with the prefix `E_`, a message in English and, where known, the stage, the position and replacements of the program text. Codes are added only within a major version, and the meaning of a code never changes.
+
+| Code | Stage | Meaning |
+|---|---|---|
+| `E_SYNTAX` | 0 | the program does not follow the grammar |
+| `E_UNKNOWN_COMMAND`, `E_UNKNOWN_PARAM` | 1 | unknown name; `expected` lists up to eight nearest names |
+| `E_TYPE` | 1, 2 | a value or record stream has a type the place does not accept |
+| `E_ASSERT` | 3, 4, 5a | an assertion does not hold |
+
+An error of the stages parse and bind describes the mistake in the program and its correction, and the world stays as it was. The [error specification](/docs/specification/errors/) lists every code.
+
+## Checking before running
+
+`nurt check` parses, corrects and binds a program, prints its canonical form and the effect, and changes nothing. `preview: true` runs a changing program through steps 0 to 4 and reports the targets. `assert` states the expected number of targets inside the program.
+
+```sh
+nurt check -e 'remove "/home/user/app/build"'
+```
+
+<Callout type="note" title="Versions">
+  The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers; a change between 0.x versions is recorded in the changelog.
+</Callout>
+
+## Where to go next
+
+The [command catalog](/product/commands/) defines the names, parameters and types that binding checks. The [effect report](/product/effect-reports/) describes the result, and the guide on [text editing](/docs/guides/text-editing/) shows the editing commands in pipelines.

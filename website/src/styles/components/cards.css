@@ -1,0 +1,110 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.cards
+ * Responsibility:   Cards and the card grid: a raised ground with cut corners, a gold icon and a hover state for linked cards.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.utilities
+ */
+
+.card-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 40rem) {
+  .card-grid--2,
+  .card-grid--3,
+  .card-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .card-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .card-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* The card of the design proposal: a soft surface with a line of one pixel, a radius of 8 px and a short gold dash above the title. */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--bg-raised);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.card::before {
+  content: '';
+  width: 1.5rem;
+  height: 2px;
+  background: var(--accent);
+}
+
+.card:has(.card__icon)::before {
+  display: none;
+}
+
+.card--link:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  transform: translateY(-2px);
+  color: var(--text);
+}
+
+.card__icon {
+  color: var(--accent-strong);
+}
+
+.card__eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.card__title {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+}
+
+.card__body {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.card__body > * + * {
+  margin-top: var(--space-2);
+}
+
+.card__more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  color: var(--accent-strong);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.card__more .icon {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.card--link:hover .card__more .icon {
+  transform: translateX(4px);
+}

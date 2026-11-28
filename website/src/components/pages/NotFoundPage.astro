@@ -1,0 +1,40 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.NotFoundPage
+// Responsibility:   The page for an address that does not exist, in both languages of the site, with ways back to the home page, the documentation and the search.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.base.Button, website.src.components.brand.Mark
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Button from '../base/Button.astro';
+import Mark from '../brand/Mark.astro';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import '../../styles/components/not-found.css';
+
+const en = useUi('en');
+const pl = useUi('pl');
+---
+
+<BaseLayout title={en.notFound.title} description={en.notFound.lead} locale="en" path="/404/" noindex={true} available={['en']} searchable={false}>
+  <div class="container not-found">
+    <Mark size={96} />
+    <p class="eyebrow">404</p>
+    <h1>{en.notFound.title}</h1>
+    <p class="lead">{en.notFound.lead}</p>
+    <div class="cluster">
+      <Button href={href('/', 'en')} variant="primary">{en.notFound.home}</Button>
+      <Button href={href('/docs/', 'en')} variant="secondary">{en.notFound.docs}</Button>
+      <Button href={href('/search/', 'en')} variant="quiet">{en.notFound.search}</Button>
+    </div>
+    <hr />
+    <h2 lang="pl">{pl.notFound.title}</h2>
+    <p class="text-muted" lang="pl">{pl.notFound.lead}</p>
+    <div class="cluster" lang="pl">
+      <Button href={href('/', 'pl')} variant="secondary">{pl.notFound.home}</Button>
+      <Button href={href('/docs/', 'pl')} variant="quiet">{pl.notFound.docs}</Button>
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,90 @@
+---
+title: Paczki treningowe
+description: Pięć gotowych paczek do trenowania i oceny modeli na Danaco Nurt, czyli pary, rozmowy czatu i wywołań narzędzia, definicje narzędzia i korpus dokumentacji, sprawdzone przez silnik wydania 0.1.2.
+section: ai
+order: 4
+eyebrow: AI
+lead: 1457 par „wejście → program Danaco Nurt” sprawdzonych przez silnik, w trzech formatach rekordów, wraz z definicjami narzędzia i korpusem dokumentacji.
+updated: 2026-11-28
+related: [ai/overview, ai/model-labs, ai/benchmark, product/ai-agents]
+keywords: [paczki treningowe, pary, czat, wywołania narzędzia, JSONL, CC BY 4.0, zbiory danych, walidacja]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Paczki
+
+Pięć paczek służy do trenowania i oceny modeli, które piszą programy Danaco Nurt i wywołują narzędzie `nurt`. Każdy plik jest budowany z repozytorium skryptem `website/scripts/build_training_packs.py` za pomocą programów wykonywalnych `nurt` i `nurt-bench` wydania 0.1.2. Manifest `manifest.json` zapisuje wydanie, rewizję katalogu poleceń (`sha256:ad74233c7b6b…`), datę budowy (28 listopada 2026) oraz, dla każdego pliku, rozmiar, liczbę rekordów i sumę SHA-256. Tabela pobierania podaje rozmiar i sumę SHA-256 każdego pliku.
+
+<Downloads group="training" locale="pl" />
+
+| Paczka | Zawartość | Rekordy | Licencja |
+|---|---|---|---|
+| `pairs` | pary „wejście → program Danaco Nurt” w formacie `nurt-bench-pair/2`, ze schematem i kartą danych | `pairs.jsonl`: 1457 przyjętych par; `rejected.jsonl`: 629 programów z kodem błędu i komunikatem silnika | CC BY 4.0 |
+| `chat` | przyjęte pary jako rozmowy czatu: komunikat systemowy, komunikat użytkownika, program jako odpowiedź | `train.jsonl`: 1309; `validation.jsonl`: 148 | CC BY 4.0 |
+| `tool-calls` | przyjęte pary jako rozmowy, w których odpowiedzią jest wywołanie narzędzia `nurt` z polem `program`; `tools.json` jest definicją narzędzia dołączaną do każdej rozmowy | `train.jsonl`: 1309; `validation.jsonl`: 148 | CC BY 4.0 |
+| `tools` | definicja narzędzia `nurt` w każdym formacie `nurt schema tool`, po angielsku i po polsku | 16 dokumentów JSON: 8 formatów w 2 językach | Apache-2.0 |
+| `corpus` | dokumentacja i specyfikacja jako dokumenty ze ścieżką, sekcją, tytułem i tekstem w Markdown | `docs.jsonl`: 251 dokumentów | Apache-2.0 |
+
+## Źródła par
+
+Polecenie `nurt-bench pairs` buduje kandydatów z czterech źródeł. Zadania wstrzymane benchmarku są wyłączone, więc model trenowany na parach jest oceniany na zbiorze wstrzymanym.
+
+| Źródło | Wejście | Program | Kandydaci | Przyjęte |
+|---|---|---|---|---|
+| `task` | opis zadania publicznego benchmarku | program referencyjny zadania | 648 | 385 |
+| `translation` | rozwiązanie referencyjne zadania publicznego w bash lub PowerShell 7 | program referencyjny zadania | 759 | 449 |
+| `docs` | zdanie wprowadzające przykład ze strony polecenia | przykład | 613 | 578 |
+| `habit` | polecenie powłoki ze ściąg dla użytkowników bash i PowerShell | kanoniczny program Danaco Nurt | 66 | 45 |
+
+Przyjętych par jest 1457. Pole `input_kind` nazywa rodzaj wejścia: `nl` dla opisu po angielsku, `bash` lub `pwsh` dla polecenia powłoki. Identyfikator pary to pierwsze 16 cyfr szesnastkowych skrótu SHA-256 z rodzaju wejścia, wejścia i programu.
+
+## Przykładowe rekordy
+
+Rekord `pairs` zawiera źródło, zadanie pochodzenia, wejście, program i wynik walidacji:
+
+```json
+{"format":"nurt-bench-pair/2","id":"5505c7250897fccc","source":"task","origin":"admin-002","input_kind":"nl","input":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`.","program":"schedule.create \"reports\" cron: \"0 6 * * 1\" action: (run [\"/opt/reports/bin/generate\", \"--weekly\"])","script":false,"validation":{"checked":true,"executed":false,"status":"bound"},"license":"CC-BY-4.0"}
+```
+
+Ta sama para w `chat` zawiera komunikat systemowy języka, opis jako komunikat użytkownika i program jako odpowiedź:
+
+```json
+{"messages":[{"role":"system","content":"You write programs in the language of Danaco Nurt (`nurt`), a command shell where a program is a pipeline of typed records. Answer with the program only, in the canonical notation."},{"role":"user","content":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`."},{"role":"assistant","content":"schedule.create \"reports\" cron: \"0 6 * * 1\" action: (run [\"/opt/reports/bin/generate\", \"--weekly\"])"}]}
+```
+
+W `tool-calls` odpowiedzią jest wywołanie narzędzia `nurt`; argumentem jest tekst JSON `{"program": "…"}`:
+
+```json
+{"messages":[{"role":"user","content":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`."},{"role":"assistant","tool_calls":[{"id":"call_5505c7250897fccc","type":"function","function":{"name":"nurt","arguments":"{\"program\": \"schedule.create \\\"reports\\\" cron: \\\"0 6 * * 1\\\" action: (run [\\\"/opt/reports/bin/generate\\\", \\\"--weekly\\\"])\"}"}}]}]}
+```
+
+## Walidacja przez silnik
+
+Każdy kandydat trafia do metody `check` serwera `nurt serve`: silnik analizuje program, stosuje poprawki języka i wiąże program z katalogiem poleceń. Program, który się wiąże, jest przyjmowany i ma `validation.status` równe `bound`. Program, który silnik odrzuca, trafia do `rejected.jsonl` z kodem błędu i komunikatem silnika w `validation.rejected`. Te rekordy są przykładami błędów: program, stabilny kod i komunikat, który wymienia dopuszczalne wartości.
+
+```json
+{"id":"674c375b5397e95b","source":"task","origin":"admin-011","input":"Disable root login over SSH in etc/ssh/sshd_config (PermitRootLogin no).","program":"set \"etc/ssh/sshd_config\" key: \"PermitRootLogin\" value: \"no\" format: sshd","validation":{"checked":true,"executed":false,"rejected":"E_UNKNOWN_VALUE: `sshd` is not a value of `format`; write one of auto, json, jsonc, yaml, toml, xml, ini, csv, tsv, properties, env, plist"}}
+```
+
+Plik podsumowania `summary.json` zawiera liczby według źródeł, wydanie i rewizję katalogu.
+
+## Podziały
+
+Paczki `chat` i `tool-calls` są dzielone według identyfikatora pary: para, której identyfikator zaczyna się od bajtu poniżej 26, należy do części walidacyjnej, co daje jedną parę na dziesięć, 148 z 1457. Podział jest stabilny między kolejnymi budowami, a ta sama para trafia do tej samej części w obu paczkach.
+
+## Licencje i atrybucja
+
+Paczki `pairs`, `chat` i `tool-calls` są objęte licencją CC BY 4.0, a licencja zbioru danych wyraźnie zezwala na użycie do trenowania i oceny modeli uczenia maszynowego. Wiersz atrybucji to „nurt-bench pairs, Danaco Holding Group Sp. z o.o., CC BY 4.0”. Paczki `tools` i `corpus` są objęte licencją Apache-2.0. Każda paczka zawiera swój plik `LICENSE`.
+
+## Przebudowa paczek
+
+Paczki są budowane od nowa z repozytorium za pomocą programów wykonywalnych jednego wydania:
+
+```sh
+python3 website/scripts/build_training_packs.py --nurt <path of nurt> --nurt-bench <path of nurt-bench>
+```
+
+Skrypt zapisuje pliki pięciu paczek i manifest z nowymi rozmiarami i sumami. [Strona benchmarku](/pl/ai/benchmark/) opisuje `nurt-bench pairs` i zadania wstrzymane, a [strona laboratoriów](/pl/ai/model-labs/) opisuje, jak paczki wchodzą w cykl trenowania i oceny.

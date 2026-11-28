@@ -1,0 +1,86 @@
+---
+title: Identity files
+description: "The files of the Danaco Nurt identity 1.0.0 to download: guidelines book, vector and raster files, icons, backgrounds, print specification, colour tokens, with sizes, checksums and rules of use."
+section: design
+order: 3
+eyebrow: Design
+lead: The mark, the lockups, the icons, the backgrounds and the tokens of the identity as files, with the rules of their use.
+updated: 2026-11-28
+toc: true
+related: [design/overview, design/mark-and-colour, project/license]
+keywords: [download, identity, logo, svg, png, icons, tokens, print, guidelines, trademark]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The files of the identity
+
+The production identity 1.0.0 of Danaco Nurt, accepted on 2026-11-26 and shipped with release 0.1.1, is a set of files: the mark, the wordmark, the lockups, the grounds, the application icons, the renders, the print specification and the reference drawings of the terminal banner. The lettering in every file is outlines, and no file depends on an external font or a script. The table below lists every download with its size and its SHA-256 sum.
+
+<Downloads group="identity" />
+
+## Groups of files
+
+**Guidelines book.** The book of the identity in PDF form is the reference for a designer who prepares material that carries the mark.
+
+**Vector files.** The folder `svg/` holds the mark in ten variants, the drawings for 16, 24 and 32 px in six variants each, the wordmark in nine variants, the horizontal, vertical and compact lockups in ten variants each, the seven grounds and two stream tiles. The file pattern is `lockup-<layout>-<variant>.svg` for the layouts horizontal, vertical and compact, `mark-<variant>.svg`, `wordmark-<variant>.svg` and `mark-<size>px-<variant>.svg` for the small drawings. Vector files are the source for print, for large formats and for every use in which a file is scaled.
+
+**Raster files.** The folder `raster/` holds PNG copies of the vector files under the same names, and the social card `social-card.png` of 1200 x 630 px with `social-card@2x.png`. Raster files serve presentations, documents and surfaces that do not take SVG.
+
+**Icons.** The folder `icons/` holds `nurt.icns` for macOS; `nurt.ico` with the tiles `nurt-tile-150.png` and `nurt-tile-44.png` for Windows; the hicolor sizes 16, 22, 24, 32, 48, 64, 96, 128, 192, 256 and 512 px with `scalable/apps/nurt.svg` and `symbolic/apps/nurt-symbolic.svg` for Linux; and `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `site.webmanifest` for the web. The symbolic icon is drawn in `currentColor`. The favicon uses the drawing S16, silver and gold on a dark theme and ink and deep gold on a light one.
+
+**Backgrounds.** The files `background-*.svg` and `.png` carry the grounds graphite, deep black, light, warm light, warm gold, and graphite and light with the trace of the stream, at 1920 x 1080 and 2560 x 1440 px. The stream tiles `pattern-stream-dark.svg` and `pattern-stream-light.svg` repeat without a seam for CSS and print.
+
+**Print specification.** The folder `print/` holds `print-spec.pdf` (A4, with the checklist for the printer), `print-colour-values.md` and `.json` with the CMYK recipes for FOGRA39 and FOGRA47 and the Pantone candidates, and `print-geometry-values.json`.
+
+**Tokens and machine-readable identity.** `tokens.css` carries the colour tokens as CSS custom properties. `identity.json` carries the decided values: the grid, the paths of the chevrons, the wordmark parameters, the layouts, the variants and the colour tokens.
+
+**Terminal drawings.** The folder `terminal/` holds the start banner as `terminal-banner.txt` (24 x 14 ASCII cells), `terminal-banner-blocks.txt` (26 x 15 half-block cells), `terminal-banner-truecolor.ansi` and `terminal-banner-256.ansi`.
+
+## Choosing the variant and the layout
+
+The variant follows the ground. On graphite and deep black the variants are `color-dark` or `white`; on paper and warm paper they are `color-light` or `black`; on the warm gold ground only `black`. Hot foil takes `gold`, and large screen formats from 128 px take `metal`. `grey` serves grey print and photocopies, and `grey-dark` grey screens. Blind emboss takes `emboss-light` on cotton paper and `emboss-dark` on dark card.
+
+The layout follows the space. The horizontal lockup has a minimum width of 96 px on screen and 28 mm in ink, and it stands in the header of the documentation. The vertical lockup starts at 64 px and 20 mm. The compact lockup, with the name Nurt alone, starts at 56 px and 20 mm. The mark alone starts at 16 px with the drawings S16, S24 and S32 below 48 px, and at 6 mm in ink. The wordmark starts at 72 px and 22 mm.
+
+## Rules of use
+
+1. Use the supplied files; do not redraw or retype the mark or the name.
+2. Dark ground: `color-dark` or `white`; light ground: `color-light` or `black`; foil: `gold`; large screen formats: `metal`.
+3. Clear space: the cap height of the wordmark in lockups, a quarter of the box height around the mark alone.
+4. Below 48 px use the drawings S32, S24 and S16; the main drawing is never scaled below 48 px.
+5. The silver chevron is always left and raised, the gold chevron right and lowered; the tones are never swapped.
+6. Gold appears in tint only as the deep gold #A3722A on light grounds, never as text on #F6F7F8.
+7. Cyan is for the pipe `|>`, not for the logo.
+8. The tile of 150 px for Windows is used only with a dark ground declared in a manifest.
+
+The forbidden uses are: swapping the tones of the chevrons, stretching or squeezing, mirroring (the figure is turned, not reflected), outlining, shadows and glow, colour on a ground that keeps less than 3 : 1, busy or coloured backgrounds, rotation, another typeface for the name, changing the angle or the stroke, crowding the clear space, and gradients that are not in the system.
+
+## Use of the name and the mark
+
+The names Danaco and Danaco Nurt and the marks in the identity files are trademarks of Danaco Holding Group Sp. z o.o. The Apache License, Version 2.0 covers the code and grants permission to use the names only for the customary description of the origin of the product. An implementation or an integration that passes the mandatory tests of `nurt-conformance` is entitled to use the name "Danaco Nurt Compatible" and the mark of the program. The license is described on the page [License](/project/license/).
+
+## Colour tokens for developers
+
+The file `tokens.css` declares the colour tokens of the identity as custom properties on `:root`.
+
+```css
+:root {
+  --color-ground-main: #0B0C0E;
+  --color-ground-soft: #15171A;
+  --color-ground-deep: #050506;
+  --color-mark-step-back: #DDE1E6;
+  --color-mark-step-forward: #C9A15A;
+  --color-ink-on-light: #2B2F36;
+  --color-mark-step-forward-on-light: #A3722A;
+  --color-ground-light: #F6F7F8;
+  --color-ground-light-warm: #F2EEE6;
+  --color-ground-gold: #D9BC85;
+  --color-text-caption: #7C8390;
+  --color-pipe: #4FD1F5;
+}
+```
+
+The names describe the function: `--color-mark-step-back` is the silver of the left chevron and `--color-mark-step-forward` is the gold of the right chevron. The same values are in `identity.json` under `tokens`.

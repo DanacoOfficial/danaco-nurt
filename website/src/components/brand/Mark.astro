@@ -1,0 +1,36 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.brand.Mark
+// Responsibility:   The mark of Danaco Nurt as inline SVG: the silver chevron that steps back and the gold chevron that steps forward, coloured by the theme variables.
+// Dependencies:     website.src.components.brand.brand-data, website.src.styles.components.mark
+
+import '../../styles/components/mark.css';
+import { markPaths, markViewBox } from './brand-data';
+
+interface Props {
+  size?: number | string;
+  title?: string;
+  animated?: boolean;
+  class?: string;
+}
+
+const { size = 32, title, animated = false, class: className } = Astro.props;
+const dimension = typeof size === 'number' ? `${size}px` : size;
+---
+
+<svg
+  class:list={['nurt-mark', animated && 'nurt-mark--animated', className]}
+  viewBox={markViewBox}
+  style={`width:${dimension};height:auto;`}
+  role={title ? 'img' : undefined}
+  aria-label={title}
+  aria-hidden={title ? undefined : 'true'}
+  focusable="false"
+>
+  {title && <title>{title}</title>}
+  <path class="nurt-mark__back" d={markPaths.silver}></path>
+  <path class="nurt-mark__forward" d={markPaths.gold}></path>
+</svg>

@@ -1,0 +1,79 @@
+---
+title: Stan bieżący
+description: Aktualna wersja Danaco Nurt, systemy i architektury, na których działa, interfejsy z ich wersjami, katalog poleceń i miejsce każdej części w dokumentacji.
+section: project
+order: 2
+eyebrow: Projekt
+lead: Danaco Nurt ma wersję 0.1.2, wydaną 28 listopada 2026.
+updated: 2026-11-28
+related: [project/releases, project/versioning, quality/testing, product/platforms]
+keywords: [stan bieżący, wersja 0.1.2, systemy, architektury, interfejsy, katalog poleceń]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Wersja 0.1.2
+
+Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cofnąć, zbudowane dla ludzi i agentów AI. Bieżąca wersja to 0.1.2 z datą 28 listopada 2026. Front-end języka, silnik, katalog poleceń, dziennik cofania, program wiersza poleceń, serwer Model Context Protocol, serwer języka i interfejs C są zaimplementowane i działają razem.
+
+Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji; zmianę między wersjami 0.x zapisuje [dziennik zmian](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md) oraz strona [wydania](/pl/project/releases/). Zasady wersjonowania opisuje strona [wersjonowanie](/pl/project/versioning/).
+
+Wersja 0.1.2 przynosi wyszukiwanie i zamianę wyrażeniem regularnym działające w czasie proporcjonalnym do liczby dopasowań oraz dziennik działający na woluminie danych macOS.
+
+## Liczby
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+Liczby testów dotyczą wersji 0.1.1; zakres testów opisuje strona [testowanie](/pl/quality/testing/).
+
+## Systemy i architektury
+
+Danaco Nurt to jeden plik wykonywalny dla każdego systemu operacyjnego: `nurt` w Linuksie i macOS, `nurt.exe` w Windows. Plik wykonywalny nie ma zależności uruchomieniowych poza samym systemem.
+
+| System | Architektury | Archiwa |
+|---|---|---|
+| Linux | x86-64, aarch64 | glibc i statyczne musl |
+| Windows | x86-64, aarch64 | MSVC |
+| macOS | x86-64, aarch64 | `x86_64-apple-darwin`, `aarch64-apple-darwin` |
+
+W Linuksie plik wykonywalny łączy liblzma statycznie i działa w systemie bez `liblzma.so.5`. Wersja musl jest połączona statycznie. Strona [instalacja](/docs/guide/installation/) opisuje instalatory, pakiety i budowę ze źródeł; strona [platformy](/pl/product/platforms/) opisuje zachowanie w każdym systemie.
+
+## Interfejsy i wersje
+
+| Interfejs | Identyfikator | Wersja |
+|---|---|---|
+| Program | `nurt` | 0.1.2, Semantic Versioning 2.0.0 |
+| Drzewo składni | `nurt-ast/1` | 1.1; dokumenty wersji 1.0 są czytane bez zmian |
+| Drzewo powiązane | `nurt-bound/1` | 1 |
+| Katalog poleceń | `nurt-catalog/1` | 1 |
+| Raport, żądanie, odpowiedź | `nurt-report/1`, `nurt-request/1`, `nurt-response/1` | 1 |
+| Protokół | `nurt-rpc/1` | 1 |
+| Interfejs C | `libnurt`, `nurt.h`, `libnurt.so.1` | `NURT_ABI_MAJOR` 1, `NURT_ABI_MINOR` 0 |
+
+Program wiersza poleceń ma podpolecenia `exec`, `script`, `check`, `fmt`, `ast`, `schema`, `catalog`, `help`, `history`, `undo`, `redo`, `serve`, `mcp`, `lsp`, `migrate`, `service`, `journal` i `ext`. `nurt mcp` uruchamia serwer Model Context Protocol przez standardowe wejście i wyjście lub przez HTTP, a `nurt lsp` uruchamia serwer języka. Wiązania dla Pythona, Go, Node, Javy i .NET czytają odpowiedzi silnika w kształcie, w jakim je zwraca.
+
+## Katalog poleceń
+
+Katalog jest zorganizowany w 34 polecenia rdzenia i 14 opcjonalnych grup. Każde polecenie ma jedną stronę ze składnią, parametrami, wejściem i wyjściem, skutkiem, opisem, przykładami, błędami i poleceniami powiązanymi. Nazwy, typy, wartości domyślne i wartości wyliczeń polecenia pochodzą z katalogu, a budowa dokumentacji uruchamia każdy przykład z każdej strony polecenia.
+
+Pełna lista jest w [opisie poleceń](/docs/commands/) i na stronie [polecenia](/pl/product/commands/). Katalog obejmuje pliki, tekst, archiwa, notatniki, dokumenty strukturalne, analizę kodu źródłowego, procesy, testy i analizę, kontrolę wersji, system, sieć, harmonogramy, usługi i programy oraz administrację zaporą sieciową, siecią, zegarem, kontami, grupami, montowaniami, jądrem, zasilaniem i dyskami. Polecenia rejestru i `windows.cim` działają w Windows; `create` potoku nazwanego lub pliku urządzenia działa w Linuksie i macOS.
+
+## Gdzie każda część jest opisana
+
+| Część | Dokumentacja |
+|---|---|
+| Przewodnik, instalacja, wiersz poleceń | [Przewodnik](/docs/guide/) |
+| Polecenia | [Opis poleceń](/docs/commands/) |
+| Język, drzewo składni, katalog, raport | [Specyfikacja](/docs/specification/) |
+| Interfejs C | [Opis interfejsu C](/docs/reference/c-abi/) i strona [interfejs C](/pl/architecture/c-interface/) |
+| Protokoły | [Protokoły](/pl/architecture/protocols/) |
+| Wersje i zgodność | [Wersje i zgodność](/docs/integrators/versioning/) |
+| Testy i zgodność | [Testowanie](/pl/quality/testing/) i [Zgodność](/pl/quality/conformance/) |
+| Pytania | [Wsparcie](/pl/project/support/) |

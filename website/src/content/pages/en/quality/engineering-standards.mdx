@@ -1,0 +1,82 @@
+---
+title: Engineering standards
+description: The code style, commit convention, naming and licence-header rules of the Danaco Nurt repository, and the checks that enforce them automatically in CI and before a pull request.
+section: quality
+order: 8
+eyebrow: Quality
+lead: The rules for code, commits and files in the repository, and the checks that apply them.
+updated: 2026-11-28
+related: [quality/supply-chain, project/contributing, quality/testing]
+keywords: [clippy, rustfmt, conventional commits, DCO, hygiene, headers, CI, review]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Code style
+
+The rules are in the conventions [code style](/docs/conventions/code-style/) and [naming](/docs/conventions/naming/), summarised in `CONTRIBUTING.md`. The core of them:
+
+- Rust edition 2024 on a toolchain pinned in `rust-toolchain.toml` (channel 1.98.1, with `rustfmt` and `clippy`). Formatting uses `rustfmt.toml`: maximum width 100, Unix line endings.
+- Lints are set once in `[workspace.lints]` and inherited by every crate: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub`, and clippy warnings for `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` and `cognitive_complexity`. The threshold of `clippy.toml` is a cognitive complexity of 15 per function. Tests use `unwrap`, `expect`, `panic!`, `print!` and `dbg!`.
+- Production code returns the error types of `nurt-contracts`; each error carries a stable code. A lint is suppressed on the smallest item and always with a `reason`.
+- `unsafe` is allowed only in the crates that call operating system or foreign interfaces by definition, and every block has a `// SAFETY:` comment. A method is disallowed in `clippy.toml`: only the journal creates transaction scopes (`TxScope::new_for_journal`).
+- Every public item has rustdoc, library crates deny `missing_docs`, documentation examples run as tests, and the documentation builds with warnings as errors.
+- Comments state what the code does not show. There is no commented-out code, no history comment, no unfinished-work marker and no placeholder macro. Library code does not print; diagnostics use `tracing`.
+
+Naming is fixed too: the product is "Danaco Nurt", the executable `nurt`; commands, parameters and record types are lower case; error codes are `E_` followed by upper case words; configuration keys are `section.key`; full words are preferred to abbreviations.
+
+## Commit convention
+
+Commit messages follow Conventional Commits 1.0.0: `<type>(<scope>)[!]: <summary>` ([commit conventions](/docs/conventions/commits/)).
+
+| Part | Rule |
+|---|---|
+| `type` | `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert` |
+| `scope` | a crate name without the `nurt-` prefix, or one of the areas `workspace`, `deps`, `ci`, `spec`, `catalog`, `tables`, `docs`, `tools`, `release`, `repo`, `bindings`, `packaging`, `integrations` (the list `AREAS` of `check-commits.sh`) |
+| `summary` | imperative mood, starts with a lowercase letter, no final period, first line at most 72 characters |
+| footers | `BREAKING CHANGE:` with `!` after the scope; `Refs:` or `Closes:`; `Signed-off-by:` matching the author |
+
+```text
+feat(journal): record the pre-image of truncated files
+```
+
+Every commit carries the sign-off of the Developer Certificate of Origin 1.1. `tools/ci/check-commits.sh <range>` checks the subject and the trailer of each commit in a range and exits with 1 when any commit is invalid. The job `commits` of `hygiene.yml` runs it on every pull request except those of the dependency bot. The script skips the commits listed in `tools/ci/commits-allow.txt`, which were published before the checks applied to them.
+
+## Licence headers
+
+The licence of the product is stated only in `LICENSE` (Apache-2.0). Source files carry no per-file licence identifier lines. Every source file in a format with comments starts with the three-line producer header (copyright, the line on licence terms, the repository and support address), written in the comment syntax of the format; JSON, lock files and binary data have no header. Exceptions are listed with a reason in `tools/ci/hygiene-allow.txt`.
+
+## What the repository enforces
+
+`tools/ci/repo-hygiene.sh` has three groups of checks, run by the job `content` of the workflow `hygiene.yml` as three steps; the other jobs of that workflow check shell scripts with ShellCheck, workflow files with `actionlint`, and commits. The script runs a single check or a group with `--only` and lists them with `--list`; the allow list `tools/ci/hygiene-allow.txt` holds lines of the form `<check> <glob>`.
+
+| Group | Checks |
+|---|---|
+| `content` | `user-path` (home directories of real users), `private-address` (IPv4 addresses of private networks), `work-marker` (unfinished-work markers), `process-id` and `process-word` (identifiers and vocabulary of the development process), `polish-text` (Polish letters in files that are written in English), `external-pattern` (patterns of the deployment) |
+| `style` | `promotional-word`, `hedging`, `reader-address`, `boilerplate` (headings and introductions), `tool-mention`, `emoji`, `allow-attribute` (lint suppressions without a reason), `history-comment`, `placeholder-macro` |
+| `headers` | `producer-header` (missing header), `spdx-line` (per-file licence identifier lines), `tool-mark` |
+
+The hygiene check found 0 matches in 10,566 files (version 0.1.1, 27 November 2026).
+
+## Review and CI workflows
+
+A pull request is merged only when these commands succeed; CI runs the formatting, lint and test commands on Linux, macOS and Windows:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo deny --locked check
+cargo nextest run --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+bash tools/ci/repo-hygiene.sh
+bash tools/ci/check-commits.sh origin/main..HEAD
+```
+
+The workflow [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) has the jobs Format, Clippy, Test (three operating systems), Coverage, Documentation, Dependency policy and a check of four more targets, and a daily scheduled run. Coverage is measured with `cargo-llvm-cov`: at least 80 percent of lines for the workspace and 90 percent for `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` and `nurt-ffi`. The scheduled run sets `NURT_PROPTEST_FULL=1` for property tests (100,000 cases for most properties). The workflows `bindings-*`, `integrations-*`, `bench-oracles`, `packaging` and `release` cover the bindings, integrations, benchmarks and packages.
+
+Review: a maintainer reviews every pull request; commits are merged as they are, so each one must pass the commit and sign-off rules ([`CONTRIBUTING.md`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md)). A pull request stays on one change, and user-visible changes are recorded in the `Unreleased` section of the changelog.
+
+See [supply chain and releases](/quality/supply-chain/) for dependency and signing rules, and [contributing](/project/contributing/) for the process.

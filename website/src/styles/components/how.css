@@ -1,0 +1,108 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.how
+ * Responsibility:   The how-it-works block of the home page: the numbered points beside the terminals.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.how {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The four steps run in one row, each under a rule with a short gold mark; the two terminals follow below side by side. */
+.how__points {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how__point {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line-strong, var(--line));
+}
+
+.how__point::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background: var(--accent);
+}
+
+.how__point h3 {
+  font-size: var(--text-lg);
+}
+
+.how__index {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--accent);
+  color: var(--accent-on);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 5px, 100% 100%, 7px 100%, 0 calc(100% - 5px));
+}
+
+.how__terminals {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+.how__terminals > * {
+  min-width: 0;
+}
+
+@media (min-width: 40rem) {
+  .how__points {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .how__points {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+
+  .how__terminals {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+}
+
+/* While the terminal session plays, the step that the shown line illustrates is lit and the others recede. */
+.how__point {
+  transition: opacity 400ms var(--ease-out);
+}
+
+.how__index {
+  transition: box-shadow 400ms var(--ease-out), transform 400ms var(--ease-out);
+}
+
+.how__points:has(.is-active) .how__point:not(.is-active) {
+  opacity: 0.6;
+}
+
+.how__point.is-active .how__index {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
+}

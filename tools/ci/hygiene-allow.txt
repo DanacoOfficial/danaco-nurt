@@ -183,3 +183,45 @@ user-path crates/nurt-journal/src/salvage.rs
 user-path crates/nurt-journal/src/store/tests.rs
 user-path crates/nurt-journal/src/undo.rs
 user-path crates/nurt-tooldef/tests/equivalence.rs
+
+# The website has a Polish edition: its Polish pages, the Polish interface
+# strings, the Polish labels of the quoted numbers and the terminology list of
+# the page contract contain Polish text by design.
+polish-text website/AUTHORING.md
+polish-text website/config/seo.ts
+polish-text website/src/content/pages/pl/*
+polish-text website/src/data/facts.ts
+polish-text website/src/data/home-page/pl.ts
+polish-text website/src/i18n/ui/pl.ts
+
+# The lock file of the website names third-party packages.
+promotional-word website/package-lock.json
+
+# The Polish edition of the website translates the product description, which
+# names the users of the product; the permitted English phrase has another word
+# order in Polish. The integrations page names the software development kits
+# for which integrations/examples holds examples.
+tool-mention website/config/seo.ts
+tool-mention website/src/content/pages/en/product/integrations.mdx
+tool-mention website/src/content/pages/pl/*
+tool-mention website/src/data/home-page/pl.ts
+tool-mention website/src/i18n/ui/pl.ts
+
+# The drawing of the start banner on the website is the drawing of the program.
+emoji website/src/components/brand/banner-data.ts
+
+# The website's training pages, packages and their builder name model
+# providers, conversation roles and tool definitions; the training data repeats
+# documentation containing the example addresses and paths of the command pages.
+tool-mention website/README.md
+tool-mention website/scripts/*
+tool-mention website/src/components/pages/HomePage.astro
+tool-mention website/src/content/pages/*
+tool-mention website/src/data/home-page/*
+tool-mention website/src/i18n/ui/*
+tool-mention website/training/*
+private-address website/training/*
+user-path website/training/*
+polish-text website/config/downloads.json
+polish-text website/scripts/check-content.mjs
+polish-text website/training/*

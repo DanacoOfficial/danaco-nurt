@@ -1,0 +1,58 @@
+---
+title: Prywatność
+description: "Co ta witryna zapisuje i wysyła oraz co program nurt przechowuje na Twoim komputerze: witryna jest statyczna, serwuje własne fonty i ikony i zapisuje w przeglądarce jedną wartość, motyw kolorystyczny."
+section: legal
+order: 1
+eyebrow: Informacje prawne
+lead: Ta witryna to zestaw plików statycznych, który zapisuje w przeglądarce jedną wartość, motyw kolorystyczny.
+updated: 2026-11-28
+related: [legal/accessibility, project/support, quality/security]
+keywords: [prywatność, pliki cookie, analityka, pamięć lokalna, telemetria]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Ta witryna
+
+Witryna Danaco Nurt jest witryną statyczną. Jej strony są generowane podczas budowania witryny i serwowane jako pliki. Odwiedzający czyta strony; witryna nie ma konta, formularza ani programu po stronie serwera, który przetwarzałby to, co wpisuje odwiedzający.
+
+| Przedmiot | Co robi witryna |
+|---|---|
+| Strony | serwowane jako pliki statyczne generowane podczas budowania |
+| Fonty, ikony i obrazy | serwowane przez samą witrynę jako część jej plików |
+| Skrypty | skrypty samej witryny: motyw, wyszukiwanie, przyciski kopiowania, menu i ruch |
+| Zapisywane w przeglądarce | jedna wartość, motyw kolorystyczny, pod kluczem `nurt-theme` |
+| Wysyłane do witryny | żądania przeglądarki o strony i pliki |
+
+## Motyw kolorystyczny
+
+Witryna ma jasny i ciemny motyw kolorystyczny. Gdy wybierzesz motyw przełącznikiem w nagłówku, wybór jest zapisywany w pamięci lokalnej przeglądarki pod kluczem `nurt-theme`. Wartość pozostaje w przeglądarce. Przy następnej wizycie odczytuje ją mały skrypt witryny, aby strona otwierała się w wybranym motywie, a wartość nigdy nie jest wysyłana na serwer. Wyczyszczenie danych witryny w przeglądarce ją usuwa. Bez zapisanej wartości witryna stosuje preferencję systemu.
+
+## Wyszukiwanie
+
+Wyszukiwanie działa w przeglądarce. Witryna serwuje indeks wyszukiwania (zbudowany przez Pagefind) jako pliki, tak jak każdą inną stronę, a przeglądarka wyszukuje Twoje zapytanie w tym indeksie lokalnie. Tekst zapytania pozostaje w przeglądarce; przeglądarka pobiera z witryny pliki indeksu, a te żądania pojawiają się w dziennikach serwera tak jak każde inne żądanie. Wyszukiwanie jest jedną z funkcji używających JavaScriptu; same strony czyta się bez niego.
+
+## Dzienniki serwera
+
+Serwer WWW zapisuje żądania. Dzienniki tej witryny należą do hostingu, na którym witryna jest wdrożona. Dane, które zawierają, okres przechowywania i osoby uprawnione do odczytu zależą od hostingu wdrożenia. Kopia witryny uruchomiona samodzielnie zapisuje własne dzienniki, które należą do Ciebie.
+
+## Odnośniki do innych witryn
+
+Strony witryny odsyłają do repozytorium na GitHubie (`github.com/DanacoOfficial/danaco-nurt`), do specyfikacji cytowanych przez projekt i do pobrań wydań. Gdy przejdziesz za takim odnośnikiem, inna witryna otrzymuje Twoje żądanie i obowiązują jej własne zasady prywatności. Witryna nie osadza treści z tych witryn.
+
+## Program nurt
+
+Ta sekcja dotyczy programu, a nie witryny.
+
+- Rozszerzenie dla Visual Studio Code nie zbiera telemetrii i nie wysyła danych przez sieć. Jego testy sprawdzają, że manifest nie wymienia biblioteki telemetrii i nie definiuje ustawienia telemetrii.
+- Program korzysta z sieci, gdy program w języku o to prosi, na przykład przez polecenia sieciowe i kontroli wersji. Użycie sieci jest skutkiem polecenia, które piszesz.
+- Dziennik, konfiguracja i stan programu są przechowywane na Twoim komputerze, w katalogach wymienionych w [konwencjach nazewniczych](/docs/conventions/naming/): w katalogu dziennika `.nurt-journal` i w katalogu stanu użytkownika (`$XDG_STATE_HOME/nurt/` w Linuksie, `~/Library/Application Support/Nurt/` w macOS, `%LOCALAPPDATA%\Nurt\` w Windows).
+- Każde uruchomienie zwraca wywołującemu raport skutków w postaci tekstu, JSON lub Markdown, a dziennik zapisuje zmiany plików na Twoich woluminach do przeglądu i cofania.
+
+Strony [bezpieczeństwo](/pl/quality/security/) i [łańcuch dostaw](/pl/quality/supply-chain/) opisują, jak sprawdza się kod i jego zależności.
+
+## Pytania
+
+Pytania o tę stronę lub o postępowanie z danymi kieruj na adres `support@danaco-group.pl`; zob. [Wsparcie i kontakt](/pl/project/support/). Środki dla czytelników korzystających z technologii wspomagających opisuje strona [dostępność](/pl/legal/accessibility/).

@@ -1,0 +1,90 @@
+---
+title: Overview
+description: How Danaco Nurt is built, from the language front end to the journal and the interfaces, with the crates of each layer and the layout of the repository.
+section: architecture
+order: 1
+eyebrow: Architecture
+lead: The engine is a Rust library. The command line program, the Model Context Protocol server, the language server and the C interface are entry points to that one engine.
+updated: 2026-11-28
+related: [architecture/engine, architecture/crates, architecture/c-interface]
+keywords: [architecture, crates, layers, repository, engine]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The shape of the system
+
+Danaco Nurt is a Cargo workspace. The manifest declares version 0.1.2, edition 2024, the minimum Rust version 1.98 and the license Apache-2.0, and every directory of `crates/` is a member. The workspace lint `unsafe_code` is set to `deny`. A crate that calls operating system interfaces opts out (`nurt-fs` does so at the head of its `lib.rs`), and every `unsafe` block carries a `// SAFETY:` comment; `nurt-types`, for example, forbids unsafe code outright. The workspace lints also require documentation of every public item, report a `pub` item that `lib.rs` does not expose, and flag `unwrap`, `expect`, `panic`, `dbg!`, `todo!` and direct printing in library code.
+
+<Stats>
+  <Fact id="crates" />
+  <Fact id="specFiles" />
+</Stats>
+
+A program travels through the system in one direction. Text is parsed into a syntax tree, the tree is bound to the command catalog and checked, the plan is built, the executor runs the stages and passes records between them, the commands change the world through the journal, and the report describes the effects. The [engine](/architecture/engine/) page follows one program through these steps. The entry points do not implement the language themselves: the C interface, the protocol server, the command line interface and the integrations all call the same Rust facade, `Engine` of `nurt-core`. A request that arrives through any of them is the same document, `nurt-request/1`, and the answer is the same response, `nurt-response/1`, with the effect report `nurt-report/1`.
+
+## The layers
+
+The table names the crates of each functional layer. The crate `nurt-contracts` sits under all of them and holds the shared contracts: syntax trees, records, errors, the stage interface, the report, the journal and the configuration. `nurt-types` holds the values and records of the language.
+
+| Layer | Role | Crates |
+|---|---|---|
+| Language front end | lexer, parsers of the three notation variants, canonical printer, notation correction, help, migration of shell scripts | `nurt-syntax`, `nurt-correct`, `nurt-help`, `nurt-migrate` |
+| Catalog, checker and planner | command registry, binding of syntax trees to the catalog, execution planning | `nurt-catalog`, `nurt-bind`, `nurt-plan` |
+| Executor | streaming pipeline executor and record stages | `nurt-exec` |
+| Command implementations | files, text, archives, notebooks, documents, source code, tests and analysis, programs and jobs, version control, system, network, schedules, installed programs, extensions | `nurt-files`, `nurt-text`, `nurt-archive`, `nurt-notebook`, `nurt-doc`, `nurt-code`, `nurt-lspclient`, `nurt-verify`, `nurt-proc`, `nurt-git`, `nurt-git-ops`, `nurt-git-transport`, `nurt-sys`, `nurt-syslog`, `nurt-net`, `nurt-sched`, `nurt-programs`, `nurt-ext` |
+| Journal and file system | operation journal, free space for the journal, platform file system layer | `nurt-journal`, `nurt-space`, `nurt-fs` |
+| Report | effect report model and renderers | `nurt-report` |
+| Engine and service | engine facade, background service | `nurt-core`, `nurt-service` |
+| Command line program | the `nurt` executable and the Rust interface of the product | `nurt-cli`, `nurt` |
+| Model Context Protocol server | MCP tools and resources, definitions of the `nurt` tool | `nurt-mcp`, `nurt-tooldef` |
+| Language server | diagnostics, completion and formatting of `.nurt` files | `nurt-langserver` |
+| C interface and bindings | the C ABI and the Node.js addon; the other bindings are in `bindings/` | `nurt-ffi`, `nurt-node` |
+
+The support and tool crates are `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` and the two vendored crates `jaq-json` and `nurt-pdf-extract`. The [crates](/architecture/crates/) page lists every crate with its description.
+
+## Rules of the dependency graph
+
+The allowed dependencies between workspace crates are data in `tables/crate-graph.toml`. The test `crates/nurt-contracts/tests/workspace_graph.rs` reads every manifest and fails when a crate declares a dependency that the table does not allow, so a new dependency between workspace crates starts with a change of the table. The rules are written in [crate graph and visibility](/docs/architecture/crate-graph/):
+
+- Every crate belongs to one of eight build layers, from the lowest: contract, foundation, base, library, component, host, interface and tool. A crate depends only on crates of the same or a lower layer, and the graph is acyclic.
+- Every crate also belongs to an area: runtime, language, storage, files, structured, process, system, git or integration. Crates of different areas depend on each other only through shared crates such as `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` and `nurt-journal`. The host, interface and tool layers compose crates of all areas.
+- A command that needs a capability of another area calls a service trait defined in `nurt-contracts`, and the host layer passes the implementation in. Changes to files go through the transaction interface of the journal, never around it.
+- Items are private by default, shared items inside a crate are `pub(crate)`, and the public interface of a crate is what its `lib.rs` re-exports. Test helpers live in `#[cfg(test)]` modules or in `nurt-testkit`.
+- Only `nurt-ffi` exports C symbols, declared in `crates/nurt-ffi/include/nurt.h`.
+
+## Repository layout
+
+| Path | Content |
+|---|---|
+| `crates/` | Rust crates of the engine, the command line program and the libraries |
+| `spec/` | specification: syntax tree, grammar, records, stages, report, journal, services, supervisor, configuration, errors, schemas |
+| `catalog/` | command catalog: signatures and descriptions of commands |
+| `docs/` | user and integrator documentation, reference, architecture and conventions |
+| `tables/` | data tables used by the engine and its tests, among them `crate-graph.toml` |
+| `tools/` | scripts for continuous integration and release |
+| `bindings/` | bindings for Go, Node.js, .NET, Java and Python |
+| `conformance/` | cases of the conformance suite run by `nurt-conformance` |
+| `bench/` | tasks, oracles, fixtures and protocol of the benchmark |
+| `packaging/` | packaging and release automation: `deb`, `rpm`, `homebrew`, `scoop`, `chocolatey`, `winget`, `release` and others |
+| `editors/`, `integrations/` | editor support (TextMate grammar, tree-sitter grammar) and integrations (VS Code, containers, setup action, examples) |
+| `examples/` | the C example `examples/c/hello.c` |
+| `.github/workflows/` | continuous integration and release workflows |
+
+The root also holds `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` (the pinned toolchain, 1.98.1), `deny.toml`, `CHANGELOG.md`, `SECURITY.md`, `NOTICE` and `LICENSE`. Building from source needs Rust through rustup and a C compiler, because SQLite and the tree-sitter grammars are compiled from source.
+
+## Where to read next
+
+<CardGrid columns={3}>
+  <Card title="The engine" icon="cpu" href="/architecture/engine/">
+    One program from text to report, stage by stage.
+  </Card>
+  <Card title="The crates" icon="boxes" href="/architecture/crates/">
+    Every crate of the workspace with its description.
+  </Card>
+  <Card title="Dependencies and licences" icon="scale" href="/architecture/dependencies/">
+    The dependency policy and what is built into the executable.
+  </Card>
+</CardGrid>

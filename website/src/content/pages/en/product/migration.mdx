@@ -1,0 +1,109 @@
+---
+title: Coming from bash and PowerShell
+description: "How the habits of bash and PowerShell map to Danaco Nurt: what stays the same, what differs, a table of paired commands and the cheat sheets and guides that go with it."
+section: product
+order: 9
+eyebrow: Product
+lead: A line written in the habits of bash or PowerShell is read and, where the target is safe, translated to a Nurt program.
+updated: 2026-11-28
+related: [product/language, product/commands, product/use-cases, product/journal-and-undo]
+keywords: [bash, PowerShell, migration, cheat sheet, correction]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What the console does with a habit
+
+A line that starts with a bash command is read with the rules of the POSIX shell, and a line that starts with a cmdlet of the form `Verb-Noun` is read as PowerShell. A line is read as a bash command when it shows notation that only the shell has, such as a flag, an operator or `$NAME`. The console translates the line to a Nurt program and shows both `corrected` and `ran`, the program that was executed ([bash migration](/docs/guides/bash-migration/), [PowerShell migration](/docs/guides/powershell-migration/)).
+
+A translation that rests on an assumption and touches the target of a change waits for the choice of the caller. The answer is `E_AMBIGUOUS` with ready programs, and a call with `accept` runs the candidate that the caller chooses. A flag without a counterpart is answered with an error that lists the parameters of the command. The cheat sheets give the result of every habit: corrected automatically, or an error that carries the fix.
+
+## What is the same
+
+- Familiar command names are kept as synonyms: `cat`, `ps` and `which` are read by their bash meaning when the arguments are those of bash.
+- A pipe `A | B` becomes `A |> B` when both sides translate, and `Where-Object`, `Sort-Object` and `Select-Object -First` map to `filter`, `sort` and `first`.
+- Conditions, loops, functions and script parameters of bash are translated since 0.1.1: `if`, `elif`, `else`, `case` and the tests `[ ]`, `[[ ]]` and `test` become `when`; `for`, `while` and `until` become `each`, `while` and `repeat until`; functions become `define`; `$1`, `$2`, `$@`, `shift` and `getopts` become a `params` block.
+- `sudo`, `doas` and `run0` are translated into the call parameter `privilege: elevated`, and `sudo -u NAME` into `as_user`.
+- An existing script keeps running: `run ["bash", "script.sh"] cwd: "/srv/app"` starts it unchanged, and `nurt migrate` translates a script to a Nurt program.
+- `-WhatIf` of PowerShell becomes the call parameter `preview: true`.
+- The administration programs `useradd`, `usermod`, `userdel`, `groupadd`, `mount`, `sysctl -w`, `modprobe`, `ufw`, `firewall-cmd`, `nft`, `iptables`, `ip route`, `timedatectl`, `shutdown`, `parted` and `mkfs.*` are translated into the native commands of the group `administration` since 0.1.1.
+
+## What differs
+
+- **Absolute paths.** A path is absolute and quoted, with `/` as the separator on every system, and a relative path takes the call parameter `base`. `cd D && CMD` is translated, for an absolute path in the same line, as the `cwd` of `run`; a program that works in a directory names it in `cwd`.
+- **Records instead of text.** A stage returns records with named fields, so `ps aux` becomes `processes` and the later stages filter on fields.
+- **One changing effect per pipeline.** A pipeline with two changing stages joined by `&&` or `;` is answered with the error `E_ONE_EFFECT`, which offers the same changes inside `steps { … }` as the first candidate. A `steps` block is one journal entry, all or nothing.
+- **Elevation as a parameter.** Elevation is the parameter `privilege: elevated` on the command that needs it; `sudo -i` and `su` are answered with `E_AMBIGUOUS`, because an elevated session is not a command. The console never asks for a password.
+- **Recursion is the default.** `rm -rf` and `cp -r` need no counterpart of `-r`, and a missing path is skipped.
+- **Undo.** A change to files is recorded in the journal and can be reviewed and reverted with `history` and `undo`; effects outside the file system are recorded as irreversible, unless the command has an inverse operation.
+
+## Paired commands
+
+The pairs are rows of the cheat sheets. The paths are those of the host named in each sheet; every row is corrected automatically.
+
+| Habit | Nurt |
+|---|---|
+| `rm -rf /home/user/app/build` | `remove "/home/user/app/build"` |
+| `mkdir -p /home/user/app/out` | `create "/home/user/app/out" type: directory` |
+| `tail -n 20 /home/user/app/a.log` | `read "/home/user/app/a.log" last: 20` |
+| `sed -n '10,20p' /home/user/app/a.go` | `read "/home/user/app/a.go" lines: 10..20` |
+| `ps aux` | `processes` |
+| `systemctl restart nginx` | `services name: "nginx" \|> restart` |
+| `sudo systemctl restart nginx` | `services name: "nginx" \|> restart privilege: elevated` |
+| `git -C /home/user/app status` | `git.status "/home/user/app"` |
+| `Get-ChildItem C:\Users\user\app -Recurse -Filter *.go` | `find "C:/Users/user/app" glob: "**/*.go" type: any hidden: false` |
+| `Get-Content C:\Users\user\a.log -Tail 20` | `read "C:/Users/user/a.log" last: 20` |
+| `Get-Process \| Sort-Object WorkingSet -Descending` | `processes \|> sort memory order: desc` |
+| `Restart-Service nginx` | `services name: "nginx" \|> restart` |
+
+A habit that has a safe form is written once and then repeated in the Nurt form:
+
+```nurt
+find "/srv/app" glob: "**/*.tmp" |> remove
+```
+
+The console lists the targets it computed before the removal, and the journal keeps the removed files, so an `undo` restores them.
+
+A list of changing commands becomes one block with one journal entry (bash migration guide):
+
+```text
+mkdir -p /srv/out && cp -a /srv/in/data.csv /srv/out/
+```
+
+```nurt
+steps {
+    create "/srv/out" type: directory
+    copy "/srv/in/data.csv" into: "/srv/out"
+}
+```
+
+A program that runs in the background is written with `background: true`:
+
+```nurt
+run ["npm", "run", "build"] cwd: "/home/user/app" background: true
+```
+
+## The platform sides
+
+On Linux and macOS, `attributes`, `services` and `package.install` take the place of `chmod`, `systemctl` and the package managers, and the case rules of file names follow the system ([Unix guide](/docs/guides/unix/)). On Windows, the registry is addressed as a path with the prefix `registry:`, `windows.cim` replaces `Get-CimInstance` and `Invoke-CimMethod`, and files in code pages such as 852 or 1250 are read with `encoding` ([Windows guide](/docs/guides/windows/)). The registry provider belongs to Windows.
+
+## Where to go next
+
+<CardGrid columns={2}>
+  <Card title="Cheat sheet: bash" icon="terminal" href="/docs/cheatsheets/nurt-for-bash-users/">
+    Every row pairs a bash command with its form in Nurt.
+  </Card>
+  <Card title="Cheat sheet: PowerShell" icon="terminal" href="/docs/cheatsheets/nurt-for-powershell-users/">
+    Every row pairs a PowerShell command with its form in Nurt.
+  </Card>
+  <Card title="Guide: bash migration" icon="book-open" href="/docs/guides/bash-migration/">
+    What is corrected, and how scripts are handled.
+  </Card>
+  <Card title="Guide: PowerShell migration" icon="book-open" href="/docs/guides/powershell-migration/">
+    The cmdlets that are translated and their parameters.
+  </Card>
+</CardGrid>
+
+The [use cases](/product/use-cases/) page shows complete programs for editing, Git and administration.

@@ -87,7 +87,7 @@ Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcomm
 - `scope` is the name of the affected crate without the `nurt-` prefix (for
   example `contracts`, `journal`, `git-ops`) or one of the repository areas
   `workspace`, `deps`, `ci`, `spec`, `catalog`, `tables`, `docs`, `tools`,
-  `release`, `repo`.
+  `release`, `repo`, `website`.
 - `summary` is written in the imperative mood, starts with a lowercase letter,
   does not end with a period and is at most 72 characters long.
 - A breaking change is marked with `!` after the scope and described in a

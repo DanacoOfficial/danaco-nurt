@@ -1,0 +1,72 @@
+---
+title: Conformance
+description: How Danaco Nurt 0.1.2 is compared with git, with its specification and across language bindings, and the rules of the compatibility program for other implementations.
+section: quality
+order: 3
+eyebrow: Quality
+lead: "Four kinds of agreement are checked: with git, with the specification, between the bindings and the engine, and between the documentation and the catalog."
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/testing, architecture/protocols, project/status]
+keywords: [conformance, git, difftest, spec, bindings, compatible, docgen]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Differential tests against git
+
+<Stats>
+  <Fact id="gitComparisons" />
+  <Fact id="specFiles" />
+</Stats>
+
+The crate `nurt-git-difftest` compares the `git.*` commands with the `git` program. For each scenario the runner prepares a repository and makes two byte-exact copies. It runs the operation with `git` on copy A and with the Nurt command on copy B, then compares the normalized state of both copies. The Nurt operation is then undone through the journal, and copy B must equal the initial state. `git fsck --strict` checks both copies, and a write by the Nurt side outside its journal transaction fails the scenario. Program execution of the Nurt side, such as repository hooks, goes through a process service that starts the programs with the environment of the scenario, and the `git` side runs the same hooks natively.
+
+A scenario is one file `scenarios/<group>/<name>.toml` with the corpus repository, the setup commands, the files to write, a fixed clock, the platforms, and the arguments and the expected exit code of both sides. The repository holds 775 scenarios. The groups are named after the commands: `apply`, `blame`, `branch`, `checkpoint`, `clone`, `commit`, `diff`, `fetch`, `log`, `merge`, `open`, `pull`, `push`, `rebase`, `reset`, `restore`, `review`, `show`, `sign`, `ssh`, `stage`, `stash`, `status`, `switch`, `tag` and `worktree`; the groups `common` and `conflicts` hold the scenarios of the runner. Scenarios cover the transports `http` and `ssh` with a test server, conflicts, and heavy corpus repositories. The run ends with the line `scenarios: <n> total, <n> passed, <n> git side only, <n> skipped, <n> failed, <n> invalid`, and each failure lists the differing keys with the values of both sides.
+
+All 775 scenarios agree with `git` (version 0.1.1, Linux, 27 November 2026). The runner writes a global `git` configuration with `gc.auto = 0` and `maintenance.auto = false` for both sides, so that the maintenance that `git` starts after a commit does not create lock files and packs while a repository is copied or read. The tests require `git` 2.43 or newer. The differential tests of `nurt-files` compare the file commands on Linux with the programs of the system in the same way.
+
+## The specification
+
+The directory `spec/` holds the documents of the language (the catalog, configuration, errors, the journal, the report, the stages, the syntax tree and others), JSON schemas in `spec/schemas` and reference files in `spec/golden`. They are imported into the site as the [specification](/docs/specification/). The golden files are the reference data of the tests of the syntax, the binder and the report, and the conformance cases check the behaviour that the documents state.
+
+## The conformance suite
+
+`conformance/` holds the cases of the suite in data files and the runner is the program `nurt-conformance`. The suite talks to an implementation only through the protocol `nurt-rpc/1` of `nurt serve --stdio`, so an implementation written in any language can be tested:
+
+```sh
+nurt-conformance run --impl "nurt serve --stdio" --report nurt-conformance.json
+```
+
+The cases are grouped by kind:
+
+| Kind | Directory | Content |
+|---|---|---|
+| `golden` | `golden/` | program text in the variants A, B and C against surface and bound trees, the canonical printer and `ast_hash`; published schemas |
+| `bind` | `bind/` | explicit defaults, expansion of short forms, phases after the effect, `E_ONE_EFFECT`, `check` without effect |
+| `error` | `errors/` | every error code of the language |
+| `exec` | `exec/` | execution of commands on a file system state |
+| `journal` | `journal/` | journal, undo and redo |
+| `correction` | `correction/` | correction of program text |
+| `parity` | `parity/` | results equal to those of established tools |
+| `binding` | `bindings/` | the application interface of the language bindings |
+
+A case is `mandatory` or `optional:<feature>`. An optional case runs when the implementation lists the feature, and cases whose conditions do not hold on the current system are reported as skipped. An implementation that lists the feature `testkit` offers `testkit.failpoint.set` and `testkit.clock.advance`, which the optional cases of `errors/injected` use for errors that depend on the state of the system. The report `nurt-conformance-report/1` records the version of the suite and the digest of the case files and sets `conformant` for a complete run without filters. The suite has its own version, 0.1.0, independent of the version of `nurt`.
+
+### Cases of the language bindings
+
+`conformance/bindings/api.json` (format `nurt-binding-cases/1`) holds 23 cases with 30 steps that every binding for Go, Node, .NET, Java and Python runs against a server. The workflows of the bindings build `nurt-conformance` and start its server `fake-serve`, which answers from the recorded cases; the bindings pass with it.
+
+With the program `nurt` from the archive of `v0.1.1` the bindings ran as follows (version 0.1.1, Linux, 27 November 2026): Go with the race detector, Node 120 of 120, .NET 105 passed, Java 101 of 101. The Python binding passed 136 of 136 (version 0.1.1, 27 November 2026).
+
+## Documentation against the catalog
+
+`nurt-docgen check` verifies the documentation against the command catalog. It requires a page for every command and no page without a command, compares the numbers stated in `docs/` with the catalog, and passes every example program through a static checker that binds names, parameters, enumeration values and record kinds. The check is the test `documentation_passes_all_checks` of the workspace (`crates/nurt-docgen/tests/repository.rs`) and ended with exit code 0 (version 0.1.1, 27 November 2026).
+
+## The compatibility program
+
+An implementation or an integration that passes the mandatory cases of `nurt-conformance` is entitled to use the name "Danaco Nurt Compatible" and the mark of the program. The procedure has three steps: run the released suite with `--report` on a release build on each supported system, keep the reports unchanged, and send them with the name and version of the implementation to `support@danaco-group.pl`. The report names the implementation conformant only for a complete run; a run with `--filter` or `--kind` records its filters and never sets `conformant`.
+
+See [compatibility](/docs/guide/compatibility/) in the documentation, and the pages on [testing](/quality/testing/) and [performance](/quality/performance/).

@@ -1,0 +1,42 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.base.Button
+// Responsibility:   A link or a button in one of the button styles of the identity: primary, secondary or quiet.
+// Dependencies:     website.src.components.base.Icon, website.src.styles.components.button
+
+import '../../styles/components/button.css';
+import Icon from './Icon.astro';
+import type { IconName } from '../../../config/icons';
+
+interface Props {
+  href?: string;
+  variant?: 'primary' | 'secondary' | 'quiet';
+  size?: 'regular' | 'small';
+  icon?: IconName;
+  iconAfter?: IconName;
+  external?: boolean;
+  class?: string;
+}
+
+const { href, variant = 'secondary', size = 'regular', icon, iconAfter, external = false, class: className } = Astro.props;
+const classes = ['button', `button--${variant}`, size === 'small' && 'button--small', className];
+---
+
+{
+  href ? (
+    <a class:list={classes} href={href} rel={external ? 'noopener' : undefined} target={external ? '_blank' : undefined}>
+      {icon && <Icon name={icon} size={18} />}
+      <slot />
+      {iconAfter && <Icon name={iconAfter} size={18} />}
+    </a>
+  ) : (
+    <button type="button" class:list={classes}>
+      {icon && <Icon name={icon} size={18} />}
+      <slot />
+      {iconAfter && <Icon name={iconAfter} size={18} />}
+    </button>
+  )
+}

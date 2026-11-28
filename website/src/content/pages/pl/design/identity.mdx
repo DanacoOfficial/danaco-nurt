@@ -1,0 +1,86 @@
+---
+title: Pliki tożsamości
+description: "Pliki tożsamości Danaco Nurt 1.0.0 do pobrania: księga znaku, pliki wektorowe i rastrowe, ikony, tła, specyfikacja druku, tokeny kolorów, z rozmiarami, sumami kontrolnymi i zasadami użycia."
+section: design
+order: 3
+eyebrow: Design
+lead: Znak, układy łączone, ikony, tła i tokeny tożsamości jako pliki, wraz z zasadami ich użycia.
+updated: 2026-11-28
+toc: true
+related: [design/overview, design/mark-and-colour, project/license]
+keywords: [pobieranie, tożsamość, logo, svg, png, ikony, tokeny, druk, księga znaku, znak towarowy]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Pliki tożsamości
+
+Tożsamość produkcyjna 1.0.0 Danaco Nurt, przyjęta 2026-11-26 i dostarczona z wydaniem 0.1.1, jest zestawem plików: znak, logotyp, układy łączone, tła, ikony aplikacji, rendery, specyfikacja druku i rysunki wzorcowe banera terminala. Liternictwo w każdym pliku jest krzywymi, a żaden plik nie zależy od zewnętrznego kroju pisma ani skryptu. Poniższa tabela wymienia każdy plik do pobrania z jego rozmiarem i sumą SHA-256.
+
+<Downloads group="identity" locale="pl" />
+
+## Grupy plików
+
+**Księga znaku.** Księga tożsamości w postaci PDF jest wzorcem dla projektanta, który przygotowuje materiały ze znakiem.
+
+**Pliki wektorowe.** Katalog `svg/` zawiera znak w dziesięciu wariantach, rysunki na 16, 24 i 32 px w sześciu wariantach każdy, logotyp w dziewięciu wariantach, układy łączone poziomy, pionowy i zwarty w dziesięciu wariantach każdy, siedem teł i dwie płytki nurtu. Wzorzec nazw to `lockup-<layout>-<variant>.svg` dla układów poziomego, pionowego i zwartego, `mark-<variant>.svg`, `wordmark-<variant>.svg` oraz `mark-<size>px-<variant>.svg` dla małych rysunków. Pliki wektorowe są źródłem dla druku, dużych formatów i każdego użycia, w którym plik jest skalowany.
+
+**Pliki rastrowe.** Katalog `raster/` zawiera kopie PNG plików wektorowych pod tymi samymi nazwami oraz kartę społecznościową `social-card.png` o wymiarach 1200 x 630 px z `social-card@2x.png`. Pliki rastrowe służą prezentacjom, dokumentom i powierzchniom, które nie przyjmują SVG.
+
+**Ikony.** Katalog `icons/` zawiera `nurt.icns` dla macOS; `nurt.ico` z kafelkami `nurt-tile-150.png` i `nurt-tile-44.png` dla Windows; rozmiary hicolor 16, 22, 24, 32, 48, 64, 96, 128, 192, 256 i 512 px z `scalable/apps/nurt.svg` i `symbolic/apps/nurt-symbolic.svg` dla Linuksa; oraz `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` i `site.webmanifest` dla sieci. Ikona symboliczna jest rysowana w `currentColor`. Favikona używa rysunku S16, srebra i złota w ciemnym motywie oraz tuszu i głębokiego złota w jasnym.
+
+**Tła.** Pliki `background-*.svg` i `.png` niosą tła grafitowe, głęboką czerń, jasne, ciepłe jasne, ciepłe złote oraz grafitowe i jasne ze śladem nurtu, w wymiarach 1920 x 1080 i 2560 x 1440 px. Płytki nurtu `pattern-stream-dark.svg` i `pattern-stream-light.svg` powtarzają się bez szwu dla CSS i druku.
+
+**Specyfikacja druku.** Katalog `print/` zawiera `print-spec.pdf` (A4, z listą kontrolną dla drukarni), `print-colour-values.md` i `.json` z recepturami CMYK dla FOGRA39 i FOGRA47 oraz kandydatami Pantone, a także `print-geometry-values.json`.
+
+**Tokeny i tożsamość w postaci maszynowej.** `tokens.css` niesie tokeny kolorów jako właściwości własne CSS. `identity.json` niesie ustalone wartości: siatkę, ścieżki szewronów, parametry logotypu, układy, warianty i tokeny kolorów.
+
+**Rysunki terminala.** Katalog `terminal/` zawiera baner startowy jako `terminal-banner.txt` (24 x 14 komórek ASCII), `terminal-banner-blocks.txt` (26 x 15 komórek z półblokami), `terminal-banner-truecolor.ansi` i `terminal-banner-256.ansi`.
+
+## Wybór wariantu i układu
+
+Wariant wynika z tła. Na grafitowym i w głębokiej czerni są to `color-dark` lub `white`; na papierze i ciepłym papierze `color-light` lub `black`; na ciepłym złotym tle tylko `black`. Tłoczenie folią używa `gold`, a duże formaty ekranowe od 128 px używają `metal`. `grey` służy drukowi szaremu i fotokopiom, a `grey-dark` szarym ekranom. Tłoczenie ślepe używa `emboss-light` na papierze bawełnianym i `emboss-dark` na ciemnym kartonie.
+
+Układ wynika z miejsca. Układ poziomy ma minimalną szerokość 96 px na ekranie i 28 mm w farbie i stoi w nagłówku dokumentacji. Układ pionowy zaczyna się od 64 px i 20 mm. Układ zwarty, z samą nazwą Nurt, zaczyna się od 56 px i 20 mm. Sam znak zaczyna się od 16 px z rysunkami S16, S24 i S32 poniżej 48 px oraz od 6 mm w farbie. Logotyp zaczyna się od 72 px i 22 mm.
+
+## Zasady użycia
+
+1. Używaj dostarczonych plików; nie przerysowuj ani nie składaj ponownie znaku ani nazwy.
+2. Ciemne tło: `color-dark` lub `white`; jasne tło: `color-light` lub `black`; folia: `gold`; duże formaty ekranowe: `metal`.
+3. Pole ochronne: wysokość wersalików logotypu w układach łączonych, jedna czwarta wysokości pola wokół samego znaku.
+4. Poniżej 48 px używa się rysunków S32, S24 i S16; rysunek główny nigdy nie jest skalowany poniżej 48 px.
+5. Srebrny szewron jest zawsze po lewej i uniesiony, złoty po prawej i obniżony; tony nigdy nie są zamieniane.
+6. Złoto w odcieniu jasnym występuje tylko jako głębokie złoto #A3722A na jasnych tłach, nigdy jako tekst na #F6F7F8.
+7. Cyjan jest dla potoku `|>`, nie dla logo.
+8. Kafelek 150 px dla Windows jest używany tylko z ciemnym tłem zadeklarowanym w manifeście.
+
+Zakazane użycia: zamiana tonów szewronów, rozciąganie lub ściskanie, odbicie lustrzane (figura jest obracana, nie odbijana), obrysowanie, cienie i poświata, kolor na tle, które zachowuje mniej niż 3 : 1, tła zatłoczone lub kolorowe, obrót, inny krój pisma dla nazwy, zmiana kąta lub grubości kreski, wchodzenie w pole ochronne oraz gradienty spoza systemu.
+
+## Użycie nazwy i znaku
+
+Nazwy Danaco i Danaco Nurt oraz znaki w plikach tożsamości są znakami towarowymi Danaco Holding Group Sp. z o.o. Apache License, Version 2.0 obejmuje kod i zezwala na używanie nazw wyłącznie do zwyczajowego wskazania pochodzenia produktu. Implementacja lub integracja, która przechodzi obowiązkowe testy `nurt-conformance`, ma prawo używać nazwy „Danaco Nurt Compatible” i znaku programu. Licencję opisuje strona [Licencja](/pl/project/license/).
+
+## Tokeny kolorów dla programistów
+
+Plik `tokens.css` deklaruje tokeny kolorów tożsamości jako właściwości własne w `:root`.
+
+```css
+:root {
+  --color-ground-main: #0B0C0E;
+  --color-ground-soft: #15171A;
+  --color-ground-deep: #050506;
+  --color-mark-step-back: #DDE1E6;
+  --color-mark-step-forward: #C9A15A;
+  --color-ink-on-light: #2B2F36;
+  --color-mark-step-forward-on-light: #A3722A;
+  --color-ground-light: #F6F7F8;
+  --color-ground-light-warm: #F2EEE6;
+  --color-ground-gold: #D9BC85;
+  --color-text-caption: #7C8390;
+  --color-pipe: #4FD1F5;
+}
+```
+
+Nazwy opisują funkcję: `--color-mark-step-back` to srebro lewego szewronu, a `--color-mark-step-forward` to złoto prawego szewronu. Te same wartości są w `identity.json` pod kluczem `tokens`.

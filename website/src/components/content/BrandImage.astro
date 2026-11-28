@@ -1,0 +1,31 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.BrandImage
+// Responsibility:   An image from the brand assets (renders and mockups of the identity), optimised to WebP at build time, with an optional caption.
+// Dependencies:     astro:assets, website.src.styles.components.figure
+
+import '../../styles/components/figure.css';
+import { Image } from 'astro:assets';
+
+interface Props {
+  name: string;
+  alt: string;
+  width?: number;
+  caption?: string;
+}
+
+const images = import.meta.glob<{ default: ImageMetadata }>('../../assets/brand/**/*.webp', { eager: true });
+const { name, alt, width = 1200, caption } = Astro.props;
+const key = Object.keys(images).find((candidate) => candidate.endsWith(`/${name}.webp`));
+if (!key) {
+  throw new Error(`unknown brand image: ${name}`);
+}
+---
+
+<figure class="figure">
+  <Image src={images[key].default} alt={alt} width={width} widths={[width / 2, width]} sizes={`(min-width: 60rem) ${width}px, 100vw`} loading="lazy" />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

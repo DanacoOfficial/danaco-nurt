@@ -1,0 +1,70 @@
+---
+title: Overview
+description: The checks of Danaco Nurt 0.1.2 - tests on three operating systems, comparison with git, conformance of five bindings, scenarios on a clean system, dependency policy and signed releases.
+section: quality
+order: 1
+eyebrow: Quality
+lead: What is checked, how, and with which result.
+updated: 2026-11-28
+toc: true
+related: [quality/testing, quality/conformance, quality/performance, project/status]
+keywords: [quality, tests, conformance, lint, dependency policy, coverage]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Checks and results
+
+Every change to Danaco Nurt passes the workflows in `.github/workflows` and the scripts in `tools/ci` and `tools/release`. The workflows format and lint the code, build and test the workspace on Linux, macOS and Windows, measure line coverage, build the documentation, evaluate the dependency policy, check the content of the repository and the commit messages, and run the test suites of the language bindings, the integrations, the packages and the benchmark of tasks. The release workflow verifies the checksums of the archives, signs them and installs the published packages on clean systems.
+
+The Test job builds the workspace with `--all-targets` and runs every test with `cargo nextest` and the documentation tests with `cargo test --doc`. The Clippy job runs `cargo clippy --workspace --all-targets --locked -- -D warnings` on the three operating systems, so a warning is a failure. The Coverage job runs the six critical crates and then the whole workspace under `cargo llvm-cov` with a failing threshold for each. The Dependency policy job runs `cargo deny` for bans, licences, sources and advisories. Every command uses `--locked`, so a build uses the versions recorded in `Cargo.lock`.
+
+<Stats>
+  <Fact id="tests" />
+  <Fact id="gitComparisons" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+The workspace has <Fact id="crates" /> crates and the specification has <Fact id="specFiles" /> documents.
+
+## The map of the checks
+
+| Check | What it verifies | Where it is defined | Result |
+|---|---|---|---|
+| Workspace tests | the behaviour of the crates, unit and integration level | `ci.yml` job Test; `tests/` and `crates/*/tests` | 13,965 passed (version 0.1.1, Linux, 27 November 2026) |
+| Windows 11 tests | the same suite on Windows, ignored tests excluded | `ci.yml` job Test | 13,455 passed, none failed (version 0.1.1, Windows 11, 27 November 2026) |
+| Differential tests against git | the `git.*` commands produce the state that `git` produces, and their undo restores the initial state | crate `nurt-git-difftest` | 775 of 775 agree (version 0.1.1, 27 November 2026) |
+| Conformance of the bindings | Go, Node, .NET, Java and Python call the engine as the specification states | `conformance/bindings/api.json`, `bindings-*.yml` | the bindings pass; Python 136 of 136 (version 0.1.1, 27 November 2026) |
+| Scenarios on a clean system | the release archives work on a minimal Debian 13 | `tools/release/scenarios.sh`, `clean-linux-check.sh` | 19 scenarios passed; the `gnu` and `musl` archives passed (version 0.1.1, Debian 13, 27 November 2026) |
+| Line coverage | the share of lines that the tests execute | `ci.yml` job Coverage | the job requires 80 percent for the workspace and 90 percent for six critical crates |
+| Lint and format | formatting, compiler and clippy warnings | `ci.yml` jobs Format and Clippy | `fmt` and `clippy -D warnings` clean on Linux and Windows; `cargo check` clean for both macOS targets (version 0.1.1, 27 November 2026) |
+| Cross-target check | the contract crate compiles for four more targets | `ci.yml` job Check | `cargo check -p nurt-contracts` for aarch64 Linux, Windows MSVC and both macOS targets |
+| Dependency policy | licences, bans, sources and advisories | `deny.toml`, `ci.yml` job Dependency policy | `cargo deny` 0.20.2 without errors; `cargo audit` exit code 0 (version 0.1.1, 27 November 2026) |
+| Documentation build | rustdoc has no warnings; command pages agree with the catalog; every documented example passes the checker | `ci.yml` job Documentation, crate `nurt-docgen` | exit code 0 (version 0.1.1, Linux, 27 November 2026) |
+| Repository hygiene | content, language, style and file headers | `tools/ci/repo-hygiene.sh`, `hygiene.yml` | 0 findings in 10,566 files (version 0.1.1, 27 November 2026) |
+| Commit messages | subjects, bodies and sign-off of commits follow the convention | `tools/ci/check-commits.sh`, `hygiene.yml` | applied to every commit of a pull request |
+| Packaging tests | installers, packages and manifests | `packaging/tests`, `packaging.yml` | 174 of 174 (version 0.1.1, 27 November 2026) |
+| Benchmark of tasks | tasks and oracles of `nurt-bench` are well formed | `bench/`, `bench-oracles.yml` | 648 tasks validated, 112 oracle tests passed (version 0.1.1, 27 November 2026) |
+
+## The layers
+
+1. **Unit and integration tests** run with `cargo nextest` or `cargo test`; the layout is described on the [testing](/quality/testing/) page.
+2. **Differential tests against git** run each `git.*` scenario with the `git` program and with the Nurt command and compare the resulting repositories; see [conformance](/quality/conformance/).
+3. **Conformance of the language bindings** runs recorded cases through the `nurt-conformance` runner against every binding.
+4. **Scenarios on a clean system** run the built archives, not the source tree.
+5. **Lint, format, coverage and dependency policy** run on every change in the workflows.
+6. **Documentation build checks** keep the pages in `docs/commands` equal to the catalog.
+7. **The benchmark of tasks** compares Danaco Nurt with bash and PowerShell 7 as the tool of an AI agent; [performance](/quality/performance/) describes the task set.
+
+## The workflows
+
+The workflow `ci.yml` runs on pushes to `main`, pull requests, merge groups and daily at 04:17 UTC. Its jobs are Format, Clippy and Test (Clippy and Test on Linux, macOS and Windows), Coverage, Documentation, Dependency policy and Check for four additional targets. The daily run sets `NURT_PROPTEST_FULL=1`, so that the property tests generate their full number of cases.
+
+The workflow `hygiene.yml` runs three groups of content checks, ShellCheck over every shell script and `actionlint` over the workflow files, and on pull requests it checks the commit messages and the sign-off of each commit. The workflows `bindings-go`, `bindings-node`, `bindings-python`, `bindings-dotnet` and `bindings-java` build and test each binding on Linux, macOS and Windows (and on Linux aarch64 for all but Go) and lint it with the tools of its language: `gofmt`, `go vet` and `staticcheck` for Go, `mypy` and `ruff` for Python. The workflow `bench-oracles.yml` validates the tasks of the benchmark and runs the reference solutions in bash on Linux and in PowerShell on Windows.
+
+The workflow `packaging.yml` runs the packaging tests, ShellCheck over the installers, the build of the Debian and RPM packages, `lintian` on the Debian packages and the installation of the packages in clean containers. The workflows `integrations-*` cover the container images, the development container feature, the examples, the setup action and the extension for VS Code. The workflow `release.yml` publishes the packages after `sha256sum --check --strict checksums.txt` and `tools/ci/check-dependencies.sh` succeed. Actions used by the workflows are pinned to commit hashes, and the workflows run with read access to the repository contents.
+
+The [status](/project/status/) page describes the release, and the pages on [testing](/quality/testing/), [conformance](/quality/conformance/) and [performance](/quality/performance/) give the detail behind each row.

@@ -1,0 +1,94 @@
+---
+title: Testing
+description: How the workspace of Danaco Nurt 0.1.2 is tested - suites, platforms, privileged and volume tests, aarch64, scenarios on release archives and packaging tests - with the results of version 0.1.1.
+section: quality
+order: 2
+eyebrow: Quality
+lead: The test suite, how it is run, and the results on Linux, Windows 11, aarch64 and clean systems.
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/conformance, quality/performance, project/status]
+keywords: [tests, nextest, ci, root, aarch64, windows, scenarios, packaging]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The suite and how it runs
+
+<Stats>
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+The tests are unit tests inside the crates, integration tests in `crates/*/tests`, and the shared suites in `tests/`: journal, correction, binding and syntax goldens, data and query corpora, and static checks of the repository. The journal suites in `tests/d2` cover crash points and fault injection, a coverage table against the command catalog, retention limits, random sequences against a reference model, latency and operation counts, and prepared volumes.
+
+The commands of a contributor are in `CONTRIBUTING.md`:
+
+```sh
+cargo nextest run --workspace --locked      # or: cargo test --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+```
+
+The job Test of [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) runs on Linux, macOS and Windows. It builds with `--all-targets`, runs `cargo nextest run --workspace --locked --no-fail-fast --no-tests=fail` and uses `cargo test` when nextest cannot be installed. It then runs the documentation tests. On Linux it adds the differential tests of the file commands (`cargo test -p nurt-files --features differential`), which compare the commands with the programs of the system. The workflow runs on pushes to `main`, pull requests, merge groups and daily; the daily run sets `NURT_PROPTEST_FULL=1`, so that the property tests generate their full number of cases (100,000 for most properties, a few hundred in a regular run).
+
+A separate job measures line coverage with `cargo llvm-cov nextest`. It requires at least 80 percent of lines for the workspace and 90 percent for `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` and `nurt-ffi`, and uploads the report `lcov.info`.
+
+The file `.config/nextest.toml` runs every test binary named `perf` alone, with all threads of the machine reserved (`threads-required = "num-cpus"`), so that the wall-clock limits asserted by those tests are measured without load from other tests. The three correction test binaries `lexical_regressions`, `lexical_front` and `powershell_translate` run under a runner limit of two minutes.
+
+## Results of version 0.1.1
+
+| Run | Result |
+|---|---|
+| Workspace tests (version 0.1.1, Linux x86_64, 27 November 2026) | 13,965 passed |
+| Windows 11, full set without ignored tests (version 0.1.1, 27 November 2026) | 13,455 passed, none failed |
+| Windows 11, `admin_windows` and `it_cim_` (version 0.1.1, 27 November 2026) | 8 of 8 |
+| aarch64 in user-mode emulation (version 0.1.1, 27 November 2026) | 13,938 passed |
+| Scale tests, 11 tests including removal of 1,000,000 files (version 0.1.1, Linux, 27 November 2026) | exit code 0; removal 24 minutes |
+| Packaging tests (version 0.1.1, 27 November 2026) | 174 of 174 |
+
+The macOS code is checked with `cargo check` for `x86_64-apple-darwin` and `aarch64-apple-darwin`, clean in version 0.1.1, and the job Test runs the suite on the `macos-latest` runner. Version 0.1.2 fixes four macOS defects: the journal on the data volume, `max_memory`, the member list of a group and signals to an ended process group.
+
+## Root, quotas and special volumes
+
+Some tests need privileges or prepared volumes. They are marked `#[ignore]` with the missing condition as the reason, and the script `tools/ci/prepare-test-volumes.sh` creates and mounts the volumes as sparse image files and writes `volumes.env`. A volume test reads its volume from a variable and names the variable when it is not set:
+
+| Variable | Volume |
+|---|---|
+| `NURT_TEST_EXT4_DIR` | ext4 of 1 GiB from a file |
+| `NURT_TEST_EXT4_SMALL_DIR` | ext4 of 64 MiB from a file |
+| `NURT_TEST_XFS_DIR` | XFS from a file |
+| `NURT_TEST_BTRFS_DIR` | btrfs from a file |
+| `NURT_TEST_OVERLAY_DIR`, `NURT_TEST_OVERLAY_SMALL_DIR` | overlay mounts, the second with a 64 MiB upper layer |
+| `NURT_TEST_TMPFS_DIR` | tmpfs |
+
+The results of the privileged and volume tests (version 0.1.1, 27 November 2026):
+
+| Environment | Tests | Result |
+|---|---|---|
+| Container, Linux | tests marked `#[ignore]` | 70 passed |
+| Debian 13 with root | `elevation_process` 8 and `nurt-fs account` 2 | 10 of 10 in three runs |
+| Debian 13 with root | administration tests 9 | 9 of 9 |
+| Prepared machine, Debian 13, kernel 6.12 | volume tests, 8 | 8 of 8; 7 as root, the overlay test without space as a normal account |
+| Same machine, root | `retention` 4, reflink, quotas, device nodes 3 | 7 of 7 |
+
+The journal is inactive on `tmpfs`, so the tests of an active journal use the file-backed volumes.
+
+## ARM
+
+The workspace tests run for aarch64 in user-mode emulation (13,938 passed, version 0.1.1, 27 November 2026) and on a full aarch64 system (qemu TCG, Debian 13 arm64). On the full system 17 of 17 tests of `nurt-ffi`, `nurt-bench`, OpenPGP and ACLs and metadata of `nurt-fs` passed, and the journal tests of the account in `nurt-fs` passed 7 of 7 as root and as an ordinary account. The release script `tools/release/build-release.sh` builds Linux x86_64 and aarch64 with glibc and musl, and Windows x86_64 and aarch64; 12 archives of six targets were built for 0.1.1.
+
+## Release archives, scenarios and packaging
+
+`tools/release/scenarios.sh` repeats the 22 functional scenarios (T01 to T21 and 2.11) against a built executable, each in its own empty directory with its own `HOME`, `XDG_STATE_HOME` and `XDG_CONFIG_HOME`. Scenario T12 runs `replace` and `undo` over 3,000 files within 60 seconds each; the elevated scenarios T20 and T21 need `sudo` on Linux and an elevated console on Windows. The result for the archives of 0.1.1 is 19 passed (Debian 13, 27 November 2026).
+
+`tools/release/clean-linux-check.sh` runs an archive in a container of a minimal image: the `gnu` archive in `debian:stable-slim` and the `musl` archive in `alpine:latest`. It unpacks the archive, runs `nurt version` and `nurt doctor`, changes a file, undoes the change and checks the state after the undo. Both archives of 0.1.1 ended with exit code 0 under podman (Debian 13, 27 November 2026).
+
+The bindings were run with the `nurt` program from the archive of the tag `v0.1.1`: Go, Node (120 of 120), .NET (105 passed) and Java (101 of 101). The checksums of the 12 archives verified 12 of 12 and the signature of `checksums.txt` is valid.
+
+The packaging tests in `packaging/tests` cover the installers, the Debian package, the manifests and the checks of dependencies, run by `packaging.yml`; the workflow builds the Debian and RPM packages, runs `lintian` and installs the packages in clean containers.
+
+Next: [conformance](/quality/conformance/) for the comparison with git and the bindings, and [performance](/quality/performance/) for the scale tests.

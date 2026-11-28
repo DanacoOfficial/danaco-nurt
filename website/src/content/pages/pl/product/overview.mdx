@@ -1,0 +1,74 @@
+---
+title: Przegląd
+description: Czym jest Danaco Nurt, z czym pracuje, dla kogo jest oraz jakie wydanie i jakie wersje niesie produkt.
+section: product
+order: 1
+eyebrow: Produkt
+lead: Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cofnąć, stworzone dla ludzi i agentów AI.
+updated: 2026-11-28
+related: [product/journal-and-undo, product/language, product/ai-agents]
+keywords: [powłoka, język, dziennik, cofanie, agenci]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Czym jest
+
+`nurt` (wymowa: *NURT*, polskie słowo „nurt”) to powłoka poleceń z własnym językiem do pracy z plikami, tekstem, dokumentami strukturalnymi, kodem źródłowym, kontrolą wersji, procesami i systemem operacyjnym. To jedno narzędzie dla Linuksa, Windows i macOS, dostarczane jako jeden plik wykonywalny na system operacyjny (`nurt`, `nurt.exe`). Kompilacja musl dla Linuksa jest linkowana statycznie.
+
+Program to potok typowanych rekordów. Każdy program jest sprawdzany przed uruchomieniem, a każde uruchomienie jest opisane ustrukturyzowanym raportem skutków. Zmiany w plikach są zapisywane w dzienniku i można je przejrzeć oraz cofnąć.
+
+```nurt
+find "/home/user/project" glob: "**/*.go"
+  |> filter size > 1mb and modified > ago(24h)
+  |> sort size order: desc
+  |> first 20
+```
+
+Powyższy program wypisuje 20 największych plików źródłowych Go zmienionych w ciągu ostatniej doby. Każdy etap przyjmuje rekordy i zwraca rekordy; żaden nie musi analizować tekstu innego narzędzia. Rekord ma nazwane pola, takie jak ścieżka, rozmiar i czas modyfikacji pliku, więc `filter` i `sort` odwołują się do pola po nazwie.
+
+## Idee, na których to stoi
+
+<CardGrid columns={2}>
+  <Card title="Cofanie jest częścią języka" icon="undo-2" href="/pl/product/journal-and-undo/">
+    Zmiany w plikach są zapisywane w dzienniku. Operację można przejrzeć, cofnąć i ponowić poleceniami języka.
+  </Card>
+  <Card title="Sprawdzone przed uruchomieniem" icon="scan-search" href="/pl/product/language/">
+    Nazwy, parametry i typy są weryfikowane względem katalogu poleceń, zanim cokolwiek się zmieni. Błędy mają stabilny kod, położenie i poprawkę.
+  </Card>
+  <Card title="Raport z każdego uruchomienia" icon="file-text" href="/pl/product/effect-reports/">
+    Każde uruchomienie zwraca raport skutków w postaci tekstu, JSON albo Markdown. Schemat raportu jest opublikowany w specyfikacji.
+  </Card>
+  <Card title="Operacje wbudowane w program" icon="boxes" href="/pl/product/commands/">
+    Operacje na plikach, tekście, archiwach, dokumentach, kodzie, kontroli wersji, sieci i systemie są zaimplementowane w programie i nie wywołują zewnętrznych narzędzi.
+  </Card>
+</CardGrid>
+
+## Co jest w pudełku
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="coreCommands" />
+  <Fact id="optionalGroups" />
+  <Fact id="platforms" />
+</Stats>
+
+Silnik jest biblioteką Rust z interfejsem C (`libnurt`, `nurt.h`). Program wiersza poleceń i serwer Model Context Protocol korzystają z tego samego silnika, tak samo może korzystać Twój własny program. Strony o [architekturze](/pl/architecture/overview/) opisują, jak części do siebie pasują.
+
+Program wiersza poleceń obejmuje cały język. `nurt check` sprawdza program i drukuje jego postać kanoniczną, `nurt serve` i `nurt mcp` udostępniają silnik innym programom, `nurt lsp` obsługuje edytory, a `nurt migrate` tłumaczy skrypty basha i PowerShella na programy języka. Katalog poleceń zawiera polecenia rdzenia i grupy opcjonalne; strona o [funkcjach](/pl/product/features/) wymienia je według tego, na czym pracują.
+
+## Dla kogo
+
+- **Dla ludzi przy terminalu.** Powłoka, w której błędne `remove` lub `replace` można cofnąć, a program, który nie może być poprawny, jest odrzucany, zanim dotknie pliku. Zobacz [przykłady zastosowań](/pl/product/use-cases/).
+- **Dla agentów AI i platform, które je uruchamiają.** Ten sam silnik jest dostępny jako narzędzie przez Model Context Protocol, serwer JSON-RPC albo bibliotekę, a każde wywołanie zwraca raport, który program potrafi odczytać. Zobacz [Nurt dla agentów AI](/pl/product/ai-agents/).
+- **Dla zespołów odchodzących od basha i PowerShella.** Dokumentacja przypisuje nawyki obu powłok do ich postaci w Nurt, a `nurt migrate` tłumaczy warunki, pętle, funkcje i parametry skryptów na `when`, `each`, `define` i `params`. Zobacz [migrację](/pl/product/migration/).
+
+## Wydanie i wersje
+
+Bieżące wydanie to <Badge tone="accent">0.1.2</Badge> z 28 listopada 2026. Usuwa kwadratowy koszt wyszukiwania i zamiany wyrażeniem regularnym w jednym wierszu: 20 000 trafień w wierszu o długości 60 000 bajtów jest zamienianych w około 0,1 s zamiast w 2,5 s. W macOS dziennik jest aktywny dla ścieżek woluminu danych, `max_memory` mierzy pamięć rezydentną, a program, którego grupa procesów się zakończyła, można wstrzymać, wznowić i zatrzymać. [Notatki o wydaniu](/pl/project/releases/) opisują zawartość każdego wydania.
+
+Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji; zmiana między wersjami 0.x jest zapisana w dzienniku zmian. Reguły zgodności zawiera strona o [wersjonowaniu](/pl/project/versioning/).
+
+Zmierzone wyniki: 13 965 testów zaliczonych w przebiegu przestrzeni roboczej (wersja 0.1.1, Linux, 27 listopada 2026); 13 455 testów zaliczonych na Windows 11 (wersja 0.1.1); 775 z 775 porównań z gitem zgodnych (wersja 0.1.1); 19 scenariuszy end-to-end zaliczonych na czystym systemie (wersja 0.1.1). Strony o [jakości](/pl/quality/overview/) opisują zestawy testów.

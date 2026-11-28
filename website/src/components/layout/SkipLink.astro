@@ -1,0 +1,21 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.SkipLink
+// Responsibility:   The first focusable link of every page: it moves the keyboard focus to the content.
+// Dependencies:     website.src.i18n, website.src.styles.components.skip-link
+
+import '../../styles/components/skip-link.css';
+import { useUi } from '../../i18n';
+import type { Locale } from '../../../config/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const ui = useUi(Astro.props.locale);
+---
+
+<a class="skip-link" href="#content">{ui.skipToContent}</a>

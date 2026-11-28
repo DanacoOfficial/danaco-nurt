@@ -1,0 +1,22 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.not-found
+ * Responsibility:   The page for a missing address: a centred column with the mark, the message and the ways back.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  max-width: 44rem;
+  padding-block: var(--space-9);
+}
+
+.not-found hr {
+  width: 100%;
+  margin-block: var(--space-5);
+}

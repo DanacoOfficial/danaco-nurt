@@ -1,0 +1,20 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.pages.section-index
+// Responsibility:   The landing pages of the sections of the site in English.
+// Dependencies:     website.src.components.pages.SectionIndexPage, website.config.sections
+
+import SectionIndexPage from '../../components/pages/SectionIndexPage.astro';
+import { sectionKeys } from '../../../config/sections';
+
+export function getStaticPaths() {
+  return sectionKeys.map((section) => ({ params: { section }, props: { section } }));
+}
+
+const { section } = Astro.props;
+---
+
+<SectionIndexPage locale="en" section={section} />

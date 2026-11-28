@@ -1,0 +1,18 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.global
+ * Responsibility:   Entry point of the global styles: the order in which the foundation files are loaded. Component styles are loaded by the components themselves.
+ * Dependencies:     the foundation files of website.src.styles
+ */
+
+@import './fonts.css';
+@import './tokens.css';
+@import './reset.css';
+@import './base.css';
+@import './typography.css';
+@import './layout.css';
+@import './utilities.css';
+@import './motion.css';
+@import './print.css';

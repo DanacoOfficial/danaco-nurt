@@ -1,0 +1,90 @@
+---
+title: Training packages
+description: Five ready packages for training and evaluating models on Danaco Nurt, namely pairs, chat and tool-call conversations, tool definitions and a documentation corpus, checked by the engine of release 0.1.2.
+section: ai
+order: 4
+eyebrow: AI
+lead: 1,457 pairs "input → Danaco Nurt program" checked by the engine, in three record formats, with the tool definitions and the documentation corpus.
+updated: 2026-11-28
+related: [ai/overview, ai/model-labs, ai/benchmark, product/ai-agents]
+keywords: [training packages, pairs, chat, tool calls, JSONL, CC BY 4.0, datasets, validation]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The packages
+
+The five packages train and evaluate models that write programs of Danaco Nurt and call the tool `nurt`. Every file is built from the repository by `website/scripts/build_training_packs.py` with the executables `nurt` and `nurt-bench` of release 0.1.2. The manifest `manifest.json` records the release, the revision of the command catalog (`sha256:ad74233c7b6b…`), the build date (28 November 2026) and, for every file, the size, the number of records and the SHA-256 sum. The download table lists the size and the SHA-256 sum of every file.
+
+<Downloads group="training" />
+
+| Package | Content | Records | License |
+|---|---|---|---|
+| `pairs` | pairs "input → Danaco Nurt program" in the format `nurt-bench-pair/2`, with the schema and the datasheet | `pairs.jsonl`: 1,457 accepted pairs; `rejected.jsonl`: 629 programs with the error code and the message of the engine | CC BY 4.0 |
+| `chat` | the accepted pairs as chat conversations: system message, user message, the program as the reply | `train.jsonl`: 1,309; `validation.jsonl`: 148 | CC BY 4.0 |
+| `tool-calls` | the accepted pairs as conversations in which the reply is a call of the tool `nurt` with the member `program`; `tools.json` is the tool definition to pass with every conversation | `train.jsonl`: 1,309; `validation.jsonl`: 148 | CC BY 4.0 |
+| `tools` | the definition of the tool `nurt` in every format of `nurt schema tool`, in English and Polish | 16 JSON documents: 8 formats in 2 languages | Apache-2.0 |
+| `corpus` | the documentation and the specification as documents with a path, a section, a title and the text in Markdown | `docs.jsonl`: 251 documents | Apache-2.0 |
+
+## Sources of the pairs
+
+The command `nurt-bench pairs` builds the candidates from four sources. The held-out tasks of the benchmark are excluded, so a model that trains on the pairs is evaluated on the held-out set.
+
+| Source | Input | Program | Candidates | Accepted |
+|---|---|---|---|---|
+| `task` | the description of a public task of the benchmark | the reference program of the task | 648 | 385 |
+| `translation` | the reference solution of a public task in bash or PowerShell 7 | the reference program of the task | 759 | 449 |
+| `docs` | the sentence that introduces an example of a command page | the example | 613 | 578 |
+| `habit` | a shell command of the cheat sheets for bash and PowerShell users | the canonical Danaco Nurt program | 66 | 45 |
+
+The accepted pairs total 1,457. The field `input_kind` names the kind of the input: `nl` for a description in English, `bash` or `pwsh` for a shell command. The identifier of a pair is the first 16 hexadecimal digits of a SHA-256 of the input kind, the input and the program.
+
+## Example records
+
+A record of `pairs` holds the source, the origin task, the input, the program and the result of the validation:
+
+```json
+{"format":"nurt-bench-pair/2","id":"5505c7250897fccc","source":"task","origin":"admin-002","input_kind":"nl","input":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`.","program":"schedule.create \"reports\" cron: \"0 6 * * 1\" action: (run [\"/opt/reports/bin/generate\", \"--weekly\"])","script":false,"validation":{"checked":true,"executed":false,"status":"bound"},"license":"CC-BY-4.0"}
+```
+
+The same pair in `chat` carries the system message of the language, the description as the user message and the program as the reply:
+
+```json
+{"messages":[{"role":"system","content":"You write programs in the language of Danaco Nurt (`nurt`), a command shell where a program is a pipeline of typed records. Answer with the program only, in the canonical notation."},{"role":"user","content":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`."},{"role":"assistant","content":"schedule.create \"reports\" cron: \"0 6 * * 1\" action: (run [\"/opt/reports/bin/generate\", \"--weekly\"])"}]}
+```
+
+In `tool-calls` the reply is a call of the tool `nurt`; the argument is the JSON text of `{"program": "…"}`:
+
+```json
+{"messages":[{"role":"user","content":"Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`."},{"role":"assistant","tool_calls":[{"id":"call_5505c7250897fccc","type":"function","function":{"name":"nurt","arguments":"{\"program\": \"schedule.create \\\"reports\\\" cron: \\\"0 6 * * 1\\\" action: (run [\\\"/opt/reports/bin/generate\\\", \\\"--weekly\\\"])\"}"}}]}]}
+```
+
+## Validation by the engine
+
+Every candidate is sent to the method `check` of `nurt serve`: the engine parses the program, applies the corrections of the language and binds the program against the command catalog. A program that binds is accepted and carries `validation.status` `bound`. A program that the engine refuses is written to `rejected.jsonl` with the error code and the message of the engine in `validation.rejected`. These records are examples of errors: the program, the stable code and the message that names the accepted values.
+
+```json
+{"id":"674c375b5397e95b","source":"task","origin":"admin-011","input":"Disable root login over SSH in etc/ssh/sshd_config (PermitRootLogin no).","program":"set \"etc/ssh/sshd_config\" key: \"PermitRootLogin\" value: \"no\" format: sshd","validation":{"checked":true,"executed":false,"rejected":"E_UNKNOWN_VALUE: `sshd` is not a value of `format`; write one of auto, json, jsonc, yaml, toml, xml, ini, csv, tsv, properties, env, plist"}}
+```
+
+The summary file `summary.json` holds the counts per source, the release and the catalog revision.
+
+## Splits
+
+The packages `chat` and `tool-calls` are split by the identifier of the pair: a pair whose identifier starts with a byte below 26 belongs to the validation split, which gives one pair in ten, 148 of 1,457. The split is stable between builds, and the same pair is in the same split in both packages.
+
+## Licenses and attribution
+
+The packages `pairs`, `chat` and `tool-calls` are licensed under CC BY 4.0, and the license of the data set expressly permits use for training and for evaluating machine learning models. The attribution line is "nurt-bench pairs, Danaco Holding Group Sp. z o.o., CC BY 4.0". The packages `tools` and `corpus` are licensed under Apache-2.0. Every package contains its `LICENSE` file.
+
+## Rebuilding the packages
+
+The packages are rebuilt from the repository with the executables of one release:
+
+```sh
+python3 website/scripts/build_training_packs.py --nurt <path of nurt> --nurt-bench <path of nurt-bench>
+```
+
+The script writes the files of the five packages and the manifest with the new sizes and sums. The [benchmark page](/ai/benchmark/) describes `nurt-bench pairs` and the held-out tasks, and the [lab page](/ai/model-labs/) describes how the packages enter a training and evaluation cycle.

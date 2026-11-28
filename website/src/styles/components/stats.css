@@ -1,0 +1,52 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.stats
+ * Responsibility:   The row of measured figures: large values in gold with a label and the source below.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.stats {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  margin-block: var(--space-6);
+}
+
+.stat {
+  container-type: inline-size;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--bg-raised);
+}
+
+/* The value scales with the width of its card, so that long values such as a licence name stay on one line. */
+.stat__value {
+  font-size: clamp(1.25rem, 15cqi, var(--text-2xl));
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat__label {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.stat__source {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.stat__source a {
+  color: inherit;
+}

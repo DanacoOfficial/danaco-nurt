@@ -1,0 +1,144 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.DocsHubPage
+// Responsibility:   The documentation hub in one language: the head of the page mockup of the design pack (the sentence of the product, a terminal with a change and its undo, three cards), the start panel with the installation and the first steps, and four bands of rows for the documentation sections with their page counts.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.sections.InstallTabs, website.src.lib.docs.model, website.src.styles.components.docs-hub
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../layout/Breadcrumbs.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import { product } from '../../../config/site';
+import InstallTabs from '../sections/InstallTabs.astro';
+import Icon from '../base/Icon.astro';
+import type { Locale } from '../../../config/i18n';
+import { getDocs, groupDocs, entryUrl } from '../../lib/docs/model';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import type { IconName } from '../../../config/icons';
+import '../../styles/components/docs-hub.css';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = useUi(locale);
+const groups = groupDocs(await getDocs());
+const labels = ui.docs.sectionLabels as Record<string, string>;
+const leads = ui.docs.sectionLeads as Record<string, string>;
+const icons: Record<string, IconName> = {
+  guide: 'rocket',
+  guides: 'book-open',
+  cookbook: 'flask-conical',
+  commands: 'terminal',
+  groups: 'layers',
+  cheatsheets: 'list-checks',
+  reference: 'braces',
+  integrators: 'plug',
+  architectureDocs: 'workflow',
+  cli: 'terminal',
+  providers: 'package',
+  conventions: 'clipboard-check',
+  specification: 'library',
+};
+
+const bandPlan: { key: 'learn' | 'reference' | 'build' | 'project'; keys: string[] }[] = [
+  { key: 'learn', keys: ['guide', 'guides', 'cookbook', 'cheatsheets'] },
+  { key: 'reference', keys: ['commands', 'groups', 'reference', 'specification'] },
+  { key: 'build', keys: ['integrators', 'cli', 'providers'] },
+  { key: 'project', keys: ['architectureDocs', 'conventions'] },
+];
+const placed = new Set(bandPlan.flatMap((band) => band.keys));
+const bands = bandPlan.map((band) => ({
+  ...band,
+  groups: band.keys.map((key) => groups.find((group) => group.labelKey === key)).filter((group) => group !== undefined),
+}));
+const leftover = groups.filter((group) => !placed.has(group.labelKey));
+if (leftover.length > 0) {
+  bands[bands.length - 1]?.groups.push(...leftover);
+}
+const guide = groups.find((group) => group.labelKey === 'guide');
+const firstSteps = (guide?.entries ?? []).filter((entry) => entryUrl(entry).replace(/\/$/, '') !== '/docs/guide').slice(0, 5);
+const hub = ui.docs.hub;
+---
+
+<BaseLayout title={ui.docs.title} description={ui.docs.lead} locale={locale} path="/docs/" breadcrumbs={[{ label: ui.docs.title, path: '/docs/' }]}>
+  <section class="docs-hero" aria-labelledby="docs-hero-title">
+    <div class="container docs-hero__inner">
+      <div class="docs-hero__copy">
+        <Breadcrumbs locale={locale} items={[{ label: ui.docs.title }]} />
+        <p class="eyebrow">{hub.heroEyebrow}</p>
+        <h1 id="docs-hero-title">{hub.heroTitle}</h1>
+        <p class="lead">{ui.docs.lead}</p>
+        <a class="docs-hero__action" href={href('/docs/guide/installation/', 'en')}>{hub.heroAction}<Icon name="arrow-right" size={18} /></a>
+        {locale === 'pl' && <p class="docs-hub__note">{ui.docs.englishOnlyBody}</p>}
+      </div>
+      <figure class="docs-hero__terminal" aria-label="terminal">
+        <figcaption><span>terminal</span><span>nurt {product.version}</span></figcaption>
+        <pre><code><span class="t-prompt">nurt</span> remove <span class="t-string">"build/"</span>
+<span class="t-out">removed 214 files, journal entry 42</span>
+
+<span class="t-prompt">nurt</span> undo
+<span class="t-out">restored 214 files</span>
+
+<span class="t-comment">{hub.terminalComment}</span>
+<span class="t-prompt">nurt</span> find <span class="t-string">"build/"</span> <span class="t-pipe">|&gt;</span> remove</code></pre>
+      </figure>
+    </div>
+    <div class="container">
+      <CardGrid columns={3}>
+        {hub.cards.map((card) => <Card title={card.title} href={href(card.path, 'en')}>{card.text}</Card>)}
+      </CardGrid>
+    </div>
+  </section>
+  <div class="container docs-hub">
+    <section class="docs-hub__start" aria-labelledby="docs-start">
+      <div class="docs-hub__start-copy">
+        <p class="docs-hub__eyebrow">{hub.startEyebrow}</p>
+        <h2 id="docs-start">{hub.startTitle}</h2>
+        <p class="docs-hub__lead">{hub.startLead}</p>
+        <InstallTabs locale={locale} id="docs-install" />
+      </div>
+      <nav class="docs-hub__steps" aria-label={hub.startSteps}>
+        <p class="docs-hub__steps-title">{hub.startSteps}</p>
+        <ol>
+          {firstSteps.map((entry, index) => (
+            <li>
+              <a href={href(entryUrl(entry), 'en')}>
+                <span class="docs-hub__step-index" aria-hidden="true">{index + 1}</span>
+                <span>{entry.data.title}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </section>
+    {bands.map((band) => (
+      <section class="docs-hub__band" aria-labelledby={`docs-band-${band.key}`}>
+        <header class="docs-hub__band-head">
+          <h2 id={`docs-band-${band.key}`}>{hub.bands[band.key].title}</h2>
+          <p>{hub.bands[band.key].lead}</p>
+        </header>
+        <ul class="docs-hub__rows" role="list">
+          {band.groups.map((group) => (
+            <li>
+              <a class="docs-hub__row" href={href(`/docs/${group.section}/`, 'en')}>
+                <Icon name={icons[group.labelKey] ?? 'book-open'} size={20} />
+                <span class="docs-hub__row-text">
+                  <strong>{labels[group.labelKey] ?? group.section}</strong>
+                  <span>{leads[group.labelKey]}</span>
+                </span>
+                <span class="docs-hub__row-count">{group.entries.length} {hub.pages}</span>
+                <Icon name="arrow-right" size={16} />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
+</BaseLayout>

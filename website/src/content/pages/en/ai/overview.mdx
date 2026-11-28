@@ -1,0 +1,79 @@
+---
+title: For AI labs and agent engines
+description: What an AI lab or the builder of an agent engine gains by installing Danaco Nurt, namely one tool for the model, checked programs, reversible changes, structured reports, interfaces, training data and a benchmark.
+section: ai
+order: 1
+eyebrow: AI
+lead: One tool with one published definition for the model, a report of every run that a program reads, and a journal that reverses every file change.
+updated: 2026-11-28
+related: [ai/model-labs, ai/agent-engines, ai/training-packages, ai/benchmark, product/ai-agents]
+keywords: [AI labs, agent engines, tool definition, MCP, training data, benchmark, journal, undo]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What installing Danaco Nurt gives
+
+Danaco Nurt gives a model one tool in place of many shell tools. The program `nurt` runs a language in which a program is a pipeline of typed records, and the engine that runs it checks the program, performs the effect, records it and reports it. The section addresses the makers of AI models and the builders of agent engines and agent platforms. Each benefit below is a property of the product and links to the page that shows it.
+
+<CardGrid columns={2}>
+  <Card title="One tool, one definition" icon="terminal" href="/ai/agent-engines/">
+    A model receives the tool `nurt` with one published definition in eight formats, in place of separate bash, PowerShell and file tools. The same program text runs on Linux, Windows and macOS.
+  </Card>
+  <Card title="Checked before any effect" icon="scan-search" href="/ai/model-labs/">
+    Every program is parsed and bound against the command catalog before it acts. An error carries a stable code, a position in the program and a correction that the model applies.
+  </Card>
+  <Card title="A structured effect report" icon="file-text" href="/product/effect-reports/">
+    Every run returns the report `nurt-report/1` in text, JSON, Markdown or compact form, with paging and a bounded size. A long result continues with the call `next`.
+  </Card>
+  <Card title="Mistakes are reversible" icon="undo-2" href="/product/journal-and-undo/">
+    Every file change is recorded in the journal with the previous content, and `undo` restores it. A faulty change made by an agent is reverted with one command.
+  </Card>
+  <Card title="Policy and privilege for integrators" icon="shield-check" href="/ai/agent-engines/">
+    The host reads `check` and `preview` before the run and applies its own policy to the effect, the paths, the network targets and the external programs. Elevated rights go through the call parameter `privilege`.
+  </Card>
+  <Card title="Four ways to integrate" icon="plug" href="/ai/agent-engines/">
+    The Model Context Protocol server `nurt mcp`, the JSON-RPC server `nurt serve`, the C library `libnurt` and bindings for Python, TypeScript, Go, Java and .NET.
+  </Card>
+  <Card title="Ready training packages" icon="package" href="/ai/training-packages/">
+    Five packages for training and evaluating models: pairs, chat conversations, tool-call conversations, tool definitions and a documentation corpus. The licenses expressly permit training.
+  </Card>
+  <Card title="A benchmark with a held-out set" icon="chart-bar" href="/ai/benchmark/">
+    `nurt-bench` holds 720 tasks in 12 domains, 648 public and 72 held out, and an oracle that evaluates the final state of every run.
+  </Card>
+</CardGrid>
+
+## What the benefits rest on
+
+The command catalog is the single source of the language. The engine binds every program to it, `nurt schema tool` renders the definition of the tool from it, and the training packages and the benchmark are built with the same executable. A model that is trained on the definition and the pairs therefore targets the catalog that the engine enforces, and the catalog carries a version that the host reads.
+
+The effect of a program is known before it runs. `check` returns the strongest effect (`read`, `local`, `external` or `process`), the weakest reversibility and the paths, network targets and programs that the program names. `run` with `preview: true` lists the targets that the program would change. A host decides on this data before it calls `run`.
+
+The result of a run is data. The report carries a status (`ok`, `planned`, `partial`, `failed`), the targets, the changes, the irreversible effects and, after a failure, the error with its code and correction. The journal turns each file change into an entry that `undo` reverts, and the call parameter `session` assigns the entry to an agent. Several agents on one tree detect each other's changes through the `etag` of every read.
+
+## Install
+
+Linux and macOS:
+
+```sh
+curl -fsSL https://nurt.danaco-group.pl/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://nurt.danaco-group.pl/install.ps1 | iex
+```
+
+Both installers verify the SHA-256 sum of the archive against `checksums.txt` before they place the executable. The command `nurt --version` prints the installed version, and `nurt schema tool --format anthropic` prints the first tool definition. The [platforms page](/product/platforms/) lists the archives, the packages and the container images, and the setup action for GitHub Actions is described on the [agent engines page](/ai/agent-engines/).
+
+## Where to go next
+
+- [For model labs](/ai/model-labs/): the tool definition in eight formats and two languages, the error codes as a signal, the training packages and the held-out task set.
+- [For agent engines](/ai/agent-engines/): the integration interfaces, sessions, events, policy, privilege, multi-agent work and the integration examples.
+- [Training packages](/ai/training-packages/): the five packages with sizes, sums and the numbers of records.
+- [The benchmark of tasks](/ai/benchmark/): the tasks, the conditions, the oracle, the measures and the commands that run it.
+
+The page [Nurt for AI agents](/product/ai-agents/) describes the tool calls and the interfaces in detail.

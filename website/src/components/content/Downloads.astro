@@ -1,0 +1,84 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Downloads
+// Responsibility:   The list of the downloads of one group (the identity files or the training packages): for each download the title with the link, the content, the size, the license and the SHA-256 sum. The titles come from config/downloads.json; the sizes and the sums come from the manifest that scripts/build-downloads.mjs writes before the site build.
+// Dependencies:     website.config.downloads, website.src.lib.urls, website.src.i18n, website.src.components.base.Icon, website.src.styles.components.downloads
+
+import '../../styles/components/downloads.css';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import config from '../../../config/downloads.json';
+import type { Locale } from '../../../config/i18n';
+import Icon from '../base/Icon.astro';
+import { withBase } from '../../lib/urls';
+import { formatNumber, useUi } from '../../i18n';
+
+interface Props {
+  group: keyof typeof config.groups;
+  locale?: Locale;
+}
+
+interface ManifestEntry {
+  path: string;
+  bytes: number;
+  sha256: string;
+  files: number;
+}
+
+const { group, locale = 'en' } = Astro.props;
+const ui = useUi(locale);
+
+const manifestPath = path.join(process.cwd(), 'public/downloads/manifest.json');
+if (!existsSync(manifestPath)) {
+  throw new Error('Downloads: public/downloads/manifest.json not found; run "npm run downloads" before the site build');
+}
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { downloads: Record<string, ManifestEntry> };
+
+function size(bytes: number): string {
+  if (bytes >= 1048576) {
+    return `${formatNumber(Math.round((bytes / 1048576) * 10) / 10, locale)} MB`;
+  }
+  return `${formatNumber(Math.max(1, Math.round(bytes / 1024)), locale)} kB`;
+}
+
+const rows = config.groups[group].map((entry) => {
+  const built = manifest.downloads[`${group}/${entry.id}`];
+  if (!built) {
+    throw new Error(`Downloads: ${group}/${entry.id} is not in the manifest; run "npm run downloads"`);
+  }
+  return {
+    id: entry.id,
+    title: entry.title[locale],
+    content: entry.content[locale],
+    license: entry.license[locale],
+    href: withBase(`/${built.path}`),
+    name: built.path.split('/').pop() ?? built.path,
+    size: size(built.bytes),
+    files: built.files,
+    sha256: built.sha256,
+  };
+});
+---
+
+<div class="downloads" role="group" aria-label={ui.downloads.caption}>
+  <ul class="downloads__list" role="list">
+    {rows.map((row) => (
+      <li class="downloads__item">
+        <a class="downloads__link" href={row.href} download={row.name}>
+          <Icon name="download" size={20} class="downloads__icon" />
+          <span class="downloads__title">{row.title}</span>
+          <span class="downloads__size">{row.size}</span>
+        </a>
+        <p class="downloads__content">{row.content}</p>
+        <dl class="downloads__facts">
+          <div><dt>{ui.downloads.file}</dt><dd><code>{row.name}</code>{row.files > 1 && <span> · {formatNumber(row.files, locale)} {ui.downloads.files}</span>}</dd></div>
+          <div><dt>{ui.downloads.license}</dt><dd>{row.license}</dd></div>
+          <div><dt>{ui.downloads.checksum}</dt><dd><code class="downloads__sum">{row.sha256}</code></dd></div>
+        </dl>
+      </li>
+    ))}
+  </ul>
+</div>

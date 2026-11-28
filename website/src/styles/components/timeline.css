@@ -1,0 +1,67 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.timeline
+ * Responsibility:   The timeline: a vertical stream line with a marker per event.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.timeline {
+  position: relative;
+  margin: var(--space-6) 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 1px;
+  background: linear-gradient(180deg, var(--accent), var(--line-strong) 40%, var(--line-strong));
+}
+
+.timeline__item {
+  position: relative;
+  padding-bottom: var(--space-6);
+}
+
+.timeline__item::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-6) + 0.1rem);
+  top: 0.35rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--line-strong);
+  clip-path: polygon(0 0, 100% 0, 100% 40%, 40% 100%, 0 100%);
+}
+
+.timeline__item--current::before {
+  background: var(--accent);
+}
+
+.timeline__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.timeline__title {
+  margin-top: var(--space-1);
+  font-size: var(--text-lg);
+}
+
+.timeline__title a {
+  color: inherit;
+}
+
+.timeline__text {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+}

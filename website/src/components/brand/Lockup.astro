@@ -1,0 +1,38 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.brand.Lockup
+// Responsibility:   The lockups of the identity as inline SVG (horizontal, vertical, compact, wordmark) coloured by the theme variables.
+// Dependencies:     website.src.components.brand.brand-data, website.src.styles.components.mark
+
+import '../../styles/components/mark.css';
+import { lockups } from './brand-data';
+
+interface Props {
+  layout?: 'horizontal' | 'vertical' | 'compact' | 'wordmark';
+  height?: number | string;
+  title?: string;
+  class?: string;
+}
+
+const { layout = 'horizontal', height = 28, title = 'Danaco Nurt', class: className } = Astro.props;
+const data = lockups[layout];
+const dimension = typeof height === 'number' ? `${height}px` : height;
+---
+
+<svg
+  class:list={['nurt-lockup', `nurt-lockup--${layout}`, className]}
+  viewBox={data.viewBox}
+  style={`height:${dimension};width:auto;`}
+  role="img"
+  aria-label={title}
+  focusable="false"
+>
+  <title>{title}</title>
+  {data.silver && <path class="nurt-lockup__back" d={data.silver}></path>}
+  {data.gold && <path class="nurt-lockup__forward" d={data.gold}></path>}
+  {data.company && <path class="nurt-lockup__company" d={data.company}></path>}
+  <path class="nurt-lockup__product" d={data.product}></path>
+</svg>

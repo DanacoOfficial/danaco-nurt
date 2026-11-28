@@ -1,0 +1,79 @@
+---
+title: Current state
+description: The current version of Danaco Nurt, the systems and architectures it runs on, its interfaces with their versions, the command catalog and the place of each part in the documentation.
+section: project
+order: 2
+eyebrow: Project
+lead: Danaco Nurt is at version 0.1.2, released on 28 November 2026.
+updated: 2026-11-28
+related: [project/releases, project/versioning, quality/testing, product/platforms]
+keywords: [current state, version 0.1.2, systems, architectures, interfaces, command catalog]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Version 0.1.2
+
+Danaco Nurt is a command shell and a language where every change can be undone, built for people and AI agents. The current version is 0.1.2, dated 28 November 2026. The language front end, the engine, the command catalog, the undo journal, the command line program, the Model Context Protocol server, the language server and the C interface are implemented and work together.
+
+The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers; a change between 0.x versions is recorded in the [changelog](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md) and on the [releases](/project/releases/) page. The rules of versioning are on the [versioning](/project/versioning/) page.
+
+Version 0.1.2 brings regular-expression search and replace that run in time proportional to the matches, and a journal that is active on the data volume of macOS.
+
+## Figures
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+The test numbers belong to version 0.1.1; the [testing](/quality/testing/) page lists what they cover.
+
+## Systems and architectures
+
+Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The executable has no runtime dependencies beyond the system itself.
+
+| System | Architectures | Archives |
+|---|---|---|
+| Linux | x86-64, aarch64 | glibc and static musl |
+| Windows | x86-64, aarch64 | MSVC |
+| macOS | x86-64, aarch64 | `x86_64-apple-darwin`, `aarch64-apple-darwin` |
+
+On Linux the executable links liblzma statically and runs on a system without `liblzma.so.5`. The musl build is linked statically. The [installation](/docs/guide/installation/) page describes the installers, the packages and the build from source; the [platforms](/product/platforms/) page describes the behaviour on each system.
+
+## Interfaces and versions
+
+| Interface | Identifier | Version |
+|---|---|---|
+| Program | `nurt` | 0.1.2, Semantic Versioning 2.0.0 |
+| Syntax tree | `nurt-ast/1` | 1.1; documents of version 1.0 are read unchanged |
+| Bound tree | `nurt-bound/1` | 1 |
+| Command catalog | `nurt-catalog/1` | 1 |
+| Report, request, response | `nurt-report/1`, `nurt-request/1`, `nurt-response/1` | 1 |
+| Protocol | `nurt-rpc/1` | 1 |
+| C interface | `libnurt`, `nurt.h`, `libnurt.so.1` | `NURT_ABI_MAJOR` 1, `NURT_ABI_MINOR` 0 |
+
+The command line program offers the subcommands `exec`, `script`, `check`, `fmt`, `ast`, `schema`, `catalog`, `help`, `history`, `undo`, `redo`, `serve`, `mcp`, `lsp`, `migrate`, `service`, `journal` and `ext`. `nurt mcp` starts the Model Context Protocol server over standard input and output or over HTTP, and `nurt lsp` starts the language server. The bindings for Python, Go, Node, Java and .NET read the answers of the engine in the shape it returns.
+
+## The command catalog
+
+The catalog is organised in 34 core commands and 14 optional groups. Each command has one page with its synopsis, parameters, input and output, effect, description, examples, errors and related commands. The names, types, defaults and enumeration values of a command come from the catalog, and the build of the documentation runs every example of every command page.
+
+The full list is on the [command reference](/docs/commands/) and on the [commands](/product/commands/) page. The catalog covers files, text, archives, notebooks, structured documents, source code analysis, processes, tests and analysis, version control, system, network, scheduling, services and programs, and the administration of the firewall, the network, the clock, accounts, groups, mounts, the kernel, power and disks. The commands for the registry and for `windows.cim` run on Windows; `create` of a named pipe or a device node runs on Linux and macOS.
+
+## Where each part is documented
+
+| Part | Documentation |
+|---|---|
+| Guide, installation, command line | [Guide](/docs/guide/) |
+| Commands | [Command reference](/docs/commands/) |
+| Language, syntax tree, catalog, report | [Specification](/docs/specification/) |
+| C interface | [C interface reference](/docs/reference/c-abi/) and the [architecture](/architecture/c-interface/) page |
+| Protocols | [Protocols](/architecture/protocols/) |
+| Versions and compatibility | [Versions and compatibility](/docs/integrators/versioning/) |
+| Tests and conformance | [Testing](/quality/testing/) and [Conformance](/quality/conformance/) |
+| Questions | [Support](/project/support/) |

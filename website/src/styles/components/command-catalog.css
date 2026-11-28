@@ -1,0 +1,99 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.command-catalog
+ * Responsibility:   The index of the commands: the row of jump links to the groups, the heading of a group with its count, and the list of commands with the name in the first column and the summary in the second.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.command-catalog {
+  margin-block: var(--space-6);
+}
+
+.command-catalog__jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.command-catalog__jump a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.command-catalog__jump a:hover {
+  border-color: var(--accent);
+}
+
+.command-catalog__jump span {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+.command-catalog__group + .command-catalog__group {
+  margin-top: var(--space-7);
+}
+
+.command-catalog__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  font-size: var(--text-lg);
+}
+
+.command-catalog__title small {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.command-catalog .command-catalog__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.command-catalog .command-catalog__list li {
+  display: grid;
+  gap: var(--space-1) var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+
+.command-catalog__list a {
+  text-decoration: none;
+}
+
+.command-catalog__list code {
+  white-space: nowrap;
+  color: var(--link);
+}
+
+.command-catalog__list span {
+  color: var(--text-muted);
+}
+
+@media (min-width: 40rem) {
+  .command-catalog .command-catalog__list li {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+}

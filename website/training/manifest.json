@@ -1,0 +1,239 @@
+{
+  "format": "nurt-training-packs/1",
+  "nurt": "0.1.2",
+  "catalog_rev": "sha256:ad74233c7b6b364643edd1df1721eb3539cd261eb1be3d74bd631a6cca997196",
+  "date": "2026-11-28",
+  "packs": [
+    {
+      "name": "pairs",
+      "license": "CC-BY-4.0",
+      "files": [
+        {
+          "path": "pairs/DATASHEET.md",
+          "bytes": 3992,
+          "sha256": "b340e5ecdee7067237a56ea339a9a7ecdc1640c32c8b225003eaa2b1d89a1fba"
+        },
+        {
+          "path": "pairs/LICENSE",
+          "bytes": 18656,
+          "sha256": "4014722237c90b6f8effc35b6e04a47815c03ef14ee24683d6c1dfd0b9b644d0"
+        },
+        {
+          "path": "pairs/nurt-bench-pair-2.schema.json",
+          "bytes": 1257,
+          "sha256": "4d472b395da171aa8cb234ff0606832c1636d0421f4bf3060c6e5e370815a4fc"
+        },
+        {
+          "path": "pairs/pairs.jsonl",
+          "bytes": 624930,
+          "sha256": "426737b75b0e7bdc9c20ace8b6e4fe68ea26fbebf866b9883ccb2719fc942aac",
+          "records": 1457
+        },
+        {
+          "path": "pairs/rejected.jsonl",
+          "bytes": 382738,
+          "sha256": "3ab2f34221b146de3841401cd6eb04094661182f1065e5212635d893f163d305",
+          "records": 629
+        },
+        {
+          "path": "pairs/summary.json",
+          "bytes": 662,
+          "sha256": "9400da397af91cb12ae24c318cba8244a1d240b41ee3a7badbba4509c3a69fbf"
+        }
+      ]
+    },
+    {
+      "name": "chat",
+      "license": "CC-BY-4.0",
+      "files": [
+        {
+          "path": "chat/LICENSE",
+          "bytes": 18656,
+          "sha256": "4014722237c90b6f8effc35b6e04a47815c03ef14ee24683d6c1dfd0b9b644d0"
+        },
+        {
+          "path": "chat/train.jsonl",
+          "bytes": 654238,
+          "sha256": "c8d7905f8edc7a753a303169383add5cfd3bcca1387beb9aec13defc7c7a81ba",
+          "records": 1309
+        },
+        {
+          "path": "chat/validation.jsonl",
+          "bytes": 70493,
+          "sha256": "1d1df5cbec0a4d1981f744e700708a99e53f3a61d4528839dbf1b9f3441e19ca",
+          "records": 148
+        }
+      ]
+    },
+    {
+      "name": "tool-calls",
+      "license": "CC-BY-4.0",
+      "files": [
+        {
+          "path": "tool-calls/LICENSE",
+          "bytes": 18656,
+          "sha256": "4014722237c90b6f8effc35b6e04a47815c03ef14ee24683d6c1dfd0b9b644d0"
+        },
+        {
+          "path": "tool-calls/tools.json",
+          "bytes": 13226,
+          "sha256": "0138c613058b27d44ea1402acd343de7dc2c88b9dc530cf2176f3ddf02638abd"
+        },
+        {
+          "path": "tool-calls/train.jsonl",
+          "bytes": 538254,
+          "sha256": "822a0321b005e4d9a390b8137ea227a37e5c031186d5c05b9194bf3ad6915147",
+          "records": 1309
+        },
+        {
+          "path": "tool-calls/validation.jsonl",
+          "bytes": 57206,
+          "sha256": "d856d2cfaaccdf314e87c2c7251fb7b4ced79b18e3c4867be06a90b4868e3682",
+          "records": 148
+        }
+      ]
+    },
+    {
+      "name": "tools",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "tools/LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "tools/en/nurt-tool.anthropic.json",
+          "bytes": 12617,
+          "sha256": "369d8a1b33e19df362a56323387ebc62bc4bfeba390c1d39317229a85fc678d8"
+        },
+        {
+          "path": "tools/en/nurt-tool.gemini.json",
+          "bytes": 12803,
+          "sha256": "1ad78b96cfaf171f5ba0d37d309dea744f694ef3872e3c2ed3c89e756a687e1e"
+        },
+        {
+          "path": "tools/en/nurt-tool.json-schema.json",
+          "bytes": 12776,
+          "sha256": "240157f4cd982691d798ce703f2289ab76fa850c4ec9f5ddb89ed3e2498d328a"
+        },
+        {
+          "path": "tools/en/nurt-tool.mcp.json",
+          "bytes": 12744,
+          "sha256": "bcada8b0cf858c4f33e97c652f01f995c7dade3c72dd2a64bc334862052aa92b"
+        },
+        {
+          "path": "tools/en/nurt-tool.openai-responses-strict.json",
+          "bytes": 13998,
+          "sha256": "1944ef649d012c3b6aa97da256ce0c1cab4552beb0dba27fe2bd993fc000850d"
+        },
+        {
+          "path": "tools/en/nurt-tool.openai-responses.json",
+          "bytes": 12656,
+          "sha256": "97cc4410fd343e3a65145e846ebc0c07fe0c62f191425702fe9e8b3681b026e1"
+        },
+        {
+          "path": "tools/en/nurt-tool.openai-strict.json",
+          "bytes": 14440,
+          "sha256": "da48f64767ea9f7dce38b435a2c2ef8ae1895e4e8d2246dd05492c08b2ea0038"
+        },
+        {
+          "path": "tools/en/nurt-tool.openai.json",
+          "bytes": 12944,
+          "sha256": "89c1a9fbf3076d049a83886cc8544733f0765350178e1b41b8152a389aa92f48"
+        },
+        {
+          "path": "tools/pl/nurt-tool.anthropic.json",
+          "bytes": 14493,
+          "sha256": "b3fc8af0351f713d2e2f8866049e2826468476639edf249baf16180b7da6ca7d"
+        },
+        {
+          "path": "tools/pl/nurt-tool.gemini.json",
+          "bytes": 14679,
+          "sha256": "83cff03e56d504d8bd9d03f692f442d1994ff7e9d50ebea05681d8fe61e9d038"
+        },
+        {
+          "path": "tools/pl/nurt-tool.json-schema.json",
+          "bytes": 14652,
+          "sha256": "92e01a707b8a2b2e640569499e1423ee93892c7c34b76929675eb6e84ee42ffd"
+        },
+        {
+          "path": "tools/pl/nurt-tool.mcp.json",
+          "bytes": 14620,
+          "sha256": "bf612939fce5b68be003002cca290fbe84fefa1d0f5bfe30d761ec3cacef11ef"
+        },
+        {
+          "path": "tools/pl/nurt-tool.openai-responses-strict.json",
+          "bytes": 15874,
+          "sha256": "204425a149cc92d827e4aa43aadadc245ee4dee9b3d17741e935c0967283026e"
+        },
+        {
+          "path": "tools/pl/nurt-tool.openai-responses.json",
+          "bytes": 14532,
+          "sha256": "b1725d105b6e6efa2c38509183f1b354941f7f3598a464703a72492fd4eeba8f"
+        },
+        {
+          "path": "tools/pl/nurt-tool.openai-strict.json",
+          "bytes": 16316,
+          "sha256": "86c7c11deb5b1c71c7525ec459244cb78ca1154e505520bf5ff9cc8c9d266911"
+        },
+        {
+          "path": "tools/pl/nurt-tool.openai.json",
+          "bytes": 14820,
+          "sha256": "31530fcdf4390958754fd42aa8510d047ded50665442606ad5cad9dc9c959829"
+        }
+      ]
+    },
+    {
+      "name": "corpus",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "corpus/LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "corpus/docs.jsonl",
+          "bytes": 1415231,
+          "sha256": "7dc4fb92a711a885c5d77aee5e3a91464b6aee3ed7e3fe2c39f1b628c939fc2b",
+          "records": 251
+        }
+      ]
+    }
+  ],
+  "pairs": {
+    "format": "nurt-bench-pair/2",
+    "nurt": "0.1.2",
+    "catalog_rev": "sha256:ad74233c7b6b364643edd1df1721eb3539cd261eb1be3d74bd631a6cca997196",
+    "validation": "check",
+    "sources": [
+      {
+        "source": "docs",
+        "candidates": 613,
+        "accepted": 578,
+        "rejected": 35
+      },
+      {
+        "source": "habit",
+        "candidates": 66,
+        "accepted": 45,
+        "rejected": 21
+      },
+      {
+        "source": "task",
+        "candidates": 648,
+        "accepted": 385,
+        "rejected": 263
+      },
+      {
+        "source": "translation",
+        "candidates": 759,
+        "accepted": 449,
+        "rejected": 310
+      }
+    ],
+    "accepted": 1457,
+    "rejected": 629
+  }
+}

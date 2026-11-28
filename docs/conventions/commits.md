@@ -54,6 +54,7 @@ repository area:
 | `tools` | scripts in `tools/` |
 | `release` | release preparation |
 | `repo` | repository files: license, notice, readme, contribution guide |
+| `website` | the website in `website/` |
 
 The scope may be omitted for a change that affects many areas.
 

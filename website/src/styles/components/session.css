@@ -1,0 +1,164 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.session
+ * Responsibility:   The terminal window of the recorded session: the bar with the replay button, the banner, the screen with the tones of the program output (prompt gold, indicator silver, status, differences), and the typing cursor. Lines keep their space while hidden, so the window never changes its height during the play.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.session {
+  --session-ground: var(--brand-black-deep);
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--session-ground);
+  box-shadow: var(--shadow-raised);
+  color: #c9ced5;
+  overflow: hidden;
+}
+
+.session__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.session__dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.session__dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.16);
+}
+
+.session__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: rgb(221 225 230 / 0.65);
+}
+
+.session__replay {
+  padding: 2px var(--space-3);
+  border: 1px solid rgb(201 161 90 / 0.5);
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--brand-gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.session__replay:hover {
+  background: rgb(201 161 90 / 0.12);
+}
+
+.session__body {
+  padding-bottom: var(--space-4);
+}
+
+.session__body .nurt-banner {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.session__screen {
+  margin: 0;
+  padding: 0 var(--space-5);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: clamp(0.68rem, 0.6rem + 0.25vw, 0.82rem);
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.session__line {
+  display: block;
+  min-height: 1.6em;
+}
+
+.session.is-playing .session__line:not(.is-shown) {
+  visibility: hidden;
+}
+
+.session__prompt {
+  color: var(--brand-gold);
+  font-weight: 600;
+}
+
+.session__indicator {
+  color: var(--brand-silver);
+}
+
+.session__input {
+  color: #f6f7f8;
+}
+
+.session__plain {
+  color: #c9ced5;
+}
+
+.session__dim {
+  color: rgb(201 206 213 / 0.55);
+}
+
+.session__status {
+  color: #7fd6a4;
+  font-weight: 600;
+}
+
+.session__heading {
+  color: var(--brand-silver);
+  font-weight: 600;
+}
+
+.session__removed {
+  color: #f19a8d;
+}
+
+.session__added {
+  color: #7fd6a4;
+}
+
+.session__cursor {
+  display: none;
+}
+
+.session__line.is-typing .session__cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--brand-gold);
+  animation: session-blink 1s steps(1) infinite;
+}
+
+.session__caption {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: var(--text-xs);
+  color: rgb(221 225 230 / 0.6);
+}
+
+@keyframes session-blink {
+  50% {
+    opacity: 0;
+  }
+}

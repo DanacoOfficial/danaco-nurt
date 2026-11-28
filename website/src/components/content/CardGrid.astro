@@ -1,0 +1,19 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.CardGrid
+// Responsibility:   A responsive grid of cards: the container of Card components.
+// Dependencies:     website.src.styles.components.cards
+
+import '../../styles/components/cards.css';
+interface Props {
+  columns?: 2 | 3 | 4;
+}
+const { columns = 3 } = Astro.props;
+---
+
+<div class:list={['card-grid', `card-grid--${columns}`]}>
+  <slot />
+</div>

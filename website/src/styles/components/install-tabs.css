@@ -1,0 +1,61 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.install-tabs
+ * Responsibility:   The installation tabs: two radio inputs choose which command panel is visible, so that the tabs work without a script.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.install-tabs {
+  max-width: 34rem;
+}
+
+.install-tabs input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.install-tabs__labels {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.install-tabs__labels label {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.install-tabs__panel {
+  display: none;
+}
+
+.install-tabs input:nth-of-type(1):checked ~ .install-tabs__panel--unix,
+.install-tabs input:nth-of-type(2):checked ~ .install-tabs__panel--windows {
+  display: block;
+}
+
+.install-tabs input:nth-of-type(1):checked ~ .install-tabs__labels label:nth-child(1),
+.install-tabs input:nth-of-type(2):checked ~ .install-tabs__labels label:nth-child(2) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.install-tabs input:focus-visible ~ .install-tabs__labels label {
+  outline: 1px dashed var(--accent);
+}
+
+.install-tabs .code-block pre {
+  background: #08090b;
+  border-color: var(--line-strong);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

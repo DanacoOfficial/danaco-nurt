@@ -1,0 +1,32 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.Section
+// Responsibility:   A band of a page with its own heading: the eyebrow, the title, the lead and the content in the slot.
+// Dependencies:     website.src.styles.layout
+
+interface Props {
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  lead?: string;
+  tone?: 'plain' | 'raised';
+  tight?: boolean;
+}
+const { id, eyebrow, title, lead, tone = 'plain', tight = false } = Astro.props;
+---
+
+<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised']} aria-labelledby={title && id ? `${id}-title` : undefined}>
+  <div class="container">
+    {(eyebrow || title || lead) && (
+      <div class="section__head stack" style="--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;">
+        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+        {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
+        {lead && <p class="lead">{lead}</p>}
+      </div>
+    )}
+    <slot />
+  </div>
+</section>

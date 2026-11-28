@@ -1,0 +1,286 @@
+{
+  "archiveDate": "2026-11-28T00:00:00Z",
+  "groups": {
+    "identity": [
+      {
+        "id": "guidelines",
+        "file": "brand/guidelines-0.1.1.pdf",
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Identity guidelines, edition 0.1.1 (PDF)",
+          "pl": "Księga identyfikacji, wydanie 0.1.1 (PDF)"
+        },
+        "content": {
+          "en": "The book of the identity: the mark, colour, type, layouts, grounds, print and applications, 31 pages.",
+          "pl": "Księga identyfikacji: znak, kolor, typografia, układy, tła, druk i zastosowania, 31 stron."
+        }
+      },
+      {
+        "id": "identity-svg",
+        "archive": "danaco-nurt-identity-svg-1.0.0.zip",
+        "sources": [
+          "../branding/svg"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Vector files (SVG)",
+          "pl": "Pliki wektorowe (SVG)"
+        },
+        "content": {
+          "en": "The mark, the wordmark, the lockups in three layouts and every variant, the drawings for small sizes and the grounds.",
+          "pl": "Znak, logotyp, zestawienia w trzech układach i wszystkich wariantach, rysunki dla małych rozmiarów i tła."
+        }
+      },
+      {
+        "id": "identity-png",
+        "archive": "danaco-nurt-identity-png-1.0.0.zip",
+        "sources": [
+          "../branding/raster"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Raster files (PNG)",
+          "pl": "Pliki rastrowe (PNG)"
+        },
+        "content": {
+          "en": "The lockups, the mark at 16, 24 and 32 pixels and the grounds as PNG files.",
+          "pl": "Zestawienia, znak w rozmiarach 16, 24 i 32 piksele oraz tła jako pliki PNG."
+        }
+      },
+      {
+        "id": "icons",
+        "archive": "danaco-nurt-icons-1.0.0.zip",
+        "sources": [
+          "../branding/icons"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Icons for Linux, macOS, Windows and the web",
+          "pl": "Ikony dla systemów Linux, macOS, Windows i dla stron WWW"
+        },
+        "content": {
+          "en": "The hicolor icon set, the ICNS and ICO files, the tiles and the favicon set.",
+          "pl": "Zestaw ikon hicolor, pliki ICNS i ICO, kafle oraz zestaw faviconów."
+        }
+      },
+      {
+        "id": "print",
+        "archive": "danaco-nurt-print-1.0.0.zip",
+        "sources": [
+          "../branding/print"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Print specification",
+          "pl": "Specyfikacja druku"
+        },
+        "content": {
+          "en": "The print specification as PDF with the colour values and the geometry values.",
+          "pl": "Specyfikacja druku w PDF z wartościami kolorów i wartościami geometrii."
+        }
+      },
+      {
+        "id": "terminal",
+        "archive": "danaco-nurt-terminal-banner-1.0.0.zip",
+        "sources": [
+          "../branding/terminal"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Terminal banner",
+          "pl": "Baner terminala"
+        },
+        "content": {
+          "en": "The start banner of the program as text, in half blocks and with ANSI colours.",
+          "pl": "Baner startowy programu jako tekst, w półblokach i z kolorami ANSI."
+        }
+      },
+      {
+        "id": "tokens",
+        "file": "brand/tokens.css",
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Colour tokens (CSS)",
+          "pl": "Tokeny kolorów (CSS)"
+        },
+        "content": {
+          "en": "The colours of the identity as CSS custom properties.",
+          "pl": "Kolory identyfikacji jako własności niestandardowe CSS."
+        }
+      },
+      {
+        "id": "identity-json",
+        "file": "brand/identity.json",
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Machine-readable identity (JSON)",
+          "pl": "Identyfikacja w postaci do odczytu maszynowego (JSON)"
+        },
+        "content": {
+          "en": "The geometry of the mark, the colours and the typography as data.",
+          "pl": "Geometria znaku, kolory i typografia jako dane."
+        }
+      },
+      {
+        "id": "identity-pack",
+        "archive": "danaco-nurt-identity-1.0.0.zip",
+        "sources": [
+          "../branding",
+          "public/brand/guidelines-0.1.1.pdf"
+        ],
+        "license": {
+          "en": "Trademark, rules of use",
+          "pl": "Znak towarowy, zasady użycia"
+        },
+        "title": {
+          "en": "Complete identity pack",
+          "pl": "Pełna paczka identyfikacji"
+        },
+        "content": {
+          "en": "Every file of the production identity 1.0.0 with the guidelines, the boards and the renders.",
+          "pl": "Wszystkie pliki identyfikacji produkcyjnej 1.0.0 z księgą, planszami i renderami."
+        }
+      }
+    ],
+    "training": [
+      {
+        "id": "pairs",
+        "archive": "nurt-training-pairs-0.1.2.zip",
+        "sources": [
+          "training/pairs"
+        ],
+        "license": {
+          "en": "CC BY 4.0",
+          "pl": "CC BY 4.0"
+        },
+        "title": {
+          "en": "Pairs: input → program",
+          "pl": "Pary: wejście → program"
+        },
+        "content": {
+          "en": "Pairs of a task description or a shell command and the Danaco Nurt program, format nurt-bench-pair/2, each program checked by the engine.",
+          "pl": "Pary opisu zadania albo polecenia powłoki i programu Danaco Nurt, format nurt-bench-pair/2, każdy program sprawdzony przez silnik."
+        }
+      },
+      {
+        "id": "chat",
+        "archive": "nurt-training-chat-0.1.2.zip",
+        "sources": [
+          "training/chat"
+        ],
+        "license": {
+          "en": "CC BY 4.0",
+          "pl": "CC BY 4.0"
+        },
+        "title": {
+          "en": "Chat conversations",
+          "pl": "Rozmowy w formacie czatu"
+        },
+        "content": {
+          "en": "The pairs as conversations with a system message, a user message and the program as the reply; training and validation splits.",
+          "pl": "Pary jako rozmowy z komunikatem systemowym, komunikatem użytkownika i programem w odpowiedzi; podział na zbiór treningowy i walidacyjny."
+        }
+      },
+      {
+        "id": "tool-calls",
+        "archive": "nurt-training-tool-calls-0.1.2.zip",
+        "sources": [
+          "training/tool-calls"
+        ],
+        "license": {
+          "en": "CC BY 4.0",
+          "pl": "CC BY 4.0"
+        },
+        "title": {
+          "en": "Tool calls",
+          "pl": "Wywołania narzędzia"
+        },
+        "content": {
+          "en": "The pairs as conversations in which the reply calls the tool nurt, with the tool definition; training and validation splits.",
+          "pl": "Pary jako rozmowy, w których odpowiedź wywołuje narzędzie nurt, wraz z definicją narzędzia; podział na zbiór treningowy i walidacyjny."
+        }
+      },
+      {
+        "id": "tools",
+        "archive": "nurt-training-tools-0.1.2.zip",
+        "sources": [
+          "training/tools"
+        ],
+        "license": {
+          "en": "Apache-2.0",
+          "pl": "Apache-2.0"
+        },
+        "title": {
+          "en": "Tool definitions",
+          "pl": "Definicje narzędzia"
+        },
+        "content": {
+          "en": "The definition of the tool nurt in eight formats, in English and Polish.",
+          "pl": "Definicja narzędzia nurt w ośmiu formatach, po angielsku i po polsku."
+        }
+      },
+      {
+        "id": "corpus",
+        "archive": "nurt-training-corpus-0.1.2.zip",
+        "sources": [
+          "training/corpus"
+        ],
+        "license": {
+          "en": "Apache-2.0",
+          "pl": "Apache-2.0"
+        },
+        "title": {
+          "en": "Documentation corpus",
+          "pl": "Korpus dokumentacji"
+        },
+        "content": {
+          "en": "The documentation and the specification as documents with a path, a section, a title and the text.",
+          "pl": "Dokumentacja i specyfikacja jako dokumenty ze ścieżką, działem, tytułem i tekstem."
+        }
+      },
+      {
+        "id": "training-pack",
+        "archive": "nurt-training-0.1.2.zip",
+        "sources": [
+          "training"
+        ],
+        "license": {
+          "en": "CC BY 4.0, Apache-2.0",
+          "pl": "CC BY 4.0, Apache-2.0"
+        },
+        "title": {
+          "en": "All training packages",
+          "pl": "Wszystkie pakiety treningowe"
+        },
+        "content": {
+          "en": "The five packages with the manifest and the description of the formats.",
+          "pl": "Pięć pakietów z manifestem i opisem formatów."
+        }
+      }
+    ]
+  }
+}

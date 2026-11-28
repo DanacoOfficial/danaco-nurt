@@ -1,0 +1,116 @@
+---
+title: The crates
+description: Every crate of the Danaco Nurt workspace in one table, grouped by build layer, with the description from its manifest and a mark on the vendored third-party crates.
+section: architecture
+order: 3
+eyebrow: Architecture
+lead: The workspace is split into crates by layer and by area, and the allowed dependencies between them are data checked by a test.
+updated: 2026-11-28
+related: [architecture/overview, architecture/engine, architecture/dependencies]
+keywords: [crates, workspace, layers, vendored, jaq-json, pdf-extract]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The workspace
+
+<Stats>
+  <Fact id="crates" />
+</Stats>
+
+The tables below list every directory of `crates/`. The description of each crate is the `description` field of its `Cargo.toml`, without the product name where the field repeats it; every crate of the workspace has one, and it states the role of the crate in the system. The grouping is the build layer assigned to the crate in `tables/crate-graph.toml`. A crate depends only on crates of the same or a lower layer, and the test `workspace_graph.rs` of `nurt-contracts` fails when a manifest breaks that rule, declares a dependency the table does not allow or has no entry in the table. The functional view of the same crates is on the [overview](/architecture/overview/) page.
+
+Every crate inherits the edition 2024, the minimum Rust version 1.98, the license Apache-2.0 and the lint table of the workspace manifest. The lints deny `unsafe_code`, so only the crates that call operating system interfaces by definition, `nurt-ffi`, `nurt-fs` and `nurt-sys`, contain `unsafe` blocks, each with a `// SAFETY:` comment. The lints also flag a `pub` item that `lib.rs` does not reach, and library crates document every public item.
+
+The workspace crates take the version 0.1.2 and `publish = false` from the workspace manifest. The two vendored crates keep the versions of their upstream sources, 2.0.3 for `jaq-json` and 0.12.1 for `nurt-pdf-extract`.
+
+The layers have these roles. The contract layer, `nurt-contracts`, holds the types, traits and schemas shared by every crate. The foundation layer holds the values of the language and the command registry. The base layer holds the file system layer, the syntax and the test support. The library layer holds reusable services such as the journal, the report, the planner and the text, document, code and process libraries. The component layer holds the commands, the binding, the execution and the extension points. The host layer composes all components into the engine facade and the background service. The interface layer holds the entry points: the C interface, the command line and the Model Context Protocol server. The tool layer holds the conformance suite and the benchmark. The test support crate `nurt-testkit` is also a development dependency of any crate of the base layer or above.
+
+Each crate exposes what its `lib.rs` re-exports, and its internal modules are private. The exception is `nurt-contracts`, whose public modules are the namespaces of the contracts: `nurt_contracts::config`, `nurt_contracts::journal`, `nurt_contracts::stage`, `nurt_contracts::services` and `nurt_contracts::fs`. A capability that two areas share is a trait in `nurt-contracts`, implemented in its own area and passed in by the host layer.
+
+## Contract, foundation and base
+
+| Crate | What it does |
+|---|---|
+| `nurt-contracts` | Frozen contracts: syntax trees, records, errors, stage, report, journal and configuration interfaces. Depends on no workspace crate. |
+| `nurt-types` | Values, records, units and ranges of the language. |
+| `nurt-catalog` | Command catalog: registry, signatures and catalog loading. |
+| `nurt-fs` | Platform-independent file system layer. |
+| `nurt-syntax` | Lexer, parsers, canonical printer and JSON/CBOR codecs of programs. |
+| `nurt-testkit` | Test support: virtual file system, test doubles and golden file runner. |
+
+## Library layer
+
+| Crate | What it does |
+|---|---|
+| `nurt-journal` | Operation journal: recording, recovery, undo, redo and retention. |
+| `nurt-space` | Free space measurement, admission and reclamation for the journal. |
+| `nurt-crashfs` | Crash and fault injection harness of the journal. |
+| `nurt-report` | Effect report model and renderers. |
+| `nurt-plan` | Execution planning of bound programs. |
+| `nurt-correct` | Deterministic notation correction of programs. |
+| `nurt-text` | Text encodings, line endings, search, differences, patches and hashes. |
+| `nurt-doc` | Layout-preserving structured document formats, SQLite and queries. |
+| `nurt-code` | Source code analysis with tree-sitter. |
+| `nurt-proc` | Program execution, background jobs, limits and change detection. |
+| `nurt-git-transport` | Transports, credentials and signatures for the Git operations. |
+| `nurt-syslog` | Readers of system log files: systemd journal files and the macOS unified log. |
+| `jaq-json` | JSON values for jaq, with a limit on the length of a repeated string. **Vendored**, see below. |
+| `nurt-pdf-extract` | Text extraction from PDF documents: pdf-extract 0.12.1 of Jeff Muizelaar, built on lopdf 0.47. **Vendored**, see below. |
+
+## Component layer
+
+| Crate | What it does |
+|---|---|
+| `nurt-bind` | Binding of syntax trees to the command catalog. |
+| `nurt-help` | Built-in help, documentation layers and tool integration descriptions. |
+| `nurt-langserver` | Language server for program files. |
+| `nurt-migrate` | Translation of shell scripts into programs. |
+| `nurt-exec` | Streaming pipeline executor and record stages. |
+| `nurt-ext` | Extension interface and WebAssembly host. |
+| `nurt-archive` | Archives and compression. |
+| `nurt-notebook` | Jupyter notebook cells. |
+| `nurt-files` | File and content commands. |
+| `nurt-lspclient` | Language Server Protocol client. |
+| `nurt-verify` | Test runner and code analysis result parsers. |
+| `nurt-git` | Git repository operations. |
+| `nurt-git-ops` | Working tree changing Git operations: switch, restore, reset, merge, rebase, stash, pull and push. |
+| `nurt-sys` | System inspection and administration. |
+| `nurt-net` | HTTP, downloads, DNS and network diagnostics. |
+| `nurt-sched` | Schedules, triggers and missed run handling. |
+| `nurt-programs` | Installed programs and external program catalogs. |
+| `nurt-tooldef` | Definitions of the `nurt` tool in the formats of model providers and the Model Context Protocol. |
+
+## Host and interface layers
+
+| Crate | What it does |
+|---|---|
+| `nurt-core` | Engine facade: configuration, sessions, cursors and request handling. |
+| `nurt-service` | Background service host: space and schedule modules. |
+| `nurt-ffi` | C ABI of the library. Builds a Rust library, a shared library and a static library. |
+| `nurt-cli` | Command shell and language where every change can be undone; the library of the command line interface and the binary `nurt`. |
+| `nurt-mcp` | Model Context Protocol server. |
+| `nurt` | The Rust interface of the product: a client of `nurt serve`, an embedded engine, and the `nurt` binary behind the `cli` feature. Its manifest description is the product description. |
+| `nurt-node` | Node.js addon of the library. |
+
+## Tool layer
+
+| Crate | What it does |
+|---|---|
+| `nurt-conformance` | Conformance test suite runner. |
+| `nurt-bench` | Runner, statistical analysis and data set tools of the benchmark. |
+| `nurt-git-difftest` | Differential tests of the Git commands against the `git` program. |
+| `nurt-docgen` | Generator of the documentation site, manual pages, cookbook checks and cheat sheets. |
+
+## Vendored third-party crates
+
+Two crates of the workspace contain the source of a third-party project. Both are licensed MIT and both are named in `NOTICE`.
+
+- **`jaq-json`** is a copy of jaq-json 2.0.3 from crates.io (author Michael Färber). The only change to the upstream source is a limit on the length of a repeated string (`"x" * n`), implemented in `src/limit.rs`. The multiplication is implemented in the value type of the crate, which is why the workspace keeps the copy. `deny.toml` checks the license of the crate like that of any other dependency.
+- **`nurt-pdf-extract`** contains the source of pdf-extract 0.12.1 by Jeff Muizelaar, changed to use lopdf 0.47 instead of lopdf 0.42, as `NOTICE` records. Release 0.1.1 took this step so that the build does not need the unmaintained `ttf-parser` crate (RUSTSEC-2026-0192). The library name is `pdf_extract`.
+
+## Next
+
+The [engine](/architecture/engine/) page shows how these crates cooperate in one run. [Dependencies and licences](/architecture/dependencies/) covers what the crates pull in from outside.

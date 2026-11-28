@@ -1,0 +1,39 @@
+{
+  "name": "danaco-nurt-website",
+  "version": "0.1.2",
+  "private": true,
+  "type": "module",
+  "description": "The website of Danaco Nurt, a command shell and language where every change can be undone.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs && astro build && node scripts/build-search.mjs",
+    "build:site": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs && astro build",
+    "build:search": "node scripts/build-search.mjs",
+    "preview": "astro preview",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "check:content": "node scripts/check-content.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check": "node scripts/check-i18n.mjs && node scripts/check-content.mjs && node scripts/check-links.mjs",
+    "fonts": "python3 scripts/build_fonts.py $FONT_SOURCE src/assets/fonts",
+    "icons": "node scripts/build-icons.mjs",
+    "downloads": "node scripts/build-downloads.mjs",
+    "predev": "node scripts/sync-repository-files.mjs && node scripts/build-downloads.mjs",
+    "training": "python3 scripts/build_training_packs.py",
+    "sync": "node scripts/sync-repository-files.mjs"
+  },
+  "dependencies": {
+    "@astrojs/markdown-satteri": "^0.4.3",
+    "@astrojs/mdx": "^8.0.3",
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.8",
+    "fflate": "^0.8.3",
+    "satteri": "^0.10.5",
+    "sharp": "^0.35.5",
+    "three": "^0.186.0",
+    "yaml": "^2.9.1"
+  }
+}

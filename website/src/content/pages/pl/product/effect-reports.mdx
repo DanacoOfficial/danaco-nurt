@@ -1,0 +1,103 @@
+---
+title: Raporty skutków
+description: Co zawiera raport skutków uruchomienia Danaco Nurt, jego postacie tekstowa, JSON i Markdown, gdzie opublikowano schemat, jak czytać pola i jak raport łączy się z dziennikiem.
+section: product
+order: 6
+eyebrow: Produkt
+lead: Każde uruchomienie zwraca opis swojego skutku, a nie tylko informację, że coś się wykonało, w formacie czytelnym dla programu.
+updated: 2026-11-28
+related: [product/journal-and-undo, product/language, product/ai-agents, architecture/protocols]
+keywords: [raport, skutek, json, markdown, schemat, uruchomienie, wyjście, kontynuacja]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co zawiera raport
+
+Format to `nurt-report/1`. Raport pokazuje skutek, a nie tylko fakt, że coś się wykonało. Wymienia cele, zmienione i usunięte pliki z ich liczbą i łącznym rozmiarem, rozmiary i skróty przed zmianą i po niej, próbkę różnic, podsumowanie operacji masowych oraz niezwykłe skutki. Puste listy są pomijane, podobnie jak pola opcjonalne, gdy ich nie ma, więc raport zwykłego skutku pozostaje krótki.
+
+Raport zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem w dzienniku (zobacz niżej). [Specyfikacja raportu](/docs/specification/report/) wymienia każde pole.
+
+## Postacie raportu
+
+Parametr wywołania `format` wybiera postać renderowanego wyniku.
+
+| Postać | Zawartość |
+|---|---|
+| `text` (domyślna) | jeden blok na część raportu w stałej kolejności, bez sekwencji ANSI w odpowiedzi |
+| `json` | zredukowany raport w jednym wierszu JSON, zgodny ze schematem `nurt-report/1` |
+| `markdown` | nagłówki, tabele z kreskami pionowymi i bloki kodu dla różnic |
+| `compact` | jeden rekord w wierszu, bez nagłówków |
+
+Tekst, JSON i Markdown to postacie dla czytelników i programów. Tekstowa postać zamiany wygląda następująco; [dokumentacja referencyjna wyjścia raportu](/docs/reference/report-output/) opisuje każdą postać:
+
+```text
+op 18  replace  ok
+targets 3 files · replacements 7 · lines +7 −7 · 41.2kib → 41.3kib
+  /srv/app/src/a.go    3 repl  1.1kib → 1.1kib    1a2b3c4d → 9f8e7d6c
+diff (3 hunks)
+  /srv/app/src/a.go:12
+    - func oldName(x int) {
+    + func newName(x int) {
+notable
+  ! many_per_file  /srv/app/src/c/d.go  2  many replacements in one file
+next cursor c_5d2e
+```
+
+Nagłówki i etykiety postaci tekstowej, Markdown i compact są słowami kluczowymi i pozostają angielskie bez względu na wartość parametru `language`.
+
+## Schemat
+
+`nurt-report/1` jest opublikowany jako `schemas/nurt-report-1.schema.json` w specyfikacji, razem ze schematami żądania i odpowiedzi. Polecenie `nurt schema report` go wypisuje. W obrębie wersji głównej 1 formaty tylko zyskują pola opcjonalne i nowe wartości wyliczeń kodów, a czytnik ignoruje pola, których nie zna. Pola oznaczone `x-nurt-volatile` (`op`, `result_file`, `next_cursor`, `timing`) różnią się między uruchomieniami tego samego programu i są pomijane przy porównywaniu raportów.
+
+## Czytanie pól
+
+| Pole | Znaczenie |
+|---|---|
+| `status` | `ok`, `planned` (podgląd, nic się nie zmieniło), `running`, `partial`, `rolled_back` lub `failed` |
+| `kind` | polecenie zmieniające albo polecenie źródłowe programu odczytującego |
+| `op` | numer wpisu dziennika; nieobecny dla odczytów, podglądów i programów bez celów |
+| `targets`, `summary` | liczby plików, katalogów i bajtów; liczby utworzeń, modyfikacji, usunięć i zamian |
+| `changes` | zmienione cele na stronie, każdy z `action`, na przykład `create`, `modify`, `delete` lub `rename`; `state` oznacza zmianę poza systemem plików |
+| `notable` | niezwykłe skutki według ważności (`info`, `notice`, `warning`, `alert`); informuje i nie zatrzymuje programu |
+| `irreversible` | skutki, których `undo` nie może odwrócić, z przyczyną, na przykład `service_changed` lub `package_changed` |
+| `error` | `code`, `message`, `at`, `fix` i `candidates` nieudanego programu |
+| `corrections`, `ran` | poprawki zastosowane w tekście programu oraz kanoniczny tekst, który został wykonany |
+| `parts` | części konstrukcji sterującej w kolejności (gałąź, iteracja, krok), każda ze znacznikami `ok`, `rolled_back` i `irreversible` |
+| `elevated`, `backend` | obecne, gdy operacja działała z podwyższonymi uprawnieniami, oraz backend, który ją wykonał |
+| `continuation`, `next_cursor` | to, co skrócona odpowiedź pomija, oraz kursor następnej strony |
+
+Operacja od 200 celów (`report.mass_threshold`) jest operacją masową: przy szczegółowości `normal` raport pokazuje sumy, największe katalogi i rozszerzenia oraz kilka celów z początku i końca, a pełna lista pozostaje dostępna przez kursor. Sprawdzenie, które nie powiedzie się po skutku, takie jak `assert exit_code: 0` po `run`, daje status `ok` z polem `error`: skutek pozostaje.
+
+Szczegółowość to `quiet`, `normal` (domyślna) lub `detailed`, `limit` ustala rozmiar strony (domyślnie 50), a `save_to` zapisuje pełny wynik do pliku wskazanego przez `result_file`.
+
+## Raport a dziennik
+
+Raport wskazuje operację przez `op`. Stan wpisu, `available`, `partial`, `expired` lub `undone`, pokazuje `history`, a `irreversible` wymienia skutki, których `undo` nie może odwrócić. Raport `undo` i `redo` jest zwykłym raportem skutków. Zobacz [dziennik i cofanie](/pl/product/journal-and-undo/).
+
+## Wyjście `run` i jego kontynuacja
+
+Od wersji 0.1.1 odpowiedź [`run`](/docs/commands/run/) jest domyślnie krótka. Pełne wyjście jest przechowywane w pliku kolejki, a odpowiedź je kształtuje:
+
+| Reguła | Wartość domyślna |
+|---|---|
+| tekst wszystkich strumieni łącznie | co najwyżej `max_bytes`, 4096 bajtów (klucz `output.max_bytes`, `0` oznacza brak limitu) |
+| wiersz dłuższy niż 400 znaków | ucięty, z zakończeniem `… [+N characters]` |
+| powtarzające się wiersze | zwijane (`dedupe`), także wiersze różniące się tylko liczbami lub wersjami |
+| po kodzie wyjścia 0 | ostatnie 5 wierszy i pole `digest` |
+| po niepowodzeniu z więcej niż 20 wierszami | rozpoznawane jest wyjście `cargo`/`rustc` i `pytest`: `diagnostics` zawiera liczby i pierwsze 10 różnych błędów; tekst zachowuje ostatnie 10 wierszy |
+| wyjście jednego programu | `run.spool_max` wynosi `1gib`; powyżej tego wyjście jest liczone, haszowane i oznaczane `spool_limit` |
+
+Diagnostyka obejmuje wyjście `cargo`/`rustc` i `pytest` po niepowodzeniu przy dłuższym wyjściu, a `dedupe: false`, `max_bytes: 0` lub `head` i `tail` przywracają wcześniejszą postać odpowiedzi.
+
+Od wersji 0.1.1 polecenie `next` i pole `continuation` zastępują dawne `read_hint`. Odpowiedź, która pomija wiersze, rekordy lub końce długich wierszy, zawiera `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`), a jej tekst kończy się `more: next`. `next`, `next 200`, `next all` i `next full` zwracają kolejną część z pliku wyjścia, z zachowanego wyniku polecenia odczytującego lub z kursora `logs`, bez ponownego uruchamiania programu. Zachowane wyniki wygasają po `continuation.max_age` (1 godzina) i są ograniczone przez `continuation.max_count` (50) oraz `continuation.max_size` (256 MiB); wygasła kontynuacja kończy się błędem `E_CONTINUATION_EXPIRED`.
+
+<Callout type="note" title="Wersja formatu raportu">
+  Wersja formatu to `1.0`, zapisywana jako `"nurt": "1.0"`. Format raportu ma własny numer wersji; zmiana między wersjami 0.x jest zapisana w dzienniku zmian.
+</Callout>
+
+## Dokąd dalej
+
+Strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany, zanim powstanie raport. Dokumentacja referencyjna [wyjścia raportu](/docs/reference/report-output/) wymienia każdą opcję, a [Nurt dla agentów AI](/pl/product/ai-agents/) opisuje, jak program-gospodarz czyta raporty.

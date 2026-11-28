@@ -1,0 +1,87 @@
+---
+title: Platformy i instalacja
+description: Systemy i architektury, na których działa Danaco Nurt, dostarczane archiwa, instalatory i ich wpływ na PATH, pakiety, obrazy kontenerów oraz polecenia właściwe dla każdej platformy.
+section: product
+order: 10
+eyebrow: Produkt
+lead: Jeden plik wykonywalny na system operacyjny, archiwa dla każdego celu, dwa instalatory weryfikujące skrót SHA-256 i definicje pakietów dla popularnych menedżerów pakietów.
+updated: 2026-11-28
+related: [product/overview, project/versioning, project/status, product/integrations]
+keywords: [instalacja, Linux, Windows, macOS, glibc, musl, pakiety, kontenery]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co jest dostarczane
+
+<Stats>
+  <Fact id="platforms" />
+</Stats>
+
+Danaco Nurt to jeden plik wykonywalny dla każdego systemu operacyjnego: `nurt` w systemach Linux i macOS, `nurt.exe` w systemie Windows. Plik wykonywalny nie ma zależności w czasie działania poza samym systemem. Wydanie 0.1.2 dostarcza plik wykonywalny dla systemów Linux i Windows na architekturach x86-64 i aarch64, a dla Linuksa w postaci glibc i w postaci musl.
+
+| Kompilacja dla Linuksa | Łączenie |
+|---|---|
+| glibc | łączy dynamicznie `libc.so.6`, `libm.so.6` i `libgcc_s.so.1`; pakiety `.deb` i `.rpm` je deklarują |
+| musl | łączona statycznie, jako plik static-pie bez wpisów `NEEDED` |
+
+Kompilacja glibc łączy liblzma statycznie od 0.1.1, więc działa w systemie bez `liblzma.so.5`. Skrypt `tools/ci/check-dependencies.sh` odczytuje sekcję dynamiczną pliku ELF i przepuszcza go, gdy wymienia on wyłącznie `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` i dynamiczny ładowacz; workflow wydania uruchamia go na `nurt` i `libnurt.so.1` z obu archiwów glibc przed podpisaniem sum kontrolnych. Osobne archiwum zawiera bibliotekę C (`libnurt.so.1` lub `nurt.dll`, wraz z `nurt.h`); dla celów musl zawiera ono statyczną `libnurt.a` z `nurt.pc`, więc `pkg-config --static --libs nurt` linkuje program w C. Szczegóły: [instalacja](/docs/guide/installation/).
+
+## Obsługiwane systemy i archiwa
+
+Obsługiwane są systemy Linux, macOS i Windows, każdy na architekturach x86_64 i aarch64 ([wersjonowanie i wsparcie](/docs/guide/versioning/)). Ciągła integracja buduje, sprawdza lintem i testuje przestrzeń roboczą na `ubuntu-latest`, `macos-latest` i `windows-latest`. Skrypt `tools/release/build-release.sh` buduje archiwa `nurt-<version>-<target>` i `nurt-lib-<version>-<target>` dla tych celów, przy czym `zig cc` buduje cele linuksowe, których nie buduje kompilator hosta, a `cargo-xwin` buduje cele Windows:
+
+| Cel | Archiwum |
+|---|---|
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `.tar.gz` |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `.tar.gz` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip` |
+
+Każde wydanie zawiera `checksums.txt` z sumami SHA-256 i podpis odłączony `checksums.txt.asc`. Archiwum programu dla Linuksa zawiera `nurt`, teksty licencji, strony podręcznika, skrypty uzupełniania dla Basha, Zsh, Fish, PowerShella i Elvisha oraz dokumentację jako witrynę działającą bez sieci; archiwum dla Windows zawiera `nurt.exe`, teksty licencji, skrypty uzupełniania i dokumentację.
+
+Kandydat na wydanie 0.1.1 dał 12 archiwów dla sześciu celów; 12 z 12 sum się zgadza, a podpis `checksums.txt` jest poprawny (wersja 0.1.1, 27 listopada 2026). Archiwa Linuksa glibc i musl przechodzą kontrolę czystego systemu na Debianie 13 (wersja 0.1.1), a 19 scenariuszy end-to-end przechodzi na czystym systemie (wersja 0.1.1). Przebieg dla Windows to 13 455 testów zaliczonych na Windows 11 (wersja 0.1.1, 27 listopada 2026), przebieg dla Linuksa to 13 965 testów zaliczonych (wersja 0.1.1, Linux, 27 listopada 2026), a `cargo check` przechodzi dla `x86_64-apple-darwin` i `aarch64-apple-darwin` (wersja 0.1.1). Szczegóły są na stronie [testowanie](/pl/quality/testing/).
+
+## Instalatory
+
+| | `install.sh` (Linux, macOS) | `install.ps1` (Windows) |
+|---|---|---|
+| Polecenie | `curl -fsSL https://nurt.danaco-group.pl/install.sh \| sh` | `irm https://nurt.danaco-group.pl/install.ps1 \| iex` |
+| Domyślny cel | `$HOME/.local/bin`, bez uprawnień | `%LOCALAPPDATA%\Programs\Nurt\bin`, bez praw administratora |
+| Dla całego systemu | uruchomienie jako root z `--bin-dir /usr/local/bin` | `NURT_SCOPE=machine` z terminala administratora, do `%ProgramFiles%\Nurt` |
+| `PATH` | skrypt zgłasza, gdy katalog nie jest w `PATH` | katalog dodawany do `PATH` użytkownika, a dla `machine` — do `PATH` komputera; `NURT_NO_PATH_UPDATE=1` pozostawia go bez zmian |
+| Weryfikacja | SHA-256 archiwum względem `checksums.txt` | SHA-256 archiwum względem `checksums.txt` |
+
+`install.sh` w systemie Linux bierze statyczne archiwum musl, gdy wydanie je zawiera, a w przeciwnym razie archiwum glibc; maszyna z musl bierze archiwum musl. Z `--public-key` i `gpg` weryfikuje `checksums.txt.asc`. Oba skrypty czytają `NURT_VERSION` i `NURT_INSTALL_DIR`, a także `NURT_RELEASES_URL` dla innej lokalizacji wydań ([README pakietów](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/packaging/README.md)). `nurt.exe` nie żąda podniesienia uprawnień: jego manifest deklaruje poziom `asInvoker`, obsługę długich ścieżek i UTF-8 jako stronę kodową procesu. Polecenie `nurt version` wypisuje zainstalowaną wersję, a `nurt doctor` zgłasza właściwości systemu plików, uprawnienia, usługę i serwery języka.
+
+## Pakiety
+
+Katalog `packaging/` zawiera definicje; `render.py` wypełnia szablony skrótami z `checksums.txt`.
+
+| Pakiet | Polecenie | Definicja |
+|---|---|---|
+| Debian, Ubuntu | `apt install nurt` po dodaniu repozytorium | `build-deb.sh` buduje `nurt`, `libnurt1` i `libnurt-dev`; `apt-repo/mkrepo.py` generuje repozytorium |
+| Fedora, RHEL | `dnf install nurt` | `rpm/nurt.spec.in` dla `nurt`, `libnurt`, `libnurt-devel` |
+| macOS, Linux | `brew install DanacoOfficial/tap/nurt` | formuła z archiwów wydania; druga formuła buduje ze źródeł |
+| Windows | `winget install Danaco.Nurt` | przenośny plik zip, x64 i arm64 |
+| Windows | `scoop install nurt` | manifest z `checkver` i `autoupdate` |
+| Windows | `choco install nurt` | `nurt.nuspec.in` |
+
+Te same dane wejściowe i `SOURCE_DATE_EPOCH` dają identyczne pliki `.deb`. Workflow `release.yml` publikuje pakiety, a workflow `packaging.yml` instaluje je w czystych kontenerach Debiana, Ubuntu i Fedory.
+
+## Kontenery i CI
+
+W `integrations/containers` zdefiniowano trzy obrazy: `ghcr.io/danacoofficial/nurt` (baza `scratch`, zawierająca `nurt`, `LICENSE` i `NOTICE`), `nurt-ci` (Debian bookworm slim z `git` i `ca-certificates`) oraz `nurt-devcontainer` (bazowy obraz Dev Containers na bookworm z `nurt`, `git` i rekomendacją rozszerzenia `danaco.nurt`). Wszystkie są budowane dla `linux/amd64` i `linux/arm64`, a `NURT_STATE_DIR` to `/var/lib/nurt`; dziennik działa tam na warstwie kontenera, a wolumin zamontowany w tym miejscu zachowuje dziennik między kontenerami. Akcja GitHub `setup-nurt` działa na runnerach Linux, macOS i Windows i domyślnie weryfikuje skrót SHA-256; dla Linuksa pobiera archiwum musl. Zobacz [integracje](/pl/product/integrations/).
+
+## Polecenia właściwe dla platformy
+
+| Platforma | Zachowanie | Źródło |
+|---|---|---|
+| Linux, macOS | usługi to jednostki systemd i zadania launchd; `package.install` używa `apt`, `dnf`, `pacman`, `zypper` lub `brew`; `create` tworzy potoki nazwane (`type: fifo`) i węzły urządzeń (`type: device`) | [przewodnik dla Uniksa](/docs/guides/unix/), CHANGELOG 0.1.1 |
+| Linux | `max_memory` ogranicza przestrzeń adresową (`RLIMIT_AS`) | CHANGELOG 0.1.2 |
+| macOS | `max_memory` mierzy pamięć rezydentną; dziennik obejmuje ścieżki woluminu danych `/System/Volumes/Data`; zaporą jest `pf` | CHANGELOG 0.1.1 i 0.1.2 |
+| Windows | rejestr jest ścieżką z przedrostkiem `registry:`; `windows.cim` odpytuje klasy CIM i wywołuje ich metody; zaporą jest Windows Defender Firewall; pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` | [przewodnik dla Windows](/docs/guides/windows/), CHANGELOG 0.1.1 |
+| Linux | polecenia zapory działają na nftables, firewalld i ufw | CHANGELOG 0.1.1 |
+
+Dokumentację ścieżek i usług w każdym systemie opisują przewodniki dla systemów [Unix](/docs/guides/unix/) i [Windows](/docs/guides/windows/).

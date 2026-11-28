@@ -1,0 +1,49 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.docs.CommandCatalog
+// Responsibility:   The index of every command of the catalog, read from the command pages of the repository: the commands are grouped by their group, and each row gives the name, the summary of the command page and a link to it. The summaries are those of the repository and stay English in every locale.
+// Dependencies:     website.src.lib.docs.model, website.src.lib.urls, website.src.i18n, website.src.styles.components.command-catalog
+
+import '../../styles/components/command-catalog.css';
+import type { Locale } from '../../../config/i18n';
+import { entryUrl, getDocs, groupCommands } from '../../lib/docs/model';
+import { withBase } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale?: Locale;
+  level?: 2 | 3;
+}
+
+const { locale = 'en', level = 2 } = Astro.props;
+const ui = useUi(locale);
+const groups = groupCommands(await getDocs());
+const Heading = `h${level}` as 'h2' | 'h3';
+---
+
+<div class="command-catalog">
+  <nav class="command-catalog__jump" aria-label={ui.docs.commandGroups}>
+    {[...groups.entries()].map(([prefix, commands]) => (
+      <a href={`#group-${prefix}`}>{prefix === 'core' ? ui.docs.core : prefix}<span>{commands.length}</span></a>
+    ))}
+  </nav>
+  {[...groups.entries()].map(([prefix, commands]) => (
+    <section class="command-catalog__group">
+      <Heading id={`group-${prefix}`} class="command-catalog__title">
+        {prefix === 'core' ? ui.docs.core : prefix}
+        <small>{commands.length} {ui.docs.commandCount}</small>
+      </Heading>
+      <ul class="command-catalog__list" role="list">
+        {commands.map((command) => (
+          <li>
+            <a href={withBase(entryUrl(command))}><code>{command.data.stem}</code></a>
+            <span lang="en">{command.data.summary ?? command.data.description}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</div>

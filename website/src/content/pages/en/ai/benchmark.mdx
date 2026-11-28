@@ -1,0 +1,95 @@
+---
+title: The benchmark of tasks
+description: nurt-bench compares Danaco Nurt with bash and PowerShell 7 as the tool of an AI agent on 720 tasks in 12 domains, with an oracle, a protocol, six model configurations and commands that a lab runs on its own models.
+section: ai
+order: 5
+eyebrow: AI
+lead: 720 tasks, 72 of them held out, one agent loop, four conditions and an oracle that evaluates the final state of every run.
+updated: 2026-11-28
+related: [ai/overview, ai/model-labs, ai/training-packages, quality/performance]
+keywords: [benchmark, nurt-bench, tasks, held-out, oracle, protocol, completion, harm, models]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What the benchmark compares
+
+`nurt-bench` measures whether Danaco Nurt, used as the tool of an AI agent, completes more tasks with less harm and at lower cost than bash and PowerShell 7. The same agent loop runs the same tasks with several models, and only the tool differs. The runner, the analysis and the generator of data sets are the crate `crates/nurt-bench` (Apache-2.0) with the executable `nurt-bench`, and a lab runs it on its own models with its own API keys.
+
+| Directory | Content | License |
+|---|---|---|
+| `bench/tasks` | 720 tasks in 12 domains, format `nurt-bench-task/1` | CC BY 4.0 |
+| `bench/oracles` | the oracle that evaluates the final state of a run | Apache-2.0 |
+| `bench/fixtures` | shared initial file trees | CC BY 4.0 |
+| `bench/protocol` | the protocol, the system message, the tool definitions, the model configurations, the schemas and the container images | CC BY 4.0 |
+| `bench/data` | the pair data set "task → Danaco Nurt program" | CC BY 4.0 |
+
+## The task set
+
+The set holds 720 tasks, 60 in each of 12 domains. Of the 720 tasks, 648 are published (`split: "public"`), and 72 form the held-out set (`split: "holdout"`), which `holdout.json` lists by identifier and content hash. Per domain, 30 tasks have the platform `linux`, 15 have `windows` and 15 are `cross` tasks, which have one description and one expected state for Linux, macOS and Windows.
+
+| Domain | Directory | Content |
+|---|---|---|
+| 1 | `01-search` | search and reading |
+| 2 | `02-multi-edit` | editing multiple files |
+| 3 | `03-single-edit` | editing a single file, including exact string replacement |
+| 4 | `04-structured` | structured formats (JSON, TOML, YAML, INI, CSV, XML) |
+| 5 | `05-code` | code: refactoring and symbols |
+| 6 | `06-programs` | running programs and tests |
+| 7 | `07-background` | background jobs |
+| 8 | `08-system` | system and processes |
+| 9 | `09-archives` | archives and encodings |
+| 10 | `10-git` | Git |
+| 11 | `11-admin` | administration: services, registry, scheduling |
+| 12 | `12-provoke` | tasks that provoke known shell failure classes |
+
+A task is one JSON file with the description `nl` in English, the initial file tree `fs_before`, the expected final state `expect`, the changes that count as damage `forbidden`, the limits (15 steps and a time limit), the reference program of Danaco Nurt and the reference solutions in bash and PowerShell 7. The tasks of domain 12 are reported separately per failure class: a removed wrong directory, a truncated input and a corrupted encoding are harm in a shell condition even when the model reports success.
+
+## Conditions and the agent loop
+
+| Condition | Tool shown to the model | Systems |
+|---|---|---|
+| `bash` | `bash` | Linux, macOS |
+| `pwsh` | `pwsh` | Windows |
+| `nurt` | `nurt`, with the description of the core | Linux, macOS, Windows |
+| `nurt-groups` | `nurt`, with the description of a command group added to the result of the first call that uses the group | Linux, macOS, Windows |
+
+The agent loop, the system message, the limits and the model settings are identical in every condition. The conversation starts with the description of the task as the user message, and the model receives one tool. A response without a tool call ends the run as `answered`, and one model call is one step. A run ends at the step limit as `step_limit` or at the time limit as `time_limit`. The tool result is returned to the model, and the same limit of `max_tool_output_chars` (30,000) applies in every condition. The Danaco Nurt conditions use one `nurt serve --stdio` process per run, with a state directory and a configuration of its own, so that a run never touches the journal of the user.
+
+## The oracle
+
+The oracle is a separate process. It reads the task, the snapshot before the run, the snapshot after the run and the observation (the final answer and the results of the probes) and writes a verdict `nurt-bench-verdict/1`. The verdict reports whether the run is `completed`, because the expected final state holds, and whether it is `harmed`, because an entry changed outside the permitted set, an entry of the initial tree was lost, the encoding or the line ending style of a file changed, or a forbidden change happened. Probes read the state outside the file tree: the output of a command, the processes, the registry and the scheduled tasks.
+
+## Measures and analysis
+
+The measures of a run are completion, harm, lost entries, encoding changes, input and output tokens, tokens of the tool description, steps, wall clock time, intermediate scripts (a call that starts an interpreter of another language) and, for cross-system tasks, command corrections. For Danaco Nurt the measures FV (calls without a correction and without a notation error), FC (calls that ran after a correction of the notation), FE (FV + FC), FCR (corrected calls that changed an unexpected path) and AMB (calls that ended with `E_AMBIGUOUS`) are recorded.
+
+A Danaco Nurt run is paired with the shell run of the same model, task and seed. Completion is compared with an exact two-sided McNemar test and costs with a two-sided Wilcoxon signed-rank test, and intervals are 95% percentile bootstrap intervals with 10,000 resamples at the significance level 0.05. The criteria are no harm in any run of the Danaco Nurt condition, a completion rate at least that of the shell, and medians of tokens, steps and time at most those of the shell on the pairs completed in both conditions.
+
+## Protocol and models
+
+The protocol has version 1.0.0 (`protocol.toml`), and every run records it. Each task runs three times per model and condition, with the seeds 1, 2 and 3. The panel has at least six models of at least four producers, including models with open weights. The directory `bench/protocol/models` holds six configurations, each a file in the format `nurt-bench-model/1` with the provider, the model name, the producer, the weights, the temperature, the token limit and the name of the environment variable that holds the API key:
+
+| Configuration | Producer | Weights |
+|---|---|---|
+| `anthropic.toml` | Anthropic | closed |
+| `openai.toml` | OpenAI | closed |
+| `google.toml` | Google | closed |
+| `alibaba-qwen.toml` | Alibaba Cloud | open |
+| `deepseek.toml` | DeepSeek | open |
+| `meta-llama.toml` | Meta | open |
+
+The held-out tasks run with the public tasks and are reported separately. The model `mock:<file>` replays scripted responses and runs the runner and the analysis without network access.
+
+## Running the benchmark
+
+```sh
+cargo build --release -p nurt-bench
+nurt-bench run --condition bash --model bench/protocol/models/openai.toml --out runs
+nurt-bench run --condition nurt --nurt "nurt serve --stdio" --model bench/protocol/models/openai.toml --out runs
+nurt-bench analyze runs --out results
+```
+
+`nurt-bench run` takes `--tasks`, `--seeds` (default 3), `--filter`, `--jobs` and `--out`; a run whose complete log exists is not repeated. `nurt-bench analyze` writes `summary.json`, `tables.md` and `runs.csv`. `nurt-bench variants` writes the variants B and C of the reference programs for the syntax test, and `nurt-bench pairs` builds the pair data set of the [training packages](/ai/training-packages/). The run logs `nurt-bench-run/1` hold every model call and tool call. The code is licensed under Apache-2.0, and the tasks, the protocol files and the data sets under CC BY 4.0. A lab submits results as a pull request to `github.com/DanacoOfficial/danaco-nurt` or to support@danaco-group.pl.

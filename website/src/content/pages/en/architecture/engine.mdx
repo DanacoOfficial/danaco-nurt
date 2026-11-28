@@ -1,0 +1,71 @@
+---
+title: The engine
+description: "The life of a Danaco Nurt program: parsing, binding against the catalog, planning, staged execution with records, the journal and the report, plus privileges, the job supervisor and the shared services."
+section: architecture
+order: 2
+eyebrow: Architecture
+lead: One program passes through fixed steps. Steps 0 to 4 have no effect in the world, and every change of user data goes through a journal transaction.
+updated: 2026-11-28
+related: [architecture/overview, architecture/crates, product/journal-and-undo]
+keywords: [engine, stages, executor, journal, report, privileges, supervisor, services]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## From text to a syntax tree
+
+Nurt executes and records a syntax tree, never program text. The crate `nurt-syntax` holds the lexer, the parsers of the three notation variants, the canonical printer used by `nurt fmt` and the JSON and CBOR codecs of the tree. The crate `nurt-correct` first repairs the form of a program, never its intent, and every correction is reported to the caller.
+
+Parsing produces the **surface tree** `nurt-ast/1`. Binding it with the command catalog (`nurt-bind`) produces the **bound tree** `nurt-bound/1`, in which each stage has its canonical command name, defaulted arguments and a phase. The journal and the effect report store the bound tree. Both trees carry the version 1.1, documents of version 1.0 are read unchanged, and both are described in [the syntax tree specification](/docs/specification/syntax-tree/).
+
+A pipeline contains at most one stage that changes the world (phase `mutate`) or runs a program (phase `run`). Stages of phase `after` stand only behind it, and `verify`, when present, is the last stage. Any other stage after the effect is rejected with `E_ONE_EFFECT`.
+
+Version 1.1 of the trees brings the control constructs `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define` and `params` ([grammar](/docs/specification/grammar/)). A program with a construct is one operation and one journal entry, all or nothing. The journal transaction has the option `allow_incremental` for this, which lets it preserve further targets after its first change.
+
+## The steps of execution
+
+The specification [stage interface](/docs/specification/stages/) fixes the steps. The planner `nurt-plan` turns a bound program into an execution plan, and the executor `nurt-exec` runs it.
+
+| Step | Name | What happens | Effect in the world |
+|---|---|---|---|
+| `0` | parse | text is corrected and parsed into the surface tree | none |
+| `1` | bind | the tree is bound to the catalog; static checks of every stage | none |
+| `2` | read | sources and transforms produce records | reads only |
+| `3` | check | checks before the effect (`assert`) | none |
+| `4` | plan | the effect stage computes its targets; `preview` ends here | reads only |
+| `5` | apply | the effect stage changes the world through a journal transaction | change |
+| `5a` | after | stages after the effect read the records of the effect | none |
+| `6` | verify | the `verify` pipeline runs; failure rolls the effect back | rollback |
+| `7` | report | the effect report is built | none |
+
+The phase of a stage selects the interface the executor calls: `ReadStage::execute` for sources, transforms, checks and the stages after the effect, and `EffectStage::plan` followed by `EffectStage::apply` for `mutate` and `run`. In step 1 every stage also reports static facts without running: the network endpoints it contacts, the external programs it starts and the paths it names, so that an embedding application applies its own rules before execution. Several crates may implement one command name, for example `remove`; the registry selects the implementation by the record kind of the previous stage, and binding fails with `E_TYPE` when none accepts it.
+
+Stages exchange records in a `RecordStream`, a lazy iterator of results. A stage pulls records from its input as needed, so a pipeline holds its whole input in memory only where a stage must, as `sort`, `last` and `group` do; such a stage collects within a bound, and exceeding `limits.max_records` fails with `E_LIMIT`. An error ends the program ([records specification](/docs/specification/records/)).
+
+## Effects, the journal and the report
+
+In step 4 the effect stage records the entity tag of every target it read and returns a plan. A preview reports this plan and stops, and the apply step uses the same plan, so a preview shows exactly the targets that an execution changes. In step 5 the executor opens a journal transaction. All targets are declared and their previous state is preserved before the first change, and the journal compares entity tags (`E_STALE` on mismatch). The stage never commits: the executor commits on success and rolls back on failure or cancellation. Stages after the effect read the records of the effect in step 5a and never change the world; only `verify` rolls the effect back.
+
+The crate `nurt-journal` implements [the journal specification](/docs/specification/journal/): preservation of previous content, crash recovery, undo and redo, and retention by count, age and size. The previous content of every target exists in at least one place at every instant of a crash. The crate `nurt-space` decides per target whether the previous content is kept. Free space for the user has priority over the journal, so a target that the journal cannot keep is changed unpreserved and marked irreversible.
+
+The crate `nurt-report` builds the report `nurt-report/1` and renders it as text, JSON, Markdown and compact output. The report states the effect and carries a status: `ok`, `planned`, `running`, `partial`, `rolled_back` or `failed`. The fields are in [the report specification](/docs/specification/report/).
+
+## Privileges, programs and cancellation
+
+A call requests the rights of the administrator with the parameter `privilege` (`account`, the default, `elevated` or `auto`) and for another account with `as_user`. The engine tries the backends of `privilege.backends`: `self` when the process already is the administrator, and `sudo`, `doas` or `run0`, which start `nurt elevated-exec` and pass it one request on standard input, without building shell text. An elevated entry is written to the journal of the account that asked, and `undo N` restores it through the same backend ([security](/docs/guide/security/)).
+
+The crate `nurt-proc` starts programs without a shell, in their own process group or job object, with time, idle, processor and memory limits. Other command groups reach it through the service trait `ProcessHost`, which also runs GnuPG for OpenPGP signatures.
+
+Cancellation is cooperative. One token is shared by all stages of an execution, and its first reason ends the program with `E_CANCELLED`, `E_TIMEOUT` or `E_LIMIT`. Cancellation during step 5 rolls the transaction back, and cancellation before step 5 has no effect in the world.
+
+## The supervisor and the services
+
+A run that continues in the background after the command line exits is supervised by a process that outlives it. The two exchange files in `<state>/jobs`: start requests in `inbox/`, and a job file and a control directory for each job. A cancellation reaches the run in the form that fits its progress, and once the program has started the supervisor ends the whole process tree at once ([supervisor specification](/docs/specification/supervisor/)). The background service of `nurt-service` is a different process: it hosts the schedule module of `nurt-sched` and the free space module, and answers on a Unix socket or, on Windows, a named pipe.
+
+When a command of one group needs another group, it calls a service trait registered in a `Services` registry carried by the execution context: `DocService`, `CodeService`, `ProcessHost`, `FileListService`, `GitQueryService`, `TextCodecService`, `FileHolderService` and `ReviewRuleProvider`. A service that its group does not provide is replaced by the fallback of [the services specification](/docs/specification/services/), and the report notes the fallback.
+
+## Next
+
+The [crates](/architecture/crates/) page lists the crates that implement these steps; [the C interface](/architecture/c-interface/) and [protocols](/architecture/protocols/) describe the interfaces to the engine.
