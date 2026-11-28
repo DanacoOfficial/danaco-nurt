@@ -353,7 +353,11 @@ fn client_compat_d2_journal_inactive_rules() {
         }
         assert!(
             Instant::now() < deadline,
-            "the reference client did not see a running service; last verdict {verdict:?}"
+            "the reference client did not see a running service; last verdict {verdict:?}; \
+             ping with 50 ms: {}; ping with 1 s: {}; control client: {:?}",
+            d2_client::diagnose(&state_dir, Duration::from_millis(50)),
+            d2_client::diagnose(&state_dir, Duration::from_secs(1)),
+            client::ping(&paths, Duration::from_secs(1)),
         );
         thread::sleep(Duration::from_millis(5));
     }
