@@ -213,6 +213,7 @@ powtarzali `stat`.
 | Po `committed` | Wpis jest kompletny i można go cofnąć. |
 | Podczas odzyskiwania miejsca (`expiring`) | Usuwanie danych wpisu jest dokańczane. |
 | Manifest nie przechodzi kontroli integralności | Wpis przechodzi w `corrupt`; jego dane są zachowywane do ręcznego ratowania. |
+| Wycofania nie da się wykonać: nie można odnaleźć poprzedniej zawartości celu albo katalog, który zawierał cel, już nie istnieje | Nic nie jest zmieniane; wpis przechodzi w `corrupt`, a jego dane są zachowywane do ręcznego ratowania. Wpis nie jest ponawiany. |
 
 Manifest operacji z co najmniej 256 celami ma wersję formatu 2: rekordy celów
 są spakowane (`targets_z`: tablica JSON skompresowana Zstandard, Base64), a
@@ -267,7 +268,7 @@ zawartość jest zachowywana przez klon lub kopię, a raport pokazuje
 | `undone` | `undone` | Cofnięty w całości; przyczyna `undo`, `rolled_back`, `crash`, `verify_failed` lub `validate_failed`. |
 | `expiring` | `expired` | Odzyskiwany. |
 | `expired` | `expired` | Dla `history` pozostaje tylko nagrobek. |
-| `corrupt` | `expired` | Nie przeszedł kontroli integralności. |
+| `corrupt` | `expired` | Nie przeszedł kontroli integralności albo nie dało się go wycofać po awarii. |
 
 ## 7. Dopuszczenie i priorytet miejsca {#7-admission-and-space-priority}
 

@@ -24,13 +24,15 @@ Kod jest budowany i testowany w systemach z pierwszej tabeli. Druga tabela wymie
 |---|---|---|---|
 | Linux | x86_64, aarch64 | glibc i musl, każde dla x86_64 i aarch64 | ciągła integracja |
 | Windows | x86_64, aarch64 | MSVC, x86_64 i aarch64 | ciągła integracja |
-| macOS | x86_64, aarch64 | brak; zbuduj ze źródeł | ciągła integracja na środowiskach macOS; niektóre testy zawodzą sporadycznie, zobacz „Known issues” wydania 0.1.2 w `CHANGELOG.md` |
+| macOS | x86_64, aarch64 | brak; zbuduj ze źródeł | ciągła integracja na środowiskach macOS; dla wydania 0.1.2 nie opublikowano archiwum, zobacz „Known issues” wydania 0.1.2 w `CHANGELOG.md` |
 
 | Cel archiwum | System |
 |---|---|
 | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | Linux z glibc |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | Linux, statyczny plik wykonywalny |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Windows |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Windows 10 lub nowszy |
+
+Program instalacyjny dla Windows wymaga Windows 10 w wersji 1809 (kompilacja 17763) lub nowszej i sprawdza to po uruchomieniu. `nurt.exe` jest budowany zestawem narzędzi Rusta, którego cele Windows obsługują Windows 10 i nowsze.
 
 ## Artefakty wydania {#release-artifacts}
 

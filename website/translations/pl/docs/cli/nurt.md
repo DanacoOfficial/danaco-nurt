@@ -26,6 +26,8 @@ Pierwszy argument wybiera podpolecenie tylko wtedy, gdy jest dokładnie równy n
 
 Bez argumentów plik wykonywalny uruchamia sesję interaktywną.
 
+Powłoka usuwa własne cudzysłowy, zanim uruchomi program, więc tekst języka wymaga cudzysłowów, które dotrą do programu. W PowerShellu napisz `nurt find '"C:/logs"'`. Windows PowerShell 5.1 usuwa też wewnętrzne cudzysłowy argumentu programu; tam zapisz je z ukośnikiem odwrotnym, `nurt find '\"C:/logs\"'`, albo umieść program w pliku i uruchom go przez `nurt run` lub `nurt script`. Teksty języka przyjmują `/` jako separator ścieżek w każdym systemie, bez znaków ucieczki.
+
 | Opcja | Typ | Wartość domyślna | Znaczenie |
 |---|---|---|---|
 | `-V` | flaga | | Wypisz `nurt <version>`. |
@@ -147,7 +149,7 @@ Składnia:
 nurt repl
 ```
 
-Na terminalu sesja oferuje historię przechowywaną w katalogu stanu, uzupełnianie nazw poleceń i parametrów z katalogu poleceń, podświetlanie oraz baner: znak produktu, srebrny szewron i złoty szewron, narysowane półblokami (znakami 7-bitowego ASCII na terminalu bez UTF-8), z nazwą, zdaniem kanonicznym, wersją, wskazówką i wierszem praw autorskich obok. Na terminalu zbyt wąskim dla obu tekst znajduje się pod rysunkiem, a na terminalu węższym niż rysunek baner jest samym tekstem. Kursor jest migającym podkreślnikiem podczas wpisywania wiersza. Baner, znak zachęty i podświetlanie wiersza używają kolorów produktu: srebra i złota znaku oraz cyjanu jego błękitu. Terminal zgłaszający kolor 24-bitowy (`COLORTERM=truecolor`, Windows Terminal) pokazuje dokładnie te kolory, każdy inny terminal najbliższe kolory palety 256 kolorów; `NO_COLOR` i `output.color` je wyłączają. Wejście niebędące terminalem jest czytane wiersz po wierszu bez banera. Wiersz jest programem albo jednym z tych słów sesji:
+Na terminalu sesja oferuje historię przechowywaną w katalogu stanu, uzupełnianie nazw poleceń i parametrów z katalogu poleceń, podświetlanie oraz baner: znak produktu, srebrny szewron i złoty szewron, narysowane półblokami (znakami 7-bitowego ASCII na terminalu bez UTF-8), z nazwą, zdaniem kanonicznym, wersją, wskazówką i wierszem praw autorskich obok. Baner stoi trzy kolumny od lewej krawędzi, z jednym pustym wierszem nad nim i pod nim. Na terminalu zbyt wąskim dla obu tekst znajduje się pod rysunkiem, a na terminalu węższym niż rysunek baner jest samym tekstem. Kursor jest migającym podkreślnikiem podczas wpisywania wiersza. Baner, znak zachęty i podświetlanie wiersza używają kolorów produktu: srebra i złota znaku oraz cyjanu jego błękitu. Terminal zgłaszający kolor 24-bitowy (`COLORTERM=truecolor`, Windows Terminal) pokazuje dokładnie te kolory, każdy inny terminal najbliższe kolory palety 256 kolorów; `NO_COLOR` i `output.color` je wyłączają. Wejście niebędące terminalem jest czytane wiersz po wierszu bez banera. Wiersz jest programem albo jednym z tych słów sesji:
 
 | Słowo | Znaczenie |
 |---|---|

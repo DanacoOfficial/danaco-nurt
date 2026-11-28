@@ -38,6 +38,7 @@ zewnętrzny nie jest uruchamiany.
 |---|---|
 | Korzeń | `HKLM`, `HKCU`, `HKCR`, `HKU` lub `HKCC`. Pełne nazwy `HKEY_LOCAL_MACHINE`, `HKEY_CURRENT_USER`, `HKEY_CLASSES_ROOT`, `HKEY_USERS` i `HKEY_CURRENT_CONFIG` są akceptowane i pokazywane w postaci skróconej. |
 | Separator | `/`. Znak `/` wewnątrz nazwy klucza lub wartości zapisuje się jako `%2F`, a `%` jako `%25`. |
+| `\` | Nie rozdziela kluczy. Jest przyjmowany tylko w ostatnim segmencie, jako część nazwy wartości (`registry:/HKCU/Example/C:\Tools\app.exe`). Ścieżka z `\` w segmencie nazywającym klucz albo w jedynym segmencie poniżej korzenia jest odrzucana z błędem `E_INVALID_VALUE`: zapisz `registry:/HKCU/Software/Example`, a nie `registry:/HKCU/Software\Example`. |
 | Wielkość liter | Nazwy są porównywane bez rozróżniania wielkości liter. Wyniki pokazują pisownię zapisaną w rejestrze. |
 | Ostatni segment | Nazywa wartość, gdy klucz poprzedzający ma wartość o tej nazwie, w przeciwnym razie klucz. |
 | `(default)` | Nazywa wartość domyślną klucza, której `name` jest puste w `registry_value`. |

@@ -42,6 +42,8 @@ Zmiany poza systemem plików są cofane przez operacje odwrotne, które silnik w
 
 `enable` i `disable` są cofane tylko dla typów uruchamiania `disabled` i `automatic`; inne typy uruchamiania czynią wpis nieodwracalnym, a powód podaje raport. Wersja pakietu, której repozytorium już nie oferuje, czyni nieodwracalnym wyłącznie ten pakiet.
 
+`undo N` uruchamia operacje odwrotne wpisu `N`; `undo` bez numeru uruchamia je dla wpisu, który wybiera dziennik: najnowszego wpisu sesji, który nie jest cofnięciem. Operacje odwrotne zapisują własne wpisy. Taki wpis jest cofnięciem: `undo` bez numeru go nie cofa i kończy się błędem `E_JOURNAL_NOOP`, a `undo` z jego numerem przywraca stan sprzed cofnięcia.
+
 Nieodwracalne są `restart`, `stop` procesu oraz `run`: pliki zmienione przez program uruchomiony przez `run` z `privilege: elevated` nie są zachowywane, o czym informuje raport.
 
 ## Usługi {#services}
