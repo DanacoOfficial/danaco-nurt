@@ -6,13 +6,14 @@
 // Responsibility:   Interface tests in C: a test program is compiled with `clang` against `nurt.h`, linked with the shared library and run.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Interface tests in C: `tests/abi/c/abi_test.c` (feature `stub`) or
 //! `tests/abi/c/engine_test.c` (engine of `nurt-core`) is compiled with
 //! `clang` against `nurt.h`, linked with the shared library and run. The
-//! tests are skipped when `clang` is not in `PATH`.
+//! tests are skipped with a message when `clang` is not in `PATH`, and fail
+//! instead when the environment variable `NURT_REQUIRE_C_TOOLCHAIN` is set.
 
 #![cfg(unix)]
 #![allow(
@@ -29,7 +30,7 @@ use std::process::Command;
 #[cfg(feature = "stub")]
 #[test]
 fn c_program_passes_the_status_matrix_and_interface_checks() {
-    let Some(clang) = common::find_program("clang") else {
+    let Some(clang) = common::find_clang() else {
         return;
     };
     let work = tempfile::tempdir().unwrap();
@@ -47,7 +48,7 @@ fn c_program_passes_the_status_matrix_and_interface_checks() {
 #[cfg(not(feature = "stub"))]
 #[test]
 fn c_program_passes_the_interface_checks_on_the_engine() {
-    let Some(clang) = common::find_program("clang") else {
+    let Some(clang) = common::find_clang() else {
         return;
     };
     let work = tempfile::tempdir().unwrap();
@@ -61,7 +62,7 @@ fn c_program_passes_the_interface_checks_on_the_engine() {
 #[cfg(all(feature = "e2e", not(feature = "stub")))]
 #[test]
 fn c_program_runs_find_filter_count_and_remove_pipelines() {
-    let Some(clang) = common::find_program("clang") else {
+    let Some(clang) = common::find_clang() else {
         return;
     };
     let work = tempfile::tempdir().unwrap();
@@ -79,7 +80,7 @@ fn c_program_runs_find_filter_count_and_remove_pipelines() {
 
 #[test]
 fn c_program_finds_the_library_by_its_soname_with_an_empty_environment() {
-    let Some(clang) = common::find_program("clang") else {
+    let Some(clang) = common::find_clang() else {
         return;
     };
     let work = tempfile::tempdir().unwrap();

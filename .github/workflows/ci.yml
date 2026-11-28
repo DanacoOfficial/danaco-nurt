@@ -34,6 +34,10 @@ env:
   CARGO_NET_RETRY: "10"
   RUST_BACKTRACE: "1"
   RUSTUP_MAX_RETRIES: "10"
+  # The interface tests of nurt-ffi compile C programs with clang; a missing
+  # compiler fails them instead of skipping them. The runners of Linux and
+  # macOS provide clang; the tests do not exist on Windows.
+  NURT_REQUIRE_C_TOOLCHAIN: "1"
   # Minimum line coverage of the workspace and of the critical crates.
   COVERAGE_MIN_WORKSPACE: "80"
   COVERAGE_MIN_CRITICAL: "90"
@@ -123,6 +127,12 @@ jobs:
           key: test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
+      - name: Install the C compiler
+        if: runner.os == 'Linux'
+        run: sudo apt-get install --yes --no-install-recommends clang
+      - name: Check the C compiler
+        if: runner.os != 'Windows'
+        run: clang --version
       - name: Install cargo-nextest
         uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         continue-on-error: true
@@ -180,6 +190,10 @@ jobs:
           key: coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
+      - name: Install the C compiler
+        run: sudo apt-get install --yes --no-install-recommends clang
+      - name: Check the C compiler
+        run: clang --version
       - name: Install cargo-llvm-cov and cargo-nextest
         uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         with:
