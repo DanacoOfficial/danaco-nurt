@@ -38,6 +38,8 @@ Three review scripts open a served site in a headless browser. They need `puppet
 | `node scripts/review-contrast.cjs <base address> <addresses…>` | measures every visible text of the given pages against its solid ground in the light and in the dark theme and lists the texts below 4.5 : 1 (3 : 1 for large text); `REVIEW_WIDTH` sets the width of the window (1440 by default), and on a narrow window the menu is opened first |
 | `node scripts/review-screens.cjs <base address> <directory> <width or WxH> <address> [screens]` | writes screenshots of one page, one per screen of the window; `REVIEW_THEME` chooses the theme and `REVIEW_CLICK` clicks a selector first |
 
+The built pages are valid HTML: the Nu Html Checker, where the environment has it, reports no error with `vnu --errors-only --skip-non-html dist/`.
+
 ## 2. Deployment address
 
 One build serves one address. The address is chosen by environment variables read in `config/site.ts`; no file has to be edited.
