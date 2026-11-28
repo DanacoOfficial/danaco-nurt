@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.scripts.import-docs-translations
-// Responsibility:   Copies the Polish translations of the documentation of the release into website/translations/pl/, each file at the repository path of its English original (docs/commands/replace.md, spec/grammar.md), so the documentation loader finds a translation by the path of the source.
+// Responsibility:   Copies the Polish translations of the documentation of the release into website/translations/pl/, each file at the repository path of its English original (docs/commands/replace.md, spec/grammar.md), so the documentation loader finds a translation by the path of the source. A delivered file replaces the file at its path; a translation written in the repository for a file outside the delivered set stays.
 // Dependencies:     node:fs, node:path
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,7 +16,6 @@ if (!source || !existsSync(source)) {
   throw new Error('import-docs-translations: give the directory of the translations as the first argument');
 }
 const target = path.join(root, 'translations/pl');
-rmSync(target, { recursive: true, force: true });
 
 /** Lists the Markdown files under a directory with their paths relative to it. */
 function walk(directory, prefix = '') {

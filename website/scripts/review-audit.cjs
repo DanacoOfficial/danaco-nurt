@@ -61,6 +61,9 @@ function inspect() {
   const ids = Array.from(document.querySelectorAll('[id]')).map((element) => element.id);
   const repeated = ids.find((id, index) => ids.indexOf(id) !== index);
   if (repeated) issues.push(`repeated id ${repeated}`);
+  const labels = [document.title, ...Array.from(document.querySelectorAll('h1, h2, h3, h4, nav a')).map((element) => element.textContent)];
+  const marker = labels.find((label) => /\{#[^}]*\}/.test(label));
+  if (marker) issues.push(`anchor marker in a label: ${marker.trim().slice(0, 60)}`);
   if (root.lang.startsWith('pl') && location.pathname.includes('/docs/')) {
     const text = Array.from(document.querySelectorAll('.prose h2, .prose h3')).map((heading) => heading.textContent.trim());
     if (text.some((label) => /^(Synopsis|Description|Parameters|Examples|Errors|Related|Effect|Input and output)$/.test(label))) issues.push('English documentation headings on a Polish page');

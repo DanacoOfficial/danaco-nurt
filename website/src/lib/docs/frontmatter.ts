@@ -93,7 +93,7 @@ export function readSource(text: string, stem: string): SourceFile {
   const heading = FIRST_HEADING.exec(withoutComments);
   const title =
     (typeof front.title === 'string' && front.title) ||
-    (heading ? heading[1].replace(/[`]/g, '') : '') ||
+    (heading ? heading[1].replace(/[`]/g, '').replace(/\s*\{#[^}]*\}\s*$/, '') : '') ||
     (typeof front.name === 'string' && front.name) ||
     stem;
   const body = heading && withoutComments.trimStart().startsWith(heading[0]) ? withoutComments.replace(heading[0], '').replace(/^\s+/, '') : withoutComments;
