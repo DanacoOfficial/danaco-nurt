@@ -248,6 +248,31 @@ fn static_arg(value: &BoundExpr) -> ArgValue {
     }
 }
 
+/// Returns `true` when `value` reads a field of the current record.
+fn reads_record(value: &BoundExpr) -> bool {
+    match value {
+        BoundExpr::Field { of: None, .. } => true,
+        BoundExpr::Field { of: Some(base), .. } => reads_record(base),
+        BoundExpr::Call { args, .. } => args.iter().any(reads_record),
+        BoundExpr::Un { x, .. } | BoundExpr::Spread { x } => reads_record(x),
+        BoundExpr::Bin { l, r, .. } => reads_record(l) || reads_record(r),
+        BoundExpr::List { items } => items.iter().any(reads_record),
+        BoundExpr::Map { entries } => entries.iter().any(|entry| reads_record(&entry.v)),
+        _ => false,
+    }
+}
+
+/// Returns `true` when an argument of `stage` is an expression that the
+/// executor evaluates once before the stage runs: a reference to a named
+/// result or to a parameter of a function, or a call such as `ago(1h)`. The
+/// static check receives such an argument without its value.
+fn awaits_the_run(stage: &BoundStage) -> bool {
+    stage.args.iter().any(|arg| match &arg.value {
+        BoundExpr::Null | BoundExpr::Sub { .. } => false,
+        value => static_value(value).is_none() && !reads_record(value),
+    })
+}
+
 /// Bound arguments of a stage as seen by its static check.
 pub(crate) fn static_args(stage: &BoundStage) -> BoundArgs {
     let mut args = BoundArgs::new(stage.name.clone());
@@ -409,9 +434,13 @@ impl Collector<'_> {
             return Ok(());
         };
         let ctx = CheckCtx::new(spec, self.host, self.config);
-        let info = implementation
-            .check(&static_args(&planned.stage), &ctx)
-            .map_err(with_bind_stage)?;
+        let info = match implementation.check(&static_args(&planned.stage), &ctx) {
+            Ok(info) => info,
+            // The value of an argument is known only in the run, so the
+            // verdict on the arguments belongs to the run.
+            Err(_) if awaits_the_run(&planned.stage) => StaticInfo::default(),
+            Err(error) => return Err(with_bind_stage(error)),
+        };
         self.merge(planned, info);
         Ok(())
     }
@@ -524,7 +553,7 @@ mod tests {
         reason = "tests fail by panicking"
     )]
 
-    use nurt_contracts::bound::BoundMapEntry;
+    use nurt_contracts::bound::{BoundArg, BoundMapEntry, BoundRef, Phase};
 
     use super::*;
 
@@ -649,6 +678,43 @@ mod tests {
             fields.get("action"),
             Some(&Value::Text("remove".to_owned()))
         );
+    }
+
+    fn stage_with(value: BoundExpr) -> BoundStage {
+        BoundStage {
+            name: "skip".to_owned(),
+            effect: EffectKind::Read,
+            phase: Phase::Transform,
+            waits: false,
+            args: vec![BoundArg::given("count", value)],
+            span: None,
+        }
+    }
+
+    #[test]
+    fn an_argument_evaluated_before_the_stage_awaits_the_run() {
+        let parameter = BoundExpr::Ref(BoundRef {
+            name: "keep".to_owned(),
+            fields: Vec::new(),
+        });
+        assert!(awaits_the_run(&stage_with(parameter)));
+        let call = BoundExpr::Call {
+            function: "ago".to_owned(),
+            args: vec![BoundExpr::Dur { v: 3_600_000 }],
+        };
+        assert!(awaits_the_run(&stage_with(call)));
+        let field = BoundExpr::Field {
+            name: "size".to_owned(),
+            of: None,
+        };
+        assert!(!awaits_the_run(&stage_with(field.clone())));
+        let of_the_record = BoundExpr::Call {
+            function: "lower".to_owned(),
+            args: vec![field],
+        };
+        assert!(!awaits_the_run(&stage_with(of_the_record)));
+        assert!(!awaits_the_run(&stage_with(BoundExpr::Int { v: 7 })));
+        assert!(!awaits_the_run(&stage_with(BoundExpr::Null)));
     }
 
     #[test]

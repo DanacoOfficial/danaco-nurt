@@ -135,6 +135,32 @@ fn check_with_the_front_end_accepts_a_valid_program() {
     assert!(!stderr(&output).contains("E_UNSUPPORTED"));
 }
 
+#[test]
+fn check_accepts_arguments_whose_value_the_run_computes() {
+    for program in [
+        "sleep 500ms",
+        "journal.limits steps: 10 age: 5m",
+        "lines \"/srv/app.log\" |> parse /(?<level>[A-Z]+) (?<message>.*)/",
+        "undo file: \"/srv/app/a.go\" since: ago(1h)",
+        "define rotate_logs(dir: path, keep: int = 7) {\n    find @dir |> skip @keep\n}\nrotate_logs(\"/srv\")",
+    ] {
+        let output = nurt(&["check", "-e", program], "");
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{program}: {}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
+fn check_still_rejects_a_wrong_literal_argument() {
+    let output = nurt(&["check", "-e", "undo since: 18"], "");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("E_INVALID_VALUE"));
+}
+
 const SIZE_AGAINST_TEXT: &str = "find \"/tmp\" |> filter size > \"abc\"";
 
 /// The document written to the standard output, and the exit code.
