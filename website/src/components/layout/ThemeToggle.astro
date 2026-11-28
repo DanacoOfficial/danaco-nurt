@@ -1,0 +1,37 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.ThemeToggle
+// Responsibility:   The button that switches between the dark and the light theme.
+// Dependencies:     website.src.components.base.Icon, website.src.i18n, website.src.styles.components.theme-toggle
+
+import '../../styles/components/theme-toggle.css';
+import Icon from '../base/Icon.astro';
+import { useUi } from '../../i18n';
+import type { Locale } from '../../../config/i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const ui = useUi(Astro.props.locale);
+---
+
+<button
+  type="button"
+  class="theme-toggle"
+  data-theme-toggle
+  data-label-dark={ui.header.themeDark}
+  data-label-light={ui.header.themeLight}
+  aria-label={ui.header.theme}
+  aria-pressed="false"
+>
+  <Icon name="moon" class="theme-toggle__moon" />
+  <Icon name="sun" class="theme-toggle__sun" />
+</button>
+
+<script>
+  import '../../scripts/theme-toggle';
+</script>

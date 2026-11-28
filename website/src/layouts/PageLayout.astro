@@ -1,0 +1,79 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.layouts.PageLayout
+// Responsibility:   The layout of an authored content page: the header with the breadcrumb trail, the prose with the MDX components, the table of contents, the related pages and the pager of the section.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.base.Prose, website.src.components.layout.Toc, website.src.components.layout.Pager, website.src.lib.pages
+
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import PageHeader from '../components/sections/PageHeader.astro';
+import Prose from '../components/base/Prose.astro';
+import Toc from '../components/layout/Toc.astro';
+import Pager from '../components/layout/Pager.astro';
+import Card from '../components/content/Card.astro';
+import CardGrid from '../components/content/CardGrid.astro';
+import type { Locale } from '../../config/i18n';
+import type { SectionKey } from '../../config/sections';
+import { findPage, getSectionPages, pagePath, type PageEntry } from '../lib/pages';
+import { localisedPath } from '../lib/urls';
+import { useUi } from '../i18n';
+import '../styles/components/page-shell.css';
+
+interface Props {
+  entry: PageEntry;
+  locale: Locale;
+  headings: MarkdownHeading[];
+}
+
+const { entry, locale, headings } = Astro.props;
+const ui = useUi(locale);
+const section = entry.data.section as SectionKey;
+const path = pagePath(entry);
+const sectionTitle = ui.section[section].title;
+const siblings = await getSectionPages(locale, section);
+const position = siblings.findIndex((candidate) => candidate.id === entry.id);
+const previous = position > 0 ? siblings[position - 1] : undefined;
+const next = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : undefined;
+const related = (await Promise.all(entry.data.related.map((target) => findPage(locale, target)))).filter((candidate): candidate is PageEntry => candidate !== undefined);
+const crumbs = [{ label: sectionTitle, path: `/${section}/` }, { label: entry.data.title, path }];
+---
+
+<BaseLayout
+  title={entry.data.title}
+  context={sectionTitle}
+  description={entry.data.description}
+  locale={locale}
+  path={path}
+  type="article"
+  breadcrumbs={[{ label: sectionTitle, path: `/${section}/` }, { label: entry.data.title, path }]}
+>
+  <PageHeader locale={locale} title={entry.data.title} lead={entry.data.lead ?? entry.data.description} eyebrow={entry.data.eyebrow ?? sectionTitle} crumbs={crumbs} updated={entry.data.updated} />
+  <div class="container">
+    <div class:list={['page-shell', entry.data.toc && headings.length > 2 && 'page-shell--with-toc']}>
+      <div class="page-shell__main">
+        <Prose>
+          <slot />
+        </Prose>
+        {related.length > 0 && (
+          <section class="page-shell__related" aria-labelledby="related-title">
+            <h2 id="related-title">{ui.common.related}</h2>
+            <CardGrid columns={3}>
+              {related.map((page) => (
+                <Card title={page.data.title} href={localisedPath(pagePath(page), locale)}>{page.data.description}</Card>
+              ))}
+            </CardGrid>
+          </section>
+        )}
+        <Pager
+          locale={locale}
+          previous={previous ? { title: previous.data.title, path: pagePath(previous) } : undefined}
+          next={next ? { title: next.data.title, path: pagePath(next) } : undefined}
+        />
+      </div>
+      {entry.data.toc && <Toc locale={locale} headings={headings} />}
+    </div>
+  </div>
+</BaseLayout>

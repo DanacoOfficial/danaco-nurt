@@ -1,0 +1,113 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.cards
+ * Responsibility:   Cards and the card grid: a raised ground with cut corners, a gold icon and a hover state for linked cards.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.utilities
+ */
+
+.card-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 40rem) {
+  .card-grid--2,
+  .card-grid--3,
+  .card-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .card-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .card-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* The card is drawn as a frame: the element is filled with the line colour and clipped to the cut corners, and its ::before, one pixel inside, carries the fill under the same cut. The border therefore follows the diagonal of each cut corner. */
+.card {
+  --cut: 16px;
+  --card-line: var(--line);
+  --card-fill: var(--bg-raised);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--card-line);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.card::before {
+  --cut-x: calc(var(--cut) - 0.6px);
+  --cut-y: calc(var(--cut-x) * var(--stream-slope));
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--card-fill);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut-x)) 0,
+    100% var(--cut-y),
+    100% 100%,
+    var(--cut-x) 100%,
+    0 calc(100% - var(--cut-y))
+  );
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.card--link:hover {
+  --card-line: var(--accent);
+  --card-fill: color-mix(in srgb, var(--accent) 5%, var(--bg-raised));
+  transform: translateY(-2px);
+  color: var(--text);
+}
+
+.card__icon {
+  color: var(--accent-strong);
+}
+
+.card__eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.card__title {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+}
+
+.card__body {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.card__body > * + * {
+  margin-top: var(--space-2);
+}
+
+.card__arrow {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  color: var(--accent-strong);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.card--link:hover .card__arrow {
+  transform: translateX(4px);
+}

@@ -1,0 +1,59 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.print
+ * Responsibility:   Print style: black text on white, no navigation, visible link addresses in the body.
+ * Dependencies:     none.
+ */
+
+@media print {
+  :root,
+  :root[data-theme] {
+    --bg: #ffffff;
+    --bg-raised: #ffffff;
+    --bg-soft: #ffffff;
+    --bg-code: #f3f3f3;
+    --text: #000000;
+    --text-muted: #222222;
+    --text-faint: #444444;
+    --line: #bbbbbb;
+    --line-strong: #888888;
+    --link: #000000;
+  }
+
+  body {
+    font-size: 11pt;
+    display: block;
+  }
+
+  .site-header,
+  .site-footer,
+  .skip-link,
+  .docs-sidebar,
+  .toc,
+  .pager,
+  .cta-band,
+  .language-switch,
+  .theme-toggle,
+  .copy-button {
+    display: none !important;
+  }
+
+  .prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  pre,
+  table,
+  figure {
+    break-inside: avoid;
+  }
+
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+}

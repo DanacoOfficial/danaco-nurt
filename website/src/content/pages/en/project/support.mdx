@@ -1,0 +1,71 @@
+---
+title: Support and contact
+description: Where to ask questions and report defects in Danaco Nurt, how vulnerabilities are reported privately, and what a useful bug report contains.
+section: project
+order: 8
+eyebrow: Project
+lead: Questions and defects go to the repository or to support@danaco-group.pl; vulnerabilities go to e-mail only.
+updated: 2026-11-28
+related: [quality/security, project/contributing, project/status]
+keywords: [support, contact, issues, bug report, security report]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Where to go
+
+| You want to | Go to |
+|---|---|
+| Understand how something works | the [documentation](/docs/guide/): guide, command reference, cookbook, cheatsheets and specification |
+| Report a defect or request a feature | the [issues of the repository](https://github.com/DanacoOfficial/danaco-nurt/issues); the repository offers a form for a bug report and a form for a feature request |
+| Ask a question or reach the maintainers | `support@danaco-group.pl` |
+| Report a suspected vulnerability | `support@danaco-group.pl`, subject starting with `[security] nurt`, never in a public issue |
+| Report a breach of the Code of Conduct | `support@danaco-group.pl` |
+| Report an accessibility barrier on this site | `support@danaco-group.pl`; see [Accessibility](/legal/accessibility/) |
+
+The documentation on versioning and support names the same address for questions and defects. Before you open an issue, search the existing ones; the repository does not accept blank issues, so an issue is opened with one of the forms.
+
+## Reporting a vulnerability
+
+Vulnerabilities are not reported in an issue, a pull request or a discussion. Send an e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`. Reports may be written in English or Polish. A report contains, as far as available:
+
+- the affected version, commit or release artifact;
+- the operating system and architecture;
+- a description of the issue and its impact;
+- steps to reproduce, a proof of concept or a minimal Nurt program;
+- any known mitigations.
+
+The scope, the process and the verification of releases are in [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) and on the [security](/quality/security/) page.
+
+## What a useful bug report contains
+
+The bug report form of the repository asks for the following items, and they are what a maintainer needs to reproduce a problem.
+
+1. **The version.** Run `nurt --version`. It prints `nurt <version> (<commit> <date>)`, the copyright line and the license; the part in parentheses is omitted when the executable was built without repository data. `nurt version` prints the version in the form `nurt <version>` on its first line. For a build from source, give the commit.
+2. **The operating system, its version and the architecture,** for example Ubuntu 24.04, x86_64. `nurt doctor` reports the properties of the file system, the permissions, the service and the language servers that it found.
+3. **A minimal program that reproduces the problem.** Use example paths such as `/home/user`, not the paths of your machine.
+4. **The actual result: the report or the error that was returned,** preferably in JSON form. Each run returns a report of its effects, and an error carries a stable code (`E_...`), a position and a correction, so the report names the stage and the code of the failure.
+5. **The expected result.**
+6. **The context:** the configuration and the integration in use (command line, library or the Model Context Protocol server).
+
+```sh
+nurt --version
+nurt exec --json '<program>'
+```
+
+The second line is an example of the form of `nurt exec` with `--json`, as the command line page documents it; replace `<program>` with the minimal program. The exact options are on the [command line](/docs/guide/command-line/) page.
+
+## Response times
+
+The only response times that a source in the repository states are those of the security process in SECURITY.md:
+
+| Step | Target time |
+|---|---|
+| Acknowledgement of the report | within 3 business days |
+| Initial assessment and severity rating | within 10 business days |
+| Fix for a critical vulnerability | within 7 days of confirmation |
+| Coordinated public disclosure | within 90 days of the report, or earlier when a fix is released |
+
+No response time is stated for questions, defect reports or feature requests, and this page makes no promise for them. For the state of the product and its known limits, read [Status and limitations](/project/status/) first; to propose a change yourself, see [Contributing](/project/contributing/).

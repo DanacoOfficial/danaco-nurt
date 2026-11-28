@@ -1,0 +1,79 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.how
+ * Responsibility:   The how-it-works block of the home page: the numbered points beside the terminals.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.how {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.how__points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how__point {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.how__point h3 {
+  font-size: var(--text-lg);
+}
+
+.how__index {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--accent);
+  color: var(--accent-on);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 5px, 100% 100%, 7px 100%, 0 calc(100% - 5px));
+}
+
+.how__terminals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .how {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-8);
+  }
+}
+
+/* While the terminal session plays, the step that the shown line illustrates is lit and the others recede. */
+.how__point {
+  transition: opacity 400ms var(--ease-out);
+}
+
+.how__index {
+  transition: box-shadow 400ms var(--ease-out), transform 400ms var(--ease-out);
+}
+
+.how__points:has(.is-active) .how__point:not(.is-active) {
+  opacity: 0.45;
+}
+
+.how__point.is-active .how__index {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
+}

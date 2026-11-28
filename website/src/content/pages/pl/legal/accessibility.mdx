@@ -1,0 +1,61 @@
+---
+title: Dostępność
+description: Cel dostępności tej witryny, WCAG 2.2 poziom AA, środki wbudowane w witrynę, znane ograniczenia i sposób zgłaszania barier.
+section: legal
+order: 2
+eyebrow: Informacje prawne
+lead: Witryna dąży do WCAG 2.2 poziom AA. Ta strona wymienia, co jest wbudowane, co jak wiadomo nie spełnia wymagań i jak zgłosić barierę.
+updated: 2026-11-28
+related: [legal/privacy, project/brand, project/support]
+keywords: [dostępność, WCAG, klawiatura, kontrast, czytnik ekranu]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Przyjęty standard
+
+Witryna dąży do spełnienia wytycznych Web Content Accessibility Guidelines (WCAG) 2.2, poziom AA. To cel projektu i budowy, a nie oświadczenie o zgodności: w repozytorium nie zapisano niezależnego audytu witryny, a ta strona nie twierdzi, że spełniono każde kryterium sukcesu.
+
+## Środki wbudowane w witrynę
+
+| Obszar | Środek |
+|---|---|
+| Struktura | link pomijający, widoczny po przejściu fokusem klawiatury, prowadzi od początku każdej strony do treści; strony używają punktów orientacyjnych (nagłówek, nawigacja, region główny i stopka) |
+| Klawiatura | nawigację, menu wąskich ekranów (zamykane klawiszem Escape), wyszukiwanie, przyciski kopiowania i przełącznik motywu można obsługiwać z klawiatury |
+| Fokus | fokus klawiatury jest widoczny, rysowany jako obrys o grubości 2 px w mocnym akcencie motywu; kontrast tego obrysu podano niżej |
+| Kolor | jasny i ciemny motyw używają kolorów tożsamości; wartości kontrastu są w tabeli poniżej |
+| Tekst | tekst można powiększać w przeglądarce |
+| Skrypty | strony można czytać bez JavaScriptu, a główna nawigacja i odnośniki w stopce działają bez niego; JavaScript jest używany przez wyszukiwanie, przyciski kopiowania, przełącznik motywu, przycisk menu wąskich ekranów, wyróżnianie bieżącego nagłówka w spisie treści i ruch na stronach |
+| Ruch | wejścia elementów, liczniki, sesja terminala i trójwymiarowy znak działają tylko wtedy, gdy czytelnik nie zażądał ograniczenia ruchu; w przeciwnym razie ta sama treść jest pokazana w spoczynku |
+| Motywy | motyw podąża za preferencją systemu, dopóki nie wybierzesz własnego przełącznikiem |
+
+### Kontrast kolorów tożsamości
+
+Współczynniki kontrastu zmierzono w tożsamości (wzór WCAG 2.1) i podano w dokumencie tożsamości marki.
+
+| Kolory | Współczynnik | Użycie |
+|---|---|---|
+| Srebro `#DDE1E6` na grafitowym `#0B0C0E` | 14,9 : 1 | tekst na ciemnych tłach |
+| Złoto `#C9A15A` na grafitowym `#0B0C0E` | 8,1 : 1 | akcenty na ciemnych tłach |
+| Tusz `#2B2F36` na papierze `#F6F7F8` | 12,5 : 1 | tekst na jasnych tłach |
+| Głębokie złoto `#A3722A` na papierze `#F6F7F8` | 3,9 : 1 | wyłącznie znaki i linie, nigdy tekst |
+| Złoto tła `#D9BC85` na graficie `#0B0C0E` | 10,7 : 1 | obrys fokusu w ciemnym motywie |
+
+Głębokie złoto pozostaje poniżej 4,5 : 1, więc witryna nie używa go do tekstu. Obrys fokusu ma w ciemnym motywie złoto tła `#D9BC85` (10,7 : 1), a w jasnym głębokie złoto `#A3722A` (3,9 : 1); obie wartości przekraczają 3 : 1, jakie kryterium sukcesu 1.4.11 (kontrast elementów nietekstowych) ustala dla widocznego stanu składników interfejsu. Oba współczynniki obrysu obliczono na potrzeby tej strony wzorem WCAG z tokenów kolorów witryny. Pozostałe wartości pochodzą z identyfikacji; stron witryny nie mierzono ponownie jedna po drugiej na potrzeby tej strony.
+
+## Znane ograniczenia
+
+- **Dokumentacja jest importowana.** Strony pod `/docs/` są renderowane z Markdown repozytorium i zachowują jego strukturę. Ich nagłówki, tabele i teksty odnośników podlegają zasadom pisania dokumentacji, a nie osobnemu przeglądowi dostępności.
+- **Bloki kodu mogą wymagać przewijania poziomego.** Długie wiersze programów, poleceń i tabel nie są zawijane, a wąski ekran lub duży rozmiar tekstu mogą wymagać przewijania na boki.
+- **Tylko po angielsku.** Dokumentacja jest dostępna wyłącznie po angielsku. Strony napisane na potrzeby witryny są dostępne po angielsku i po polsku.
+- **Obrazy.** Rendery i makiety tożsamości mają alternatywę tekstową opisującą obraz, ale obrazy na stronie marki są z natury wizualne, a tekst obok nich podaje przedstawiane przez nie wartości (kolory, rozmiary i zasady).
+- **Bez JavaScriptu.** Na wąskim ekranie menu główne jest pokazane w postaci rozwiniętej pod nagłówkiem, a nie za przyciskiem. Wyszukiwanie, przyciski kopiowania i przełącznik motywu są niedostępne.
+- **Brak audytu.** Nie zapisano testu z czytnikiem ekranu na wszystkich stronach ani audytu zewnętrznego. Mogą istnieć bariery, którym powyższe środki nie zapobiegają.
+
+## Zgłaszanie bariery
+
+Jeżeli nie możesz skorzystać ze strony, komponentu lub dokumentu witryny, napisz na adres `support@danaco-group.pl`. Podaj adres strony, co próbowałeś zrobić, co Cię zatrzymało oraz przeglądarkę, system operacyjny i używane technologie wspomagające. Repozytorium nie podaje czasu odpowiedzi na takie zgłoszenia, a ta strona go nie obiecuje. Zgłoszenia dotyczące programu (nie witryny) przebiegają według strony [Wsparcie i kontakt](/pl/project/support/).
+
+Opis tego, co witryna zapisuje i wysyła, jest na stronie [prywatność](/pl/legal/privacy/); kolory tożsamości opisuje strona [marka](/pl/project/brand/).

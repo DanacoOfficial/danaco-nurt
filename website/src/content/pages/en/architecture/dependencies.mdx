@@ -1,0 +1,79 @@
+---
+title: Dependencies and licences
+description: The dependency policy enforced by cargo-deny, the allowed licences, the categories of dependencies, what the executable bundles and links, and the dependency changes of releases 0.1.1 and 0.1.2.
+section: architecture
+order: 6
+eyebrow: Architecture
+lead: Dependencies come from crates.io only, under permissive licences, and the policy file records a reason for every exception.
+updated: 2026-11-28
+related: [architecture/crates, architecture/overview, quality/supply-chain, project/license]
+keywords: [dependencies, licences, cargo-deny, gix, sqlite, tree-sitter, musl, glibc]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The policy
+
+The policy is the file `deny.toml`, checked by `cargo deny --locked check` and described in `docs/conventions/licensing.md`. It evaluates the dependency graph for eight targets (x86-64 and aarch64 for Linux glibc, Linux musl, macOS and Windows MSVC) with all features enabled. Its rules:
+
+- **Sources.** Dependencies come from the crates.io registry only. An unknown registry and a git dependency are denied.
+- **Advisories.** Vulnerable, unsound and unmaintained crates are errors, and yanked crates are denied. The only ignored advisory in 0.1.2 is RUSTSEC-2026-0543 (`chrono`, unmaintained, no reported vulnerability), with a recorded reason: `macos-unifiedlogs` and `russh-util` require it.
+- **Licences.** Only the licences below are allowed. Any other licence, including GPL, LGPL and AGPL in every version, is rejected. An expression with alternatives is accepted when one alternative is allowed.
+- **Bans.** Wildcard version requirements are denied and multiple versions of one crate produce a warning. Eleven crates are banned by name, each with a reason, among them `openssl` and `openssl-sys` (TLS uses rustls), `git2` and `libgit2-sys` (Git support uses gix), `curl-sys` (HTTP uses ureq), `sequoia-openpgp` (LGPL; OpenPGP signatures are made by GnuPG), `libsystemd-sys` (LGPL) and `unrar` (its licence forbids creating a RAR compressor).
+
+| Allowed licences |
+|---|
+| `0BSD`, `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`, `BSD-2-Clause`, `BSD-3-Clause`, `BSL-1.0`, `CC0-1.0`, `ISC`, `MIT`, `MIT-0`, `Unicode-3.0`, `Unlicense`, `Zlib` |
+
+Five exceptions apply to one crate each, after an individual review: `webpki-roots` (`CDLA-Permissive-2.0`, Mozilla root certificates as data, a fallback when the operating system store is unavailable), `libbz2-rs-sys` (`bzip2-1.0.6`), `uluru` and `option-ext` (`MPL-2.0`, unmodified transitive dependencies of the Git library and of the WebAssembly runtime cache) and `libfuzzer-sys` (`NCSA`, linked only into fuzzing targets and never into distributed artifacts). The product itself is licensed under Apache-2.0, and the `NOTICE` file must accompany every distribution.
+
+## Categories of dependencies
+
+Versions are those of `Cargo.lock` at release 0.1.2, which lists 900 packages including the workspace crates.
+
+| Category | What is used | Notes |
+|---|---|---|
+| Git implementation | the `gix` family, `gix` 0.91.0 and its sub-crates, in Rust | `git2` and libgit2 are banned. SSH transport uses `russh` 0.65.4. OpenPGP signatures are made by GnuPG, started as a program; SSH signatures are made in the process |
+| Language parsers | `logos` and `winnow` for the language; `jaq-core` and `jaq-std` with the vendored `jaq-json` for queries | |
+| Document parsers | `toml_edit`, `saphyr`, `jsonc-parser`, `quick-xml`, `csv`, `plist`, `rust-ini` | layout-preserving editing of documents is the task of `nurt-doc` |
+| Source code | `tree-sitter` 0.27.2, `ast-grep-core` 0.51.3 and the grammars of Go, Rust, Python, JavaScript, TypeScript, C, C++, Java, Ruby, C#, PHP, Bash, PowerShell, JSON, YAML, TOML, Markdown, HTML, CSS, Kotlin, Swift and XML | the grammars are compiled from source with a C compiler |
+| SQLite | `rusqlite` 0.43.0 with the `bundled` feature, `libsqlite3-sys` 0.40.0 | SQLite is compiled from source, not taken from the system |
+| Archives and compression | `zip` 9.8.1, `tar`, `flate2`, `bzip2`, `liblzma` with the `static` feature, `lz4_flex`, `zstd`, `sevenz-rust2`, `lzma-rust2` | |
+| PDF | the vendored `nurt-pdf-extract` on `lopdf` 0.47.0 | text extraction only |
+| Network | `ureq` 3.5.2, `rustls` 0.23.46, `hickory-resolver` 0.26.3, `socket2`, `rustls-native-certs` | no OpenSSL and no libcurl |
+| Async runtime | `tokio` 1.54.1, `axum` 0.8.9, `rmcp` 3.12.0 | used by the Model Context Protocol server; the SSH transport uses a current-thread runtime |
+| Extensions | `wasmtime` 51.0.0, `libloading` | WebAssembly host and native libraries |
+| Command line | `clap`, `reedline`, `crossterm` | |
+| Operating system | `rustix`, `nix`, `libc`, `windows-sys`, `windows`, `windows-service`, `zbus`, `notify`, `sysinfo` | `macos-unifiedlogs` reads macOS log archives |
+| Node.js addon | `napi` 3.16.2 | crate `nurt-node` |
+
+## What is in the executable
+
+The README states that the file system, text, archive, document, code, version control, network and system operations are implemented in the program and do not invoke external tools. The sources name programs that are started on purpose, among them a program the user runs through `run`, GnuPG for OpenPGP signatures (below), the elevation backends `sudo`, `doas` and `run0`, and the package managers of the commands `package.install`, `package.remove` and `package.upgrade`. Of the libraries listed above, SQLite and the tree-sitter grammars are built from the bundled source, which is why building needs a C compiler.
+
+| Build | Linking |
+|---|---|
+| Linux, glibc | links `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the dynamic loader. The `.deb` and `.rpm` packages declare them. Every other library is part of the executable, among them liblzma (XZ Utils 5.8.4, built from bundled source) |
+| Linux, musl | linked statically. The library archive of the musl targets holds the static `libnurt.a` |
+| Windows, MSVC | the Microsoft Visual C++ runtime is linked statically (`crt-static`), as the `NOTICE` file states |
+| macOS | liblzma is linked statically according to `NOTICE`. The continuous integration runs clippy and the tests on a macOS runner; no macOS archive is published |
+
+<Callout type="warning" title="Limits of the release">
+  The changelog of 0.1.2 states that no macOS archive is published and lists known issues on macOS: tests of the change tracking of `nurt-proc` and one protocol test of `nurt-service` fail intermittently on the macOS runners, and the cause is not established. The release candidate of 0.1.1 built 12 archives, program and library for each of six targets: Linux glibc, Linux musl and Windows MSVC, on x86-64 and aarch64 (release report of that candidate). The changelog of 0.1.2 does not list the archives of this release.
+</Callout>
+
+## Changes in 0.1.1 and 0.1.2
+
+The changelog of 0.1.1 (27 November 2026) lists the following changes of dependencies and linking.
+
+1. `gix` and its sub-crates moved to the 0.91 generation, which no longer depends on `heapless` 0.8 (nine advisories, RUSTSEC-2026-0574 to RUSTSEC-2026-0582).
+2. The unused `netstat2` dependency and the AVIF encoder of the `image` crate (`ravif`, `rav1e`) were removed. This removed the unmaintained `paste` crate (RUSTSEC-2024-0436). Reading of AVIF files was never enabled.
+3. OpenPGP signatures of commits and tags are made and checked by GnuPG instead of the `pgp` crate, which removed `rsa` 0.9 (RUSTSEC-2023-0071) and `crypto-bigint` 0.5 (RUSTSEC-2026-0387). The program named by `gpg.openpgp.program` or `gpg.program` (`gpg` by default) runs through the program service. A missing or failing program refuses the signature with `E_GIT_SIGN`, and verification without it reports the status `unsupported`.
+4. The text extraction of `pdf-extract` 0.12.1 became the workspace crate `nurt-pdf-extract` on `lopdf` 0.47, which no longer needs the unmaintained `ttf-parser` (RUSTSEC-2026-0192).
+5. The `chrono` feature was switched off for `croner`, `lopdf`, `rmcp` and, through it, `schemars`. `chrono` stays in the graph through `macos-unifiedlogs` and `russh-util`, and `deny.toml` records the reason.
+6. On Linux the executable and the library link liblzma statically, so the program runs on a system without `liblzma.so.5`, and the `.deb` package no longer depends on `liblzma5`.
+7. `nurt-service` compiles for `x86_64-unknown-linux-musl`, and the release procedure builds the static musl archive.
+
+The lock files of the fuzz targets were regenerated as well. The changelog of 0.1.2 lists no change of dependencies; its entries are fixes of search and replace, of the journal, of the memory limit and of process signals on macOS, and a variable for the clang of the Windows build. What the project verifies about its supply chain is on the [supply chain](/quality/supply-chain/) page, and the licence of the code is on the [licence](/project/license/) page.

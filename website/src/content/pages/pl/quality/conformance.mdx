@@ -1,0 +1,61 @@
+---
+title: Zgodność
+description: Jak Danaco Nurt 0.1.2 porównuje się z git, ze swoją specyfikacją i między wiązaniami językowymi, co zapisane przypadki dowodzą, a czego nie, oraz zasady programu zgodności.
+section: quality
+order: 3
+eyebrow: Jakość
+lead: "Sprawdzane są cztery rodzaje zgodności: z git, ze specyfikacją, między wiązaniami a silnikiem oraz między dokumentacją a katalogiem."
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/testing, architecture/protocols, project/status]
+keywords: [zgodność, git, difftest, specyfikacja, wiązania, compatible, docgen]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Testy różnicowe z git
+
+<Stats>
+  <Fact id="gitComparisons" />
+  <Fact id="specFiles" />
+</Stats>
+
+Skrzynka `nurt-git-difftest` porównuje polecenia `git.*` z programem `git`. Dla każdego scenariusza program przygotowuje repozytorium i tworzy dwie kopie zgodne co do bajta. Wykonuje operację programem `git` na kopii A i poleceniem Nurt na kopii B, a następnie porównuje znormalizowany stan obu kopii. Potem operację Nurt cofa się przez dziennik, a kopia B musi być równa stanowi początkowemu. `git fsck --strict` sprawdza obie kopie, a zapis po stronie Nurt poza jej transakcją dziennika kończy scenariusz niepowodzeniem. Scenariusz to jeden plik `scenarios/<group>/<name>.toml`; repozytorium zawiera ich 775, w grupach nazwanych od poleceń, a raport wydania zapisuje 775 z 775 zgodnych przy rewizji `70e8dddd`, w przebiegu kandydata na wydanie 0.1.1 z 27 listopada 2026. Drzewo wydania 0.1.2 także zawiera 775 plików scenariuszy, bez zapisanego przebiegu. W wydaniu 0.1.2 program zapisuje dla obu stron globalną konfigurację `git` z `gc.auto = 0` i `maintenance.auto = false`, aby konserwacja, którą `git` uruchamia po rewizji, nie tworzyła plików blokad i paczek w czasie kopiowania lub odczytu repozytorium (`crates/nurt-git-difftest/src/git.rs`).
+
+Ograniczenia opisuje plik README skrzynki. Testy są pomijane, z komunikatem i bez niepowodzenia, gdy `git` nie leży w ścieżce wyszukiwania albo jest starszy niż 2.43, a scenariusz może zostać pominięty przez platformę, transport albo ciężkie repozytorium korpusu. Scenariusz pominięty nie jest zaliczony, więc liczba dotyczy środowiska, w którym `git` był dostępny i żaden scenariusz nie został wykluczony. Testy różnicowe `nurt-files` porównują w ten sam sposób polecenia plikowe na Linuksie z programami systemu; przeszły w kontrolach wydania 0.1.1.
+
+## Specyfikacja
+
+Katalog `spec/` zawiera dokumenty języka (katalog, konfigurację, błędy, dziennik, raport, etapy, drzewo składni i inne), schematy JSON w `spec/schemas` oraz pliki wzorcowe w `spec/golden`. Są one importowane do witryny jako [specyfikacja](/docs/specification/). Pliki wzorcowe są danymi odniesienia dla testów składni, wiązania nazw i raportu. Specyfikację sprawdzają wyłącznie te testy i przypadki zgodności; nie zapisano odrębnego przeglądu treści każdego dokumentu względem zachowania programu.
+
+## Zestaw zgodności
+
+`conformance/` zawiera przypadki zestawu w plikach danych (`cases`, `correction`, `errors`, `exec`, `bind`, `journal`, `parity`, `golden`), a uruchamia je program `nurt-conformance`. Zestaw komunikuje się z implementacją wyłącznie przez protokół `nurt-rpc/1` polecenia `nurt serve --stdio`, więc można testować implementację napisaną w dowolnym języku:
+
+```sh
+nurt-conformance run --impl "nurt serve --stdio" --report nurt-conformance.json
+```
+
+Przypadek jest `mandatory` albo `optional:<feature>`; przypadki, których warunki nie zachodzą, są zgłaszane jako pominięte, a raport `nurt-conformance-report/1` ustawia `conformant` tylko dla kompletnego przebiegu bez filtrów. Plik wersji zestawu zawiera 0.1.0, niezależnie od wersji `nurt`. Plik testów `conformance/tools/test_suite.py` ma 166 niezaliczonych testów, ponieważ generator nie zna poleceń administracyjnych. Raport wydania 0.1.1 oznacza go jako leżący poza przepływami i przypisany do wydania 0.1.2; dziennik zmian wydania 0.1.2 nie wymienia poprawki, a `conformance/` nie zmienił się od `v0.1.1`.
+
+### Przypadki wiązań językowych
+
+`conformance/bindings/api.json` (format `nurt-binding-cases/1`) zawiera 23 przypadki z 30 krokami, które każde wiązanie dla Go, Node, .NET, Javy i Pythona uruchamia względem serwera. Przepływy wiązań budują `nurt-conformance` i uruchamiają jego serwer zastępczy `fake-serve`, który odpowiada z zapisanych przypadków. Z tym serwerem przeszły przy `27c9ff8a`.
+
+<Callout type="warning" title="Zapisane przypadki różnią się od silnika">
+  Raport wydania stwierdza, że przypadki z `api.json` zapisano dla serwera zastępczego, a przy silniku jako serwerze 11 z 29 nie przechodzi. Oba przykłady, które wymienia, są w pliku: `history.entries` oczekuje członu `entries`, a `info.versions` oczekuje `language`; raport podaje, że silnik i specyfikacja dają w pierwszym przypadku `operations`. Liczby 29 nie udało się odtworzyć z pliku, który ma 23 przypadki i 30 kroków, więc jest ona przytoczona z raportu i niepotwierdzona. Raport przypisał różnice do wydania 0.1.2; `api.json` nie zmienił się od `v0.1.1`, więc pozostają otwarte.
+</Callout>
+
+Z programem `nurt` z archiwum `v0.1.1` wiązania uruchomiono następująco (raport wydania): Go z detektorem wyścigów, Node 120 z 120, .NET 105 zaliczonych i 12 pominiętych, bo wymagają biblioteki albo serwera, Java 101 z 101. Te przebiegi są odrębne od 11 różniących się przypadków.
+
+## Dokumentacja a katalog
+
+`nurt-docgen check` weryfikuje dokumentację względem katalogu poleceń. Wymaga strony dla każdego polecenia i zakazuje stron bez polecenia, porównuje liczby podane w `docs/` z katalogiem oraz przepuszcza każdy przykładowy program przez kontrolę statyczną, która wiąże nazwy, parametry, wartości wyliczeń i rodzaje rekordów. Kontrola nie oblicza wyrażeń i nie zna pól rekordów, więc przykład może ją przejść i mimo to zawieść po uruchomieniu. Kontrolą jest test `documentation_passes_all_checks` przestrzeni roboczej (`crates/nurt-docgen/tests/repository.rs`), który zakończył się kodem wyjścia 0 przy rewizji `afd3571e`. Testy stron podręcznika są puste tam, gdzie nie ma `mandoc`.
+
+## Program zgodności
+
+Strona `docs/site/compatibility.md` stwierdza, że implementacja albo integracja, która przechodzi obowiązkowe testy `nurt-conformance`, może używać nazwy „Danaco Nurt Compatible” i znaku programu. Stwierdza też, że warunki programu zostaną opublikowane po zatwierdzeniu przez właściciela nazwy oraz że licencja kodu nie daje prawa do używania nazw „Danaco” i „Danaco Nurt”. README zestawu zgodności dodaje procedurę: uruchomić wydany zestaw z `--report` na kompilacji wydaniowej w każdym obsługiwanym systemie, zachować raporty bez zmian i wysłać je z nazwą i wersją implementacji na adres wsparcia. Samych warunków nie ma w dokumentach repozytorium.
+
+Zob. [zgodność](/docs/guide/compatibility/) w dokumentacji oraz strony o [testowaniu](/pl/quality/testing/) i [wydajności](/pl/quality/performance/).

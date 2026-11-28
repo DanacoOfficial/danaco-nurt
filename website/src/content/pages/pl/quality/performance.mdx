@@ -1,0 +1,91 @@
+---
+title: Wydajność
+description: Co zmierzono, a co jedynie zaprojektowano w Danaco Nurt 0.1.2 - poprawka wyszukiwania i zamiany, zmiany kosztu dziennika, limity uruchomienia, testy skali oraz benchmark zadań, którego wyniku nie opublikowano.
+section: quality
+order: 4
+eyebrow: Jakość
+lead: Strona oddziela liczby, które zmierzono, od limitów ustawionych tylko w testach lub w konfiguracji, i wprost stwierdza, że nie opublikowano żadnego wyniku benchmarku.
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/testing, product/journal-and-undo, product/ai-agents]
+keywords: [wydajność, benchmark, dziennik, wyszukiwanie, zamiana, spool_max, skala, nurt-bench]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co opublikowano, a czego nie
+
+Repozytorium nie zawiera opublikowanego porównania szybkości Danaco Nurt z innym narzędziem ani opublikowanego wyniku benchmarku zadań. Liczby poniżej są trzech rodzajów: pomiary podane w dzienniku zmian, limity ustawione w testach i w konfiguracji oraz pomiary z raportu wydania z 27 listopada 2026 (przebieg kandydata na wydanie 0.1.1). Limit nie jest wynikiem pomiaru.
+
+## Wyszukiwanie i zamiana w wydaniu 0.1.2
+
+`CHANGELOG.md`, sekcja 0.1.2 (28 listopada 2026), zapisuje jedyną poprawkę wydajności tego wydania: wyszukiwanie i zamiana z wyrażeniem regularnym nie zajmują już czasu kwadratowego względem liczby dopasowań w jednym wierszu, ponieważ granice wiersza dopasowania wyprowadza się z samego dopasowania, zamiast szukać ich ponownie od początku wiersza. Dziennik zmian podaje pomiar: 20 000 dopasowań w wierszu o długości 60 000 bajtów zamienia się w około 0,1 s zamiast 2,5 s.
+
+Dziennik zmian nie podaje maszyny ani rodzaju kompilacji. Komunikat rewizji `d8b33a23d` dodaje szczegóły: zamiana używała wyrażenia regularnego z grupami, 2,5 s zmierzono w kompilacji debug, 40 000 dopasowań zajmowało 9,5 s przed zmianą i 0,18 s po niej, a 20 000 dopasowań zajmuje po zmianie 0,09 s. Są to pojedyncze pomiary autorów i nie zapisano przebiegu wydania 0.1.2, więc pokazują usunięcie składnika kwadratowego, a nie szybkość w kompilacjach wydaniowych ani na innych maszynach.
+
+## Koszt dziennika w wydaniu 0.1.1
+
+Dziennik zmian wydania 0.1.1 (27 listopada 2026) opisuje tańsze wpisy dziennika dla operacji na wielu małych plikach, na przykład `replace` na tysiącach plików i jego `undo`:
+
+- taka operacja jest „kilka razy szybsza”, a jej wpis jest proporcjonalny do zmienionej treści; dziennik zmian nie podaje wartości w sekundach ani maszyny;
+- w wywołaniu `preserve` z co najmniej 64 celami poprzednia treść plików do 4096 bajtów jest przechowywana w manifeście, a nowe pliki i katalogi są zapisywane na dysk jednym wywołaniem przed zatwierdzeniem, a nie jednym zapisem na plik;
+- manifesty operacji z co najmniej 256 celami mają format w wersji 2 (czytnik wersji 1 go odrzuca), a wpis cofnięcia tysięcy plików jest „około siedem razy mniejszy”.
+
+Ten sam dziennik zmian stwierdza, że cofnięcie miliona usuniętych plików trwa 5,3 razy dłużej niż usunięcie oraz że test cofania w pełnej skali (`undo_mass_full_scale_within_six_times_the_operation` w `crates/nurt-journal/src/undo.rs`, domyślnie ignorowany) dopuszcza teraz do sześciokrotności czasu operacji, a wcześniej dopuszczał trzykrotność. Dziennik zmian nie podaje maszyny ani daty dla wartości 5,3.
+
+Scenariusz T12 w `tools/release/scenarios.sh` wykonuje `replace` i `undo` na 3000 plików i kończy się niepowodzeniem, gdy któraś z operacji trwa dłużej niż 60 sekund; raport nie podaje czasów.
+
+## Limity uruchomienia
+
+Dwa ustawienia ograniczają wyjście programu. Oba opisuje `spec/configuration.md`.
+
+| Klucz | Wartość domyślna | Skutek |
+|---|---|---|
+| `run.spool_max` | `1gib` (przed 0.1.1: `unlimited`) | największe wyjście przechowywane dla programu: jego początek i, do jednej czwartej limitu (najwyżej 64 MiB), jego koniec; bajty pomiędzy są pomijane, oznaczone w pliku bufora i zgłaszane uwagą `spool_limit`; liczniki i skrót obejmują całe wyjście |
+| `output.max_bytes` | `4096` | liczba bajtów tekstu jednego strumienia wyjścia pokazywana w odpowiedzi; `0` oznacza brak limitu |
+
+Dziennik zmian podaje powód wprowadzenia `spool_max`: program piszący bez końca nie zapełnia już dysku. Dzięki `max_bytes` odpowiedź `run` jest domyślnie krótka: po kodzie wyjścia 0 zwracane jest ostatnie 5 wierszy i pole `digest`, a po niepowodzeniu wydobywa się diagnostykę `cargo`, `rustc` i `pytest`. Nie zapisano pomiaru oszczędności w tokenach ani w czasie.
+
+## Limity ustawione w testach
+
+Kilka testów ma limity czasu lub kosztu. Pokazują, czego wymaga projekt; żaden nie podaje szybkości, którą produkt osiągnął.
+
+| Test | Limit | Źródło |
+|---|---|---|
+| mały zapis z dziennikiem | mediana co najwyżej 1 ms na woluminach w pamięci, 201 próbek; dziesięciokrotność w kompilacjach bez optymalizacji | `tests/d2/perf/main.rs` |
+| cofnięcie operacji masowej na 1000 plikach | co najwyżej trzykrotność czasu operacji | `tests/d2/perf/main.rs` |
+| usunięcie drzewa | liczone jako jedno przeniesienie, przez zliczanie operacji systemu plików, co nie zależy od maszyny | `tests/d2/perf/main.rs` |
+| odzyskiwanie dziennika z milionem wpisów | budżet 5 sekund w kompilacji wydaniowej, uruchamiany tylko na żądanie | `tests/d2/crash/journal_scale.rs` |
+| odzyskiwanie wśród miliona pustych katalogów wpisów | poniżej 5 sekund | `crates/nurt-journal/tests/perf.rs` |
+| wyszukiwanie względem `rg` na korpusie 1 GiB; przejście 10^6 pozycji względem `fd` | co najwyżej 1,3 raza czas drugiego programu; uruchamiane na żądanie | `crates/nurt-files/tests/perf_search.rs`, `perf_walk.rs` |
+| polecenia przeszukujące programy systemu, syntetyczny system z 2000 plików wykonywalnych | od 5 ms do 1 s zależnie od przypadku w kompilacjach wydaniowych; 25 razy więcej w kompilacjach debug | `crates/nurt-programs/tests/perf.rs` |
+
+<Callout type="warning" title="Odzyskiwanie dużego dziennika nie jest potwierdzone">
+  Dziennik zmian wydania 0.1.0 stwierdza, że czas odzyskiwania 5 sekund dla dziennika z milionem wpisów nie został potwierdzony: ostatni pomiar wyniósł 6,2 sekundy, przed późniejszymi poprawkami. Raport wydania 0.1.1 oraz dzienniki zmian wydań 0.1.1 i 0.1.2 nie zapisują nowego pomiaru, więc wartość pozostaje niepotwierdzona.
+</Callout>
+
+## Testy skali w raporcie wydania
+
+Test `remove_tree_1e6_is_undone_and_redone` usuwa drzewo miliona plików, a następnie cofa i ponawia usunięcie. Jest oznaczony `ignore` i działa na żądanie.
+
+| Przebieg | Rewizja | Wynik |
+|---|---|---|
+| `final9`, testy skali (11 testów) | `afd3571e` | kod wyjścia 0; usunięcie 1 000 000 plików trwało 24 minuty |
+| maszyna z 16 GB RAM | `fee503cf` | niepowodzenie w dwóch przebiegach: jądro zabiło proces z braku pamięci po 424 sekundach przy rozmiarze rezydentnym 15,2 GiB, bez błędu asercji |
+| przeciążony kontener | `05705587` | zabity sygnałem `SIGKILL` po 668 sekundach |
+
+Raport nie podaje sprzętu przebiegu `final9`, więc jego czasu nie można porównać z inną maszyną, a niepowodzenie na maszynie z 16 GB pokazuje, że test potrzebuje więcej pamięci, niż miała ta maszyna. Wszystkie trzy to przebiegi kandydata 0.1.1; żadnego nie powtórzono dla wydania 0.1.2.
+
+## Benchmark zadań
+
+`nurt-bench` (katalog `bench/` i skrzynka `crates/nurt-bench`) nie mierzy szybkości poleceń. Sprawdza, czy Danaco Nurt, użyty jako narzędzie agenta AI, kończy więcej zadań przy mniejszej szkodzie i niższym koszcie niż bash i PowerShell 7; ta sama pętla agenta wykonuje te same zadania z kilkoma modelami, a różni się tylko narzędzie.
+
+- Zestaw liczy 720 zadań w 12 dziedzinach (po 60 na dziedzinę, wśród nich wyszukiwanie, edycja, formaty strukturalne, Git, administracja oraz zadania prowokujące znane awarie powłok). 648 jest publicznych, a 72 zatrzymano; wymienia się je wyłącznie przez identyfikator i skrót.
+- Warunki to `bash`, `pwsh`, `nurt` i `nurt-groups`. Miary to ukończenie, szkoda, utracone wpisy, zmiany kodowania, tokeny, kroki i czas zegarowy, analizowane testami parowanymi.
+- Reguła wejścia protokołu uzasadnia dalsze prace nad warunkiem Nurt, gdy kryteria ukończenia i kosztu zachodzą łącznie dla modeli oraz dla czterech z sześciu modeli i żaden przebieg nie wyrządza szkody. Wyniki mają być publikowane niezależnie od tego, czy przemawiają na korzyść Danaco Nurt.
+
+W repozytorium nie ma przebiegu z prawdziwymi modelami ani pliku wyników. W wydaniu 0.1.1 sprawdzono mechanizm: przepływ `bench-oracles.yml` zwalidował 648 zadań i uruchomił 112 testów wyroczni (rewizja `27c9ff8a`), a testy skrzynki `nurt-bench` należą do testów przestrzeni roboczej. Od wydania 0.1.1 zmieniło się 17 plików zadań w `bench/tasks`, głównie wzorcowe rozwiązania w PowerShellu; źródła nie zapisują dla nich przebiegu wyroczni.
+
+Dokumentacja [dziennika](/docs/guide/journal/) opisuje wpisy, których koszt omawia ta strona; strona o [testowaniu](/pl/quality/testing/) podaje, jak uruchamia się testy skali i że wydanie 0.1.2 uruchamia pliki binarne testów `perf` osobno.

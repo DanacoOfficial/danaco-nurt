@@ -1,0 +1,120 @@
+---
+title: Features
+description: A survey of what Danaco Nurt can do, grouped by what it works on, from files and text to version control, system administration and scheduling.
+section: product
+order: 2
+eyebrow: Product
+lead: What Danaco Nurt can do, grouped by the thing it works on, with the command groups that cover each area.
+updated: 2026-11-28
+related: [product/commands, product/journal-and-undo, product/language, product/ai-agents]
+keywords: [features, commands, files, git, processes, administration, scheduling]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The catalog in numbers
+
+Every capability of Danaco Nurt is a command of one catalog. The core commands are always available; the other commands belong to optional groups that are described on request. How the catalog is built and checked is explained on the [command catalog](/product/commands/) page.
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="coreCommands" />
+  <Fact id="optionalGroups" />
+</Stats>
+
+The sections below follow the thing a command works on. Counts per group are taken from `catalog/_index.toml` in the repository. Programs for each area are in the [cookbook](/docs/cookbook/), which has twelve categories of recipes.
+
+## What the commands work on
+
+### Files and directories
+
+`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create` and `attributes` read and change files, directories, links and attributes. Paths may carry the provider prefixes `registry:`, `env:` and `archive:`; the file commands accept `registry:` paths on Windows. Every change goes through the journal, so it can be undone. Since 0.1.1, `create` also makes named pipes (`type: fifo`) and device nodes (`type: device`, with `privilege: elevated`) on Linux and macOS; on Windows both fail with `E_OS_ONLY`.
+
+### Text
+
+`search` looks for literal text, regular expressions or syntax patterns. `replace`, `insert` and `edit` change text; `edit` applies a list of changes to one file, all or none. `diff`, `patch`, `hash` and `convert` (encodings and line endings) complete the group. The guide on [text editing](/docs/guides/text-editing/) shows the forms. Release 0.1.2 removes a quadratic cost of search and replace with a regular expression on one line: according to the changelog, 20 000 matches on a line of 60 000 bytes are replaced in about 0.1 s instead of 2.5 s.
+
+```nurt
+search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
+```
+
+The program stops with `E_ASSERT` before any change unless the search found exactly 12 files (source: `docs/guides/text-editing.md`).
+
+### Records
+
+`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`, `group`, `summarize`, `distinct`, `describe`, `split`, `parse` and `evaluate` work on the records produced by any source command.
+
+```nurt
+find "/home/user/app" |> group by: extension |> summarize
+```
+
+### Structured documents
+
+`set`, `query` and `sql` work on documents by key path: JSON, JSONC, YAML, TOML, XML, INI, CSV, TSV, Java properties, environment files and property lists. `set` preserves the layout of the document, `query` takes a jq filter, and `sql` runs statements on an SQLite file. Since 0.1.1, `sql` accepts statements that change the database without `write: true`, journals the database file and its `-wal`, `-shm` and `-journal` files first, and keeps the call read-only with `write: false`. Ten `notebook.*` commands work on the cells of Jupyter notebooks. See the guides on [documents](/docs/guides/documents/) and [notebooks](/docs/guides/notebooks/).
+
+```nurt
+set "deploy.yaml" key: "#1:spec.replicas" value: 3
+```
+
+### Source code
+
+Thirteen `code.*` commands list symbols and outlines, find definitions and references, report diagnostics and rename symbols by syntax. The implementation of such a command can be a language server; the catalog allows a fallback to built-in syntax analysis, and a server failure is reported as `semantic_fallback`. Eight commands of the `verify` group wrap test frameworks and analyzers (`test.run`, `analyze.check` and others). See [refactoring](/docs/guides/refactoring/).
+
+```nurt
+code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
+```
+
+### Version control
+
+The [git group](/docs/groups/git/) has 22 commands that read and change repositories inside the program: `git.status`, `git.diff`, `git.commit`, `git.rebase`, `git.push` and others. No `git` program, credential helper or SSH client is started. Repository hooks and filter drivers are the only programs that run, under the rules of `run`. A change of the working tree is one journal operation. A push or fetch that updates remote references is marked irreversible. Since 0.1.1, OpenPGP signatures of commits and tags are made by GnuPG, which must be installed; SSH signatures are made in the process.
+
+### Archives
+
+`archive.list`, `archive.extract`, `archive.create`, `compress` and `decompress` handle archives and compressed files.
+
+### Network
+
+The [network group](/docs/groups/network/) has `http.request`, `http.download`, `network.ping`, `network.resolve` and `network.interfaces`. A download writes a file and can be undone; a request with `post`, `put`, `patch` or `delete` is irreversible and listed so in the report.
+
+### Processes
+
+`run` starts a program without a shell and continues it as a background job after `wait`. `jobs`, `retry` and `stop` manage jobs; `processes`, `ports`, `open_files`, `suspend` and `resume` inspect and control the system. Since 0.1.1 the response of `run` is short by default, and `next` returns the rest from the kept output. See [running programs](/docs/guides/running-programs/) and the [system group](/docs/groups/system/).
+
+### System administration
+
+The [administration group](/docs/groups/administration/) has 34 commands. Services (`services`, `start`, `restart`, `enable`, `disable`) and Windows CIM objects (`windows.cim`, with method calls through `invoke`) are joined, since 0.1.1, by accounts, groups, mounts, kernel parameters and modules, power, disks, the firewall, routes, DNS and the clock. Each command that changes the system reads the state it changes, reports `unchanged` when nothing is to do, records the state before and after, and accepts `privilege` (`account`, `elevated` or `auto`) with the backends `sudo`, `doas` and `run0`. The [package group](/docs/groups/package/) lists, searches, installs, removes and upgrades packages through `apt`, `dnf`, `pacman`, `zypper`, `brew`, `winget`, `choco` or `scoop`. `host`, `disks`, `environment`, `accounts` and `logs` report the state of the computer. Which of these changes `undo` can reverse is stated in [journal and undo](/product/journal-and-undo/); the rest appear under `irreversible` in the [effect report](/product/effect-reports/).
+
+### Scheduling
+
+The [schedule group](/docs/groups/schedule/) has seven commands. One syntax replaces cron, systemd timers, launchd jobs and the Windows Task Scheduler; the action of a schedule is a program of the language, executed by the background service `nurt-service`. Each run is an ordinary operation with an entry in the journal.
+
+## Around the commands
+
+| Capability | Where it is described |
+|---|---|
+| Checking a program without running it (`nurt check`, `preview: true`) | [The language](/product/language/) |
+| Conditions, loops, functions, `steps` and script parameters (since 0.1.1) | [The language](/product/language/) |
+| A report of the effects of every run | [Effect reports](/product/effect-reports/) |
+| Reviewing, undoing and redoing changes | [Journal and undo](/product/journal-and-undo/) |
+| Use by programs: `nurt serve`, `nurt mcp`, `nurt lsp` and the C interface | [Nurt for AI agents](/product/ai-agents/) |
+| Translating Bash and PowerShell scripts (`nurt migrate`) | [Migration](/product/migration/) |
+
+<Callout type="warning" title="Limits of version 0.1.2">
+  The changelog states that no macOS archive is published for 0.1.2. Several tests of change tracking and one protocol test fail intermittently on the macOS runners of the continuous integration; the cause is not yet established. The registry provider and `windows.cim` are Windows features. See [platforms](/product/platforms/) and the [status](/project/status/) page.
+</Callout>
+
+## Where to go next
+
+<CardGrid columns={3}>
+  <Card title="Command catalog" icon="list-checks" href="/product/commands/">
+    The groups, the pages of the commands and the checks of the catalog.
+  </Card>
+  <Card title="Cookbook" icon="book-open" href="/docs/cookbook/">
+    Programs for common tasks in twelve categories.
+  </Card>
+  <Card title="Journal and undo" icon="undo-2" href="/product/journal-and-undo/">
+    What can be undone, and what cannot.
+  </Card>
+</CardGrid>

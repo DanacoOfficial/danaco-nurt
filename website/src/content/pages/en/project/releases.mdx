@@ -1,0 +1,104 @@
+---
+title: Releases
+description: The releases of Danaco Nurt, 0.1.2 of 28 November 2026, 0.1.1 of 27 November 2026 and 0.1.0 of 22 November 2026, with their changes, archives, checksums and the way to verify a download.
+section: project
+order: 1
+eyebrow: Project
+lead: What each release changed, which archives it is built as and how a download is verified.
+updated: 2026-11-28
+related: [project/status, project/versioning, quality/supply-chain]
+keywords: [releases, changelog, archives, checksums, signature]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Release history
+
+<Timeline
+  items={[
+    {
+      label: '2026-11-28',
+      title: 'Version 0.1.2',
+      text: 'Fixes: search and replace with a regular expression no longer take quadratic time, the journal is active on the data volume of macOS, and several macOS defects of memory limits, group lists and process control are corrected.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
+      current: true,
+    },
+    {
+      label: '2026-11-27',
+      title: 'Version 0.1.1',
+      text: 'Control constructs, administration commands, privilege elevation, the command next, a shorter response of run, a faster journal for many small files, dependency and security changes, and static linking of liblzma on Linux.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
+    },
+    {
+      label: '2026-11-22',
+      title: 'Version 0.1.0',
+      text: 'The first release: the engine, the language, the command catalog, the journal, the command line program, the Model Context Protocol server, the language server and the C interface.',
+      href: 'https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v0.1.0',
+    },
+  ]}
+/>
+
+The source of this page is [CHANGELOG.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md), which follows Keep a Changelog 1.1.0 and Semantic Versioning 2.0.0. The section `Unreleased` of the changelog is empty; this page lists no work that is not in a release.
+
+<Callout type="note" title="State of 0.1.2">
+  The changelog dates 0.1.2 as 2026-11-28, and the release is prepared: the sources record no published GitHub release of 0.1.2 or of 0.1.1. No test run of 0.1.2 is recorded, so the measured numbers on this site remain those of the release candidate of 0.1.1. Which archives are attached to a GitHub release at a given moment is shown by the releases page of the repository, not by this page.
+</Callout>
+
+## Version 0.1.2
+
+Fixed, as the changelog lists it:
+
+- Search and replace with a regular expression no longer take time quadratic in the number of matches on one line. The changelog gives one measurement: 20,000 matches on a line of 60,000 bytes are replaced in about 0.1 s instead of 2.5 s.
+- macOS: the journal is active for the paths of the data volume. Before, no directory of the volume qualified as a journal anchor, and every operation there ran without a journal.
+- macOS: `max_memory` no longer makes every start of a program fail with `EINVAL`. The address-space limit (`RLIMIT_AS`) is applied on Linux only; on macOS the resident memory is measured.
+- macOS: the member list of a group is read without assuming the alignment of `gr_mem`, which removes undefined behavior when the groups of an account are listed.
+- macOS: suspending, resuming and stopping a program whose process group has ended no longer fail with `EPERM`.
+- Windows targets can be built with a clang outside `/usr/bin`; `NURT_MSVC_CLANG` names it.
+
+Known issues, as the changelog states them: on the macOS runners of continuous integration, tests of the change tracking of `nurt-proc` and one protocol test of `nurt-service` fail intermittently (FSEvents reports fewer changes than were made, and the service test exceeds its time limit). The cause is not established. No macOS archive is published for this release.
+
+## Version 0.1.1
+
+Summary of the sections of the changelog:
+
+- **Added.** Named pipes and device nodes with `create` on Linux and macOS. Administration commands for the firewall, the network, the clock, accounts, groups, mounts, the kernel, power and disks ([administration guide](/docs/guides/administration/)). Method calls of `windows.cim`. Privilege elevation with the parameters `privilege` and `as_user` and the backends `self`, `sudo`, `doas` and `run0`. The command [`next`](/docs/commands/next/) and the field `continuation` for reading the rest of a shortened response. Translation of bash conditions, loops, functions and script parameters ([migration guide](/docs/guides/bash-migration/)).
+- **Changed.** Control constructs (`when`, `each`, `repeat until`, `while`, `steps`, `define`, `params`) and syntax tree version 1.1; documents of version 1.0 are read unchanged. `sql` has no refusals. The response of `run` is short by default, and `run.spool_max` defaults to `1gib`. The journal handles an operation on thousands of small files several times faster; manifests of operations with at least 256 targets have format version 2, which a reader of version 1 rejects. On Linux the program links liblzma statically.
+- **Security.** The Git library `gix` moves to the 0.91 generation. Unused dependencies are removed. OpenPGP signatures of commits and tags are made and checked by GnuPG instead of the `pgp` crate, and a missing program refuses the signature with `E_GIT_SIGN`. One advisory, RUSTSEC-2026-0543, stays ignored, with the reason in `deny.toml`.
+- **Fixed.** The code review of 0.1.0 corrected defects in every crate, the bindings, the packaging and the documentation. The bindings read the answers of the engine in the shape it returns.
+
+## Version 0.1.0
+
+The first release, dated 2026-11-22. Added: the Cargo workspace; the command catalog and the specification; the language with three syntax variants, correction, help and migration of Bash and PowerShell programs; the engine with reports in text, JSON and Markdown; the undo journal with recovery and retention limits; the command line program; packaging for Linux, macOS and Windows; and the OpenPGP signature of `checksums.txt` and of the release tag.
+
+## Archives
+
+The packaging definitions in [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) name a program archive `nurt-<version>-<target>` and a library archive `nurt-lib-<version>-<target>`. The archives are `.tar.gz` for Linux and macOS and `.zip` for Windows.
+
+| Target | Defined in packaging | Built for 0.1.1 (release report of 27 November 2026) |
+|---|---|---|
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | yes | yes |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | yes, static program archive | yes |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | yes | yes |
+| `x86_64-apple-darwin`, `aarch64-apple-darwin` | yes | no macOS archive was built |
+
+For 0.1.1 the release session built 12 archives, a program archive and a library archive for each of the six targets above, and signed `checksums.txt`. For 0.1.2 the sources record no archive; the changelog states only that no macOS archive is published.
+
+The program archive of Linux holds `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md` and, optionally, manual pages, completion scripts, the documentation site and service unit files. The Windows archive holds `nurt.exe` and the same texts at the top level. The installation page describes the package managers and the scripts: [Installation](/docs/guide/installation/).
+
+## Verifying a download
+
+Every release has `checksums.txt` with the SHA-256 digests of its archives and the detached OpenPGP signature `checksums.txt.asc`. The key is `Danaco Nurt (Danaco Holding Group Sp. z o.o.)`, fingerprint `5BEC C5F4 067A 8392 8961 8DB7 65E3 E606 1204 E0FC`, published as `packaging/release/danaco-nurt.asc`.
+
+```sh
+gpg --import danaco-nurt.asc
+gpg --verify checksums.txt.asc checksums.txt
+sha256sum --check checksums.txt
+```
+
+The tag of each release is signed with the same key (`git tag -v`). `nurt.exe` carries an Authenticode signature, but the certificate was issued by Danaco Holding Group Sp. z o.o. itself, so Windows reports the publisher as unverified. `install.sh` and `install.ps1` check the SHA-256 digest before they install; `install.sh` also checks the signature of `checksums.txt` when it is given a public key with `--public-key`. The full procedure is in [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) and on [supply chain](/quality/supply-chain/).
+
+## Where releases are published
+
+A release is published as a GitHub release of the repository under the tag `v<version>`: [github.com/DanacoOfficial/nurt/releases](https://github.com/DanacoOfficial/danaco-nurt/releases). Read [Status and limitations](/project/status/) before you rely on a 0.x release.

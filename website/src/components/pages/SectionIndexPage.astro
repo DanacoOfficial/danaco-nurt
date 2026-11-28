@@ -1,0 +1,43 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.SectionIndexPage
+// Responsibility:   The landing page of a section: the lead of the section and a card for each of its pages.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.content.Card, website.src.lib.pages
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../sections/PageHeader.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import type { Locale } from '../../../config/i18n';
+import type { SectionKey } from '../../../config/sections';
+import { getSectionPages, pagePath } from '../../lib/pages';
+import { localisedPath } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  section: SectionKey;
+}
+
+const { locale, section } = Astro.props;
+const ui = useUi(locale);
+const entries = await getSectionPages(locale, section);
+const title = ui.section[section].title;
+const path = `/${section}/`;
+---
+
+<BaseLayout title={title} description={ui.section[section].lead} locale={locale} path={path} breadcrumbs={[{ label: title, path }]}>
+  <PageHeader locale={locale} title={title} lead={ui.section[section].lead} eyebrow="Danaco Nurt" crumbs={[{ label: title }]} />
+  <div class="container">
+    <div class="page-shell">
+      <CardGrid columns={3}>
+        {entries.map((entry) => (
+          <Card title={entry.data.title} href={localisedPath(pagePath(entry), locale)}>{entry.data.description}</Card>
+        ))}
+      </CardGrid>
+    </div>
+  </div>
+</BaseLayout>

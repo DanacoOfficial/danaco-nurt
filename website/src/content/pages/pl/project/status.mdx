@@ -1,0 +1,92 @@
+---
+title: Stan i ograniczenia
+description: Co oznacza wersja 0.1 dla stabilności, w jakim stanie jest wydanie 0.1.2, jakie są znane ograniczenia, które systemy są obsługiwane i czego dokumentacja nie rozstrzyga.
+section: project
+order: 2
+eyebrow: Projekt
+lead: Danaco Nurt ma wersję 0.1.2. Ta strona mówi, co to oznacza i gdzie leżą granice.
+updated: 2026-11-28
+related: [project/releases, project/versioning, quality/testing, product/platforms]
+keywords: [stan, stabilność, ograniczenia, obsługiwane systemy, 0.x]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co oznacza 0.x
+
+<Callout type="warning" title="Wersja 0.1 nie jest stabilna">
+  Repozytorium stwierdza, że język, drzewo składni, katalog poleceń, format raportu i interfejsy biblioteki mogą się zmieniać między wersjami 0.x.
+</Callout>
+
+Projekt stosuje Semantic Versioning 2.0.0, a ta specyfikacja nie daje żadnej obietnicy zgodności dla wersji poniżej 1.0.0. Zasady formatów (wersja podrzędna tylko dodaje, wersja główna może usuwać) opisuje strona [wersjonowanie](/pl/project/versioning/); opisują one zamierzony rozwój w obrębie wersji głównej, a powyższe stwierdzenie o stanie jest węższe i na nim należy polegać, dopóki wersja ma postać 0.x.
+
+W praktyce oznacza to dla programu lub integracji napisanych dziś:
+
+- program w języku może wymagać poprawki po aktualizacji, ponieważ język, katalog i format raportu mogą się zmienić;
+- host osadzający `libnurt` lub czytający raporty powinien przypiąć wersję programu i odczytywać człony wersji w otrzymywanych dokumentach;
+- dziennik zapisany przez 0.1.0 jest odczytywany bez zmian przez 0.1.1, ale czytnik formatu manifestu w wersji 1 odrzuca wersję 2, której od 0.1.1 używają operacje z co najmniej 256 celami; czytnik drzewa składni w wersji 1.0 odrzuca dokument zawierający konstrukcje sterujące wersji 1.1.
+
+## Stan wydania 0.1.2
+
+Wydanie 0.1.2 ma w dzienniku zmian datę 2026-11-28 i jest przygotowane, tak jak 0.1.1: źródła nie zapisują opublikowanego wydania GitHub. To wydanie korygujące.
+
+- **Naprawiono.** Wyszukiwanie i zamiana wyrażeniem regularnym nie mają już czasu kwadratowego w wierszu z wieloma trafieniami. Naprawiono cztery błędy macOS: dziennik był nieaktywny na woluminie danych, `max_memory` powodował, że każde uruchomienie programu kończyło się błędem `EINVAL`, lista członków grupy była odczytywana bez uwzględnienia wyrównania, a sterowanie procesami kończyło się błędem `EPERM` dla zakończonej grupy procesów.
+- **Otwarte.** Na maszynach macOS ciągłej integracji testy śledzenia zmian w `nurt-proc` i jeden test protokołu w `nurt-service` zawodzą z przerwami. Dziennik zmian stwierdza, że przyczyna nie jest jeszcze ustalona.
+- **Niewykonane.** Dla 0.1.2 nie publikuje się archiwum macOS. Źródła nie zapisują przebiegu testów 0.1.2 jako kandydata na wydanie; zmierzone liczby poniżej należą do 0.1.1.
+
+Pełna lista jest na stronie [wydania](/pl/project/releases/).
+
+## Co istnieje
+
+Zaimplementowane części, według listy w README repozytorium: front-end języka, silnik, katalog poleceń, dziennik cofania, program wiersza poleceń, serwer Model Context Protocol, serwer języka i interfejs C.
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+Liczby opisują kandydata na wydanie 0.1.1 z 27 listopada 2026, a nie wydanie 0.1.2. Strona [testowanie](/pl/quality/testing/) mówi, co obejmują, a czego nie.
+
+## Obsługiwane systemy
+
+| System | Wymieniony w dokumentacji instalacji | Stan w 0.1.2 |
+|---|---|---|
+| Linux, x86-64 i aarch64 | tak | dla 0.1.1 zbudowano archiwa dla glibc i musl; zestaw testów uruchomiono na aarch64 tylko w emulacji |
+| Windows, x86-64 i aarch64 | tak | dla 0.1.1 zbudowano archiwa dla MSVC; archiwum i `install.ps1` uruchomiono tylko w Windows 11 (dziennik zmian 0.1.0) |
+| macOS, x86_64 i aarch64 | tak | kod się kompiluje, a 0.1.2 poprawia błędy znalezione w macOS; testy zawodzą z przerwami na maszynach CI; archiwum macOS nie jest publikowane |
+
+Strona [instalacja](/docs/guide/installation/) wymienia jako obsługiwane systemy Linux, macOS i Windows na x86_64 i aarch64. Powyższa tabela podaje, co o każdym z nich zapisują dziennik zmian i raport wydania 0.1.1.
+
+## Znane ograniczenia
+
+Wpisy dziennika zmian, które nadal obowiązują:
+
+- nie buduje się ani nie publikuje archiwum macOS;
+- wymienione wyżej testy macOS zawodzą z przerwami na maszynach CI;
+- zmiany na woluminach przechowywanych w pamięci, takich jak `tmpfs`, są zgłaszane jako nieodwracalne, ponieważ dziennik działa tylko na woluminach, które go utrzymują;
+- wykrywanie zmian przez skanowanie porównuje plik większy niż `run.preimage_copy_max` (64 MiB przy wartości unlimited) wyłącznie po metadanych, więc ponowny zapis tego samego rozmiaru w obrębie ziarnistości znaczników czasu systemu plików pozostaje niewykryty;
+- niektóre operacje administracyjne są z założenia nieodwracalne: `accounts.password`, natychmiastowe ponowne uruchomienie lub wyłączenie, anulowany harmonogram, zmiana partycji, formatowanie i `clock.set`; skutki `load_extension` w `sql` są zgłaszane jako nieznane i nieodwracalne;
+- podpisy OpenPGP rewizji i tagów wymagają programu GnuPG; bez niego podpis jest odrzucany z kodem `E_GIT_SIGN`;
+- podpolecenie `journal` oferuje tylko `salvage`; pozostałe operacje na dzienniku są poleceniami języka;
+- czas odzyskiwania 5 sekund dla dziennika z milionem wpisów nie został potwierdzony: ostatni pomiar wymieniony w dzienniku zmian 0.1.0 wynosił 6,2 sekundy, przed późniejszymi poprawkami;
+- certyfikat podpisujący `nurt.exe` wystawiła sama Danaco Holding Group Sp. z o.o., więc Windows zgłasza wydawcę jako niezweryfikowanego (zob. też [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md)).
+
+Natywne biblioteki rozszerzeń są dostępne tylko w kompilacjach z funkcją `native` i z ustawionym kluczem `ext.native`; poza tym rozszerzenia są modułami WebAssembly. Dostawca rejestru i polecenie `windows.cim` istnieją tylko w Windows (gdzie indziej `E_OS_ONLY`), `create` potoku nazwanego lub węzła urządzenia kończy się w Windows błędem `E_OS_ONLY`, a pozostałe różnice między platformami opisują strony poleceń.
+
+## Granice kontroli
+
+Zmierzona jakość kandydata na wydanie 0.1.1 ma własne granice, wzięte z raportu końcowego sesji wydania (27 listopada 2026):
+
+- scenariusze end-to-end uruchomiono na czystym systemie Linux: 19 zaliczono, a 3 kolejne, wymagające Windows, pominięto;
+- wynik w Windows (13 455 testów zaliczonych w Windows 11, żaden niezaliczony; zob. liczby wyżej) jest sumą pełnego przebiegu i powtórek grup po poprawkach, a nie jednym czystym przebiegiem na ostatniej rewizji;
+- na aarch64 zestaw testów uruchomiono w emulacji w trybie użytkownika: zaliczono 13 938 z 13 958 testów; z 20 niezaliczonych 19 przechodzi na pełnym systemie aarch64, a 1 zależy od zegara;
+- dla macOS raport zapisuje tylko czyste `cargo check`, a archiwum macOS nie zostało zbudowane;
+- kontrola plików Windows pod kątem zależności (`check_pe`) jest zarezerwowana w `tools/ci/check-dependencies.sh` i niezaimplementowana.
+
+## Punkty otwarte i plany
+
+Dokumentacja nie podaje harmonogramu ani listy planowanych funkcji, a ta witryna ich nie dodaje. Zasady wersjonowania mówią, że wydania podrzędne ukazują się co 8 tygodni, a wydania poprawkowe w miarę potrzeby. Dotychczasowe zmiany opisuje strona [wydania](/pl/project/releases/); pytania kieruj na stronę [wsparcie](/pl/project/support/).

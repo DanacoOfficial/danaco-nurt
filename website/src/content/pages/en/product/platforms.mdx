@@ -1,0 +1,94 @@
+---
+title: Platforms and installation
+description: What ships for Linux, Windows and macOS, the supported systems, the installers and their PATH behaviour, the packages, the container images and what is not available on which platform.
+section: product
+order: 10
+eyebrow: Product
+lead: One executable per operating system, archives per target, two installers that verify a SHA-256 digest and package definitions for the common package managers.
+updated: 2026-11-28
+related: [product/overview, project/versioning, project/status, product/integrations]
+keywords: [installation, Linux, Windows, macOS, glibc, musl, packages, containers]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What ships
+
+<Stats>
+  <Fact id="platforms" />
+</Stats>
+
+Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The installation page states that the executable has no runtime dependencies. For Linux the README states the exact linking of each build:
+
+| Linux build | Linking |
+|---|---|
+| glibc | links `libc.so.6`, `libm.so.6` and `libgcc_s.so.1` dynamically; the `.deb` and `.rpm` packages declare them |
+| musl | linked statically |
+
+Since 0.1.1 the glibc build links liblzma statically, so it runs on a system without `liblzma.so.5` (CHANGELOG, 0.1.1). The script `tools/ci/check-dependencies.sh` fails when an ELF file names a shared library outside `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the dynamic loader; the check of Windows files is reserved in the script and not implemented. A separate archive holds the C library (`libnurt.so.1`, `libnurt.1.dylib` or `nurt.dll`, with `nurt.h`) for the targets that have one; on musl targets it holds the static `libnurt.a`. The installers install the program archive only. Details: [installation](/docs/guide/installation/).
+
+## Supported systems and archives
+
+The installation page and the versioning page list the same support: Linux, macOS and Windows, each on x86_64 and aarch64 ([versioning and support](/docs/guide/versioning/)). The packaging definitions name archives `nurt-<version>-<target>` for these targets:
+
+| Target | Archive |
+|---|---|
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `.tar.gz` |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `.tar.gz` |
+| `x86_64-apple-darwin`, `aarch64-apple-darwin` | `.tar.gz` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip` |
+
+Each release publishes `checksums.txt` with SHA-256 sums and a detached signature `checksums.txt.asc`. The program archive of Linux and macOS holds `nurt`, the license texts, manual pages, completion scripts and the documentation as an offline site; the Windows archive holds `nurt.exe`, the license texts, the completion scripts and the documentation. The script `tools/release/build-release.sh` builds the archives for six targets: the four Linux targets (the two aarch64 ones when zig is available) and the two Windows targets.
+
+<Callout type="warning" title="macOS in release 0.1.2">
+  The changelog of 0.1.2 states that no macOS archive is published for this release; the build script has no macOS target, so the macOS archives that the packaging definitions name are not part of it. The release fixes four macOS defects: the journal was inactive on the data volume (`/System/Volumes/Data`), `max_memory` made every program start fail with `EINVAL`, the member list of a group was read with an unsafe alignment assumption, and suspending, resuming or stopping a program whose process group had ended failed with `EPERM`. It also lists a known issue: tests of change tracking in `nurt-proc` and one protocol test of `nurt-service` fail intermittently on the macOS runners of the continuous integration, and the cause is not established. For 0.1.1 the report of 27 November 2026 states that `cargo check` passes for both macOS targets; there is no report of a run of 0.1.2. Treat macOS as a platform that has jobs on the macOS runners of the continuous integration (`ci.yml`), not as one with a released archive.
+</Callout>
+
+The measured numbers elsewhere on the site come from the run of the release candidate of 0.1.1 on 27 November 2026: 12 archives for six targets, the Windows tests on Windows 11 (see [testing](/quality/testing/)).
+
+## Installers
+
+| | `install.sh` (Linux, macOS) | `install.ps1` (Windows) |
+|---|---|---|
+| Command | `curl -fsSL https://nurt.danaco-group.pl/install.sh \| sh` | `irm https://nurt.danaco-group.pl/install.ps1 \| iex` |
+| Default target | `$HOME/.local/bin`, no privileges | `%LOCALAPPDATA%\Programs\Nurt\bin`, no administrator rights |
+| System-wide | run as root with `--bin-dir /usr/local/bin` | `NURT_SCOPE=machine` from an administrator terminal, into `%ProgramFiles%\Nurt` |
+| `PATH` | not changed; the script says when the directory is not in `PATH` | directory added to the `PATH` of the user, or of the machine for `machine`; `NURT_NO_PATH_UPDATE=1` leaves it unchanged |
+| Verification | SHA-256 of the archive against `checksums.txt` | SHA-256 of the archive against `checksums.txt` |
+| Signature | `--public-key` with `gpg` verifies `checksums.txt.asc` | not described in the script header |
+
+`install.sh` takes the static musl archive on Linux when the release has one and the glibc archive otherwise; a machine with musl takes only the musl archive. Both scripts read `NURT_VERSION` and `NURT_INSTALL_DIR`, and both read `NURT_RELEASES_URL` for another release location ([packaging README](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/packaging/README.md)). `nurt.exe` does not ask for elevation: its manifest declares the level `asInvoker`.
+
+## Packages
+
+The directory `packaging/` holds the definitions; `render.py` fills the templates with the digests of `checksums.txt`.
+
+| Package | Command | Definition |
+|---|---|---|
+| Debian, Ubuntu | `apt install nurt` after adding the repository | `build-deb.sh` builds `nurt`, `libnurt1` and `libnurt-dev`; `apt-repo/mkrepo.py` generates the repository |
+| Fedora, RHEL | `dnf install nurt` | `rpm/nurt.spec.in` for `nurt`, `libnurt`, `libnurt-devel` |
+| macOS, Linux | `brew install DanacoOfficial/tap/nurt` | formula from release archives; a second formula builds from source |
+| Windows | `winget install Danaco.Nurt` | portable zip, x64 and arm64 |
+| Windows | `scoop install nurt` | manifest with `checkver` and `autoupdate` |
+| Windows | `choco install nurt` | `nurt.nuspec.in` |
+
+The packaging directory shows the definitions and the workflow `release.yml` that publishes them with its secrets. It does not show that 0.1.2 has been published to any of these channels; the release is prepared, so confirm availability before you rely on a command.
+
+## Containers and CI
+
+Three images are defined in `integrations/containers`: `ghcr.io/danacoofficial/nurt` (base `scratch`, no `git`, no CA bundle), `nurt-ci` (Debian bookworm slim with `git` and `ca-certificates`) and `nurt-devcontainer`. All are built for `linux/amd64` and `linux/arm64`, and `NURT_STATE_DIR` is `/var/lib/nurt`; mount a volume there to keep the journal across containers. The GitHub Action `setup-nurt` runs on Linux, macOS and Windows runners and verifies the SHA-256 digest by default; for Linux it downloads the musl archive. See [integrations](/product/integrations/).
+
+## What is not available where
+
+| Platform | Limit | Source |
+|---|---|---|
+| macOS | no archive is published for 0.1.2; four defects fixed in 0.1.2; intermittent test failures on the CI runners | CHANGELOG 0.1.2 |
+| Windows | the registry provider and `windows.cim` exist only here; `create` of a named pipe or a device node fails with `E_OS_ONLY` | Windows guide, CHANGELOG 0.1.1 |
+| Windows | the certificate that signs `nurt.exe` is issued by Danaco Holding Group Sp. z o.o. itself, so Windows reports the publisher as unverified | CHANGELOG 0.1.0 |
+| Linux, macOS | services are systemd units and launchd jobs; `package.install` uses `apt`, `dnf`, `pacman`, `zypper` or `brew` | [Unix guide](/docs/guides/unix/) |
+| all | native extensions load only with `ext.native` and in builds with the `native` feature; the changelog of 0.1.0 lists them as not available | [extensions reference](/docs/reference/extensions/) |
+| all | changes on volumes held in memory, such as `tmpfs`, are reported as irreversible; the journal is inactive there | CHANGELOG 0.1.0 and 0.1.1 |
+
+For the documentation of paths and services on each system see the [Unix](/docs/guides/unix/) and [Windows](/docs/guides/windows/) guides. The state of the release is on the [status](/project/status/) page.

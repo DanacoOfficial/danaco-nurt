@@ -1,0 +1,79 @@
+---
+title: Zależności i licencje
+description: Polityka zależności egzekwowana przez cargo-deny, dozwolone licencje, kategorie zależności, to, co plik wykonywalny zawiera i do czego jest dołączany, oraz zmiany zależności w wydaniach 0.1.1 i 0.1.2.
+section: architecture
+order: 6
+eyebrow: Architektura
+lead: Zależności pochodzą wyłącznie z crates.io, na licencjach permisywnych, a plik polityki zapisuje powód każdego wyjątku.
+updated: 2026-11-28
+related: [architecture/crates, architecture/overview, quality/supply-chain, project/license]
+keywords: [zależności, licencje, cargo-deny, gix, sqlite, tree-sitter, musl, glibc]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Polityka
+
+Polityką jest plik `deny.toml`, sprawdzany poleceniem `cargo deny --locked check` i opisany w `docs/conventions/licensing.md`. Ocenia graf zależności dla ośmiu celów (x86-64 i aarch64 dla Linuksa glibc, Linuksa musl, macOS i Windows MSVC) przy włączonych wszystkich cechach. Jej reguły:
+
+- **Źródła.** Zależności pochodzą wyłącznie z rejestru crates.io. Nieznany rejestr i zależność git są zabronione.
+- **Ostrzeżenia bezpieczeństwa (advisories).** Skrzynki podatne, niebezpieczne (unsound) i porzucone (unmaintained) są błędami, a wycofane (yanked) są zabronione. Jedyne ignorowane ostrzeżenie w 0.1.2 to RUSTSEC-2026-0543 (`chrono`, porzucona, bez zgłoszonej podatności), z zapisanym powodem: wymagają jej `macos-unifiedlogs` i `russh-util`.
+- **Licencje.** Dozwolone są tylko niżej wymienione licencje. Każda inna, w tym GPL, LGPL i AGPL w każdej wersji, jest odrzucana. Wyrażenie z alternatywami jest przyjmowane, gdy jedna alternatywa jest dozwolona.
+- **Zakazy.** Wymagania wersji z symbolem wieloznacznym są zabronione, a wiele wersji jednej skrzynki daje ostrzeżenie. Jedenaście skrzynek jest zakazanych z nazwy, każda z powodem, wśród nich `openssl` i `openssl-sys` (TLS używa rustls), `git2` i `libgit2-sys` (obsługa Git używa gix), `curl-sys` (HTTP używa ureq), `sequoia-openpgp` (LGPL; podpisy OpenPGP tworzy GnuPG), `libsystemd-sys` (LGPL) oraz `unrar` (jego licencja zabrania tworzenia kompresora RAR).
+
+| Dozwolone licencje |
+|---|
+| `0BSD`, `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`, `BSD-2-Clause`, `BSD-3-Clause`, `BSL-1.0`, `CC0-1.0`, `ISC`, `MIT`, `MIT-0`, `Unicode-3.0`, `Unlicense`, `Zlib` |
+
+Pięć wyjątków dotyczy po jednej skrzynce, po indywidualnej ocenie: `webpki-roots` (`CDLA-Permissive-2.0`, certyfikaty główne Mozilli jako dane, rozwiązanie zastępcze, gdy magazyn systemu operacyjnego jest niedostępny), `libbz2-rs-sys` (`bzip2-1.0.6`), `uluru` i `option-ext` (`MPL-2.0`, niezmienione zależności pośrednie biblioteki Git i pamięci podręcznej środowiska WebAssembly) oraz `libfuzzer-sys` (`NCSA`, dołączany tylko do celów fuzzingu i nigdy do dystrybuowanych artefaktów). Sam produkt ma licencję Apache-2.0, a plik `NOTICE` musi towarzyszyć każdej dystrybucji.
+
+## Kategorie zależności
+
+Wersje pochodzą z `Cargo.lock` w wydaniu 0.1.2, który wymienia 900 pakietów łącznie ze skrzynkami przestrzeni roboczej.
+
+| Kategoria | Co jest używane | Uwagi |
+|---|---|---|
+| Implementacja Git | rodzina `gix`, `gix` 0.91.0 i jego podskrzynki, w Rust | `git2` i libgit2 są zakazane. Transport SSH używa `russh` 0.65.4. Podpisy OpenPGP tworzy GnuPG, uruchamiany jako program; podpisy SSH powstają w procesie |
+| Parsery języka | `logos` i `winnow` dla języka; `jaq-core` i `jaq-std` z dołączoną `jaq-json` dla zapytań | |
+| Parsery dokumentów | `toml_edit`, `saphyr`, `jsonc-parser`, `quick-xml`, `csv`, `plist`, `rust-ini` | edycja dokumentów z zachowaniem układu jest zadaniem `nurt-doc` |
+| Kod źródłowy | `tree-sitter` 0.27.2, `ast-grep-core` 0.51.3 i gramatyki Go, Rust, Python, JavaScript, TypeScript, C, C++, Java, Ruby, C#, PHP, Bash, PowerShell, JSON, YAML, TOML, Markdown, HTML, CSS, Kotlin, Swift i XML | gramatyki są kompilowane ze źródeł kompilatorem C |
+| SQLite | `rusqlite` 0.43.0 z cechą `bundled`, `libsqlite3-sys` 0.40.0 | SQLite jest kompilowany ze źródeł, a nie brany z systemu |
+| Archiwa i kompresja | `zip` 9.8.1, `tar`, `flate2`, `bzip2`, `liblzma` z cechą `static`, `lz4_flex`, `zstd`, `sevenz-rust2`, `lzma-rust2` | |
+| PDF | dołączona `nurt-pdf-extract` na `lopdf` 0.47.0 | tylko wyciąganie tekstu |
+| Sieć | `ureq` 3.5.2, `rustls` 0.23.46, `hickory-resolver` 0.26.3, `socket2`, `rustls-native-certs` | bez OpenSSL i bez libcurl |
+| Środowisko asynchroniczne | `tokio` 1.54.1, `axum` 0.8.9, `rmcp` 3.12.0 | używane przez serwer Model Context Protocol; transport SSH używa środowiska jednowątkowego |
+| Rozszerzenia | `wasmtime` 51.0.0, `libloading` | host WebAssembly i biblioteki natywne |
+| Wiersz poleceń | `clap`, `reedline`, `crossterm` | |
+| System operacyjny | `rustix`, `nix`, `libc`, `windows-sys`, `windows`, `windows-service`, `zbus`, `notify`, `sysinfo` | `macos-unifiedlogs` czyta archiwa dzienników macOS |
+| Dodatek Node.js | `napi` 3.16.2 | skrzynka `nurt-node` |
+
+## Co jest w pliku wykonywalnym
+
+README stwierdza, że operacje na systemie plików, tekście, archiwach, dokumentach, kodzie, kontroli wersji, sieci i systemie są zaimplementowane w programie i nie wywołują zewnętrznych narzędzi. Źródła wymieniają programy uruchamiane celowo, wśród nich program, który użytkownik uruchamia przez `run`, GnuPG dla podpisów OpenPGP (niżej), mechanizmy podnoszenia uprawnień `sudo`, `doas` i `run0` oraz menedżery pakietów poleceń `package.install`, `package.remove` i `package.upgrade`. Spośród wymienionych bibliotek SQLite i gramatyki tree-sitter są budowane z dołączonych źródeł, dlatego budowanie wymaga kompilatora C.
+
+| Kompilacja | Łączenie |
+|---|---|
+| Linux, glibc | dołącza dynamicznie `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` i dynamiczny program ładujący. Pakiety `.deb` i `.rpm` je deklarują. Każda inna biblioteka jest częścią pliku wykonywalnego, między innymi liblzma (XZ Utils 5.8.4, zbudowana z dołączonych źródeł) |
+| Linux, musl | łączony statycznie. Archiwum biblioteki celów musl zawiera statyczną `libnurt.a` |
+| Windows, MSVC | środowisko uruchomieniowe Microsoft Visual C++ jest łączone statycznie (`crt-static`), jak podaje plik `NOTICE` |
+| macOS | liblzma jest łączona statycznie według `NOTICE`. Ciągła integracja uruchamia clippy i testy na maszynie z macOS; archiwum macOS nie jest publikowane |
+
+<Callout type="warning" title="Granice wydania">
+  Dziennik zmian 0.1.2 stwierdza, że archiwum macOS nie jest publikowane, i wymienia znane problemy w macOS: testy śledzenia zmian w `nurt-proc` oraz jeden test protokołu w `nurt-service` kończą się niepowodzeniem sporadycznie na maszynach macOS, a przyczyna nie jest ustalona. Kandydat na wydanie 0.1.1 zbudował 12 archiwów, program i bibliotekę dla każdego z sześciu celów: Linux glibc, Linux musl i Windows MSVC, na x86-64 i aarch64 (raport wydania tego kandydata). Dziennik zmian 0.1.2 nie wymienia archiwów tego wydania.
+</Callout>
+
+## Zmiany w 0.1.1 i 0.1.2
+
+Dziennik zmian 0.1.1 (27 listopada 2026) wymienia następujące zmiany zależności i łączenia.
+
+1. `gix` i jego podskrzynki przeszły na generację 0.91, która nie zależy już od `heapless` 0.8 (dziewięć ostrzeżeń, RUSTSEC-2026-0574 do RUSTSEC-2026-0582).
+2. Usunięto nieużywaną zależność `netstat2` oraz koder AVIF skrzynki `image` (`ravif`, `rav1e`). To usunęło porzuconą skrzynkę `paste` (RUSTSEC-2024-0436). Odczyt plików AVIF nigdy nie był włączony.
+3. Podpisy OpenPGP commitów i tagów tworzy i sprawdza GnuPG zamiast skrzynki `pgp`, co usunęło `rsa` 0.9 (RUSTSEC-2023-0071) i `crypto-bigint` 0.5 (RUSTSEC-2026-0387). Program wskazany przez `gpg.openpgp.program` lub `gpg.program` (domyślnie `gpg`) działa przez usługę programów. Brakujący lub zawodzący program odrzuca podpis z błędem `E_GIT_SIGN`, a weryfikacja bez niego zgłasza status `unsupported`.
+4. Wyciąganie tekstu z `pdf-extract` 0.12.1 stało się skrzynką przestrzeni roboczej `nurt-pdf-extract` na `lopdf` 0.47, która nie potrzebuje już porzuconej `ttf-parser` (RUSTSEC-2026-0192).
+5. Cecha `chrono` została wyłączona dla `croner`, `lopdf`, `rmcp` i, przez nią, `schemars`. `chrono` pozostaje w grafie przez `macos-unifiedlogs` i `russh-util`, a `deny.toml` zapisuje powód.
+6. W Linuksie plik wykonywalny i biblioteka łączą liblzma statycznie, więc program działa w systemie bez `liblzma.so.5`, a pakiet `.deb` nie zależy już od `liblzma5`.
+7. `nurt-service` kompiluje się dla `x86_64-unknown-linux-musl`, a procedura wydania buduje statyczne archiwum musl.
+
+Pliki blokad celów fuzzingu również zostały wygenerowane na nowo. Dziennik zmian 0.1.2 nie wymienia żadnej zmiany zależności; jego wpisy dotyczą poprawek wyszukiwania i zamiany, dziennika, limitu pamięci i sygnałów procesów w macOS oraz zmiennej dla clanga budowania pod Windows. To, co projekt weryfikuje w swoim łańcuchu dostaw, opisuje strona o [łańcuchu dostaw](/pl/quality/supply-chain/), a licencję kodu — strona o [licencji](/pl/project/license/).

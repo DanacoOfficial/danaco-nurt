@@ -1,0 +1,40 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.facts
+ * Responsibility:   The fact list: terms on the left, values on the right, separated by hairlines.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.facts {
+  display: grid;
+  margin-block: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.facts__row {
+  display: grid;
+  gap: var(--space-1) var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .facts__row {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+}

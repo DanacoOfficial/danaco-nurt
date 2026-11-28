@@ -1,0 +1,50 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.Hero
+// Responsibility:   The opening of the home page: the eyebrow, the promise, the lead, the actions and the install command beside the start banner of the program.
+// Dependencies:     website.src.components.motion.MarkScene, website.src.components.sections.InstallTabs, website.src.components.base.Button, website.src.styles.components.hero
+
+import '../../styles/components/hero.css';
+import MarkScene from '../motion/MarkScene.astro';
+import Button from '../base/Button.astro';
+import InstallTabs from './InstallTabs.astro';
+import type { Locale } from '../../../config/i18n';
+import { repository } from '../../../config/site';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import type { HomeContent } from '../../data/home-page/types';
+
+interface Props {
+  locale: Locale;
+  content: HomeContent['hero'];
+}
+
+const { locale, content } = Astro.props;
+const ui = useUi(locale);
+---
+
+<section class="hero stream-trace">
+  <div class="container hero__inner">
+    <div class="hero__copy">
+      <p class="eyebrow">{content.eyebrow}</p>
+      <h1 class="hero__title">{content.title}</h1>
+      <p class="lead hero__lead">{content.lead}</p>
+      <p class="hero__note">{content.note}</p>
+      <div class="cluster hero__actions">
+        <Button href={href('/docs/guide/installation/', locale)} variant="primary" iconAfter="arrow-right">{ui.home.heroActions.start}</Button>
+        <Button href={href('/docs/', locale)} variant="secondary">{ui.home.heroActions.docs}</Button>
+        <Button href={repository.url} variant="quiet" iconAfter="arrow-up-right" external>{ui.home.heroActions.github}</Button>
+      </div>
+      <div class="hero__install">
+        <p class="hero__install-title">{ui.home.installTitle}</p>
+        <InstallTabs locale={locale} />
+      </div>
+    </div>
+    <div class="hero__visual">
+      <MarkScene label={content.sceneLabel} caption={content.sceneCaption} />
+    </div>
+  </div>
+</section>

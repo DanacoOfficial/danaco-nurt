@@ -1,0 +1,93 @@
+---
+title: Przegląd
+description: Jak zbudowany jest Danaco Nurt, od warstwy wejściowej języka po dziennik i interfejsy, ze skrzynkami każdej warstwy i układem repozytorium.
+section: architecture
+order: 1
+eyebrow: Architektura
+lead: Silnik jest biblioteką Rust. Program wiersza poleceń, serwer Model Context Protocol, serwer języka i interfejs C to punkty wejścia do tego jednego silnika.
+updated: 2026-11-28
+related: [architecture/engine, architecture/crates, architecture/c-interface]
+keywords: [architektura, skrzynki, warstwy, repozytorium, silnik]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Kształt systemu
+
+Danaco Nurt to przestrzeń robocza Cargo. Manifest deklaruje wersję 0.1.2, edycję 2024, minimalną wersję Rust 1.98 i licencję Apache-2.0, a każdy katalog w `crates/` jest jej członkiem. Lint przestrzeni roboczej `unsafe_code` ma wartość `deny`. Skrzynka, która wywołuje interfejsy systemu operacyjnego, rezygnuje z tego lintu (`nurt-fs` robi to na początku swojego `lib.rs`), a dokument grafu skrzynek wymaga komentarza `// SAFETY:` przy każdym bloku `unsafe`; `nurt-types` na przykład całkowicie zabrania kodu `unsafe`.
+
+<Stats>
+  <Fact id="crates" />
+  <Fact id="specFiles" />
+</Stats>
+
+Program przechodzi przez system w jednym kierunku. Tekst jest parsowany do drzewa składni, drzewo jest wiązane z katalogiem poleceń i sprawdzane, powstaje plan, moduł wykonawczy uruchamia etapy i przekazuje między nimi rekordy, polecenia zmieniają świat przez dziennik, a raport opisuje skutki. Strona o [silniku](/pl/architecture/engine/) prowadzi jeden program przez te kroki. Punkty wejścia same nie implementują języka: interfejs C, serwer protokołu, interfejs wiersza poleceń i integracje wywołują tę samą fasadę Rust, `Engine` ze skrzynki `nurt-core`.
+
+## Warstwy
+
+Tabela wymienia skrzynki każdej warstwy funkcjonalnej. Skrzynka `nurt-contracts` leży pod wszystkimi i zawiera wspólne kontrakty: drzewa składni, rekordy, błędy, interfejs etapu, raport, dziennik i konfigurację. Skrzynka `nurt-types` zawiera wartości i rekordy języka.
+
+| Warstwa | Rola | Skrzynki |
+|---|---|---|
+| Warstwa wejściowa języka | analizator leksykalny, parsery trzech wariantów zapisu, drukarka kanoniczna, korekta zapisu, pomoc, migracja skryptów powłoki | `nurt-syntax`, `nurt-correct`, `nurt-help`, `nurt-migrate` |
+| Katalog, sprawdzanie i planowanie | rejestr poleceń, wiązanie drzew składni z katalogiem, planowanie wykonania | `nurt-catalog`, `nurt-bind`, `nurt-plan` |
+| Moduł wykonawczy | strumieniowy moduł wykonawczy potoków i etapy rekordów | `nurt-exec` |
+| Implementacje poleceń | pliki, tekst, archiwa, notatniki, dokumenty, kod źródłowy, testy i analiza, programy i zadania, kontrola wersji, system, sieć, harmonogramy, zainstalowane programy, rozszerzenia | `nurt-files`, `nurt-text`, `nurt-archive`, `nurt-notebook`, `nurt-doc`, `nurt-code`, `nurt-lspclient`, `nurt-verify`, `nurt-proc`, `nurt-git`, `nurt-git-ops`, `nurt-git-transport`, `nurt-sys`, `nurt-syslog`, `nurt-net`, `nurt-sched`, `nurt-programs`, `nurt-ext` |
+| Dziennik i system plików | dziennik operacji, wolne miejsce dla dziennika, warstwa systemu plików zależna od platformy | `nurt-journal`, `nurt-space`, `nurt-fs` |
+| Raport | model raportu skutków i jego renderery | `nurt-report` |
+| Silnik i usługa | fasada silnika, usługa w tle | `nurt-core`, `nurt-service` |
+| Program wiersza poleceń | plik wykonywalny `nurt` i interfejs Rust produktu | `nurt-cli`, `nurt` |
+| Serwer Model Context Protocol | narzędzia i zasoby MCP, definicje narzędzia `nurt` | `nurt-mcp`, `nurt-tooldef` |
+| Serwer języka | diagnostyka, uzupełnianie i formatowanie plików `.nurt` | `nurt-langserver` |
+| Interfejs C i wiązania | ABI języka C i dodatek Node.js; pozostałe wiązania są w `bindings/` | `nurt-ffi`, `nurt-node` |
+
+Pozostałe skrzynki to wsparcie i narzędzia: `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` oraz dwie dołączone skrzynki zewnętrzne, `jaq-json` i `nurt-pdf-extract`. Strona o [skrzynkach](/pl/architecture/crates/) wymienia każdą skrzynkę z jej opisem.
+
+## Reguły grafu zależności
+
+Dozwolone zależności między skrzynkami przestrzeni roboczej są danymi w `tables/crate-graph.toml`. Test `crates/nurt-contracts/tests/workspace_graph.rs` czyta każdy manifest i kończy się niepowodzeniem, gdy skrzynka deklaruje zależność, której tabela nie dopuszcza. Reguły opisuje dokument [graf skrzynek i widoczność](/docs/architecture/crate-graph/):
+
+- Każda skrzynka należy do jednej z ośmiu warstw budowania, od najniższej: kontrakt, fundament, baza, biblioteka, komponent, host, interfejs i narzędzie. Skrzynka zależy tylko od skrzynek tej samej lub niższej warstwy, a graf jest acykliczny.
+- Każda skrzynka należy też do obszaru: środowisko uruchomieniowe, język, przechowywanie, pliki, dane strukturalne, procesy, system, git lub integracja. Skrzynki różnych obszarów zależą od siebie tylko przez skrzynki wspólne, takie jak `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` i `nurt-journal`.
+- Polecenie, które potrzebuje możliwości z innego obszaru, wywołuje cechę usługi zdefiniowaną w `nurt-contracts`, a implementację przekazuje warstwa hosta. Zmiany plików przechodzą przez interfejs transakcji dziennika, nigdy obok niego.
+- Tylko `nurt-ffi` eksportuje symbole języka C, zadeklarowane w `crates/nurt-ffi/include/nurt.h`.
+
+<Callout type="note" title="Dokument, który odstaje od tabeli">
+  Dokument grafu skrzynek w wersji 0.1.2 nadal ma sekcję „Reserved names”, która nazywa `nurt-programs`, `nurt-tooldef`, `nurt-docgen`, `nurt-crashfs` i `nurt` skrzynkami planowanymi. Wszystkie pięć istnieje w `crates/` w wersji 0.1.2, a `tables/crate-graph.toml` ma dla każdej z nich wpis bez znacznika rezerwacji. Wiążąca jest tabela.
+</Callout>
+
+## Układ repozytorium
+
+| Ścieżka | Zawartość |
+|---|---|
+| `crates/` | skrzynki Rust silnika, programu wiersza poleceń i bibliotek |
+| `spec/` | specyfikacja: drzewo składni, gramatyka, rekordy, etapy, raport, dziennik, usługi, nadzorca, konfiguracja, błędy, schematy |
+| `catalog/` | katalog poleceń: sygnatury i opisy poleceń |
+| `docs/` | dokumentacja użytkownika i integratora, odniesienie, architektura i konwencje |
+| `tables/` | tabele danych używane przez silnik i jego testy, między innymi `crate-graph.toml` |
+| `tools/` | skrypty do ciągłej integracji i wydań |
+| `bindings/` | wiązania dla Go, Node.js, .NET, Javy i Pythona |
+| `conformance/` | przypadki zestawu zgodności uruchamianego przez `nurt-conformance` |
+| `bench/` | zadania, wyrocznie, dane testowe i protokół testu wydajności |
+| `packaging/` | pakowanie i automatyzacja wydań: `deb`, `rpm`, `homebrew`, `scoop`, `chocolatey`, `winget`, `release` i inne |
+| `editors/`, `integrations/` | wsparcie edytorów (gramatyka TextMate, gramatyka tree-sitter) oraz integracje (VS Code, kontenery, akcja instalacyjna, przykłady) |
+| `examples/` | przykład w C, `examples/c/hello.c` |
+| `.github/workflows/` | przepływy ciągłej integracji i wydań |
+
+W katalogu głównym leżą także `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` (przypięty zestaw narzędzi, 1.98.1), `deny.toml`, `CHANGELOG.md`, `SECURITY.md`, `NOTICE` i `LICENSE`. Budowanie ze źródeł wymaga Rust zainstalowanego przez rustup oraz kompilatora C, ponieważ SQLite i gramatyki tree-sitter są kompilowane ze źródeł.
+
+## Co czytać dalej
+
+<CardGrid columns={3}>
+  <Card title="Silnik" icon="cpu" href="/pl/architecture/engine/">
+    Jeden program od tekstu do raportu, etap po etapie.
+  </Card>
+  <Card title="Skrzynki" icon="boxes" href="/pl/architecture/crates/">
+    Każda skrzynka przestrzeni roboczej z jej opisem.
+  </Card>
+  <Card title="Zależności i licencje" icon="scale" href="/pl/architecture/dependencies/">
+    Polityka zależności i to, co jest wbudowane w plik wykonywalny.
+  </Card>
+</CardGrid>

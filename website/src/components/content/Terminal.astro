@@ -1,0 +1,32 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Terminal
+// Responsibility:   A terminal window that frames a code block: the title bar with the three dots, the program name and the code below it.
+// Dependencies:     website.src.styles.components.terminal, website.src.scripts.copy-code
+
+import '../../styles/components/terminal.css';
+
+interface Props {
+  title?: string;
+  class?: string;
+}
+
+const { title = 'nurt', class: className } = Astro.props;
+---
+
+<figure class:list={['terminal', className]}>
+  <figcaption class="terminal__bar">
+    <span class="terminal__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="terminal__title">{title}</span>
+  </figcaption>
+  <div class="terminal__body">
+    <slot />
+  </div>
+</figure>
+
+<script>
+  import '../../scripts/copy-code';
+</script>

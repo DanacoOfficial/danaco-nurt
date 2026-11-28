@@ -1,0 +1,61 @@
+---
+title: Privacy
+description: "What this website stores and sends, and what the documentation of the program nurt says about telemetry: the site is static, sets no cookies and runs no analytics."
+section: legal
+order: 1
+eyebrow: Legal
+lead: This website collects no personal data of its own. This page states what it does and what it does not do.
+updated: 2026-11-28
+related: [legal/accessibility, project/support, quality/security]
+keywords: [privacy, cookies, analytics, local storage, telemetry]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## This website
+
+The website of Danaco Nurt is a static site. Its pages are generated when the site is built and are served as files; there is no account, no form and no server-side program that processes what a visitor types.
+
+| Subject | What the site does |
+|---|---|
+| Cookies | none are set |
+| Analytics | none are run |
+| Third-party scripts | none are loaded |
+| Third-party fonts and images | none are loaded; the fonts, the icons and the images are part of the site |
+| Advertising and tracking | none |
+| Forms and accounts | none |
+
+The page you are reading is the statement of the site as it is built from the sources in the repository. If a later version of the site adds any of these items, this page changes in the same change.
+
+## The colour theme
+
+The site has a light and a dark colour theme. When you choose a theme with the toggle in the header, the choice is stored in the local storage of your browser under the key `nurt-theme`. The value stays in your browser. It is read by a small script of the site on the next visit so that the page opens in the theme you chose, and it is never sent to a server. Clearing the site data of your browser removes it. Without the stored value the site follows the preference of your system.
+
+## Search
+
+The search runs in your browser. The site serves a search index (built with Pagefind) as files, like any other page, and the browser looks up your query in that index locally. The text of the query is not sent anywhere; the browser requests files of the index from the site, which are recorded in the server logs like any other request (see below). Search is one of the few functions that need JavaScript; the pages themselves can be read without it.
+
+## Server logs
+
+A web server records requests. The logs of this site are those of the hosting on which the site is deployed, and they are outside the content of the site. Which data the logs hold (for example the address of the visitor, the time and the requested page), how long they are kept and who can read them depend on the hosting of the deployment. This page cannot state them. The same applies to a copy of the site that you run yourself: its logs are yours.
+
+## Links to other sites
+
+Pages of the site link to the repository on GitHub (`github.com/DanacoOfficial/nurt`), to the specifications that the project cites, and to the downloads of releases. When you follow such a link, the other site receives your request and its own privacy rules apply. The site does not embed content from those sites.
+
+## The program nurt
+
+This section concerns the program, not the website. The documentation of the repository was searched for statements about telemetry, analytics and crash reports (the documentation in `docs/`, the specification in `spec/`, the catalog, and the sources of the crates, packaging and integrations).
+
+- The documentation of the program describes **no telemetry**: it names no collection of usage data, no reports sent on a crash and no check for updates by the program.
+- The only statement that names telemetry is in the README of the extension for Visual Studio Code: the extension does not collect telemetry and sends no data over the network. Its tests check that the manifest lists no telemetry library and defines no telemetry setting.
+- The program can use the network when a program of the language asks for it, for example with the network and version control commands. That is the effect of a command that you write.
+- The journal, the configuration and the state of the program are kept on your machine, in the directories named in the [naming conventions](/docs/conventions/naming/): the journal directory `.nurt-journal` and a user state directory (`$XDG_STATE_HOME/nurt/` on Linux, `~/Library/Application Support/Nurt/` on macOS, `%LOCALAPPDATA%\Nurt\` on Windows).
+
+Absence of a statement in the documentation is not a proof that no code sends data; the statement above is limited to what the documentation says and to the search of the repository named here. The [security](/quality/security/) page and the [supply chain](/quality/supply-chain/) page state what is checked about the code and its dependencies.
+
+## Questions
+
+Questions about this page or about the handling of data go to `support@danaco-group.pl`; see [Support and contact](/project/support/). The measures for readers who use assistive technology are on the [accessibility](/legal/accessibility/) page.

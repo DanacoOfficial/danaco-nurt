@@ -1,0 +1,72 @@
+---
+title: Overview
+description: What Danaco Nurt is, what it works with, who it is for and where the product stands today.
+section: product
+order: 1
+eyebrow: Product
+lead: Danaco Nurt is a command shell and language where every change can be undone, built for people and AI agents.
+updated: 2026-11-28
+related: [product/journal-and-undo, product/language, product/ai-agents]
+keywords: [shell, language, journal, undo, agents]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What it is
+
+`nurt` (pronounced *NOORT*) is a command shell with its own language for working with files, text, structured documents, source code, version control, processes and the operating system. It is one tool for Linux, Windows and macOS.
+
+A program is a pipeline of typed records. Each program is checked before it runs, and each run is described by a structured report of its effects. File changes are recorded in a journal and can be reviewed and undone.
+
+```nurt
+find "/home/user/project" glob: "**/*.go"
+  |> filter size > 1mb and modified > ago(24h)
+  |> sort size order: desc
+  |> first 20
+```
+
+The program above lists the 20 largest Go source files changed during the last day. Every stage takes records and returns records; none of them has to parse the text of another tool.
+
+## The ideas behind it
+
+<CardGrid columns={2}>
+  <Card title="Undo is part of the language" icon="undo-2" href="/product/journal-and-undo/">
+    File changes are recorded in a journal. An operation can be reviewed, undone and redone with commands of the language.
+  </Card>
+  <Card title="Checked before it runs" icon="scan-search" href="/product/language/">
+    Names, parameters and types are validated against the command catalog before any effect takes place. Errors carry a stable code, a position and a correction.
+  </Card>
+  <Card title="A report of every run" icon="file-text" href="/product/effect-reports/">
+    Each run returns a report of its effects in text, JSON or Markdown form. The schema of the report is published in the specification.
+  </Card>
+  <Card title="Operations built into the program" icon="boxes" href="/product/commands/">
+    File, text, archive, document, code, version control, network and system operations are implemented in the program and do not invoke external tools.
+  </Card>
+</CardGrid>
+
+## What is in the box
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="coreCommands" />
+  <Fact id="optionalGroups" />
+  <Fact id="platforms" />
+</Stats>
+
+The engine is a Rust library with a C interface (`libnurt`, `nurt.h`). The command line program and the Model Context Protocol server use that same engine, and so can your own program. The [architecture](/architecture/overview/) pages describe how the parts fit together.
+
+## Who it is for
+
+- **People at a terminal.** A shell where a mistaken `remove` or `replace` can be taken back, and where a program that cannot be valid is refused before it touches a file. See the [use cases](/product/use-cases/).
+- **AI agents and the platforms that host them.** The same engine is available as a tool through the Model Context Protocol, a JSON-RPC server or a library, and every call returns a report that a program can read. See [Nurt for AI agents](/product/ai-agents/).
+- **Teams moving off bash and PowerShell.** The documentation maps the habits of both shells to their forms in Nurt. See [migration](/product/migration/).
+
+## Where the product stands
+
+<Callout type="warning" title="Version 0.1 is not stable">
+  The language, the syntax tree, the command catalog, the report format and the library interfaces may change between 0.x versions. The known limitations are listed on the [status](/project/status/) page and in the changelog.
+</Callout>
+
+The current release is <Badge tone="accent">0.1.2</Badge>, dated 28 November 2026 in the changelog. It is a prepared release: the sources record no publication, and the changelog states that no macOS archive is published for it. The [release notes](/project/releases/) say what it contains, and the [quality](/quality/overview/) pages say how it was checked.

@@ -1,0 +1,74 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.DocsHubPage
+// Responsibility:   The documentation hub in one language: the lead, a card for each documentation section with its page count, and the note that the documentation is maintained in English.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.content.Card, website.src.lib.docs.model, website.src.components.content.Callout
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../sections/PageHeader.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import Callout from '../content/Callout.astro';
+import Button from '../base/Button.astro';
+import type { Locale } from '../../../config/i18n';
+import { getDocs, groupDocs } from '../../lib/docs/model';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import type { IconName } from '../../../config/icons';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = useUi(locale);
+const groups = groupDocs(await getDocs());
+const labels = ui.docs.sectionLabels as Record<string, string>;
+const leads = ui.docs.sectionLeads as Record<string, string>;
+const icons: Record<string, IconName> = {
+  guide: 'rocket',
+  guides: 'book-open',
+  cookbook: 'flask-conical',
+  commands: 'terminal',
+  groups: 'layers',
+  cheatsheets: 'list-checks',
+  reference: 'braces',
+  integrators: 'plug',
+  architectureDocs: 'workflow',
+  cli: 'terminal',
+  providers: 'package',
+  conventions: 'clipboard-check',
+  specification: 'library',
+};
+---
+
+<BaseLayout title={ui.docs.title} description={ui.docs.lead} locale={locale} path="/docs/" breadcrumbs={[{ label: ui.docs.title, path: '/docs/' }]}>
+  <PageHeader locale={locale} title={ui.docs.title} lead={ui.docs.lead} eyebrow="Danaco Nurt" crumbs={[{ label: ui.docs.title }]}>
+    <div class="cluster">
+      <Button href={href('/docs/guide/installation/', 'en')} variant="primary" iconAfter="arrow-right">{ui.docs.sectionLabels.guide}</Button>
+      <Button href={href('/search/', locale)} variant="secondary" icon="search">{ui.nav.search}</Button>
+    </div>
+  </PageHeader>
+  <div class="container">
+    <div class="page-shell">
+      <div>
+        {locale === 'pl' && <Callout type="note" title={ui.docs.englishOnlyTitle}>{ui.docs.englishOnlyBody}</Callout>}
+        <CardGrid columns={3}>
+          {groups.map((group) => (
+            <Card
+              title={labels[group.labelKey] ?? group.section}
+              eyebrow={`${group.entries.length} ${ui.docs.pagesCount}`}
+              icon={icons[group.labelKey] ?? 'book-open'}
+              href={`/docs/${group.section}/`}
+            >
+              {leads[group.labelKey]}
+            </Card>
+          ))}
+        </CardGrid>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

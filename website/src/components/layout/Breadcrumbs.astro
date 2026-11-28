@@ -1,0 +1,40 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Breadcrumbs
+// Responsibility:   The breadcrumb trail of a page: the home page, the section and the page itself.
+// Dependencies:     website.src.lib.urls, website.src.i18n, website.src.styles.components.breadcrumbs
+
+import '../../styles/components/breadcrumbs.css';
+import type { Locale } from '../../../config/i18n';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Crumb {
+  label: string;
+  path?: string;
+}
+
+interface Props {
+  locale: Locale;
+  items: Crumb[];
+}
+
+const { locale, items } = Astro.props;
+const ui = useUi(locale);
+---
+
+<nav class="breadcrumbs" aria-label={ui.breadcrumbs.label}>
+  <ol role="list">
+    <li><a href={href('/', locale)}>{ui.breadcrumbs.home}</a></li>
+    {
+      items.map((item, index) => (
+        <li>
+          {item.path && index < items.length - 1 ? <a href={href(item.path, locale)}>{item.label}</a> : <span aria-current="page">{item.label}</span>}
+        </li>
+      ))
+    }
+  </ol>
+</nav>

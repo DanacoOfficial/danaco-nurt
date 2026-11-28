@@ -1,0 +1,56 @@
+---
+title: O projekcie
+description: Kto tworzy Danaco Nurt, skąd pochodzi nazwa, na jakich warunkach kod jest otwarty i gdzie znajduje się repozytorium.
+section: project
+order: 7
+eyebrow: Projekt
+lead: Danaco Nurt tworzy Danaco Holding Group Sp. z o.o. i publikuje jako oprogramowanie otwarte.
+updated: 2026-11-28
+related: [project/license, project/brand, project/support, product/overview]
+keywords: [o projekcie, Danaco Holding Group, nazwa, oprogramowanie otwarte, repozytorium]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Kto go tworzy
+
+Danaco Nurt jest produktem Danaco Holding Group Sp. z o.o. Spółka posiada prawa autorskie (Copyright 2026 Danaco Holding Group Sp. z o.o., jak stwierdzają `NOTICE` i `README.md` repozytorium), publikuje archiwa wydań, instalatory i pakiety oraz jest właścicielem nazw „Danaco”, „Danaco Nurt” i „Danaco Holding Group”. Polityka bezpieczeństwa wskazuje ją jako wydawcę artefaktów wydań, a certyfikat podpisujący `nurt.exe` wystawiła sama spółka.
+
+Pliki repozytorium mają nagłówek producenta z nazwami Danaco Official i Danaco Holding Group Sp. z o.o., adresem `www.danaco-group.pl`, organizacją GitHub `DanacoOfficial` i adresem kontaktowym `support@danaco-group.pl`. Źródła użyte do tej witryny nie wymieniają innych produktów spółki, a ta strona żadnego nie opisuje. Nie podaje też historii spółki, ponieważ żadne źródło w repozytorium jej nie zawiera.
+
+## Czym jest
+
+Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cofnąć, stworzone dla ludzi i agentów AI. Program nazywa się `nurt` (wymowa: *NURT*, polskie słowo „nurt”). Opis produktu w repozytorium przedstawia założenia projektu:
+
+- jeden plik wykonywalny na system operacyjny, dla Linuksa, macOS i Windows;
+- operacje na plikach, tekście, archiwach, dokumentach, kodzie, kontroli wersji, sieci i systemie wbudowane w program;
+- programy jako potoki typowanych rekordów, sprawdzane względem katalogu poleceń, zanim wystąpi jakikolwiek skutek;
+- ustrukturyzowany raport skutków każdego uruchomienia;
+- dziennik zmian w plikach, który można przeglądać i cofać.
+
+Silnik jest biblioteką w języku Rust z interfejsem C. Repozytorium zawiera też bindingi dla kilku języków (Python, Go, Node, Java i .NET mają przepływy ciągłej integracji), integracje dla edytorów i kontenerów, zestaw zgodności i testy wydajności. Opisują je strony [przegląd](/pl/product/overview/) i [architektura](/pl/architecture/overview/).
+
+## Pochodzenie nazwy
+
+*Nurt* to polskie słowo oznaczające strumień lub prąd. Dokumenty tożsamości wyjaśniają, jak pokazuje to znak: dwa szewrony, srebrny, który się cofa, i złoty, który idzie naprzód, rozdziela kanał między ich równoległymi ramionami, a ten kanał to nurt, nazwa produktu. Znak jest też figurą głównej idei produktu: drugi szewron to pierwszy obrócony o 180 stopni, tak jak cofnięcie obraca zmianę. Szczegóły są na stronie [marka](/pl/project/brand/).
+
+## Warunki otwartości
+
+Kod jest licencjonowany na warunkach Apache License, Version 2.0, a każda dystrybucja zawiera plik `NOTICE`. Licencja nie udziela zgody na używanie nazw poza zwyczajowym wskazaniem pochodzenia produktu. Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0. Polityka zależności przyjmuje wyłącznie licencje liberalne, z krótką listą zweryfikowanych wyjątków. Pełne stwierdzenie jest na stronie [Licencja](/pl/project/license/).
+
+Wkłady są mile widziane na podstawie Developer Certificate of Origin 1.1 i Kodeksu postępowania repozytorium. Każda rewizja gałęzi `main` jest podpisana dedykowanym kluczem OpenPGP, a wydania są podpisane osobnym kluczem wydań, jak opisuje [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md). Jak wziąć udział, mówi strona [współtworzenie](/pl/project/contributing/).
+
+## Gdzie jest repozytorium
+
+<Facts
+  items={[
+    { term: 'Repozytorium', value: 'github.com/DanacoOfficial/nurt', href: 'https://github.com/DanacoOfficial/nurt' },
+    { term: 'Wydania', value: 'github.com/DanacoOfficial/nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
+    { term: 'Zgłoszenia', value: 'github.com/DanacoOfficial/nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
+    { term: 'Kontakt', value: 'support@danaco-group.pl', href: 'mailto:support@danaco-group.pl' },
+  ]}
+/>
+
+Repozytorium zawiera skrzynki Rust, specyfikację (`spec/`), katalog poleceń (`catalog/`), dokumentację (`docs/`), pakowanie, testy i tę witrynę. Bieżąca wersja to 0.1.2, z datą 2026-11-28; co to oznacza, mówi strona [Stan i ograniczenia](/pl/project/status/).

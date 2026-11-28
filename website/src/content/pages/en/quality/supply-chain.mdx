@@ -1,0 +1,76 @@
+---
+title: Supply chain and releases
+description: The dependency policy enforced by cargo-deny, how release archives are built, checksummed and signed, how to verify them, and what is not yet covered, such as macOS archives and a public certificate for Windows.
+section: quality
+order: 7
+eyebrow: Quality
+lead: What the project accepts as a dependency, how a release is produced and signed, and how you verify what you download.
+updated: 2026-11-28
+related: [quality/security, quality/engineering-standards, architecture/dependencies, project/releases]
+keywords: [cargo-deny, licences, signature, checksums, reproducible, release, DCO, fuzz]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Dependency policy
+
+The policy is the file `deny.toml`, checked by `cargo deny --locked check`. All dependencies are declared in `[workspace.dependencies]` of the root `Cargo.toml`, come from crates.io only, and are justified in the pull request that adds them ([licensing conventions](/docs/conventions/licensing/)).
+
+| Section | Rule in `deny.toml` |
+|---|---|
+| `graph` | evaluated for eight targets: Linux, macOS and Windows on x86-64 and aarch64 (Linux in glibc and musl), with all features |
+| `advisories` | yanked crates are denied; one advisory is ignored, RUSTSEC-2026-0543 (`chrono`, unmaintained, no reported vulnerability), with the reason written in the file |
+| `licenses` | allow list of 13 permissive licences (among them `Apache-2.0`, `MIT`, `BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-3.0`), confidence threshold 0.93, five exceptions for single crates |
+| `bans` | wildcard version requirements denied; several versions of one crate only warn; named crates denied, each with a reason |
+| `sources` | unknown registries and unknown git sources denied; only the crates.io index is allowed |
+
+Banned crates include `openssl` and `openssl-sys` (TLS uses rustls), `git2` and `libgit2-sys` (Git support is `gix`), `curl-sys`, `serde_yaml` (unmaintained), `sequoia-openpgp` (LGPL; OpenPGP signatures are made by GnuPG started as a program) and `unrar` (its licence forbids creating a RAR compressor). The workspace code is licensed under Apache-2.0; the crate `nurt-pdf-extract` is a copy of `pdf-extract` 0.12.1 under MIT.
+
+In the workflow [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) the job `deny` runs `bans licenses sources` and `advisories` as separate steps, and the workflow has a daily scheduled run (04:17 UTC) "for new security advisories and toolchain regressions". The release report of 0.1.1 also records `cargo audit` with exit code 0 on the release candidate (revision `afd3571e`, 27 November 2026), and `cargo deny` 0.20.2 clean on `8510818a` (CI uses 0.22). `cargo audit` is not a step of the workflows in the repository.
+
+## Lock files and fuzz targets
+
+`Cargo.lock` is committed and every CI command uses `--locked`. The fuzz targets have their own manifests; the lock files of `nurt-syntax` and `nurt-correct` are committed (the changelog of 0.1.1, section Security, records that the lock files were regenerated), and the one of `nurt-syslog` is excluded by its `.gitignore`:
+
+| Crate | Fuzz targets |
+|---|---|
+| `nurt-syntax` | `parse`, `decode_json`, `decode_cbor` |
+| `nurt-correct` | `correct` |
+| `nurt-syslog` | `journal_file`, `journal_object` |
+
+<Callout type="note" title="What is not stated">
+  No workflow in the repository runs the fuzz targets, and no source states how long or how often they were run. The page claims their existence and their lock files only.
+</Callout>
+
+## How a release is built
+
+The script `tools/release/build-release.sh <version> <output-dir> [--sign <gnupg-home> <key-id>]` builds and packs the archives, writes `checksums.txt` and, with `--sign`, a detached armoured signature `checksums.txt.asc`, which it verifies with `gpg --verify`. A key is never read from a default location: `--sign` needs an explicit GnuPG home. `packaging/release/pack.py` assembles each archive: the entries are sorted, owned by root and carry the time given by `SOURCE_DATE_EPOCH` (the commit time of `HEAD` when unset). The archive documentation calls them reproducible; no source records an independent rebuild that compared the bytes.
+
+The changelog of 0.1.0 names archives for Linux (glibc, x86-64) and Windows (MSVC, x86-64), and the changelog of 0.1.1 adds the static musl archive. The release session of 0.1.1 built 12 archives (six targets, a program archive and a library archive each; the report does not name the targets). The script can build x86-64 and aarch64 Linux (glibc and musl) and Windows (x86-64 and aarch64, MSVC) when the toolchain is present. No macOS archive is built: the changelog of 0.1.1 says the macOS code passes `cargo check` for `x86_64-apple-darwin` and `aarch64-apple-darwin` but is not run, and the changelog of 0.1.2 says again that no macOS archive is published for this release; it also records intermittent failures of some tests on the macOS runners of CI ([release notes](/project/releases/)). For 0.1.2 the script gained the variable `NURT_MSVC_CLANG`, which names the clang of the MSVC wrappers for the Windows build.
+
+The workflow `release.yml` ("Publish packages", started by hand with a version) downloads the archives of the release, runs `sha256sum --check --strict checksums.txt`, checks with `tools/ci/check-dependencies.sh` that Linux binaries name no shared library outside a short list of system libraries, signs the checksums and the apt repository, and then installs the published packages on clean systems. Actions used by the workflows are pinned to commit hashes.
+
+## Verifying a release
+
+Every release carries `checksums.txt` and its signature `checksums.txt.asc`. The key, as named in `SECURITY.md`:
+
+```text
+Danaco Nurt (Danaco Holding Group Sp. z o.o.) <support@danaco-group.pl>
+5BEC C5F4 067A 8392 8961  8DB7 65E3 E606 1204 E0FC
+```
+
+```sh
+gpg --import danaco-nurt.asc
+gpg --verify checksums.txt.asc checksums.txt
+sha256sum --check checksums.txt
+```
+
+The public key is `packaging/release/danaco-nurt.asc`. The tag of every release is signed with the same key (`git tag -v`). In the release session of 0.1.1 the 12 archives passed `sha256sum -c` and the signature was valid (final report, 27 November 2026); no such check of 0.1.2 is recorded. `nurt.exe` carries an Authenticode signature; its certificate (`packaging/release/danaco-nurt-codesign.pem`) is issued by Danaco Holding Group Sp. z o.o. itself, so Windows reports the publisher as unverified until a certificate of a public authority replaces it.
+
+## Signed commits and sign-off
+
+Every commit of the `main` branch is signed with a separate OpenPGP key used for commits only, certified by the release key (`packaging/release/danaco-nurt-commit-signing.asc`, fingerprint `62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62`). Verify the history with `git log --show-signature` or `git verify-commit`. Contributions are accepted under the Developer Certificate of Origin 1.1; every commit has a `Signed-off-by` trailer matching its author, and `tools/ci/check-commits.sh` checks it in the `commits` job of the hygiene workflow ([engineering standards](/quality/engineering-standards/)).
+
+Two facts of the history. The release report of 0.1.1 (27 November 2026) records that 91 commits of the range `8c304f01..HEAD` drew remarks from `check-commits.sh` and that the transfer into the public repository recreated 145 commits with signatures and corrected subjects. Since 0.1.2 the script skips the commits listed in `tools/ci/commits-allow.txt` (82 identifiers; variable `NURT_COMMITS_ALLOW_FILE`), because published history is not rewritten; a new commit is never added to the list ([commit conventions](/docs/conventions/commits/)). The sources record no publication of a GitHub release of 0.1.2, and the page claims none. See also [security](/quality/security/) and [dependencies](/architecture/dependencies/).

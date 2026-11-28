@@ -1,0 +1,87 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.layouts.DocsLayout
+// Responsibility:   The layout of a documentation page: the navigation of the sections on the left, the page in the middle, the table of contents on the right, and a link to the source file in the repository.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.docs.DocsSidebar, website.src.components.base.Prose, website.src.components.layout.Toc, website.src.components.layout.Pager, website.src.lib.docs.model
+
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import DocsSidebar from '../components/docs/DocsSidebar.astro';
+import Prose from '../components/base/Prose.astro';
+import Toc from '../components/layout/Toc.astro';
+import Pager from '../components/layout/Pager.astro';
+import Breadcrumbs from '../components/layout/Breadcrumbs.astro';
+import Icon from '../components/base/Icon.astro';
+import type { Locale } from '../../config/i18n';
+import { repository } from '../../config/site';
+import { seo } from '../../config/seo';
+import { entryUrl, getDocs, groupDocs, neighbours } from '../lib/docs/model';
+import { useUi } from '../i18n';
+import '../styles/components/docs-page.css';
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  section: string;
+  entryId?: string;
+  repositoryPath?: string;
+  headings?: MarkdownHeading[];
+  available?: Locale[];
+  showTitle?: boolean;
+}
+
+const { title, description, path, section, entryId, repositoryPath, headings = [], available = ['en'], showTitle = true } = Astro.props;
+const locale: Locale = 'en';
+const ui = useUi(locale);
+const entries = await getDocs();
+const groups = groupDocs(entries);
+const group = groups.find((candidate) => candidate.section === section);
+const current = entryId ? entries.find((candidate) => candidate.id === entryId) : undefined;
+const { previous, next } = current ? neighbours(group, current) : {};
+const sectionLabel = (ui.docs.sectionLabels as Record<string, string>)[group?.labelKey ?? ''] ?? section;
+const sectionPath = `/docs/${section}/`;
+const atSectionRoot = path === sectionPath;
+const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel, path: sectionPath }, ...(atSectionRoot ? [] : [{ label: title, path }])];
+---
+
+<BaseLayout
+  title={atSectionRoot ? sectionLabel : title}
+  context={atSectionRoot ? ui.docs.title : `${sectionLabel}${seo.titleSeparator}${ui.docs.title}`}
+  description={description}
+  locale={locale}
+  path={path}
+  available={available}
+  type="article"
+  breadcrumbs={crumbs.map((crumb) => ({ label: crumb.label, path: crumb.path ?? path }))}
+>
+  <div class="container docs-page">
+    <div class="docs-page__sidebar">
+      <DocsSidebar locale={locale} groups={groups} currentId={entryId} currentSection={section} />
+    </div>
+    <article class="docs-page__main">
+      <Breadcrumbs locale={locale} items={crumbs} />
+      {showTitle && <h1 class="docs-page__title">{atSectionRoot ? sectionLabel : title}</h1>}
+      <Prose>
+        <slot />
+      </Prose>
+      {repositoryPath && (
+        <p class="docs-page__source">
+          <Icon name="file-code" size={16} />
+          <a href={`${repository.blob}/${repositoryPath}`} rel="noopener">{ui.docs.onGithub}: <code>{repositoryPath}</code></a>
+        </p>
+      )}
+      <Pager
+        locale={locale}
+        previous={previous ? { title: previous.data.title, path: entryUrl(previous) } : undefined}
+        next={next ? { title: next.data.title, path: entryUrl(next) } : undefined}
+      />
+    </article>
+    <div class="docs-page__toc">
+      <Toc locale={locale} headings={headings} />
+    </div>
+  </div>
+</BaseLayout>

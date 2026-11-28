@@ -1,0 +1,56 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.LanguageSwitch
+// Responsibility:   The language switch: a link to the same page in every language that has it.
+// Dependencies:     website.config.i18n, website.src.lib.urls, website.src.i18n, website.src.styles.components.language-switch
+
+import '../../styles/components/language-switch.css';
+import { locales, localeSettings, type Locale } from '../../../config/i18n';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  path: string;
+  available?: Locale[];
+}
+
+const { locale, path, available = [...locales] } = Astro.props;
+const ui = useUi(locale);
+---
+
+<nav class="language-switch" aria-label={ui.header.language}>
+  <ul role="list">
+    {
+      locales.map((candidate) => {
+        const exists = available.includes(candidate);
+        const current = candidate === locale;
+        return (
+          <li>
+            {current ? (
+              <span lang={localeSettings[candidate].htmlLang} aria-current="true" title={localeSettings[candidate].label}>
+                {localeSettings[candidate].shortLabel}
+              </span>
+            ) : exists ? (
+              <a
+                href={href(path, candidate)}
+                hreflang={localeSettings[candidate].htmlLang}
+                lang={localeSettings[candidate].htmlLang}
+                title={localeSettings[candidate].label}
+              >
+                {localeSettings[candidate].shortLabel}
+              </a>
+            ) : (
+              <span aria-disabled="true" title={ui.language.missing}>
+                {localeSettings[candidate].shortLabel}
+              </span>
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+</nav>

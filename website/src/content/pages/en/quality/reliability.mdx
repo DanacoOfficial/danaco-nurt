@@ -1,0 +1,95 @@
+---
+title: Reliability
+description: How the Danaco Nurt journal behaves after a crash, on a full disk and on volumes without a journal, what the crash tests cover, and which effects are marked irreversible.
+section: quality
+order: 5
+eyebrow: Quality
+lead: What the journal guarantees when a run is interrupted or the disk is short of space, how that is tested, and where the guarantee ends.
+updated: 2026-11-28
+related: [quality/testing, product/journal-and-undo, architecture/crates]
+keywords: [journal, crash, recovery, irreversible, disk space, tmpfs, spool, macOS]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What is guaranteed after a crash
+
+The contract of the journal is the specification [Journal and file system contract](/docs/specification/journal/). Its second principle is an order: the previous content of every target is preserved before anything is changed, so at every instant of a crash the previous content exists in at least one place. Recovery runs before the first transaction of a process and before the first operation after a reboot.
+
+| Moment of the crash | State after recovery (specification, section 4) |
+|---|---|
+| Before the entry is `prepared` | Nothing changed; no entry. |
+| After `prepared`, during preservation or apply | The entry is rolled back and becomes `undone` with the cause `crash`. |
+| During rollback | The rollback is completed; it is idempotent. |
+| After `committed` | The entry is complete and can be undone. |
+| The manifest fails its integrity check | The entry becomes `corrupt`; its data is kept for manual salvage. |
+
+An operation on many targets is one entry, so a crash leaves all of it done or none of it. Volumes whose file system has no durable metadata after a flush have the journal disabled by default.
+
+## How it is tested
+
+The crate `nurt-crashfs` is a test harness, not part of the shipped program. It models power loss in memory: a live image and a durable image of every volume, a seeded choice of the operations that survive a crash, torn writes, and six persistence profiles (`posix_worst_case`, `ext4_ordered`, `xfs`, `btrfs`, `ntfs`, `apfs`). It also injects system call errors and kills a child process on a real file system. After recovery an oracle checks that the previous content of every target exists, that the tree equals the state before or after the operation and never a mixture, that no temporary entries remain and that a second recovery changes nothing.
+
+The coverage tests (`tests/d2/coverage`) check the table `tables/journal-coverage.toml` against the command catalog and run an undo and redo round trip for each row. The numbers below were counted in the worktree of release 0.1.2 (revision `527e4cb5a`): the rows from the table, the cases from the constant `CASE_COUNT` in `consistency.rs`. Table and constants are the same in the tag `v0.1.1`. They state the size of the coverage, not the result of a test run of 0.1.2.
+
+<Stats>
+  <Stat value="265" label="rows of the coverage table" source="tables/journal-coverage.toml, revision 527e4cb5a (0.1.2); same in v0.1.1" />
+  <Stat value="307" label="coverage cases, one per test function" source="tests/d2/coverage, revision 527e4cb5a (0.1.2); same in v0.1.1" />
+</Stats>
+
+Of the 265 rows, 120 are `full`, 21 `partial`, 37 `none` and 87 `no_effect`.
+
+<Callout type="note" title="Limits of the crash tests">
+  The persistence profiles approximate documented file system behaviour; they are a model. The long crash corpora (100,000 crash points each) and the recovery test with one million entries are marked `#[ignore]` and run on request. The final report of the release candidate of 0.1.1 states no recovery time for a journal of one million entries; the changelog of 0.1.0 recorded 6.2 seconds against a target of 5 seconds, before later corrections. No crash campaign of 0.1.2 is recorded.
+</Callout>
+
+## Disk space and the full volume
+
+Before preserving a target, admission checks that the volume is eligible, that free space after the write stays at or above the reserve plus a margin, and that the size budget holds. Otherwise the journal releases its oldest entries within a synchronous time budget; if that is not enough, the operation proceeds without keeping the previous content and the target is marked irreversible with a reason (`no_space_for_copy`, `too_large_for_journal`, `journal_inactive`, `network_volume` or `removable_volume`).
+
+| Volume state | Condition | Behaviour |
+|---|---|---|
+| `normal` | free space at or above the soft threshold | data accepted |
+| `soft` | between reserve and soft threshold | data accepted while free space after the write stays above reserve plus margin |
+| `hard` | below the reserve | no data accepted; immediate reclaim |
+| `emergency` | below half the reserve | as `hard`, on all cores |
+
+By default `space.reserve` is `15%`, clamped between `5gib` and `50gib`. Lack of space for the journal, an inactive journal and journal input and output errors are never errors of a user operation. One exception is stated in the specification: if the journal fails while moving a removed target into the journal, the removal fails with the target still in place.
+
+The journal is inactive by default on network, removable and memory-backed volumes; it is active on overlay volumes. On a `tmpfs`, undo then fails with `E_JOURNAL_NOOP`; the changelog of 0.1.1 records that tests of undo ended with that code when `TMPDIR` was a `tmpfs`.
+
+## What is irreversible, and how it is marked
+
+A target without preserved content carries an irreversible marker with a reason, and the report lists such effects separately. Examples: a network request, `accounts.password`, an immediate `power.restart`, `clock.set`, `disks.partition`, `disks.format`, and files changed by a program started with `run` and `privilege: elevated`. Reports do not state until when an operation can be undone ([report specification](/docs/specification/report/)). For the commands, see [Journal and undo](/docs/guides/journal-undo/).
+
+## Limits of a run and unusual paths
+
+`run.spool_max` defaults to `1gib` since 0.1.1 (it was `unlimited`). A program that writes without end keeps its first part and, up to a quarter of the limit (at most 64 MiB), its last part; the rest is counted, hashed and reported with the note `spool_limit`.
+
+A path that is not valid Unicode is stored with its native bytes beside the display form, in reports (the field `raw_path`, Base64, in the format `json`) and in journal manifests, so that an entry leads back to the file that was changed.
+
+## Release 0.1.2 and macOS
+
+The changelog of 0.1.2 (28 November 2026) corrects one defect that touched the journal. On macOS the mount point of the data volume, `/System/Volumes/Data`, does not prefix the paths of the firmlinked directories, so no directory of the volume qualified as a journal anchor and every operation ran without a journal. The volume now reports the mount point that holds its paths; the crate `nurt-journal` has no change of logic between `v0.1.1` and 0.1.2.
+
+macOS has no release evidence. The changelog lists as a known issue that tests of change tracking in `nurt-proc` and one protocol test of `nurt-service` fail intermittently on the macOS runners of CI; the cause is not established. No macOS archive is published.
+
+## Volume tests of the release candidate of 0.1.1
+
+Source: the final report of the release session of 0.1.1, 27 November 2026. The results are from the revisions named, not from one run; there is no equivalent report for 0.1.2.
+
+| Check | Revision | Result |
+|---|---|---|
+| Volume tests in an unprivileged container | `70e8dddd` | 5 of 8; btrfs and overlay unavailable |
+| Volume tests on a machine from the pool (Debian 13, kernel 6.12) | `fee503cf` | 8 of 8: 7 as root, one as an ordinary account |
+| Removal and undo of one million files | `fee503cf`, `afd3571e` | killed for memory on a 16 GB machine after 424 s; passed in a 32 GB container, removal 24 minutes |
+
+<Stats>
+  <Fact id="tests" />
+</Stats>
+
+The overlay test `overlay_without_space_for_copy_marks_removal_irreversible` does not pass as root, because ext4 reserved blocks hold the copy; the report states the code is correct.
+
+Continue with [testing](/quality/testing/), the [journal and undo](/product/journal-and-undo/) page or the [journal guide](/docs/guide/journal/).

@@ -1,0 +1,86 @@
+---
+title: Testowanie
+description: Jak testuje się przestrzeń roboczą Danaco Nurt 0.1.2, na jakich platformach, co wymaga roota lub specjalnych woluminów, które testy są ignorowane i dlaczego oraz co sprawdzono na pełnym systemie aarch64.
+section: quality
+order: 2
+eyebrow: Jakość
+lead: Zestaw testów, sposób jego uruchamiania, miejsca, w których przebiegł dla kandydata na wydanie 0.1.1, oraz części, których nie uruchomiono albo które nie są dowodem.
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/conformance, quality/performance, project/status]
+keywords: [testy, nextest, ci, root, aarch64, windows, scenariusze, pakowanie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Zestaw testów i jego uruchamianie
+
+<Stats>
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+Testy to testy jednostkowe wewnątrz skrzynek, testy integracyjne w `crates/*/tests` oraz wspólne zestawy w `tests/` (dziennik, korekta, pliki wzorcowe wiązań i składni, korpusy danych i zapytań, kontrole statyczne repozytorium). `tests/d2/README.md` opisuje zestawy dziennika: punkty awarii i wstrzykiwanie błędów, tabelę pokrycia względem katalogu poleceń, limity retencji, losowe ciągi operacji względem modelu odniesienia, opóźnienia i liczby operacji oraz przygotowane woluminy.
+
+Polecenia dla współtwórców są w `CONTRIBUTING.md`:
+
+```sh
+cargo nextest run --workspace --locked      # or: cargo test --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+```
+
+Zadanie Test w [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) buduje z `--all-targets`, uruchamia `cargo nextest run --workspace --locked --no-fail-fast --no-tests=fail`, a gdy nie da się zainstalować nextesta, wraca do `cargo test`. Następnie uruchamia testy dokumentacji. Na Linuksie dodaje testy różnicowe poleceń plikowych (`cargo test -p nurt-files --features differential`), które porównują polecenia z programami systemu i pomijają program, którego nie ma. Przepływ działa przy wypchnięciach do `main`, pull requestach, grupach scalania oraz codziennie; uruchomienie codzienne ustawia też `NURT_PROPTEST_FULL=1`, więc testy własności generują pełną liczbę przypadków (100 000 dla większości własności, kilkaset w zwykłym przebiegu, `CONTRIBUTING.md`). Osobne zadanie mierzy pokrycie wierszy przez `cargo llvm-cov nextest` i wymaga co najmniej 80 procent dla przestrzeni roboczej oraz 90 procent dla `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` i `nurt-ffi`. Wartość pokrycia nie jest zapisana.
+
+Od wydania 0.1.2 plik `.config/nextest.toml` uruchamia każdy plik binarny testów o nazwie `perf` osobno, z zarezerwowanymi wszystkimi wątkami maszyny (`threads-required = "num-cpus"`), ponieważ te testy sprawdzają limity czasu zegarowego, które zniekształcają inne testy działające równolegle.
+
+<Callout type="note" title="Czym są podane liczby">
+  Liczby na tej stronie zmierzono lokalnie na kandydacie na wydanie 0.1.1 i zapisano w raporcie wydania z 27 listopada 2026. Nie istnieje raport z przebiegu wydania 0.1.2, a dla żadnego z obu wydań nie zapisano uruchomienia przepływów na hostowanej infrastrukturze.
+</Callout>
+
+<Callout type="warning" title="Znane niepowodzenia testów na macOS w wydaniu 0.1.2">
+  Dziennik zmian wydania 0.1.2 wymienia testy, które zawodzą sporadycznie na runnerach macOS ciągłej integracji: testy śledzenia zmian w `nurt-proc` (`track::tests`) i test protokołu `client_compat_d2_journal_inactive_rules` w `nurt-service`. FSEvents zgłasza mniej zmian, niż wykonano, a test usługi przekracza limit czasu. Przyczyna nie jest ustalona, a archiwum macOS nie jest publikowane.
+</Callout>
+
+## Wyniki przebiegu 0.1.1
+
+| Przebieg | Rewizja | Wynik |
+|---|---|---|
+| Testy przestrzeni roboczej, Linux x86_64, przebieg `final9` | `afd3571e` | 13 965 z 13 965 zaliczonych |
+| Wcześniejszy przebieg `final5` | `5c9d76a1` | 13 959 z 13 960; jeden test `nurt-proc` zawiódł na asercji czasu procesora przy obciążeniu kontenera około 30 |
+| Windows 11, pełny zestaw bez testów ignorowanych | gałąź `fix/windows-0.1.1` | 13 455 zaliczonych, żaden niezaliczony |
+| Testy skali, 11 testów, w tym usunięcie 1 000 000 plików | `afd3571e` | kod wyjścia 0; usunięcie trwało 24 minuty |
+| Testy pakowania | `7be1e6c3` | 174 z 174 |
+
+Wynik dla Windows jest sumą 13 370 testów pełnego przebiegu i 85 testów z powtórek grup po poprawkach i po uzupełnieniu środowiska. Raport wydania wymienia to jako punkt otwarty: nie jest to jeden czysty przebieg na ostatniej rewizji. Na Windows 11 przeszły też testy `admin_windows` (3) i `it_cim_` (5), czyli 8 z 8. W wydaniu 0.1.1 kod dla macOS został tylko skompilowany: `cargo check` dla `x86_64-apple-darwin` i `aarch64-apple-darwin` nie zgłasza uwag, a dziennik zmian wydania 0.1.1 stwierdza, że ten kod nie jest uruchamiany. Przepływ Test wymienia `macos-latest` w macierzy, ale raport wydania nie zapisuje żadnego przebiegu testów na macOS. Dziennik zmian wydania 0.1.2 poprawia cztery usterki macOS (dziennik na woluminie danych, `max_memory`, listę członków grupy, sygnały do zakończonej grupy procesów).
+
+## Root, limity i woluminy specjalne
+
+Niektóre testy wymagają uprawnień albo przygotowanych woluminów. W kontenerze użytym do głównych przebiegów przeszło 70 z 89 testów ignorowanych (rewizja `05705587`). Z pozostałych 19 testów 18 wymaga roota, limitów (quota) albo praw do woluminu btrfs, a jeden, `remove_tree_1e6_is_undone_and_redone`, został zabity sygnałem `SIGKILL` po 668 sekundach, gdy kontener był przeciążony.
+
+Te testy uruchomiono w innych systemach:
+
+| Środowisko | Testy | Wynik |
+|---|---|---|
+| Debian 13 z rootem | `elevation_process` 8 i `nurt-fs account` 2 | 10 z 10 w trzech przebiegach |
+| Debian 13 z rootem | testy administracyjne 9 | 9 z 9 |
+| Debian 13 z rootem | pozostałe testy roota 23 | 22 z 23; jeden zależy od sesji z `SUDO_USER` i bez niej przechodzi |
+| Przygotowana maszyna, Debian 13, jądro 6.12 | testy woluminów, 8 | 8 z 8; 7 jako root, a test overlay bez miejsca jako zwykłe konto, ponieważ root zapisuje w zarezerwowanych blokach ext4 |
+| Ta sama maszyna, root | `retention` 4, reflink, limity, węzły urządzeń 3 | 7 z 7 |
+
+Testy woluminów odczytują swoje woluminy ze zmiennych takich jak `NURT_TEST_EXT4_DIR`, a test bez swojej zmiennej kończy się niepowodzeniem i ją wskazuje. Dziennik jest nieaktywny na `tmpfs`, więc testy nigdy nie używają go jako woluminu z dziennikiem. Usunięcie miliona plików zawiodło również na maszynie z 16 GB pamięci (rewizja `fee503cf`): w dwóch przebiegach jądro zabiło proces z braku pamięci po 424 sekundach przy rozmiarze rezydentnym 15,2 GiB, bez błędu asercji. Raport odwołuje się do powtórki w kontenerze z 32 GB i zapisuje kod wyjścia 0 dla testów skali przebiegu `final9`; nie podaje pamięci maszyny przebiegu `final9`.
+
+## ARM
+
+Testy dla aarch64 uruchomiono na dwa sposoby. Pierwszy to emulacja trybu użytkownika: 13 938 z 13 958 zaliczonych i 20 niezaliczonych (`final9`, `afd3571e`). Kontrola uzupełniająca na pełnym systemie aarch64 (qemu TCG, Debian 13 arm64) zbadała je: 19 z 20 tam przechodzi, a 20., `cost_calibration_two_thousand_files_within_budget` w `nurt-space`, zależy od zegara rzeczywistego z limitem 75 ms i zawodzi na wolnym procesorze. Siedem niepowodzeń dotyczyło testów dziennika konta w `nurt-fs`; przeszły 7 z 7 jako root i jako zwykłe konto, a w emulacji zawiodły z powodu sysrootu emulatora. Pełny system zaliczył też 17 z 17 testów `nurt-ffi`, `nurt-bench`, OpenPGP oraz list ACL i metadanych `nurt-fs`. Raport zapisuje 12 archiwów dla sześciu celów (`tools/release/build-release.sh` wymienia Linuksa x86_64 i aarch64 z glibc i musl oraz Windows x86_64 i aarch64), ale nie zapisuje uruchomienia archiwum aarch64.
+
+## Archiwa wydania, scenariusze i pakowanie
+
+`tools/release/scenarios.sh` powtarza 22 scenariusze funkcjonalne (T01 do T21 oraz 2.11) na zbudowanym pliku wykonywalnym, każdy we własnym katalogu z własnym `HOME`. Wynik dla archiwów kandydata 0.1.1 to 19 zaliczonych i 3 pominięte, ponieważ wymagają Windows. `tools/release/clean-linux-check.sh` uruchomił archiwa `gnu` i `musl` w Debianie 13 pod podmanem; oba zakończyły się kodem wyjścia 0. Wiązania uruchomiono z programem `nurt` z archiwum tagu `v0.1.1`: Go, Node (120 z 120), .NET (105 zaliczonych, 12 pominiętych) i Java (101 z 101). Sumy kontrolne 12 archiwów zweryfikowano 12 z 12, a podpis `checksums.txt` jest poprawny.
+
+Testy pakowania w `packaging/tests` obejmują instalatory, pakiet Debiana, manifesty i kontrole zależności, uruchamiane przez `packaging.yml`. Obrazów kontenerów, `devcontainer features test`, testów VS Code z oknem i menedżerów pakietów nie uruchomiono z braku środowiska.
+
+Dalej: [zgodność](/pl/quality/conformance/) — porównanie z git i wiązaniami — oraz [wydajność](/pl/quality/performance/) — testy skali.

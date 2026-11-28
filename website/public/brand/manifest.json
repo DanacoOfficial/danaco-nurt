@@ -1,0 +1,146 @@
+{
+  "apple-touch-icon.png": {
+    "bytes": 7066,
+    "sha256": "ec48e078f0303d332c6d7ea18c34bc4c69e9979f30f77586d3dde81ee1b44110"
+  },
+  "brand/identity.json": {
+    "bytes": 5210,
+    "sha256": "d96eb6fc86e0539a7d1f544faf628bbbdef52a2c13fc62aa72f326756d226ff3"
+  },
+  "brand/lockups/lockup-compact-black.svg": {
+    "bytes": 2772,
+    "sha256": "2ded638eb0e3375782494ef73eb3c5ab227bae391c98ba241b36fd2ed737dbd5"
+  },
+  "brand/lockups/lockup-compact-color-dark.svg": {
+    "bytes": 2798,
+    "sha256": "5758d5051e431daf573bdd3d61e4f5bc4f6db7c970280c747ca92da1baf655a4"
+  },
+  "brand/lockups/lockup-compact-color-light.svg": {
+    "bytes": 2802,
+    "sha256": "cd20e952521a9b47d70cb3ad2240f557ae60a362d5cca44e286e5cd86be172dc"
+  },
+  "brand/lockups/lockup-compact-gold.svg": {
+    "bytes": 3088,
+    "sha256": "5f90ad1849ead02c49aa951030aaaface654e7d0ad727413fa687d575d0f576f"
+  },
+  "brand/lockups/lockup-compact-metal.svg": {
+    "bytes": 4614,
+    "sha256": "db863d51c32775177be7093d27a4dcf7f6d352ca45695c20aac9695f1eefdf7b"
+  },
+  "brand/lockups/lockup-compact-white.svg": {
+    "bytes": 2772,
+    "sha256": "7df00d592f2c00e51ebf175e2b3dc308bb07b62bf11464d512debc660062c116"
+  },
+  "brand/lockups/lockup-horizontal-black.svg": {
+    "bytes": 6491,
+    "sha256": "99dc7d3c8b60d6fa60cbab1c27954b0d583d43553577248d444a1d9ea053215c"
+  },
+  "brand/lockups/lockup-horizontal-color-dark.svg": {
+    "bytes": 6517,
+    "sha256": "bf649f52253a642444221b576cbcf29b865a67fbc501af01c1899a5f059da787"
+  },
+  "brand/lockups/lockup-horizontal-color-light.svg": {
+    "bytes": 6521,
+    "sha256": "2b090e055435ec3d79133caeaf99f55674aef66555d1590ad0763ae3dab69118"
+  },
+  "brand/lockups/lockup-horizontal-gold.svg": {
+    "bytes": 6811,
+    "sha256": "22cd0964684d27fc7e255a14050ea8bf5d321ce66740db3189b36144cd92bb53"
+  },
+  "brand/lockups/lockup-horizontal-metal.svg": {
+    "bytes": 8333,
+    "sha256": "974ead3b6535b65c51880ecb4c93bbf7c3c3311d7eddc1e7a399aa8fc9eaf641"
+  },
+  "brand/lockups/lockup-horizontal-white.svg": {
+    "bytes": 6491,
+    "sha256": "60e2dca29944b3da5dcb7db5db5cf6d924ead5f43613e74eb2af5833b48393f1"
+  },
+  "brand/lockups/lockup-vertical-black.svg": {
+    "bytes": 6576,
+    "sha256": "3cb6db47f7b4b86f3b01e816717914c4e48442bb737a2372a2e03870d12f25de"
+  },
+  "brand/lockups/lockup-vertical-color-dark.svg": {
+    "bytes": 6602,
+    "sha256": "68fc1b80505176a99777e25b9b0ed111e6dbb73d7452fc6f9281ccd79cf47289"
+  },
+  "brand/lockups/lockup-vertical-color-light.svg": {
+    "bytes": 6606,
+    "sha256": "e47187045b6a0a4cc5a5ced707ba93b63d205f12a772caaf3f06a079d42f9805"
+  },
+  "brand/lockups/lockup-vertical-gold.svg": {
+    "bytes": 6896,
+    "sha256": "c229d5740a8d500f382bd47507223358fca839a99fe2810891493523a9ed76ce"
+  },
+  "brand/lockups/lockup-vertical-metal.svg": {
+    "bytes": 8417,
+    "sha256": "637a19335f7eea33d1e9519e5db5b407695002d8874f7890fd46234300656c17"
+  },
+  "brand/lockups/lockup-vertical-white.svg": {
+    "bytes": 6576,
+    "sha256": "787a9ad321936de2f5e8d089e80970b838f36bd61b54ad0e94477f421ac3ac12"
+  },
+  "brand/mark/mark-black.svg": {
+    "bytes": 1590,
+    "sha256": "5fb3667947e985154fb1514198d110e348aa9276e730324e1b652426ee4c1e3d"
+  },
+  "brand/mark/mark-color-dark.svg": {
+    "bytes": 1616,
+    "sha256": "b6c79ee3ae1f15e67dc32cf88024a92ef73c916b26d39a8942bb7b332dc1014a"
+  },
+  "brand/mark/mark-color-light.svg": {
+    "bytes": 1620,
+    "sha256": "4bdd2b6903021ca7f4c0456e9e6438981195e4d8880833c68d199c97e3eaf92c"
+  },
+  "brand/mark/mark-white.svg": {
+    "bytes": 1590,
+    "sha256": "1ce64b7f3b6208e4539ef5bbc52cb8d438066c0af4113fe9e0d8d55798d11f16"
+  },
+  "brand/tokens.css": {
+    "bytes": 1030,
+    "sha256": "bc516b125b6d376f6579d115884fb73d8466a9cf3351ca4e93a386641e9a3f23"
+  },
+  "brand/wordmark/wordmark-black.svg": {
+    "bytes": 5672,
+    "sha256": "e6540b4de8e3e747ffe5b8f8b11aef5c12613575a86e6d3a65a15eed5fd2bcfc"
+  },
+  "brand/wordmark/wordmark-color-dark.svg": {
+    "bytes": 5698,
+    "sha256": "097ea01c2c85a727416d9886e4b0b647ce47067c756561db58468a5afa102bc7"
+  },
+  "brand/wordmark/wordmark-color-light.svg": {
+    "bytes": 5702,
+    "sha256": "409ad0a23282f3de2563a5cda29b5982f5642c992e45d3288fb63e5b213a11b3"
+  },
+  "brand/wordmark/wordmark-white.svg": {
+    "bytes": 5672,
+    "sha256": "91251f27f7700f4d597184027775a09621fa0740174a906cb06f685f09c9779a"
+  },
+  "favicon.ico": {
+    "bytes": 3980,
+    "sha256": "4667a4c6c234d3a20b742a209f28fa17627625bb07c773667e334423f3e526b4"
+  },
+  "favicon.svg": {
+    "bytes": 1184,
+    "sha256": "3b6cba6f8693d1df1c3c669a0d2708a0dcea7be53e84c4f14faaee8d30fc5a92"
+  },
+  "icon-192.png": {
+    "bytes": 11299,
+    "sha256": "1bbd234581a9fe145ee582c5e797981c2dbc64f7af2b4e0100edf264a9e49a78"
+  },
+  "icon-512.png": {
+    "bytes": 35276,
+    "sha256": "f4d0015fdbb674fcc02aad40aa982b8a81641d977ad9e53d8d906634544d081b"
+  },
+  "icon-maskable-512.png": {
+    "bytes": 20854,
+    "sha256": "55721c256672efaa85fea30f5f48535464b461d63341b84e2427eb50fdc5c3f4"
+  },
+  "social/social-card.png": {
+    "bytes": 423774,
+    "sha256": "9731e6c7bb10c9e828c6674c0d42d8ff2d2827e683e35eb6fa062bb38a4af728"
+  },
+  "social/social-card@2x.png": {
+    "bytes": 1359083,
+    "sha256": "c21dd9ce836b7b89087768017b1b778d3d94ce7a6a990095b5a9662d8c39eaeb"
+  }
+}

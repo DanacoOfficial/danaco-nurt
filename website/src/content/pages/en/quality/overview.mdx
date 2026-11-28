@@ -1,0 +1,80 @@
+---
+title: Overview
+description: The map of the checks of Danaco Nurt 0.1.2 with what each proves, where it is defined, its latest recorded result (a run of 0.1.1), and an honest list of what is still open.
+section: quality
+order: 1
+eyebrow: Quality
+lead: What is checked, how, with which result, and what is not checked or still open. Every number carries its revision and date.
+updated: 2026-11-28
+toc: true
+related: [quality/testing, quality/conformance, quality/performance, project/status]
+keywords: [quality, tests, conformance, lint, dependency policy, open points]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## How to read these pages
+
+The current release is 0.1.2, dated 28 November 2026 in `CHANGELOG.md` (revision `527e4cb5a`). It is prepared, and no published release is recorded in the sources. There is no report of a test run of 0.1.2. Every measurement on the quality pages therefore comes from the final report of the release session of 0.1.1, written on 27 November 2026, and is a result of the release candidate of 0.1.1, not of 0.1.2.
+
+The checks of that report were run locally. They are runs of the commands that the workflows in `.github/workflows` define, and the report does not record a run of the hosted workflows. Revisions are given in short form. The final revision of the candidate is `afd3571e`, and its tree is identical to the signed revision `800a1ce1`, to which the tag `v0.1.1` points. Between that tag and 0.1.2 the repository has 31 commits; the changes visible to a user are those of the 0.1.2 section of the changelog.
+
+<Stats>
+  <Fact id="tests" />
+  <Fact id="gitComparisons" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+The workspace has <Fact id="crates" /> crates and the specification has <Fact id="specFiles" /> documents; both numbers are counted from the repository when the site is built.
+
+## The map of the checks
+
+| Check | What it proves | Where it is defined | Latest recorded result |
+|---|---|---|---|
+| Workspace tests | the behaviour of the crates, unit and integration level | `ci.yml` job Test; `tests/` and `crates/*/tests` | 13,965 of 13,965 passed, Linux, `afd3571e`, 27 November 2026 |
+| Windows 11 tests | the same suite on Windows, without ignored tests | branch `fix/windows-0.1.1` | 13,455 passed, none failed; a sum of a full run and group reruns (see the open points) |
+| Differential tests against git | the `git.*` commands produce the state that `git` produces, and their undo restores the initial state | crate `nurt-git-difftest` | 775 of 775 agree, `70e8dddd` |
+| Conformance of the bindings | Go, Node, .NET, Java and Python call the engine as the specification states | `conformance/bindings/api.json`, `bindings-*.yml` | bindings pass at `27c9ff8a`; Python 136 of 136 at `7be1e6c3`; the recorded cases themselves are open, see the conformance page |
+| Scenarios on a clean system | the release archives work on a minimal Debian 13 | `tools/release/scenarios.sh`, `clean-linux-check.sh` | 19 PASS, 3 SKIP (need Windows), `afd3571e`; `gnu` and `musl` archives passed |
+| Line coverage | the share of lines that the tests execute | `ci.yml` job Coverage | thresholds of 80 percent (workspace) and 90 percent (six critical crates); the report records no figure |
+| Lint and format | formatting and warnings | `ci.yml` jobs Format and Clippy | `fmt` and `clippy -D warnings` clean on Linux and Windows; `cargo check` clean for both macOS targets |
+| Cross-target check | the contract crate compiles for four more targets | `ci.yml` job cross-check | `cargo check -p nurt-contracts` for aarch64 Linux, Windows MSVC and both macOS targets; the report records no run of this job |
+| Dependency policy | licences, bans, sources and advisories | `deny.toml`, `ci.yml` job Dependency policy | `cargo deny` 0.20.2 without errors at `8510818a`; `cargo audit` clean |
+| Documentation build | rustdoc has no warnings; command pages agree with the catalog; every documented example passes the checker | `ci.yml` job Documentation, crate `nurt-docgen` | exit code 0 at `afd3571e` |
+| Repository hygiene | content, language, style and file headers | `tools/ci/repo-hygiene.sh`, `hygiene.yml` | 0 findings in 10,566 files, `afd3571e` |
+| Commit messages | the subjects and bodies of commits follow the convention | `tools/ci/check-commits.sh`, `hygiene.yml` | 91 remarks over `8c304f01..HEAD`, removed by the rebuild with corrected subjects (release report); 0.1.2 adds `tools/ci/commits-allow.txt`, 82 published commits that the script skips |
+| Packaging tests | installers, packages and manifests | `packaging/tests`, `packaging.yml` | 174 of 174, `7be1e6c3` |
+| Benchmark of tasks | tasks and oracles of `nurt-bench` are well formed | `bench/`, `bench-oracles.yml` | 648 tasks validated and 112 oracle tests passed, `27c9ff8a`; model runs are not published |
+
+## The layers
+
+1. **Unit and integration tests** run with `cargo nextest` or `cargo test`; the layout is described on the [testing](/quality/testing/) page.
+2. **Differential tests against git** compare each `git.*` scenario with the `git` program; see [conformance](/quality/conformance/).
+3. **Conformance of the language bindings** uses recorded cases and the `nurt-conformance` runner.
+4. **Scenarios on a clean system** run the built archives, not the source tree.
+5. **Lint, format, coverage and dependency policy** run on every change in the workflows.
+6. **Documentation build checks** keep the pages in `docs/commands` equal to the catalog.
+7. **The benchmark of tasks** compares Nurt with bash and PowerShell as the tool of an AI agent; it is a plan with tasks and oracles, and [performance](/quality/performance/) states that no result is published.
+
+## What is open
+
+<Callout type="warning" title="Open points of 0.1.2">
+  The list is taken from the release report of 0.1.1 and the changelogs of 0.1.1 and 0.1.2. It is not a list of every defect; it is the list that the project itself records. Where the report assigned an item to 0.1.2, the status below is what the 0.1.2 sources show.
+</Callout>
+
+- The 0.1.2 fixes (a quadratic search and replace, four macOS defects, the clang of the Windows build) have no run of 0.1.2 behind them in the sources. The one with a measurement in the changelog is described on the [performance](/quality/performance/) page.
+- The changelog of 0.1.2 lists known issues on macOS: tests of the change tracking of `nurt-proc` and one protocol test of `nurt-service` fail intermittently on the macOS runners of the continuous integration, and the cause is not established. No macOS archive is published for this release.
+- The conformance cases of the bindings were recorded for the stand-in server, and with the engine as the server the report counts 11 failing cases (see [conformance](/quality/conformance/)). The directory `conformance/` is unchanged between `v0.1.1` and 0.1.2.
+- The Windows total is a sum of a full run and group reruns after corrections, not one clean run on the last revision.
+- The macOS code was checked with `cargo check` only in the release report of 0.1.1, and no macOS archive is built.
+- The release report lists archives for six targets, among them Linux and Windows on aarch64, but records aarch64 test runs only in emulation and on a full aarch64 system: 20 tests failed in user-mode emulation, of which 19 passed on a full system and 1 depends on the clock. It records no run of an aarch64 archive.
+- Tests of the C interface (`abi_c`, `abi_node`) pass without `clang` on the path, so such a pass is not evidence.
+- One test, `nurt-space cost_calibration_two_thousand_files_within_budget`, depends on the real clock and fails on a slow processor. The report assigned a correction to 0.1.2; the changelog of 0.1.2 does not list one.
+- `conformance/tools/test_suite.py` has 166 failing cases and is outside the workflows. The report assigned it to 0.1.2; `conformance/` has no change in 0.1.2.
+- In the journal of an account, the calls that read, move and remove check the chain of directories and then work by path, which leaves a window for replacing a directory with a link; the creation of files is not affected. The report assigned the correction to 0.1.2; the changelog of 0.1.2 does not list it.
+- The recovery time of 5 seconds for a journal of one million entries was not confirmed in 0.1.0 (6.2 seconds measured before later corrections); the changelogs of 0.1.1 and 0.1.2 record no new measurement of it.
+
+The [status](/project/status/) page lists the limitations of the release, and the pages on [testing](/quality/testing/), [conformance](/quality/conformance/) and [performance](/quality/performance/) give the detail behind each row.

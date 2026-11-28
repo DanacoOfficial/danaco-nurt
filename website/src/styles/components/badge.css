@@ -1,0 +1,41 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.badge
+ * Responsibility:   The status badge: a small monospaced label with a tinted ground.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.badge {
+  --badge-colour: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--badge-colour) 40%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--badge-colour) 10%, transparent);
+  color: var(--badge-colour);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge--accent {
+  --badge-colour: var(--accent-strong);
+}
+
+.badge--success {
+  --badge-colour: var(--success);
+}
+
+.badge--warning {
+  --badge-colour: var(--warning);
+}
+
+.badge--danger {
+  --badge-colour: var(--danger);
+}

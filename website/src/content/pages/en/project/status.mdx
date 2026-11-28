@@ -1,0 +1,92 @@
+---
+title: Status and limitations
+description: What version 0.1 means for stability, the state of release 0.1.2, the known limitations, the systems that are supported and the points the documentation leaves open.
+section: project
+order: 2
+eyebrow: Project
+lead: Danaco Nurt is at version 0.1.2. This page states what that means and where the edges are.
+updated: 2026-11-28
+related: [project/releases, project/versioning, quality/testing, product/platforms]
+keywords: [status, stability, limitations, supported systems, 0.x]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What 0.x means
+
+<Callout type="warning" title="Version 0.1 is not stable">
+  The repository states that the language, the syntax tree, the command catalog, the report format and the library interfaces may change between 0.x versions.
+</Callout>
+
+The project follows Semantic Versioning 2.0.0, and that specification makes no compatibility promise for versions below 1.0.0. The rules of the formats (a minor version only adds, a major version may remove) are described on the [versioning](/project/versioning/) page; they describe the intended growth within a major version, and the status statement above is the narrower one to rely on while the version is 0.x.
+
+In practice this means the following for a program or an integration written today:
+
+- a program in the language may need an edit after an upgrade, because the language, the catalog and the report format may change;
+- a host that embeds `libnurt` or reads reports should pin the version of the program and read the version members of the documents it receives;
+- a journal written by 0.1.0 is read unchanged by 0.1.1, but a reader of manifest format version 1 rejects version 2, which operations with at least 256 targets use from 0.1.1; a reader of syntax tree version 1.0 rejects a document that holds the control constructs of version 1.1.
+
+## State of 0.1.2
+
+Release 0.1.2 is dated 2026-11-28 in the changelog and is prepared, like 0.1.1: the sources record no published GitHub release. It is a corrective release.
+
+- **Corrected.** Search and replace with a regular expression no longer take quadratic time on a line with many matches. Four defects of macOS are corrected: the journal was inactive on the data volume, `max_memory` made every program start fail with `EINVAL`, the member list of a group was read without regard to alignment, and process control failed with `EPERM` for an ended process group.
+- **Open.** On the macOS runners of continuous integration, tests of the change tracking of `nurt-proc` and one protocol test of `nurt-service` fail intermittently. The changelog states that the cause is not yet established.
+- **Not done.** No macOS archive is published for 0.1.2. The sources record no test run of 0.1.2 as a release candidate; the measured numbers below belong to 0.1.1.
+
+The full list is on the [releases](/project/releases/) page.
+
+## What exists
+
+The implemented parts, as the README of the repository lists them: the language front end, the engine, the command catalog, the undo journal, the command line program, the Model Context Protocol server, the language server and the C interface.
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="tests" />
+  <Fact id="windowsTests" />
+  <Fact id="scenarios" />
+</Stats>
+
+The numbers measure the release candidate of 0.1.1 on 27 November 2026, not release 0.1.2. The [testing](/quality/testing/) page states what they cover and what they do not.
+
+## Supported systems
+
+| System | Named in the installation documentation | State in 0.1.2 |
+|---|---|---|
+| Linux, x86-64 and aarch64 | yes | archives for glibc and for musl were built for 0.1.1; the test suite ran on aarch64 only in emulation |
+| Windows, x86-64 and aarch64 | yes | archives for MSVC were built for 0.1.1; the archive and `install.ps1` were run on Windows 11 only (changelog of 0.1.0) |
+| macOS, x86_64 and aarch64 | yes | the code compiles and 0.1.2 corrects defects found on macOS; tests fail intermittently on the CI runners; no macOS archive is published |
+
+The [installation](/docs/guide/installation/) page lists Linux, macOS and Windows on x86_64 and aarch64 as the supported systems. The table above states what the changelog and the release report of 0.1.1 record about each of them.
+
+## Known limitations
+
+The entries of the changelog that remain in force:
+
+- no macOS archive is built or published;
+- the macOS tests named above fail intermittently on the CI runners;
+- changes on volumes held in memory, such as `tmpfs`, are reported as irreversible, because the journal is active only on volumes that keep a journal;
+- change detection by scan compares a file larger than `run.preimage_copy_max` (64 MiB when unlimited) by metadata only, so a rewrite of the same size within the timestamp granularity of the file system stays undetected;
+- some administration operations are irreversible by design: `accounts.password`, an immediate restart or shutdown, a cancelled schedule, a partition change, a format and `clock.set`; the effects of `load_extension` in `sql` are reported as unknown and irreversible;
+- OpenPGP signatures of commits and tags need a GnuPG program; without it the signature is refused with `E_GIT_SIGN`;
+- the subcommand `journal` offers only `salvage`; the other journal operations are commands of the language;
+- the recovery time of 5 seconds for a journal of one million entries was not confirmed: the last measurement named in the changelog of 0.1.0 was 6.2 seconds, before later corrections;
+- the certificate that signs `nurt.exe` is issued by Danaco Holding Group Sp. z o.o. itself, so Windows reports the publisher as unverified (see also [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md)).
+
+Native extension libraries are available only in builds with the `native` feature and with the key `ext.native` set; extensions are otherwise WebAssembly modules. The registry provider and the command `windows.cim` exist only on Windows (`E_OS_ONLY` elsewhere), `create` of a named pipe or a device node fails with `E_OS_ONLY` on Windows, and the command pages state the other platform differences.
+
+## Limits of the checks
+
+The measured quality of the release candidate of 0.1.1 has its own limits, taken from the final report of its release session (27 November 2026):
+
+- the end-to-end scenarios were run on a clean Linux system: 19 passed and 3 more, which need Windows, were skipped;
+- the Windows result (13,455 tests passed on Windows 11, none failed; see the figures above) is the sum of a full run and of reruns of groups after corrections, not one clean run on the last revision;
+- on aarch64 the test suite ran in user-mode emulation: 13,938 of 13,958 tests passed; of the 20 that failed, 19 pass on a full aarch64 system and 1 depends on the clock;
+- for macOS the report records only a clean `cargo check`, and no macOS archive was built;
+- the check of Windows files for dependencies (`check_pe`) is reserved in `tools/ci/check-dependencies.sh` and not implemented.
+
+## Open points and plans
+
+The documentation states no schedule and no list of planned features, and this site does not add one. The versioning rules say that minor releases appear every 8 weeks and patch releases as needed. For the changes already made, see the [releases](/project/releases/) page; for questions, see [support](/project/support/).

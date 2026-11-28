@@ -1,0 +1,40 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Pager
+// Responsibility:   The links to the previous and the next page of a section.
+// Dependencies:     website.src.i18n, website.src.styles.components.pager
+
+import '../../styles/components/pager.css';
+import type { Locale } from '../../../config/i18n';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  previous?: { title: string; path: string };
+  next?: { title: string; path: string };
+}
+
+const { locale, previous, next } = Astro.props;
+const ui = useUi(locale);
+---
+
+{(previous || next) && (
+  <nav class="pager" aria-label={ui.pager.label}>
+    {previous ? (
+      <a class="pager__link pager__link--previous" href={href(previous.path, locale)} rel="prev">
+        <span class="pager__hint">{ui.pager.previous}</span>
+        <span class="pager__title">{previous.title}</span>
+      </a>
+    ) : <span></span>}
+    {next ? (
+      <a class="pager__link pager__link--next" href={href(next.path, locale)} rel="next">
+        <span class="pager__hint">{ui.pager.next}</span>
+        <span class="pager__title">{next.title}</span>
+      </a>
+    ) : <span></span>}
+  </nav>
+)}

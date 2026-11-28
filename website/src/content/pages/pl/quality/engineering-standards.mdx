@@ -1,0 +1,88 @@
+---
+title: Standardy inżynierskie
+description: Zasady stylu kodu, konwencja commitów, nazewnictwo i nagłówki licencyjne w repozytorium Danaco Nurt oraz kontrole, które wymuszają je automatycznie w CI i przed pull requestem.
+section: quality
+order: 8
+eyebrow: Jakość
+lead: Zasady dotyczące kodu, commitów i plików w repozytorium oraz informacja, które z nich sprawdza maszyna.
+updated: 2026-11-28
+related: [quality/supply-chain, project/contributing, quality/testing]
+keywords: [clippy, rustfmt, conventional commits, DCO, higiena, nagłówki, CI, przegląd]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Styl kodu
+
+Zasady zawierają konwencje [code style](/docs/conventions/code-style/) i [naming](/docs/conventions/naming/), podsumowane w `CONTRIBUTING.md`. Ich rdzeń:
+
+- Rust w edycji 2024 na łańcuchu narzędzi przypiętym w `rust-toolchain.toml` (kanał 1.98.1, z `rustfmt` i `clippy`). Formatowanie wynika z `rustfmt.toml`: maksymalna szerokość 100, zakończenia wierszy Unix.
+- Lint-y są ustawiane raz w `[workspace.lints]` i dziedziczone przez każdą skrzynkę: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub` oraz ostrzeżenia clippy dla `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` i `cognitive_complexity`. Próg w `clippy.toml` to złożoność poznawcza 15 na funkcję. Testy mogą używać `unwrap`, `expect`, `panic!`, `print!` i `dbg!`.
+- Kod produkcyjny zwraca typy błędów z `nurt-contracts`; każdy błąd ma stabilny kod. Lint jest wyłączany na możliwie najmniejszym elemencie i zawsze z `reason`.
+- `unsafe` jest dozwolone tylko w skrzynkach, które z definicji wywołują interfejsy systemu operacyjnego lub obce, a każdy blok ma komentarz `// SAFETY:`. Jedna metoda z `clippy.toml` jest zabroniona: zakresy transakcji tworzy wyłącznie dziennik (`TxScope::new_for_journal`).
+- Każdy element publiczny ma rustdoc, skrzynki biblioteczne zabraniają `missing_docs`, przykłady w dokumentacji działają jako testy, a dokumentacja jest budowana z ostrzeżeniami traktowanymi jak błędy.
+- Komentarze mówią to, czego kod nie pokazuje. Bez zakomentowanego kodu, komentarzy historycznych, znaczników niedokończonej pracy i makr zastępczych. Kod biblioteczny nie drukuje; diagnostyka korzysta z `tracing`.
+
+Nazewnictwo też jest ustalone: produkt to „Danaco Nurt”, plik wykonywalny to `nurt`; polecenia, parametry i typy rekordów piszemy małymi literami; kody błędów mają postać `E_` i słów wielkimi literami; klucze konfiguracji mają postać `section.key`; pełne słowa są preferowane wobec skrótów.
+
+## Konwencja commitów
+
+Komunikaty commitów stosują Conventional Commits 1.0.0: `<type>(<scope>)[!]: <summary>` ([konwencje commitów](/docs/conventions/commits/)).
+
+| Część | Reguła |
+|---|---|
+| `type` | `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert` |
+| `scope` | nazwa skrzynki bez przedrostka `nurt-` albo jeden z obszarów `workspace`, `deps`, `ci`, `spec`, `catalog`, `tables`, `docs`, `tools`, `release`, `repo`, `bindings`, `packaging`, `integrations` (lista `AREAS` w `check-commits.sh`) |
+| `summary` | tryb rozkazujący, początek małą literą, bez kropki na końcu, pierwszy wiersz do 72 znaków |
+| stopki | `BREAKING CHANGE:` z `!` po zakresie; `Refs:` albo `Closes:`; `Signed-off-by:` zgodny z autorem |
+
+```text
+feat(journal): record the pre-image of truncated files
+```
+
+Każdy commit ma poświadczenie Developer Certificate of Origin 1.1 (sign-off). `tools/ci/check-commits.sh <range>` sprawdza temat i stopkę każdego commitu w zakresie i kończy się kodem 1, gdy któryś commit jest nieprawidłowy. Od 0.1.2 pomija commity wymienione w `tools/ci/commits-allow.txt`, opublikowane, zanim kontrole zaczęły ich dotyczyć; nowy commit nigdy nie jest dopisywany do listy.
+
+## Nagłówki licencyjne
+
+Licencja produktu jest podana wyłącznie w `LICENSE` (Apache-2.0). Pliki źródłowe nie mają wierszy z identyfikatorem licencji. Każdy plik źródłowy w formacie z komentarzami zaczyna się trzywierszowym nagłówkiem producenta (prawa autorskie, wiersz o warunkach licencji, adres repozytorium i pomocy), zapisanym w składni komentarzy danego formatu; JSON, pliki blokad i dane binarne nagłówka nie mają. Wyjątki są wymienione z przyczyną w `tools/ci/hygiene-allow.txt`.
+
+Raport końcowy kandydata do wydania 0.1.1 odnotowuje dłuższy stały nagłówek i stopkę w 2868 z 10 560 śledzonych plików, z nazwanymi wyłączeniami, takimi jak fixtury, pliki wzorcowe i pliki blokad. Wymienia też pozostałości przypisane do 0.1.2: pliki `Containerfile`, cztery krótkie zdania `Responsibility` i 684 zdania szablonowe poza zakresem (raport końcowy, 27 listopada 2026). Dziennik zmian 0.1.2 ich nie wspomina, więc nie są odnotowane jako wykonane.
+
+## Co wymusza repozytorium
+
+`tools/ci/repo-hygiene.sh` ma trzy grupy kontroli, uruchamiane przez zadanie `content` przepływu `hygiene.yml`; pozostałe zadania tego przepływu sprawdzają skrypty powłoki, pliki przepływów (przez `actionlint`) i commity:
+
+| Grupa | Kontrole |
+|---|---|
+| `content` | katalogi domowe prawdziwych użytkowników, prywatne adresy sieciowe, znaczniki niedokończonej pracy, identyfikatory procesu wytwórczego, tekst polski, dodatkowe wzorce |
+| `style` | słownictwo promocyjne i asekuracyjne, zwroty skierowane do czytelnika, nagłówki szablonowe, odniesienia do narzędzi autorskich, emoji, wyłączenia lintów bez przyczyny, komentarze historyczne, makra zastępcze |
+| `headers` | brak nagłówka producenta, wiersze z identyfikatorem licencji w pliku, znaczniki narzędzia autorskiego |
+
+Na kandydacie do wydania 0.1.1 kontrola higieny znalazła 0 trafień w 10 566 plikach (rewizja `afd3571e`, 27 listopada 2026); przed poprawkami tej sesji znalazła 158 w 8 kategoriach. Nie odnotowano przebiegu tej kontroli dla 0.1.2.
+
+## Przegląd i przepływy CI
+
+Pull request jest scalany dopiero wtedy, gdy te polecenia kończą się powodzeniem; CI uruchamia je na Linuksie, macOS i Windows:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo deny --locked check
+cargo nextest run --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+bash tools/ci/repo-hygiene.sh
+bash tools/ci/check-commits.sh origin/main..HEAD
+```
+
+Przepływ [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) ma zadania `fmt`, `clippy`, `test` (trzy systemy operacyjne), `coverage`, `docs`, `deny` i `cross-check` oraz codzienne uruchomienie zaplanowane. Pokrycie mierzy `cargo-llvm-cov`: co najmniej 80 procent wierszy dla przestrzeni roboczej i 90 procent dla `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` i `nurt-ffi`. Uruchomienie zaplanowane ustawia `NURT_PROPTEST_FULL=1` dla testów własności (100 000 przypadków dla większości własności). Przepływy `bindings-*`, `integrations-*`, `bench-oracles`, `packaging` i `release` obejmują wiązania, integracje, testy wydajności i pakiety.
+
+Przegląd: opiekun przegląda każdy pull request; commity są scalane w niezmienionej postaci, więc każdy musi spełniać reguły komunikatu i sign-off ([`CONTRIBUTING.md`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md)). Pull request obejmuje jedną zmianę, a zmiany widoczne dla użytkownika są zapisywane w sekcji `Unreleased` dziennika zmian.
+
+<Callout type="note" title="Granice egzekwowania">
+  Repozytorium dokumentuje te reguły i ich skrypty. W źródłach przeczytanych na potrzeby tej strony nie stwierdza, czy w usłudze hostingowej skonfigurowano ochronę gałęzi albo wymagane przeglądy. Raport wydania odnotowuje 91 uwag `check-commits.sh` do zakresu commitów sesji wydania, rozwiązanych przez odtworzenie commitów z poprawionymi tematami.
+</Callout>
+
+Reguły zależności i podpisywania opisuje strona o [łańcuchu dostaw i wydaniach](/pl/quality/supply-chain/), a proces — strona o [wkładzie w projekt](/pl/project/contributing/).

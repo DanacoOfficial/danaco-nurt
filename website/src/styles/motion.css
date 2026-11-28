@@ -1,0 +1,213 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.motion
+ * Responsibility:   The motion layer: entrances of elements as they scroll into view, the opening of the hero, the flow of the stream trace, the perspective tilt and highlight of cards, and the movement of buttons. Every rule applies only under the class motion of the document, which the head script sets when the reader has not asked for reduced motion; the list of entering elements equals the list in website.src.scripts.motion.targets.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+:root {
+  --motion-enter: 720ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Entrances. The individual property translate is used, so that the transform of a tilted card is not disturbed. */
+.motion :is(
+    .section__head,
+    .page-header__title,
+    .page-header__lead,
+    .card,
+    .stat,
+    .how__point,
+    .terminal,
+    .session,
+    .timeline > li,
+    .step,
+    .callout,
+    .figure,
+    .cta-band__inner,
+    .prose > h2,
+    .prose > table,
+    .prose > .code-block
+  ) {
+  opacity: 0;
+  translate: 0 22px;
+  transition:
+    opacity var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms),
+    translate var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms);
+}
+
+.motion :is(
+    .section__head,
+    .page-header__title,
+    .page-header__lead,
+    .card,
+    .stat,
+    .how__point,
+    .terminal,
+    .session,
+    .timeline > li,
+    .step,
+    .callout,
+    .figure,
+    .cta-band__inner,
+    .prose > h2,
+    .prose > table,
+    .prose > .code-block
+  ).is-visible {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* The opening of the hero: the parts of the copy rise in sequence and the stage of the mark grows into place. */
+.motion .hero__copy > * {
+  animation: motion-rise 900ms var(--motion-ease) both;
+}
+
+.motion .hero__copy > :nth-child(1) { animation-delay: 60ms; }
+.motion .hero__copy > :nth-child(2) { animation-delay: 140ms; }
+.motion .hero__copy > :nth-child(3) { animation-delay: 240ms; }
+.motion .hero__copy > :nth-child(4) { animation-delay: 320ms; }
+.motion .hero__copy > :nth-child(5) { animation-delay: 400ms; }
+.motion .hero__copy > :nth-child(6) { animation-delay: 480ms; }
+
+.motion .hero__visual {
+  animation: motion-stage 1200ms var(--motion-ease) 200ms both;
+}
+
+/* The stream trace flows: a thin line of light travels along the angle of the mark; it is masked out of the side that holds the text. */
+.motion .stream-trace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(36.87deg, transparent 49.72%, var(--trace-gold) 49.9%, var(--trace-silver) 50%, var(--trace-gold) 50.1%, transparent 50.28%);
+  background-size: 260% 260%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0 48%, #000 82%);
+  mask-image: linear-gradient(90deg, transparent 0 48%, #000 82%);
+  animation: motion-stream 11s linear infinite;
+}
+
+/* Cards tilt in perspective towards the pointer and carry a highlight under it. */
+.motion .card--link,
+.motion .stat {
+  transform-style: preserve-3d;
+  transition:
+    opacity var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms),
+    translate var(--motion-enter) var(--motion-ease) var(--reveal-delay, 0ms),
+    transform 240ms var(--motion-ease),
+    border-color var(--duration-base) var(--ease-out),
+    background var(--duration-base) var(--ease-out);
+}
+
+.motion .card--link.is-tilted,
+.motion .stat.is-tilted {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px);
+}
+
+.motion .card--link::after,
+.motion .stat::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(240px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgb(201 161 90 / 0.16), transparent 70%);
+  transition: opacity 240ms var(--motion-ease);
+}
+
+.motion .stat {
+  position: relative;
+}
+
+.motion .card--link.is-tilted::after,
+.motion .stat.is-tilted::after {
+  opacity: 1;
+}
+
+.motion .card__icon {
+  transition: transform 320ms var(--motion-ease);
+}
+
+.motion .card--link:hover .card__icon {
+  transform: translateZ(18px) scale(1.12);
+}
+
+/* Buttons carry a passing light on hover. */
+.motion .button {
+  overflow: hidden;
+}
+
+/* The fill of a button is its ::before, so the light is drawn by ::after. */
+.motion .button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%);
+  translate: -120% 0;
+}
+
+.motion .button:hover::after {
+  translate: 120% 0;
+  transition: translate 700ms var(--motion-ease);
+}
+
+/* The mark of the header turns its chevrons apart on hover. */
+.motion .nurt-mark__back,
+.motion .nurt-mark__forward {
+  transition: transform 420ms var(--motion-ease);
+}
+
+.motion a:hover > .nurt-mark .nurt-mark__back {
+  transform: translate(-2px, -1px);
+}
+
+.motion a:hover > .nurt-mark .nurt-mark__forward {
+  transform: translate(2px, 1px);
+}
+
+@keyframes motion-rise {
+  from {
+    opacity: 0;
+    translate: 0 26px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes motion-stage {
+  from {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(-14deg) rotateX(6deg) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motion-stream {
+  from {
+    background-position: 100% 100%;
+  }
+
+  to {
+    background-position: 0% 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion *,
+  .motion *::before,
+  .motion *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

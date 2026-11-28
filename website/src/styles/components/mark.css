@@ -1,0 +1,58 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.mark
+ * Responsibility:   Colours of the mark and the lockups from the theme variables, and the assembly animation of the mark.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.nurt-mark__back,
+.nurt-lockup__back {
+  fill: var(--mark-back);
+}
+
+.nurt-mark__forward,
+.nurt-lockup__forward {
+  fill: var(--mark-forward);
+}
+
+.nurt-lockup__company {
+  fill: var(--name-company);
+}
+
+.nurt-lockup__product {
+  fill: var(--name-product);
+}
+
+.nurt-mark--animated .nurt-mark__back {
+  animation: nurt-step-back var(--duration-hero) var(--ease-out) both;
+}
+
+.nurt-mark--animated .nurt-mark__forward {
+  animation: nurt-step-forward var(--duration-hero) var(--ease-out) both;
+}
+
+@keyframes nurt-step-back {
+  from {
+    opacity: 0;
+    transform: translate(10px, 5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nurt-step-forward {
+  from {
+    opacity: 0;
+    transform: translate(-10px, -5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

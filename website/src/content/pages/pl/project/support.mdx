@@ -1,0 +1,71 @@
+---
+title: Wsparcie i kontakt
+description: Gdzie zadawać pytania i zgłaszać błędy w Danaco Nurt, jak prywatnie zgłasza się podatności i co zawiera przydatne zgłoszenie błędu.
+section: project
+order: 8
+eyebrow: Projekt
+lead: Pytania i błędy trafiają do repozytorium lub na adres support@danaco-group.pl; podatności wyłącznie e-mailem.
+updated: 2026-11-28
+related: [quality/security, project/contributing, project/status]
+keywords: [wsparcie, kontakt, zgłoszenia, zgłoszenie błędu, zgłoszenie podatności]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Dokąd się zwrócić
+
+| Chcesz | Przejdź do |
+|---|---|
+| Zrozumieć, jak coś działa | [dokumentacji](/docs/guide/): przewodnik, opis poleceń, zbiór przepisów, ściągawki i specyfikacja |
+| Zgłosić błąd lub zaproponować funkcję | [zgłoszeń repozytorium](https://github.com/DanacoOfficial/danaco-nurt/issues); repozytorium udostępnia formularz zgłoszenia błędu i formularz propozycji funkcji |
+| Zadać pytanie lub skontaktować się z opiekunami | `support@danaco-group.pl` |
+| Zgłosić podejrzenie podatności | `support@danaco-group.pl`, temat zaczynający się od `[security] nurt`, nigdy w publicznym zgłoszeniu |
+| Zgłosić naruszenie Kodeksu postępowania | `support@danaco-group.pl` |
+| Zgłosić barierę dostępności w tej witrynie | `support@danaco-group.pl`; zob. [Dostępność](/pl/legal/accessibility/) |
+
+Dokumentacja wersjonowania i wsparcia podaje ten sam adres dla pytań i błędów. Zanim otworzysz zgłoszenie, przeszukaj istniejące; repozytorium nie przyjmuje pustych zgłoszeń, więc zgłoszenie otwiera się jednym z formularzy.
+
+## Zgłaszanie podatności
+
+Podatności nie zgłasza się w zgłoszeniu, pull requeście ani dyskusji. Wyślij e-mail na adres `support@danaco-group.pl` z tematem zaczynającym się od `[security] nurt`. Zgłoszenia mogą być w języku angielskim lub polskim. Zgłoszenie zawiera, w miarę dostępności:
+
+- dotkniętą wersję, rewizję lub artefakt wydania;
+- system operacyjny i architekturę;
+- opis problemu i jego skutków;
+- kroki odtworzenia, dowód koncepcji lub minimalny program Nurt;
+- znane środki zaradcze.
+
+Zakres, przebieg postępowania i weryfikację wydań opisują [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) i strona [bezpieczeństwo](/pl/quality/security/).
+
+## Co zawiera przydatne zgłoszenie błędu
+
+Formularz zgłoszenia błędu w repozytorium pyta o poniższe pozycje i są one tym, czego opiekun potrzebuje, by odtworzyć problem.
+
+1. **Wersja.** Uruchom `nurt --version`. Polecenie wypisuje `nurt <version> (<commit> <date>)`, wiersz praw autorskich i licencję; część w nawiasie jest pomijana, gdy plik wykonywalny zbudowano bez danych repozytorium. `nurt version` wypisuje w pierwszym wierszu wersję w postaci `nurt <version>`. Dla kompilacji ze źródeł podaj rewizję.
+2. **System operacyjny, jego wersja i architektura**, na przykład Ubuntu 24.04, x86_64. `nurt doctor` zgłasza właściwości systemu plików, uprawnienia, usługę i serwery języka, które znalazł.
+3. **Minimalny program odtwarzający problem.** Używaj przykładowych ścieżek, takich jak `/home/user`, a nie ścieżek swojego komputera.
+4. **Wynik rzeczywisty: zwrócony raport lub błąd**, najlepiej w postaci JSON. Każde uruchomienie zwraca raport skutków, a błąd niesie stały kod (`E_...`), pozycję i korektę, więc raport wskazuje etap i kod niepowodzenia.
+5. **Wynik oczekiwany.**
+6. **Kontekst:** używana konfiguracja i integracja (wiersz poleceń, biblioteka lub serwer Model Context Protocol).
+
+```sh
+nurt --version
+nurt exec --json '<program>'
+```
+
+Drugi wiersz jest przykładem postaci `nurt exec` z opcją `--json`, zgodnie ze stroną o wierszu poleceń; zastąp `<program>` minimalnym programem. Dokładne opcje opisuje strona [wiersz poleceń](/docs/guide/command-line/).
+
+## Czasy odpowiedzi
+
+Jedyne czasy odpowiedzi, jakie podaje źródło w repozytorium, dotyczą postępowania w sprawach bezpieczeństwa w SECURITY.md:
+
+| Krok | Czas docelowy |
+|---|---|
+| Potwierdzenie przyjęcia zgłoszenia | w ciągu 3 dni roboczych |
+| Wstępna ocena i klasyfikacja wagi | w ciągu 10 dni roboczych |
+| Poprawka krytycznej podatności | w ciągu 7 dni od potwierdzenia |
+| Skoordynowane ujawnienie publiczne | w ciągu 90 dni od zgłoszenia lub wcześniej, gdy wyjdzie poprawka |
+
+Dla pytań, zgłoszeń błędów i próśb o funkcje nie podano czasu odpowiedzi, a ta strona niczego im nie obiecuje. O stanie produktu i jego znanych granicach przeczytaj najpierw [Stan i ograniczenia](/pl/project/status/); aby samodzielnie zaproponować zmianę, zob. [Współtworzenie](/pl/project/contributing/).

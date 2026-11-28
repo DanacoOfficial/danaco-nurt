@@ -1,0 +1,22 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.page-shell
+ * Responsibility:   The area of a content page below the header: the content column, the related pages and the sticky side column.
+ * Dependencies:     website.src.styles.layout
+ */
+
+.page-shell__main {
+  min-width: 0;
+}
+
+.page-shell__related {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--line);
+}
+
+.page-shell__related h2 {
+  font-size: var(--text-xl);
+}

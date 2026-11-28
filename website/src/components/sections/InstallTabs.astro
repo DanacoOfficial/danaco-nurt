@@ -1,0 +1,42 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.InstallTabs
+// Responsibility:   The one-line installation commands for Windows and for Linux and macOS, in two tabs that work without JavaScript.
+// Dependencies:     website.config.site, website.src.i18n, website.src.styles.components.install-tabs
+
+import '../../styles/components/install-tabs.css';
+import '../../styles/components/terminal.css';
+import { installCommands } from '../../../config/site';
+import type { Locale } from '../../../config/i18n';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  id?: string;
+}
+
+const { locale, id = 'install' } = Astro.props;
+const ui = useUi(locale);
+---
+
+<div class="install-tabs">
+  <input type="radio" name={`${id}-tab`} id={`${id}-unix`} checked />
+  <input type="radio" name={`${id}-tab`} id={`${id}-windows`} />
+  <div class="install-tabs__labels" role="presentation">
+    <label for={`${id}-unix`}>{ui.home.unix}</label>
+    <label for={`${id}-windows`}>{ui.home.windows}</label>
+  </div>
+  <div class="install-tabs__panel install-tabs__panel--unix">
+    <div class="code-block"><pre><code>{installCommands.unix}</code></pre></div>
+  </div>
+  <div class="install-tabs__panel install-tabs__panel--windows">
+    <div class="code-block"><pre><code>{installCommands.windows}</code></pre></div>
+  </div>
+</div>
+
+<script>
+  import '../../scripts/copy-code';
+</script>

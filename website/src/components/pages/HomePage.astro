@@ -1,0 +1,97 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.HomePage
+// Responsibility:   The home page in one language: the hero, the pillars, how a program runs, the numbers, the quality entry points, the documentation entry points and the closing call to action.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.*, website.src.components.content.*, website.src.components.motion.*, website.src.data.home-page.*
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Hero from '../sections/Hero.astro';
+import Section from '../sections/Section.astro';
+import CtaBand from '../sections/CtaBand.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import TerminalSession from '../motion/TerminalSession.astro';
+import Terminal from '../content/Terminal.astro';
+import Fact from '../content/Fact.astro';
+import Stats from '../content/Stats.astro';
+import Button from '../base/Button.astro';
+import type { Locale } from '../../../config/i18n';
+import { seo } from '../../../config/seo';
+import { homeEn } from '../../data/home-page/en';
+import { homePl } from '../../data/home-page/pl';
+import { href, localisedPath } from '../../lib/urls';
+import { useUi } from '../../i18n';
+import '../../styles/components/how.css';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = useUi(locale);
+const content = locale === 'pl' ? homePl : homeEn;
+---
+
+<BaseLayout title="Danaco Nurt" description={seo.descriptions[locale]} locale={locale} path="/" home={true} context={ui.siteDescription}>
+  <Hero locale={locale} content={content.hero} />
+
+  <Section id="why" eyebrow={content.pillars.eyebrow} title={content.pillars.title} lead={content.pillars.lead}>
+    <CardGrid columns={3}>
+      {content.pillars.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
+    </CardGrid>
+  </Section>
+
+  <Section id="how" tone="raised" eyebrow={content.how.eyebrow} title={content.how.title} lead={content.how.lead}>
+    <div class="how">
+      <ol class="how__points" role="list">
+        {content.how.points.map((point, index) => (
+          <li class="how__point">
+            <span class="how__index" aria-hidden="true">{index + 1}</span>
+            <div>
+              <h3>{point.title}</h3>
+              <p class="text-muted">{point.text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="how__terminals">
+        <TerminalSession title={content.how.sessionTitle} replayLabel={content.how.sessionReplay} caption={content.how.sessionCaption} />
+        <Terminal title={content.how.programTitle}>
+          <pre><code class="language-nurt">{content.how.program}</code></pre>
+        </Terminal>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="numbers" eyebrow={content.numbers.eyebrow} title={content.numbers.title} lead={content.numbers.lead}>
+    <Stats>
+      <Fact id="commands" />
+      <Fact id="platforms" />
+      <Fact id="tests" />
+      <Fact id="gitComparisons" />
+      <Fact id="crates" />
+      <Fact id="license" />
+    </Stats>
+  </Section>
+
+  <Section id="quality" tone="raised" eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
+    <CardGrid columns={4}>
+      {content.quality.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
+    </CardGrid>
+  </Section>
+
+  <Section id="docs" eyebrow={content.docs.eyebrow} title={content.docs.title} lead={content.docs.lead}>
+    <CardGrid columns={4}>
+      {content.docs.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
+    </CardGrid>
+  </Section>
+
+  <CtaBand title={content.cta.title} text={content.cta.text}>
+    <Button href={href('/docs/guide/installation/', locale)} variant="primary" iconAfter="arrow-right">{content.cta.primary}</Button>
+    <Button href={href('/docs/guide/first-steps/', locale)} variant="secondary">{content.cta.secondary}</Button>
+  </CtaBand>
+  <p class="visually-hidden">{ui.siteDescription}</p>
+</BaseLayout>

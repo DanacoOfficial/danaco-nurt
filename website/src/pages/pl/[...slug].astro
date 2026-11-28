@@ -1,0 +1,21 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.pages.pl.slug
+// Responsibility:   The authored pages of the site in Polish: one route per entry of the pages collection.
+// Dependencies:     website.src.components.pages.ContentPage, website.src.lib.pages
+
+import ContentPage from '../../components/pages/ContentPage.astro';
+import { getPages, pageSlug } from '../../lib/pages';
+
+export async function getStaticPaths() {
+  const entries = await getPages('pl');
+  return entries.map((entry) => ({ params: { slug: pageSlug(entry) }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+---
+
+<ContentPage entry={entry} locale="pl" />

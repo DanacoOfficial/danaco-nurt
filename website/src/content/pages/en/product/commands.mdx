@@ -1,0 +1,122 @@
+---
+title: The command catalog
+description: "The command catalog of Danaco Nurt: the core commands and optional groups, how a command page is built, and how names, parameters and types are checked."
+section: product
+order: 5
+eyebrow: Product
+lead: One catalog defines every command, and the binder, the help, the model description, the reference pages and the conformance suite all read it.
+updated: 2026-11-28
+related: [product/features, product/language, architecture/engine, quality/conformance]
+keywords: [catalog, commands, groups, signatures, types, validation]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What the catalog is
+
+The command catalog is the single source of command signatures. According to the [catalog specification](/docs/specification/catalog/) the binder, the built-in help, the model description, the reference documentation, the tool definitions and the conformance suite all read it. It consists of TOML files in the format `nurt-catalog/1`: `core.toml` for the core commands, one file for each optional group, and an index (`_index.toml`) that lists the files and the expected number of commands.
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="coreCommands" />
+  <Fact id="optionalGroups" />
+</Stats>
+
+Each command entry states its name, its category (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` or `help`), its reversibility (`read`, `reversible`, `reversible_if_preserved` or `irreversible`), the input and output record kinds, and its parameters with type, position, default and a summary. A command may be limited to some operating systems; on another system binding fails with `E_OS_ONLY`.
+
+```toml
+[[command]]
+name = "set"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Set values at key paths, preserving layout."
+```
+
+The entry is from the catalog specification. Changes made by a command are recorded in the [journal](/product/journal-and-undo/) according to the reversibility stated here.
+
+## Core commands and optional groups
+
+The 34 core commands are always described to a model. They cover files (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), text (`search`, `replace`, `insert`, `edit`), records (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), checks (`assert`, `verify`), programs (`run`, `jobs`, `stop`, `retry`), the journal (`history`, `undo`, `redo`), continuation of a shortened response (`next`) and `help`. The other commands belong to optional groups, described on request. The counts below are those of `catalog/_index.toml`.
+
+| Group | Commands | Covers | Documentation |
+|---|---|---|---|
+| core | 34 | files, text, records, programs, the journal and help | [command pages](/docs/commands/) |
+| documents | 3 | structured documents by key and SQLite databases | [`set`](/docs/commands/set/) |
+| text | 11 | differences, patches, hashes, encodings, expressions and record operations | [`diff`](/docs/commands/diff/) |
+| code | 13 | symbols, definitions, references, diagnostics, renaming, repository profile | [`code.symbols`](/docs/commands/code.symbols/) |
+| notebook | 10 | cells of Jupyter notebooks | [`notebook.cells`](/docs/commands/notebook.cells/) |
+| git | 22 | Git repositories | [group git](/docs/groups/git/) |
+| archive | 5 | archives and compression | [`archive.list`](/docs/commands/archive.list/) |
+| system | 11 | processes, ports, disks, host, environment, system logs, suspension | [group system](/docs/groups/system/) |
+| administration | 34 | services, accounts, groups, mounts, kernel parameters, power, disks, the registry provider, CIM, the firewall, routes, DNS and the clock | [group administration](/docs/groups/administration/) |
+| package | 5 | system package managers | [group package](/docs/groups/package/) |
+| network | 5 | HTTP requests, downloads, name resolution, ping, interfaces | [group network](/docs/groups/network/) |
+| schedule | 7 | schedules of pipelines | [group schedule](/docs/groups/schedule/) |
+| journal | 5 | the journal: space, limits, state, pinned entries, purge | [`journal.status`](/docs/commands/journal.status/) |
+| program | 4 | installed programs: lookup, search, descriptions | [group program](/docs/groups/program/) |
+| verify | 8 | tests and code analysis through typed wrappers | [`test.run`](/docs/commands/test.run/) |
+
+The group pages describe scope, records, platform differences and reversibility. The other groups are described on the pages of their commands. The administration group grew from 6 to 34 commands in 0.1.1; the name `admin` of earlier revisions no longer exists.
+
+## How a command page is built
+
+Every command of the catalog has one page, and every page belongs to a command. A page has a fixed order of sections, set out in the [conventions of the command documentation](/docs/commands/):
+
+| Section | Source |
+|---|---|
+| Synopsis | generated from the catalog |
+| Description | written |
+| Parameters (name, type, default, description) | generated, descriptions may be extended |
+| Input and output | generated |
+| Effect (category, reversibility and its conditions) | generated, notes written |
+| Examples (at least three) | written |
+| Errors and Related | written |
+
+The first three examples are the ones that `help <command>` shows.
+
+## How the build checks the pages
+
+The documentation build fails when:
+
+- a command has no page, or a page has no command;
+- the front matter (`command`, `group`, `summary`) differs from the catalog;
+- a generated section differs from the text generated from the catalog;
+- a page has fewer than three `nurt example` blocks;
+- an example does not parse, does not bind, fails to run on a virtual file system, or its result lacks the expected fragment;
+- a command or parameter name in backticks does not exist in the catalog.
+
+The catalog itself is checked by the test suite, which requires no problems in any file of `catalog/`. Among the checks: names are valid and unique, every type expression parses, a required parameter has no default, and the index lists every file with the right number of commands, summing to its `total`.
+
+## How names, parameters and types are validated
+
+Binding runs before any effect. A program that cannot be valid is refused with a code that names the problem, and the error lists the nearest names or the accepted types.
+
+| Code | Problem |
+|---|---|
+| `E_UNKNOWN_COMMAND`, `E_UNKNOWN_PARAM` | unknown name; `expected` lists up to eight nearest names |
+| `E_MISSING_PARAM` | a required parameter is missing |
+| `E_PARAM_CONFLICT` | parameters that exclude each other were given together |
+| `E_TYPE` | a value or a record stream has a type the place does not accept |
+| `E_UNKNOWN_VALUE` | an enumeration value that does not exist |
+
+Types are written as expressions such as `path | list<path>`, `enum(report|force|abort)` or `stream<entry>`. A quoted text is converted to `path`, `glob`, `instant`, `key`, `size` or `duration` in a place of that type. Each bound tree records a `catalog_rev`, the SHA-256 of the canonical catalog, so any change of a command, parameter or description changes the revision.
+
+<Callout type="warning" title="The catalog may change between 0.x versions">
+  Within `nurt-catalog/1` the catalog only grows: new commands, optional parameters, enumeration values and keys. Removing or renaming a command or changing a type incompatibly is a change of the major version. In 0.x the changelog warns that the catalog may change.
+</Callout>
+
+## Every command
+
+The index below is read from the command pages of the repository when the site is built. Each name leads to the page of the command, with its synopsis, parameters, effects, errors and examples.
+
+<CommandCatalog level={3} />
+
+## Where to go next
+
+The [features](/product/features/) page groups the commands by what they work on, and [the language](/product/language/) page explains how a program is checked. The [cookbook](/docs/cookbook/) and the [command pages](/docs/commands/) hold the programs.

@@ -1,0 +1,110 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.button
+ * Responsibility:   Buttons and button links: the primary gold button with the 3:4 cut corners of the identity, the secondary outline button and the quiet text button.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.utilities
+ */
+
+.button {
+  --cut: 12px;
+  --button-fill: var(--bg-raised);
+  --button-line: var(--line-strong);
+  --button-text: var(--text);
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.8rem 1.5rem;
+  border: 0;
+  background: var(--button-line);
+  color: var(--button-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% calc(var(--cut) * 0.75),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut) * 0.75)
+  );
+  transition: transform var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out);
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--button-fill);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% calc(var(--cut) * 0.75),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut) * 0.75)
+  );
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.button:hover {
+  color: var(--button-text);
+  transform: translateY(-1px);
+}
+
+.button:focus-visible {
+  outline-offset: 4px;
+  clip-path: none;
+}
+
+.button--primary {
+  --button-fill: var(--accent);
+  --button-line: var(--accent);
+  --button-text: var(--accent-on);
+}
+
+.button--primary:hover {
+  --button-fill: var(--brand-gold-ground);
+  --button-line: var(--brand-gold-ground);
+}
+
+.button--secondary:hover {
+  --button-fill: var(--bg-soft);
+  --button-line: var(--accent);
+}
+
+.button--small {
+  --cut: 9px;
+  padding: 0.5rem 1rem;
+  font-size: var(--text-xs);
+}
+
+.button--quiet {
+  --button-fill: transparent;
+  --button-line: transparent;
+  --button-text: var(--link);
+  padding-inline: 0.5rem;
+  clip-path: none;
+}
+
+.button--quiet::before {
+  clip-path: none;
+}
+
+.button--quiet:hover {
+  --button-text: var(--link-hover);
+  transform: none;
+}
+
+.button .icon {
+  flex: none;
+}

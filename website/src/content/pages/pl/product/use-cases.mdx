@@ -1,0 +1,120 @@
+---
+title: Przykłady zastosowań
+description: Siedem konkretnych zadań z rzeczywistymi programami z książki kucharskiej i przewodników oraz to, co w każdym z nich dają raport skutków i dziennik.
+section: product
+order: 8
+eyebrow: Produkt
+lead: Edycja, refaktoryzacja, Git, administracja, dokumenty, praca według harmonogramu i wyszukiwanie — każde z programem sprawdzonym względem katalogu poleceń.
+updated: 2026-11-28
+related: [product/commands, product/journal-and-undo, product/effect-reports, product/migration]
+keywords: [książka kucharska, przewodniki, refaktoryzacja, git, administracja, harmonogramy, wyszukiwanie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+Każde zadanie poniżej wskazuje program i stronę dokumentacji, z której pochodzi. [Książka kucharska](/docs/cookbook/) podaje problem, program, oczekiwany wynik i — gdy to pomaga — odpowiednik w bashu i PowerShellu; przewodniki, wymienione w [indeksie dokumentacji](/docs/guide/), wyjaśniają dany temat. W każdym przypadku raport opisuje, co zrobiło uruchomienie, a dziennik przechowuje poprzednią zawartość plików, które uruchomienie zmieniło.
+
+## Edycja wielu plików
+
+Zamień nazwę funkcji w każdym pliku Go w katalogu i cofnij zmianę, gdy kompilacja się nie powiedzie ([książka kucharska: edycja wielu plików](/docs/cookbook/edit-many-files/)):
+
+```nurt
+search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
+|> replace "newName("
+|> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
+```
+
+Książka kucharska zawiera drugi program, który zatrzymuje się przed jakąkolwiek zmianą, gdy wzorzec występuje w innej liczbie plików, niż oczekiwano: `assert paths: 1` między `search` a `replace`. Raport wymienia zmienione cele i nietypowe skutki, na przykład `nothing_matched` lub `mass_delete`. Operacja obejmująca 200 lub więcej celów jest operacją masową: raport pokazuje rozszerzenia, pierwsze i ostatnie cele, a resztę udostępnia przez kursor. Cała zamiana to jeden wpis dziennika, więc jedno `undo` ją cofa. Dziennik zmian wydania 0.1.2 zapisuje, że wyszukiwanie i zamiana z wyrażeniem regularnym nie trwają już czasu kwadratowego względem liczby dopasowań w jednym wierszu: 20 000 dopasowań w wierszu o długości 60 000 bajtów zajmuje około 0,1 s zamiast 2,5 s. Zobacz też [edycję tekstu](/docs/guides/text-editing/).
+
+## Refaktoryzacja
+
+`search` i `replace` działają na tekście; polecenia `code.*` działają na symbolach, których wyszukiwanie tekstowe nie odróżnia od innych użyć tego samego słowa. `code.rename` zmienia nazwę symbolu i jego odwołań we wszystkich plikach jako jedną operację ([przewodnik: refaktoryzacja](/docs/guides/refactoring/)):
+
+```nurt
+code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
+```
+
+Przewodnik podaje ograniczenie: dynamiczne użycia nazwy, na przykład nazwy budowane z ciągów znaków, nie są odwołaniami i nie są zmieniane. Po zmianie `verify` uruchamia kontrolę i cofa zmianę, gdy kontrola się nie powiedzie.
+
+## Praca z Gitem
+
+Wszystkie operacje grupy `git` są wbudowane i działają bez zainstalowanego gita; podpisy OpenPGP rewizji i tagów wykonuje GnuPG, a brak tego programu odrzuca podpis błędem `E_GIT_SIGN` (dziennik zmian 0.1.1). `git.review` sprawdza zatwierdzone do indeksu zmiany pod kątem znaczników konfliktu, sekretów i innych usterek przed rewizją, a `git.checkpoint` przechowuje migawkę drzewa roboczego poza gałęziami ([przewodnik: praca z Gitem](/docs/guides/git-workflow/)):
+
+```nurt
+git.checkpoint "/srv/app" action: create label: "before-refactoring"
+git.review "/srv/app" scope: staged checks: ["conflict_markers", "secrets"]
+git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"]
+```
+
+Rewizja, przełączenie, scalenie, przebazowanie, reset i schowek są zapisywane w dzienniku, a `undo` cofa rewizję lub scalenie, przesuwając gałąź z powrotem. `fetch`, `clone`, `pull` i `push` działają poza lokalnym systemem plików i są zapisywane jako nieodwracalne; raport to zaznacza. Więcej programów: [książka kucharska: Git](/docs/cookbook/git/).
+
+## Administracja
+
+Polecenia administracyjne odczytują stan systemu, a w niektórych przypadkach go zmieniają. Od 0.1.1 grupa `administration` obejmuje także konta, grupy, montowania, parametry jądra, zasilanie, dyski, zaporę, trasy, serwery nazw i zegar. Każde z tych poleceń zapisuje stan przed zmianą i po niej, a `undo` wykonuje operację odwrotną tam, gdzie istnieje; hasło, formatowanie, zmiana partycji oraz natychmiastowe ponowne uruchomienie lub wyłączenie są nieodwracalne ([przewodnik: administracja](/docs/guides/administration/)):
+
+```nurt
+processes name: "node" |> filter memory > 500mb |> select pid name memory
+services name: "nginx" |> restart
+logs level: error since: ago(1h) limit: 50
+```
+
+`restart` jest nieodwracalne; `start` i `stop` usługi oraz instalacja pakietu są cofane operacją przeciwną. Praca wymagająca praw administratora przyjmuje `privilege: elevated`; konsola uruchamia `sudo`, `doas` lub `run0`, nigdy nie pyta o hasło, a w przeciwnym razie kończy się błędem `E_PRIVILEGE`. `steps` wykonuje kilka zmian jako jeden wpis dziennika, wszystko albo nic; krok nieodwracalny jest wymieniany przed startem:
+
+```nurt
+steps {
+    sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
+    firewall.allow port: 8443 protocol: tcp privilege: elevated
+    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
+    assert r.exit_code == 0
+}
+```
+
+Pierwszy i trzeci z powyższych programów tylko czytają. Zobacz [książkę kucharską: administracja](/docs/cookbook/administration/) oraz przewodniki platform dla systemów [Unix](/docs/guides/unix/) i [Windows](/docs/guides/windows/).
+
+## Dokumenty
+
+`set` zapisuje wartość pod ścieżką klucza w pliku JSON, YAML, TOML, XML, INI lub innym obsługiwanym i zachowuje układ, komentarze oraz kolejność kluczy; zmieniają się tylko bajty zmienianej wartości ([przewodnik: dokumenty](/docs/guides/documents/)):
+
+```nurt
+read "/srv/app/values.yaml" key: "image.tag"
+set "/srv/app/package.json" key: "scripts.test" value: "vitest"
+```
+
+Zapis, który wprowadza nowy błąd składni do znanego formatu, jest cofany, chyba że `validate` stanowi inaczej. Zmiana pliku zmodyfikowanego po jego odczytaniu kończy się błędem `E_STALE`, więc raport wskazuje konflikt zamiast nadpisywać cudzą zmianę. Od 0.1.1 `sql` zapisuje też w dzienniku zmianę pliku SQLite wraz z plikami `-wal`, `-shm` i `-journal`, więc `undo` przywraca bazę danych.
+
+## Praca według harmonogramu
+
+`schedule.create` przyjmuje etykietę, akcję będącą potokiem oraz czas podany jako `cron`, `every` lub `at` ([przewodnik: harmonogramy](/docs/guides/scheduling/)):
+
+```nurt
+schedule.create "sync" every: 1h action: (run ["sync"] cwd: "/srv") on_missed: run_once overlap: skip
+```
+
+Harmonogramy działają tylko wtedy, gdy działa `nurt service`; w przeciwnym razie harmonogram jest zapisany, a `schedule.list` zgłasza `active: false`. `schedule.history` wymienia dotychczasowe uruchomienia wraz z operacją dziennika dla wykonanych przez nie zmian, a zmianę wykonaną przez uruchomienie z harmonogramu można cofnąć jak każdą inną.
+
+## Przeszukiwanie dużego drzewa
+
+Wynik jest ograniczony parametrem `limit` (domyślnie 50 rekordów), a odpowiedź niesie kursor do następnej strony. Skrócona odpowiedź kończy się tekstem `more: next`, a program `next` zwraca kolejną część bez ponownego uruchamiania wyszukiwania. `count` i `summarize` odpowiadają na pytanie o duży zbiór bez zwracania samego zbioru ([przewodnik: duże wyniki](/docs/guides/large-results/)):
+
+```nurt
+find "/srv/app" |> summarize size by: type
+search "deprecated" "/srv/app/src" output: counts
+find "/srv/app" |> sort size order: desc |> first 10
+```
+
+Te programy czytają i niczego nie zmieniają, więc raport nie ma wpisu w dzienniku. Odczyt kolejnej strony nigdy nie uruchamia ponownie programu, który coś zmienia. Zobacz [książkę kucharską: wyszukiwanie i odczyt](/docs/cookbook/search-and-read/).
+
+<Callout type="note" title="Sprawdź, zanim zaufasz">
+  Programy na tej stronie pochodzą z dokumentacji w drzewie wydania 0.1.2. Katalog poleceń może się zmieniać między wersjami 0.x, więc sprawdź program względem [stron poleceń](/docs/commands/) wersji, której używasz.
+</Callout>
+
+<CardGrid columns={2}>
+  <Card title="Dziennik i cofanie" icon="undo-2" href="/pl/product/journal-and-undo/">
+    Jak operacja jest zapisywana, przeglądana i cofana.
+  </Card>
+  <Card title="Przejście z basha i PowerShella" icon="terminal" href="/pl/product/migration/">
+    Nawyki obu powłok i ich postać w Nurt.
+  </Card>
+</CardGrid>

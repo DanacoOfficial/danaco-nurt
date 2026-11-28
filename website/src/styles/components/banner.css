@@ -1,0 +1,81 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.banner
+ * Responsibility:   The start banner: a terminal window with the half-block mark and the banner text in the colours of the shipped program.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.nurt-banner {
+  margin: 0;
+  max-width: 100%;
+  container-type: inline-size;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--brand-black-deep);
+  box-shadow: var(--shadow-raised);
+}
+
+.nurt-banner__screen {
+  --banner-row: 1.12em;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--banner-gap, 3ch);
+  padding: var(--space-5) var(--space-5) var(--space-5) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: clamp(0.6rem, 2.3cqi, 0.95rem);
+  line-height: var(--banner-row);
+  letter-spacing: 0;
+  color: #c9ced5;
+}
+
+.nurt-banner__mark {
+  margin: 0;
+  font: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.nurt-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: calc((var(--banner-row-step, 2) - 1) * var(--banner-row));
+  padding-top: calc(var(--banner-first-row, 3) * var(--banner-row));
+  min-width: 0;
+}
+
+.nurt-banner__line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 26rem) {
+  .nurt-banner__screen {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-4);
+    font-size: 0.7rem;
+  }
+
+  .nurt-banner__text {
+    padding-top: 0;
+    gap: 0.35em;
+  }
+}
+
+.nurt-banner__silver {
+  color: var(--brand-silver);
+}
+
+.nurt-banner__gold {
+  color: var(--brand-gold);
+}
+
+.nurt-banner__name {
+  color: #f6f7f8;
+  font-weight: 700;
+}
+
+.nurt-banner__plain {
+  color: #c9ced5;
+}

@@ -1,0 +1,104 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Footer
+// Responsibility:   The site footer: the lockup and the sentence of the product, the columns of links to the sections, the legal links and the licence line.
+// Dependencies:     website.config.navigation, website.config.site, website.config.sections, website.src.lib.pages, website.src.lib.urls, website.src.components.brand.Lockup, website.src.i18n
+
+import '../../styles/components/footer.css';
+import { footerColumns, legalLinks } from '../../../config/navigation';
+import { product, repository, site } from '../../../config/site';
+import type { Locale } from '../../../config/i18n';
+import { findPage, pageSlug } from '../../lib/pages';
+import { href } from '../../lib/urls';
+import Lockup from '../brand/Lockup.astro';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = useUi(locale);
+
+const columns = await Promise.all(
+  footerColumns.map(async (column) => {
+    const links = [];
+    for (const slug of column.pages) {
+      const entry = await findPage(locale, `${column.section}/${slug}`);
+      if (entry) {
+        links.push({ label: entry.data.title, path: `/${pageSlug(entry)}/` });
+      }
+    }
+    return { key: column.key, section: column.section, title: ui.footer.columns[column.key as keyof typeof ui.footer.columns], links };
+  }),
+);
+
+const legal = legalLinks.map((link) => ({
+  label: ui.footer[link.key as 'privacy' | 'accessibility' | 'search'],
+  path: link.path,
+}));
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="site-footer__top">
+      <div class="site-footer__about">
+        <a href={href('/', locale)} aria-label={ui.header.home}>
+          <Lockup layout="horizontal" height={30} title="Danaco Nurt" />
+        </a>
+        <p class="site-footer__tagline">{ui.footer.tagline}</p>
+        <p class="text-muted">{ui.footer.description}</p>
+        <ul class="site-footer__facts" role="list">
+          <li><span>{ui.footer.version}</span> <a href={href('/project/releases/', locale)}>{product.version}</a></li>
+          <li><span>{ui.footer.repository}</span> <a href={repository.url} rel="noopener">GitHub</a></li>
+          <li><span>{ui.footer.releases}</span> <a href={repository.releases} rel="noopener">GitHub</a></li>
+        </ul>
+      </div>
+
+      <nav class="site-footer__columns" aria-label={ui.footer.documentation}>
+        {
+          columns.map((column) => (
+            <div class="site-footer__column">
+              <h2 class="site-footer__heading">
+                <a href={href(`/${column.section}/`, locale)}>{column.title}</a>
+              </h2>
+              <ul role="list">
+                {column.links.map((link) => (
+                  <li>
+                    <a href={href(link.path, locale)}>{link.label}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+        <div class="site-footer__column">
+          <h2 class="site-footer__heading">
+            <a href={href('/docs/', locale)}>{ui.footer.documentation}</a>
+          </h2>
+          <ul role="list">
+            <li><a href={href('/docs/guide/installation/', locale)}>{ui.docs.sectionLabels.guide}</a></li>
+            <li><a href={href('/docs/cookbook/', locale)}>{ui.docs.sectionLabels.cookbook}</a></li>
+            <li><a href={href('/docs/commands/', locale)}>{ui.docs.sectionLabels.commands}</a></li>
+            <li><a href={href('/docs/cheatsheets/', locale)}>{ui.docs.sectionLabels.cheatsheets}</a></li>
+            <li><a href={href('/docs/specification/', locale)}>{ui.docs.sectionLabels.specification}</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div class="site-footer__bottom">
+      <p>
+        © {site.copyrightYear} <a href={site.companyUrl} rel="noopener">{site.company}</a> {ui.footer.licence}
+      </p>
+      <p class="text-faint">{ui.footer.names}</p>
+      <ul class="site-footer__legal" role="list" aria-label={ui.footer.legal}>
+        {legal.map((link) => <li><a href={href(link.path, locale)}>{link.label}</a></li>)}
+        <li><a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

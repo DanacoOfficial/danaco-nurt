@@ -1,0 +1,95 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.layout
+ * Responsibility:   Layout primitives shared by all pages: the container, the section rhythm, the stack, the cluster and the responsive grids.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.container {
+  width: 100%;
+  max-width: calc(var(--container) + 2 * var(--space-5));
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+}
+
+.container--narrow {
+  max-width: calc(var(--prose) + 2 * var(--space-5));
+}
+
+.section {
+  padding-block: var(--space-9);
+}
+
+.section--tight {
+  padding-block: var(--space-7);
+}
+
+.section--raised {
+  background: var(--bg-raised);
+  border-block: 1px solid var(--line);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap, var(--space-4));
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cluster-gap, var(--space-3));
+}
+
+.grid {
+  display: grid;
+  gap: var(--grid-gap, var(--space-5));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--grid-min, 18rem)), 1fr));
+}
+
+.grid--2 {
+  --grid-min: 26rem;
+}
+
+.grid--3 {
+  --grid-min: 18rem;
+}
+
+.grid--4 {
+  --grid-min: 14rem;
+}
+
+.split {
+  display: grid;
+  gap: var(--space-7);
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 60rem) {
+  .split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: var(--space-8);
+  }
+
+  .split--reverse > :first-child {
+    order: 2;
+  }
+}
+
+.page-shell {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: var(--space-7) var(--space-9);
+}
+
+@media (min-width: 64rem) {
+  .page-shell--with-toc {
+    grid-template-columns: minmax(0, 1fr) 15rem;
+    gap: var(--space-8);
+  }
+}

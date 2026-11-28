@@ -1,0 +1,43 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.base.Icon
+// Responsibility:   An icon of the Lucide set (ISC license) as inline SVG that takes the colour of the text.
+// Dependencies:     website.src.components.base.icon-data, website.config.icons
+
+import type { IconName } from '../../../config/icons';
+import { iconBodies, iconViewBox } from './icon-data';
+
+interface Props {
+  name: IconName;
+  size?: number | string;
+  label?: string;
+  class?: string;
+}
+
+const { name, size = 20, label, class: className } = Astro.props;
+const body = iconBodies[name];
+if (!body) {
+  throw new Error(`unknown icon: ${name}`);
+}
+const dimension = typeof size === 'number' ? `${size}px` : size;
+---
+
+<svg
+  class:list={['icon', className]}
+  viewBox={iconViewBox}
+  width={dimension}
+  height={dimension}
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+  focusable="false"
+  set:html={body}
+/>

@@ -1,0 +1,24 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Stat
+// Responsibility:   One measured figure with its label and the source of the number.
+// Dependencies:     website.src.styles.components.stats
+
+import '../../styles/components/stats.css';
+interface Props {
+  value: string;
+  label: string;
+  source?: string;
+  href?: string;
+}
+const { value, label, source, href } = Astro.props;
+---
+
+<div class="stat">
+  <p class="stat__value">{value}</p>
+  <p class="stat__label">{label}</p>
+  {source && (href ? <p class="stat__source"><a href={href} rel="noopener">{source}</a></p> : <p class="stat__source">{source}</p>)}
+</div>

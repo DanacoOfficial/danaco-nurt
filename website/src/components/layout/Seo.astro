@@ -1,0 +1,101 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Seo
+// Responsibility:   Metadata of a page for search engines and social networks: title, description, canonical address, language alternates, Open Graph, Twitter card and structured data.
+// Dependencies:     website.config.site, website.config.seo, website.config.i18n, website.src.lib.urls
+
+import { product, site } from '../../../config/site';
+import { seo } from '../../../config/seo';
+import { localeSettings, type Locale } from '../../../config/i18n';
+import { absoluteUrl, href } from '../../lib/urls';
+
+interface Props {
+  title: string;
+  description?: string;
+  locale: Locale;
+  path: string;
+  available?: Locale[];
+  type?: 'website' | 'article';
+  noindex?: boolean;
+  home?: boolean;
+  breadcrumbs?: { label: string; path: string }[];
+  context?: string;
+}
+
+const { title, description, locale, path, available = [locale], type = 'website', noindex = false, home = false, breadcrumbs = [], context } = Astro.props;
+
+// The section of a page is part of its title, so that pages with the same name in different sections (Overview, Security) have distinct titles.
+const titleParts = home ? [site.name, context ?? site.tagline] : [title, context !== title ? context : undefined, site.name];
+const fullTitle = titleParts.filter(Boolean).join(seo.titleSeparator);
+const text = description ?? seo.descriptions[locale];
+const canonical = absoluteUrl(path, locale);
+const image = `${site.url}${href(seo.socialCard)}`.replace(/(?<!:)\/{2,}/g, '/');
+const alternates = available.map((candidate) => ({ locale: candidate, htmlLang: localeSettings[candidate].htmlLang, url: absoluteUrl(path, candidate) }));
+const defaultAlternate = alternates.find((alternate) => alternate.locale === 'en') ?? alternates[0];
+
+const graph: Record<string, unknown>[] = [
+  {
+    '@type': 'Organization',
+    '@id': `${site.companyUrl}/#organization`,
+    name: site.company,
+    url: site.companyUrl,
+  },
+  {
+    '@type': 'WebSite',
+    '@id': `${site.url}/#website`,
+    url: `${site.url}${href('/', locale)}`,
+    name: site.name,
+    inLanguage: localeSettings[locale].htmlLang,
+    publisher: { '@id': `${site.companyUrl}/#organization` },
+  },
+];
+if (home) {
+  graph.push({
+    '@type': 'SoftwareApplication',
+    name: site.name,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: product.platforms.join(', '),
+    softwareVersion: product.version,
+    license: 'https://www.apache.org/licenses/LICENSE-2.0',
+    description: seo.descriptions[locale],
+    publisher: { '@id': `${site.companyUrl}/#organization` },
+  });
+}
+if (breadcrumbs.length > 0) {
+  graph.push({
+    '@type': 'BreadcrumbList',
+    itemListElement: breadcrumbs.map((crumb, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: crumb.label,
+      item: absoluteUrl(crumb.path, locale),
+    })),
+  });
+}
+const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
+---
+
+<title>{fullTitle}</title>
+<meta name="description" content={text} />
+<link rel="canonical" href={canonical} />
+{noindex ? <meta name="robots" content="noindex, follow" /> : <meta name="robots" content="index, follow" />}
+{alternates.map((alternate) => <link rel="alternate" hreflang={alternate.htmlLang} href={alternate.url} />)}
+{defaultAlternate && alternates.length > 1 && <link rel="alternate" hreflang="x-default" href={defaultAlternate.url} />}
+<meta property="og:site_name" content={site.name} />
+<meta property="og:type" content={type} />
+<meta property="og:title" content={home ? site.name : title} />
+<meta property="og:description" content={text} />
+<meta property="og:url" content={canonical} />
+<meta property="og:locale" content={localeSettings[locale].openGraph} />
+{alternates.filter((alternate) => alternate.locale !== locale).map((alternate) => <meta property="og:locale:alternate" content={localeSettings[alternate.locale].openGraph} />)}
+<meta property="og:image" content={image} />
+<meta property="og:image:width" content={String(seo.socialCardSize.width)} />
+<meta property="og:image:height" content={String(seo.socialCardSize.height)} />
+<meta name="twitter:card" content={seo.twitterCard} />
+<meta name="twitter:title" content={home ? site.name : title} />
+<meta name="twitter:description" content={text} />
+<meta name="twitter:image" content={image} />
+<script type="application/ld+json" set:html={jsonLd} />

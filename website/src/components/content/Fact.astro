@@ -1,0 +1,26 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Fact
+// Responsibility:   One number of the site, taken from the facts module by its identifier, with its label and its source in the language of the page.
+// Dependencies:     website.src.data.facts, website.src.lib.urls, website.src.components.content.Stat
+
+import Stat from './Stat.astro';
+import { facts, type FactId } from '../../data/facts';
+import { logicalPath, href } from '../../lib/urls';
+
+interface Props {
+  id: FactId;
+}
+
+const { id } = Astro.props;
+const { locale } = logicalPath(Astro.url.pathname);
+const fact = facts[id];
+if (!fact) {
+  throw new Error(`unknown fact: ${id}`);
+}
+---
+
+<Stat value={fact.value} label={fact.label[locale]} source={fact.source[locale]} href={fact.href ? href(fact.href, locale) : undefined} />
