@@ -114,6 +114,26 @@ their own version numbers, described in the specification.
   the account, alternate streams) is refused instead of falling back to a path;
   the journal copies the bytes when a clone is refused and never asks for
   `replace_with_backup` on Unix.
+- Conformance: the binding cases `conformance/bindings/api.json` agree with the
+  specification and with `nurt serve`. Against the engine 12 of the 23 cases
+  passed before; all 23 pass now in Python and Node, and 22 in Go (`start.cancel`
+  fails because the Go binding reports the answer to a cancelled run as a call
+  error). The cases state the tree version `1.1`, the member `operations` of
+  `history`, the members `formats` and `features` of `info`, the member `ran` of
+  `correct`, the canonical text of `print` with its final line feed, absolute
+  fixtures for `check` and for the cursor of `run`, and the error `E_SYNTAX` for
+  a program that ends after a pipe.
+- Conformance: the fake server answers `correct` with `ast` and `ran`, and
+  `info` with `version`, `formats` and `features`, as the engine does, instead
+  of `program` and `name`, `language`. The binding cases pass against it in
+  Python, Node, Go, .NET and Java.
+- Conformance: `conformance/tools/test_suite.py` passes; 166 checks failed
+  before. The suite has exec cases for the 29 commands that had none (the
+  administration commands, which never change the system, and `next`), a
+  journal case for every row of the coverage table (rows that no case can
+  establish are listed with their reason in `PENDING_ROWS`), correction seeds of
+  the new commands, and the placeholder of the identifier of a job in the exec
+  and journal cases follows the record `job` (`report/job/fields/id/v`).
 
 ### Known issues
 
