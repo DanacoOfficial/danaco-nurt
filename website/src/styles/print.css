@@ -77,6 +77,63 @@
     overflow-wrap: anywhere;
   }
 
+  /* An element that enters as it scrolls into view is printed whether or not it was seen on the screen. */
+  .motion :is(
+      .section__head,
+      .page-header__title,
+      .page-header__lead,
+      .card,
+      .stat,
+      .how__point,
+      .terminal,
+      .session,
+      .timeline > li,
+      .step,
+      .callout,
+      .downloads__item,
+      .figure,
+      .cta-band__inner,
+      .prose > h2,
+      .prose > table,
+      .prose > .code-block
+    ),
+  .motion .hero__copy > * {
+    opacity: 1 !important;
+    translate: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* An area of the dark theme is printed as the rest of the page: black text on white. */
+  .theme-dark {
+    --bg: #ffffff;
+    --bg-raised: #ffffff;
+    --bg-soft: #ffffff;
+    --text: #000000;
+    --text-muted: #222222;
+    --text-faint: #444444;
+    --line: #bbbbbb;
+    --line-strong: #888888;
+    --accent-text: #000000;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Every panel of the feature tour is printed, one below the other. */
+  .tour .tour__panel {
+    grid-area: auto !important;
+    position: static !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    animation: none !important;
+    margin-block-end: var(--space-6);
+    break-inside: avoid;
+  }
+
+  .tour__tabs {
+    display: none !important;
+  }
+
   .prose a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 0.85em;
