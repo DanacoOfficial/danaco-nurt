@@ -2,11 +2,11 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
-# Module:           packaging/ci/packaging.yml
-# Responsibility:   Configuration or workflow definition of packaging/ci/packaging.yml.
+# Module:           .github/workflows/packaging.yml
+# Responsibility:   Configuration or workflow definition of .github/workflows/packaging.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: Packaging

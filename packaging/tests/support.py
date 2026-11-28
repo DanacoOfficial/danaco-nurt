@@ -6,7 +6,7 @@
 # Responsibility:   Script support.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Shared helpers of the packaging tests.
@@ -28,6 +28,15 @@ from pathlib import Path
 PACKAGING = Path(__file__).resolve().parent.parent
 VERSION = "0.1.0"
 PRODUCT_SOURCE = PACKAGING.parent / "crates" / "nurt-contracts" / "src" / "product.rs"
+
+# Header fields of a workflow that name the path of the file itself. The copies
+# of a workflow in packaging/ci and .github/workflows differ in these fields only.
+PATH_FIELDS = ("# Module:", "# Responsibility:")
+
+
+def without_path_fields(text):
+    """Return the lines of a workflow without the header fields that name its own path."""
+    return [line for line in text.splitlines() if not line.startswith(PATH_FIELDS)]
 
 MOCK_EXECUTABLE = """#!/bin/sh
 if [ "$1" = version ]; then

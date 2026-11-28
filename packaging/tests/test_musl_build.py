@@ -6,7 +6,7 @@
 # Responsibility:   Script test_musl_build.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Tests of the build of the musl target with zig cc: the compiler wrapper and the release workflow."""
@@ -52,7 +52,7 @@ class MuslWorkflowTest(unittest.TestCase):
     def test_the_release_workflow_builds_the_musl_target_with_zig_cc(self):
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         mirror = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
-        self.assertEqual(workflow, mirror)
+        self.assertEqual(support.without_path_fields(workflow), support.without_path_fields(mirror))
         for text in (
             'rustup target add "$MUSL_TARGET"',
             "CC_x86_64_unknown_linux_musl: ${{ github.workspace }}/packaging/release/zig-cc-musl.sh",
