@@ -4,9 +4,9 @@
 
 # The website of Danaco Nurt
 
-The directory `website/` holds the public website of Danaco Nurt: the product, quality, architecture and project pages in English and Polish, and the documentation of the repository imported at build time. The site is static; the build writes plain files to `website/dist/`, which any web server can publish.
+The directory `website/` holds the public website of Danaco Nurt: the product, AI, quality, architecture, design and project pages in English and Polish, the documentation of the repository imported at build time, the identity files and the training packages to download. The site is static; the build writes plain files to `website/dist/`, which any web server can publish.
 
-The site is written from the ground up with Astro 7 and TypeScript. It uses no page template and no component kit. Third-party parts are libraries and assets only: Astro and its MDX and sitemap integrations, the Sätteri Markdown processor, Shiki for code highlighting, three.js for the three-dimensional mark, Pagefind for the search index, the typefaces Geist and Geist Mono, and the Lucide icon set.
+The site is written from the ground up with Astro 7 and TypeScript. It uses no page template and no component kit. Third-party parts are libraries and assets only: Astro and its MDX and sitemap integrations, the Sätteri Markdown processor, Shiki for code highlighting, three.js for the three-dimensional mark, fflate for the download archives, Pagefind for the search index, the typefaces Geist and Geist Mono, and the Lucide icon set.
 
 ## 1. Commands
 
@@ -16,8 +16,10 @@ All commands run in the directory `website/`. Node.js 22.12 or later is required
 |---|---|
 | `npm ci` | installs the dependencies recorded in `package-lock.json` |
 | `npm run dev` | serves the site with reloading at `http://localhost:4321/` |
-| `npm run build` | builds the site into `dist/` and writes the search index into `dist/pagefind/` |
-| `npm run build:site` | builds the site without the search index |
+| `npm run build` | packs the downloads, builds the site into `dist/` and writes the search index into `dist/pagefind/` |
+| `npm run build:site` | packs the downloads and builds the site without the search index |
+| `npm run downloads` | packs the downloads into `public/downloads/` and writes their manifest |
+| `npm run training -- --nurt <nurt> --nurt-bench <nurt-bench>` | rebuilds the training packages in `training/` from the repository |
 | `npm run build:search` | writes the search index of an existing `dist/` |
 | `npm run preview` | serves `dist/` as built |
 | `npm run check` | runs the three checks below, in order |
@@ -57,6 +59,7 @@ Mounting the site means publishing the content of `dist/` at the chosen address.
 | `config/navigation.ts` | the header navigation, the footer columns, the legal links |
 | `config/sections.ts` | the authored pages of each section, in order |
 | `config/docs.ts` | which directories of the repository become which documentation sections |
+| `config/downloads.json` | the downloads of the site: the identity files and the training packages, with their titles in both languages |
 | `config/seo.ts`, `config/search.ts`, `config/theme.ts`, `config/icons.ts` | metadata defaults, search limits, colour themes, the icons in use |
 | `src/content/pages/<locale>/<section>/<slug>.mdx` | the authored pages; `AUTHORING.md` is their contract |
 | `src/content.config.ts` | the content collections and their schemas |
@@ -72,6 +75,7 @@ Mounting the site means publishing the content of `dist/` at the chosen address.
 | `src/scripts/` | the browser scripts: theme, menu, table of contents, code copy, search |
 | `src/scripts/motion/` | the motion layer: entrances, counters, tilting cards, the terminal session, the WebGL mark |
 | `src/pages/` | the routes; each file only selects a page component |
+| `training/` | the training packages: pairs, chat conversations, tool calls, tool definitions and the documentation corpus, with `manifest.json` |
 | `scripts/` | build and check tools |
 | `public/` | files published as they are: icons, the social card, the downloads of the brand |
 
@@ -81,17 +85,23 @@ The pages under `/docs/` are not copied into this directory. `src/lib/docs/loade
 
 Links into the repository point at the revision named by `sourceRef` in `config/site.ts`. Set it to the tag of the release when the release is published.
 
-## 5. Numbers
+## 5. Downloads and training packages
 
-`src/data/facts.ts` holds three kinds of numbers. Counted numbers (commands, crates, specification documents) are read from the repository by every build. Stated numbers quote a document of the repository. Measured numbers quote a recorded run and carry its release, platform and date in their source line; they change only when a new run is recorded.
+`scripts/build-downloads.mjs` runs before every site build. It packs the directories named in `config/downloads.json` into ZIP archives in `public/downloads/` and writes `public/downloads/manifest.json` with the size, the number of files and the SHA-256 sum of every download. The identity archives are packed from `branding/` of the repository and the training archives from `training/`; the archives are not committed. The entries of an archive are sorted and carry the date of `archiveDate`, so the same sources give the same archive. Pages show a group of downloads with `<Downloads group="identity" />` or `<Downloads group="training" />`.
 
-## 6. Motion
+The training packages in `training/` are committed. `scripts/build_training_packs.py` rebuilds them with the executables `nurt` and `nurt-bench` of one release: it takes the candidates of `nurt-bench pairs`, sends every program to the method `check` of `nurt serve`, and writes the accepted pairs, their chat and tool-call forms, the tool definitions of every format and the documentation corpus. `training/README.md` describes the formats.
+
+## 6. Numbers
+
+`src/data/facts.ts` holds three kinds of numbers. Counted numbers (commands, crates, specification documents, benchmark tasks, training pairs, tool definition formats, integration examples) are read from the repository by every build. Stated numbers quote a document of the repository. Measured numbers quote a recorded run and carry its release, platform and date in their source line; they change only when a new run is recorded.
+
+## 7. Motion
 
 The motion layer is optional for the reader. A script in the head sets the class `motion` on the document only when the reader has not asked for reduced motion; every animation rule in `src/styles/motion.css` applies under that class. Without scripts, without WebGL or with reduced motion the site shows the same content at rest: the studio render replaces the live mark, and the terminal session is shown complete.
 
 The three-dimensional mark (`src/scripts/motion/mark-scene.ts`) is built from the path data of the identity, loads only on pages that contain it, and renders only while it is in view and the tab is visible.
 
-## 7. Regenerating derived files
+## 8. Regenerating derived files
 
 | File | Command | Source |
 |---|---|---|
@@ -100,12 +110,13 @@ The three-dimensional mark (`src/scripts/motion/mark-scene.ts`) is built from th
 | `src/components/brand/brand-data.ts` | `python3 scripts/build_brand_data.py <identity pack>` | the mark and lockups of the production identity 1.0.0 |
 | `public/brand/`, `src/assets/brand/` | `python3 scripts/sync_brand_assets.py <identity pack> public src/assets` | the downloads, renders and mockups of the identity |
 
-## 8. Licences of third-party parts
+## 9. Licences of third-party parts
 
 | Part | Licence |
 |---|---|
 | Astro, `@astrojs/mdx`, `@astrojs/sitemap`, `@astrojs/markdown-satteri`, Sätteri, Shiki | MIT |
 | three.js | MIT |
+| fflate | MIT |
 | sharp | Apache-2.0 |
 | yaml | ISC |
 | Pagefind | MIT |

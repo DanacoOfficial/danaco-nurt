@@ -6,7 +6,7 @@ order: 7
 eyebrow: Project
 lead: Danaco Nurt is built by Danaco Holding Group Sp. z o.o. and published as open source.
 updated: 2026-11-28
-related: [project/license, project/brand, project/support, product/overview]
+related: [project/license, design/identity, project/support, product/overview]
 keywords: [about, Danaco Holding Group, name, open source, repository]
 ---
 
@@ -16,13 +16,21 @@ keywords: [about, Danaco Holding Group, name, open source, repository]
 
 ## Who builds it
 
-Danaco Nurt is a product of Danaco Holding Group Sp. z o.o. The company holds the copyright (Copyright 2026 Danaco Holding Group Sp. z o.o., as the `NOTICE` and `README.md` of the repository state), publishes the release archives, installers and packages, and owns the names "Danaco", "Danaco Nurt" and "Danaco Holding Group". The security policy names it as the publisher of the release artifacts, and the certificate that signs `nurt.exe` is issued by the company itself.
+Danaco Nurt is a product of Danaco Holding Group Sp. z o.o. The company holds the copyright (Copyright 2026 Danaco Holding Group Sp. z o.o.), publishes the release archives, installers and packages, and owns the names "Danaco", "Danaco Nurt" and "Danaco Holding Group". The company is the publisher of the release artifacts and issues the certificate that signs `nurt.exe`.
 
-The repository files carry a producer header with the names Danaco Official and Danaco Holding Group Sp. z o.o., the address `www.danaco-group.pl`, the GitHub organisation `DanacoOfficial` and the contact address `support@danaco-group.pl`. The sources used for this site name no other products of the company, and this page describes none. It also gives no history of the company, because no source in the repository provides one.
+The files of the repository carry a producer header with the names Danaco Official and Danaco Holding Group Sp. z o.o., the address `www.danaco-group.pl`, the GitHub organisation `DanacoOfficial` and the contact address `support@danaco-group.pl`.
+
+## The creator
+
+Danaco Nurt was designed and developed by Dariusz Naharnowicz.
+
+> Shells were made for people who watch the screen and remember what they typed. Today commands are written by people and by machines, faster than anyone can watch. I wanted a language that checks a program before it runs, says what the run did, and takes a change back. No shell could grow into that language, so I designed a new syntax and wrote a new program.
+>
+> Dariusz Naharnowicz, creator of Danaco Nurt
 
 ## What it is
 
-Danaco Nurt is a command shell and a language where every change can be undone, built for people and AI agents. The program is `nurt`, pronounced *NOORT*. The product description in the repository sets out the design:
+Danaco Nurt is a command shell and a language where every change can be undone, built for people and AI agents. The program is `nurt`, pronounced *NOORT*. The design rests on five points:
 
 - one executable per operating system, for Linux, macOS and Windows;
 - file, text, archive, document, code, version control, network and system operations built into the program;
@@ -30,27 +38,29 @@ Danaco Nurt is a command shell and a language where every change can be undone, 
 - a structured report of the effects of every run;
 - a journal of file changes that can be reviewed and undone.
 
-The engine is a Rust library with a C interface. The repository also holds bindings for several languages (Python, Go, Node, Java and .NET have continuous integration workflows), integrations for editors and containers, a conformance suite and benchmarks. The [overview](/product/overview/) and the [architecture](/architecture/overview/) pages describe them.
+The engine is a Rust library with a C interface. The repository also holds bindings for Python, Go, Node, Java and .NET, integrations for editors and containers, a conformance suite and benchmarks. The [overview](/product/overview/) and the [architecture](/architecture/overview/) pages describe them.
 
 ## The origin of the name
 
-*Nurt* is a Polish word for a stream or a current. The identity documents explain how the mark shows it: two chevrons, a silver one that steps back and a gold one that steps forward, are separated by a channel between their parallel arms, and that channel is the stream, in Polish *nurt*, the name of the product. The mark is also the figure of the main idea of the product: the second chevron is the first turned by 180 degrees, as an undo turns a change. The details are on the [brand](/project/brand/) page.
+*Nurt* is a Polish word for a stream or a current. The mark shows it: two chevrons, a silver one that steps back and a gold one that steps forward, are separated by a channel between their parallel arms, and that channel is the stream, in Polish *nurt*, the name of the product. The mark is also the figure of the main idea of the product: the second chevron is the first turned by 180 degrees, as an undo turns a change.
+
+The [design](/design/) section presents the visual identity: the mark, the colours and the guidelines of their use. The page [Identity](/design/identity/) holds the guidelines.
 
 ## Open source terms
 
-The code is licensed under the Apache License, Version 2.0, and every distribution includes the `NOTICE` file. The License does not grant permission to use the names beyond the customary description of the origin of the product. The specification and the data sets are licensed under CC BY 4.0. The dependency policy accepts permissive licenses only, with a short list of reviewed exceptions. See [License](/project/license/) for the full statement.
+The code is licensed under the Apache License, Version 2.0, and every distribution includes the `NOTICE` file. The License permits the customary description of the origin of the product with the names. The specification and the data sets are licensed under CC BY 4.0. The dependency policy accepts permissive licenses, with a short list of reviewed single-crate licenses. See [License](/project/license/) for the full statement.
 
-Contributions are welcome under the Developer Certificate of Origin 1.1 and the Code of Conduct of the repository. Every commit of the `main` branch is signed with a dedicated OpenPGP key, and the releases are signed with a separate release key, as [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) describes. How to take part is on the [contributing](/project/contributing/) page.
+Contributions are made under the Developer Certificate of Origin 1.1 and the Code of Conduct of the repository. Every commit of the `main` branch is signed with a dedicated OpenPGP key, and the releases are signed with a separate release key, as [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) describes. How to take part is on the [contributing](/project/contributing/) page.
 
 ## Where the repository is
 
 <Facts
   items={[
-    { term: 'Repository', value: 'github.com/DanacoOfficial/nurt', href: 'https://github.com/DanacoOfficial/nurt' },
-    { term: 'Releases', value: 'github.com/DanacoOfficial/nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
-    { term: 'Issues', value: 'github.com/DanacoOfficial/nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
+    { term: 'Repository', value: 'github.com/DanacoOfficial/danaco-nurt', href: 'https://github.com/DanacoOfficial/danaco-nurt' },
+    { term: 'Releases', value: 'github.com/DanacoOfficial/danaco-nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
+    { term: 'Issues', value: 'github.com/DanacoOfficial/danaco-nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
     { term: 'Contact', value: 'support@danaco-group.pl', href: 'mailto:support@danaco-group.pl' },
   ]}
 />
 
-The repository holds the Rust crates, the specification (`spec/`), the command catalog (`catalog/`), the documentation (`docs/`), the packaging, the tests and this site. The current version is 0.1.2, dated 2026-11-28; see [Status and limitations](/project/status/) for what that means.
+The repository holds the Rust crates, the specification (`spec/`), the command catalog (`catalog/`), the documentation (`docs/`), the packaging, the tests and this site. The current version is 0.1.2, dated 2026-11-28; the [current state](/project/status/) page lists the systems, the interfaces and the documentation of each part.

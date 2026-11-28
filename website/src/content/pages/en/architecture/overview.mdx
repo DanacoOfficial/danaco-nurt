@@ -16,14 +16,14 @@ keywords: [architecture, crates, layers, repository, engine]
 
 ## The shape of the system
 
-Danaco Nurt is a Cargo workspace. The manifest declares version 0.1.2, edition 2024, the minimum Rust version 1.98 and the license Apache-2.0, and every directory of `crates/` is a member. The workspace lint `unsafe_code` is set to `deny`. A crate that calls operating system interfaces opts out (`nurt-fs` does so at the head of its `lib.rs`), and the crate graph document requires a `// SAFETY:` comment on every `unsafe` block; `nurt-types`, for example, forbids unsafe code outright.
+Danaco Nurt is a Cargo workspace. The manifest declares version 0.1.2, edition 2024, the minimum Rust version 1.98 and the license Apache-2.0, and every directory of `crates/` is a member. The workspace lint `unsafe_code` is set to `deny`. A crate that calls operating system interfaces opts out (`nurt-fs` does so at the head of its `lib.rs`), and every `unsafe` block carries a `// SAFETY:` comment; `nurt-types`, for example, forbids unsafe code outright. The workspace lints also require documentation of every public item, report a `pub` item that `lib.rs` does not expose, and flag `unwrap`, `expect`, `panic`, `dbg!`, `todo!` and direct printing in library code.
 
 <Stats>
   <Fact id="crates" />
   <Fact id="specFiles" />
 </Stats>
 
-A program travels through the system in one direction. Text is parsed into a syntax tree, the tree is bound to the command catalog and checked, the plan is built, the executor runs the stages and passes records between them, the commands change the world through the journal, and the report describes the effects. The [engine](/architecture/engine/) page follows one program through these steps. The entry points do not implement the language themselves: the C interface, the protocol server, the command line interface and the integrations all call the same Rust facade, `Engine` of `nurt-core`.
+A program travels through the system in one direction. Text is parsed into a syntax tree, the tree is bound to the command catalog and checked, the plan is built, the executor runs the stages and passes records between them, the commands change the world through the journal, and the report describes the effects. The [engine](/architecture/engine/) page follows one program through these steps. The entry points do not implement the language themselves: the C interface, the protocol server, the command line interface and the integrations all call the same Rust facade, `Engine` of `nurt-core`. A request that arrives through any of them is the same document, `nurt-request/1`, and the answer is the same response, `nurt-response/1`, with the effect report `nurt-report/1`.
 
 ## The layers
 
@@ -43,20 +43,17 @@ The table names the crates of each functional layer. The crate `nurt-contracts` 
 | Language server | diagnostics, completion and formatting of `.nurt` files | `nurt-langserver` |
 | C interface and bindings | the C ABI and the Node.js addon; the other bindings are in `bindings/` | `nurt-ffi`, `nurt-node` |
 
-The remaining crates are support and tools: `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` and the two vendored crates `jaq-json` and `nurt-pdf-extract`. The [crates](/architecture/crates/) page lists every crate with its description.
+The support and tool crates are `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` and the two vendored crates `jaq-json` and `nurt-pdf-extract`. The [crates](/architecture/crates/) page lists every crate with its description.
 
 ## Rules of the dependency graph
 
-The allowed dependencies between workspace crates are data in `tables/crate-graph.toml`. The test `crates/nurt-contracts/tests/workspace_graph.rs` reads every manifest and fails when a crate declares a dependency that the table does not allow. The rules are written in [crate graph and visibility](/docs/architecture/crate-graph/):
+The allowed dependencies between workspace crates are data in `tables/crate-graph.toml`. The test `crates/nurt-contracts/tests/workspace_graph.rs` reads every manifest and fails when a crate declares a dependency that the table does not allow, so a new dependency between workspace crates starts with a change of the table. The rules are written in [crate graph and visibility](/docs/architecture/crate-graph/):
 
 - Every crate belongs to one of eight build layers, from the lowest: contract, foundation, base, library, component, host, interface and tool. A crate depends only on crates of the same or a lower layer, and the graph is acyclic.
-- Every crate also belongs to an area: runtime, language, storage, files, structured, process, system, git or integration. Crates of different areas depend on each other only through shared crates such as `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` and `nurt-journal`.
+- Every crate also belongs to an area: runtime, language, storage, files, structured, process, system, git or integration. Crates of different areas depend on each other only through shared crates such as `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` and `nurt-journal`. The host, interface and tool layers compose crates of all areas.
 - A command that needs a capability of another area calls a service trait defined in `nurt-contracts`, and the host layer passes the implementation in. Changes to files go through the transaction interface of the journal, never around it.
+- Items are private by default, shared items inside a crate are `pub(crate)`, and the public interface of a crate is what its `lib.rs` re-exports. Test helpers live in `#[cfg(test)]` modules or in `nurt-testkit`.
 - Only `nurt-ffi` exports C symbols, declared in `crates/nurt-ffi/include/nurt.h`.
-
-<Callout type="note" title="A document that lags the table">
-  The crate graph document of 0.1.2 still has a section "Reserved names" that calls `nurt-programs`, `nurt-tooldef`, `nurt-docgen`, `nurt-crashfs` and `nurt` planned crates. All five exist in `crates/` in version 0.1.2, and `tables/crate-graph.toml` has an entry for each of them without a reserved mark. The table is the authority.
-</Callout>
 
 ## Repository layout
 

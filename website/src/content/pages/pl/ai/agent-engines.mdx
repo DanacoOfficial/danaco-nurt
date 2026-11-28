@@ -1,0 +1,71 @@
+---
+title: Dla silników agentów
+description: Co twórca silnika agentów lub platformy agentowej otrzymuje z Danaco Nurt, czyli interfejsy integracji, sesje, zdarzenia, anulowanie, politykę, uprawnienia, pracę wielu agentów, przykłady i instalację w CI.
+section: ai
+order: 3
+eyebrow: AI
+lead: Cztery interfejsy do jednego silnika, polityka rozstrzygana przez hosta przed każdym uruchomieniem oraz przykłady dla popularnych zestawów SDK i frameworków agentowych.
+updated: 2026-11-28
+related: [ai/overview, ai/model-labs, product/ai-agents, product/integrations, architecture/protocols]
+keywords: [silnik agentów, platforma agentowa, MCP, JSON-RPC, nurt serve, sesje, zdarzenia, polityka, uprawnienia, wielu agentów]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Drogi integracji
+
+Twórca silnika agentów lub platformy agentowej daje modelowi narzędzie `nurt` jedną z czterech dróg. Wszystkie przyjmują żądanie `nurt-request/1` i zwracają odpowiedź `nurt-response/1` z raportem skutków `nurt-report/1`. Strona [Nurt dla agentów AI](/pl/product/ai-agents/) opisuje wywołania narzędzia, a [przewodnik integratora](/docs/integrators/) jest opisem referencyjnym.
+
+| Droga | Uruchomienie | Zastosowanie |
+|---|---|---|
+| Wywołanie narzędzia | `nurt exec "<program>"` | host lub zestaw narzędzi, który uruchamia jeden proces na wywołanie; opcje `--json`, `--format`, `--limit` i `--cursor` wybierają postać raportu |
+| Serwer Model Context Protocol | `nurt mcp` (standardowe wejście i wyjście) lub `nurt mcp --http <address>` | uruchamia go klient MCP; kod integracyjny nie jest pisany |
+| Serwer JSON-RPC | `nurt serve --stdio` | silnik, który prowadzi własną pętlę agenta; jeden proces na sesję lub przestrzeń roboczą |
+| Interfejs C i powiązania | `libnurt`, `nurt.h` oraz katalog `bindings/` | krótkie wywołania bez skutków w procesie hosta (`nurt_check`, `nurt_describe`, `nurt_correct`); powiązania z językami Python, TypeScript, Go, Java i .NET |
+
+Powiązania opakowują `nurt serve` i `libnurt` tym samym API. Host nadzoruje proces potomny `nurt serve`: uruchamia go ponownie po zakończeniu, a dziennik na dysku pozwala uruchomionemu ponownie silnikowi odzyskać zakończone operacje. Serwer MCP w `crates/nurt-mcp` udostępnia narzędzia `nurt`, `nurt_check` i `nurt_help`, zasoby tylko do odczytu, powiadomienia o postępie i anulowanie przez `notifications/cancelled`; negocjuje wersje protokołu `2024-11-05`, `2025-03-26`, `2025-06-18` i `2025-11-25`. Transport HTTP domyślnie nasłuchuje na `127.0.0.1` i przyjmuje token okaziciela.
+
+## Sesje, zdarzenia i anulowanie
+
+Pierwszym żądaniem do `nurt serve` jest `initialize`. Jego wynik wymienia protokół `nurt-rpc/1`, wersje formatów, funkcje, załadowane grupy poleceń i limity, na przykład `max_inflight` i `max_message_bytes`. Parametr wywołania `session` nazywa sesję wywołania, dziennik zapisuje sesję każdej operacji, a metoda `history` wylicza operacje.
+
+Gdy w `initialize` ustawiono `capabilities.events`, uruchomienie wysyła powiadomienia `nurt/event` dokumentu `nurt-event/1`: `exec.started`, `progress`, `exec.finished`, a dla zadań w tle `job.started`, `job.output`, `job.progress` i `job.finished`. Każde zdarzenie niesie typ, numer `seq` od 1 i czas. Metoda `cancel` przyjmuje `request_id` lub `job_id`; odpowiada na nią wątek czytający, więc anulowanie nigdy nie czeka w kolejce za żądaniem, które anuluje. Anulowane `run` kończy się błędem `E_CANCELLED` i zdarzeniem `exec.finished`. [Opis protokołu serve](/docs/reference/serve-protocol/) wymienia metody, ramkowanie i kody błędów.
+
+## Duże wyniki
+
+Wynik dłuższy niż `limit` kończy się polem `report.next_cursor`, a odczyt strony nigdy nie uruchamia ponownie programu, który coś zmienia. Odpowiedź skrócona przez konsolę zawiera `continuation` i kończy się tekstem `more: next`; wywołanie `next` zwraca kolejną część bez ponownego uruchamiania programu. Zachowane części wygasają domyślnie po godzinie. Etapy zliczające `count`, `summarize` i `group` odpowiadają na pytanie o duży zbiór bez zwracania tego zbioru. [Przewodnik po dużych wynikach](/docs/guides/large-results/) opisuje oba mechanizmy.
+
+## Polityka i uprawnienia
+
+Konsola uruchamia programy, które otrzymuje; host rozstrzyga, jakie programy agent uruchamia. Host egzekwuje politykę na danych, które konsola oblicza bez żadnego skutku:
+
+- `check` zwraca dokument `nurt-check/1`: najsilniejszy skutek (`read`, `local`, `external`, `process`), najsłabszą odwracalność, ścieżki, adresy sieciowe, programy zewnętrzne, grupy poleceń i zastosowane poprawki.
+- `run` z `preview: true` wylicza cele, które program zmieni, wraz z różnicami i skutkami nieodwracalnymi znanymi z góry.
+
+Host zakazuje polecenia, ogranicza katalogi lub adresy HTTP albo pyta użytkownika przed zmianą, wszystko na tych danych i przed `run`. Praca, która wymaga praw administratora, przyjmuje parametr wywołania `privilege` (`account`, `elevated` lub `auto`) oraz, w systemach Linux i macOS, `as_user`. Konsola uruchamia `sudo`, `doas` lub `run0`, wysyła drzewo składni, nigdy tekst powłoki, i nigdy nie pyta o hasło; silnik osadzający wyłącza podnoszenie uprawnień ustawieniem `privilege.allowed = false`. [Przewodnik po polityce](/docs/integrators/policy/) i [przewodnik administracji](/docs/guides/administration/) zawierają szczegóły.
+
+## Wielu agentów i użycie zdalne
+
+Każdy odczyt zwraca `etag`, a zmiana jest stosowana tylko wtedy, gdy plik ma jeszcze odczytaną treść. Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian. `undo` cofa tylko operacje bieżącej sesji, chyba że podano `all_sessions: true`, a cofnięcie pliku zmienionego przez inną sesję zgłasza konflikt zamiast odrzucać cudzą zmianę ([praca wielu agentów](/docs/guides/multi-agent/)).
+
+Silnik, który uruchamia programy na innej maszynie, analizuje i sprawdza program lokalnie, a drzewo składni wysyła do `nurt serve` tam działającego. Zdalna instancja nie poprawia drzewa ponownie, więc uruchamiany jest program, który sprawdziła polityka. Połączenie i uwierzytelnienie należą do hosta ([użycie zdalne i zdarzenia](/docs/integrators/remote-and-events/)).
+
+## Przykłady i instalacja
+
+Katalog `integrations/examples` zawiera minimalne pętle agentów i konfiguracje klientów, każdy z testami, które zastępują model i konsolę obiektami pozorowanymi:
+
+| Katalog | Platforma |
+|---|---|
+| `anthropic-python`, `anthropic-typescript` | Anthropic SDK |
+| `openai-python`, `openai-typescript` | OpenAI SDK, Chat Completions i Responses API |
+| `gemini-python` | Google Gen AI SDK |
+| `vercel-ai` | Vercel AI SDK |
+| `langgraph-python` | LangChain i LangGraph |
+| `semantic-kernel-python` | Semantic Kernel |
+| `openhands` | OpenHands |
+| `swe-agent` | SWE-agent |
+| `mcp` | klienci MCP |
+
+Akcja GitHub `setup-nurt` instaluje Danaco Nurt na runnerach Linux, macOS i Windows (`x64` i `arm64`), wybiera wersję przez dokładny numer lub zakres i weryfikuje sumę SHA-256 archiwum. Obrazy kontenerów `ghcr.io/danacoofficial/nurt`, `nurt-ci` i `nurt-devcontainer` są budowane dla `linux/amd64` i `linux/arm64`, a funkcja devcontainer instaluje Danaco Nurt w kontenerze programistycznym. Strona [integracje](/pl/product/integrations/) wymienia edytory i definicje CI.

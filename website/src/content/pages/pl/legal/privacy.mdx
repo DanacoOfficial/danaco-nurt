@@ -1,10 +1,10 @@
 ---
 title: Prywatność
-description: "Co ta witryna zapisuje i wysyła oraz co dokumentacja programu nurt mówi o telemetrii: witryna jest statyczna, nie ustawia plików cookie i nie uruchamia analityki."
+description: "Co ta witryna zapisuje i wysyła oraz co program nurt przechowuje na Twoim komputerze: witryna jest statyczna, serwuje własne fonty i ikony i zapisuje w przeglądarce jedną wartość, motyw kolorystyczny."
 section: legal
 order: 1
 eyebrow: Informacje prawne
-lead: Ta witryna nie zbiera własnych danych osobowych. Ta strona opisuje, co robi, a czego nie robi.
+lead: Ta witryna to zestaw plików statycznych, który zapisuje w przeglądarce jedną wartość, motyw kolorystyczny.
 updated: 2026-11-28
 related: [legal/accessibility, project/support, quality/security]
 keywords: [prywatność, pliki cookie, analityka, pamięć lokalna, telemetria]
@@ -16,45 +16,42 @@ keywords: [prywatność, pliki cookie, analityka, pamięć lokalna, telemetria]
 
 ## Ta witryna
 
-Witryna Danaco Nurt jest witryną statyczną. Jej strony są generowane podczas budowania witryny i serwowane jako pliki; nie ma konta, formularza ani programu po stronie serwera, który przetwarzałby to, co wpisuje odwiedzający.
+Witryna Danaco Nurt jest witryną statyczną. Jej strony są generowane podczas budowania witryny i serwowane jako pliki. Odwiedzający czyta strony; witryna nie ma konta, formularza ani programu po stronie serwera, który przetwarzałby to, co wpisuje odwiedzający.
 
 | Przedmiot | Co robi witryna |
 |---|---|
-| Pliki cookie | żadne nie są ustawiane |
-| Analityka | żadna nie jest uruchamiana |
-| Skrypty osób trzecich | żadne nie są ładowane |
-| Fonty i obrazy osób trzecich | żadne nie są ładowane; fonty, ikony i obrazy są częścią witryny |
-| Reklamy i śledzenie | brak |
-| Formularze i konta | brak |
-
-Strona, którą czytasz, jest opisem witryny w takiej postaci, w jakiej jest budowana ze źródeł w repozytorium. Jeżeli późniejsza wersja witryny doda którąkolwiek z tych pozycji, ta strona zmieni się w tej samej zmianie.
+| Strony | serwowane jako pliki statyczne generowane podczas budowania |
+| Fonty, ikony i obrazy | serwowane przez samą witrynę jako część jej plików |
+| Skrypty | skrypty samej witryny: motyw, wyszukiwanie, przyciski kopiowania, menu i ruch |
+| Zapisywane w przeglądarce | jedna wartość, motyw kolorystyczny, pod kluczem `nurt-theme` |
+| Wysyłane do witryny | żądania przeglądarki o strony i pliki |
 
 ## Motyw kolorystyczny
 
-Witryna ma jasny i ciemny motyw kolorystyczny. Gdy wybierzesz motyw przełącznikiem w nagłówku, wybór jest zapisywany w pamięci lokalnej przeglądarki pod kluczem `nurt-theme`. Wartość pozostaje w przeglądarce. Przy następnej wizycie odczytuje ją mały skrypt witryny, aby strona otwierała się w wybranym motywie, i nigdy nie jest wysyłana na serwer. Wyczyszczenie danych witryny w przeglądarce ją usuwa. Bez zapisanej wartości witryna stosuje preferencję systemu.
+Witryna ma jasny i ciemny motyw kolorystyczny. Gdy wybierzesz motyw przełącznikiem w nagłówku, wybór jest zapisywany w pamięci lokalnej przeglądarki pod kluczem `nurt-theme`. Wartość pozostaje w przeglądarce. Przy następnej wizycie odczytuje ją mały skrypt witryny, aby strona otwierała się w wybranym motywie, a wartość nigdy nie jest wysyłana na serwer. Wyczyszczenie danych witryny w przeglądarce ją usuwa. Bez zapisanej wartości witryna stosuje preferencję systemu.
 
 ## Wyszukiwanie
 
-Wyszukiwanie działa w przeglądarce. Witryna serwuje indeks wyszukiwania (zbudowany przez Pagefind) jako pliki, tak jak każdą inną stronę, a przeglądarka wyszukuje Twoje zapytanie w tym indeksie lokalnie. Tekst zapytania nie jest nigdzie wysyłany; przeglądarka pobiera z witryny pliki indeksu, które są zapisywane w dziennikach serwera tak jak każde inne żądanie (zob. niżej). Wyszukiwanie jest jedną z niewielu funkcji wymagających JavaScriptu; same strony można czytać bez niego.
+Wyszukiwanie działa w przeglądarce. Witryna serwuje indeks wyszukiwania (zbudowany przez Pagefind) jako pliki, tak jak każdą inną stronę, a przeglądarka wyszukuje Twoje zapytanie w tym indeksie lokalnie. Tekst zapytania pozostaje w przeglądarce; przeglądarka pobiera z witryny pliki indeksu, a te żądania pojawiają się w dziennikach serwera tak jak każde inne żądanie. Wyszukiwanie jest jedną z funkcji używających JavaScriptu; same strony czyta się bez niego.
 
 ## Dzienniki serwera
 
-Serwer WWW zapisuje żądania. Dzienniki tej witryny należą do hostingu, na którym witryna jest wdrożona, i leżą poza treścią witryny. To, jakie dane zawierają dzienniki (na przykład adres odwiedzającego, czas i żądaną stronę), jak długo są przechowywane i kto może je czytać, zależy od hostingu wdrożenia. Ta strona nie może tego podać. To samo dotyczy kopii witryny uruchomionej samodzielnie: jej dzienniki są Twoje.
+Serwer WWW zapisuje żądania. Dzienniki tej witryny należą do hostingu, na którym witryna jest wdrożona. Dane, które zawierają, okres przechowywania i osoby uprawnione do odczytu zależą od hostingu wdrożenia. Kopia witryny uruchomiona samodzielnie zapisuje własne dzienniki, które należą do Ciebie.
 
 ## Odnośniki do innych witryn
 
-Strony witryny odsyłają do repozytorium na GitHubie (`github.com/DanacoOfficial/nurt`), do specyfikacji cytowanych przez projekt i do pobrań wydań. Gdy przejdziesz za takim odnośnikiem, inna witryna otrzymuje Twoje żądanie i obowiązują jej własne zasady prywatności. Witryna nie osadza treści z tych witryn.
+Strony witryny odsyłają do repozytorium na GitHubie (`github.com/DanacoOfficial/danaco-nurt`), do specyfikacji cytowanych przez projekt i do pobrań wydań. Gdy przejdziesz za takim odnośnikiem, inna witryna otrzymuje Twoje żądanie i obowiązują jej własne zasady prywatności. Witryna nie osadza treści z tych witryn.
 
 ## Program nurt
 
-Ta sekcja dotyczy programu, a nie witryny. W dokumentacji repozytorium wyszukano stwierdzeń o telemetrii, analityce i raportach o awariach (dokumentacja w `docs/`, specyfikacja w `spec/`, katalog oraz źródła skrzynek, pakowania i integracji).
+Ta sekcja dotyczy programu, a nie witryny.
 
-- Dokumentacja programu opisuje **brak telemetrii**: nie wymienia żadnego zbierania danych o użyciu, żadnych raportów wysyłanych po awarii ani sprawdzania aktualizacji przez program.
-- Jedyne stwierdzenie, które wymienia telemetrię, znajduje się w README rozszerzenia dla Visual Studio Code: rozszerzenie nie zbiera telemetrii i nie wysyła danych przez sieć. Jego testy sprawdzają, że manifest nie wymienia biblioteki telemetrii i nie definiuje ustawienia telemetrii.
-- Program może korzystać z sieci, gdy program w języku o to prosi, na przykład przez polecenia sieciowe i kontroli wersji. To skutek polecenia, które piszesz.
+- Rozszerzenie dla Visual Studio Code nie zbiera telemetrii i nie wysyła danych przez sieć. Jego testy sprawdzają, że manifest nie wymienia biblioteki telemetrii i nie definiuje ustawienia telemetrii.
+- Program korzysta z sieci, gdy program w języku o to prosi, na przykład przez polecenia sieciowe i kontroli wersji. Użycie sieci jest skutkiem polecenia, które piszesz.
 - Dziennik, konfiguracja i stan programu są przechowywane na Twoim komputerze, w katalogach wymienionych w [konwencjach nazewniczych](/docs/conventions/naming/): w katalogu dziennika `.nurt-journal` i w katalogu stanu użytkownika (`$XDG_STATE_HOME/nurt/` w Linuksie, `~/Library/Application Support/Nurt/` w macOS, `%LOCALAPPDATA%\Nurt\` w Windows).
+- Każde uruchomienie zwraca wywołującemu raport skutków w postaci tekstu, JSON lub Markdown, a dziennik zapisuje zmiany plików na Twoich woluminach do przeglądu i cofania.
 
-Brak stwierdzenia w dokumentacji nie jest dowodem, że żaden kod nie wysyła danych; powyższe stwierdzenie ogranicza się do tego, co mówi dokumentacja, i do przeszukania repozytorium opisanego tutaj. Strony [bezpieczeństwo](/pl/quality/security/) i [łańcuch dostaw](/pl/quality/supply-chain/) mówią, co sprawdza się w kodzie i jego zależnościach.
+Strony [bezpieczeństwo](/pl/quality/security/) i [łańcuch dostaw](/pl/quality/supply-chain/) opisują, jak sprawdza się kod i jego zależności.
 
 ## Pytania
 

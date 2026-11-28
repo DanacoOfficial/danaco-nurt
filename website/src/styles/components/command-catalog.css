@@ -62,14 +62,14 @@
   font-weight: 400;
 }
 
-.command-catalog__list {
+.command-catalog .command-catalog__list {
   margin: 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line);
 }
 
-.command-catalog__list li {
+.command-catalog .command-catalog__list li {
   display: grid;
   gap: var(--space-1) var(--space-4);
   grid-template-columns: minmax(0, 1fr);
@@ -93,7 +93,7 @@
 }
 
 @media (min-width: 40rem) {
-  .command-catalog__list li {
+  .command-catalog .command-catalog__list li {
     grid-template-columns: 14rem minmax(0, 1fr);
   }
 }

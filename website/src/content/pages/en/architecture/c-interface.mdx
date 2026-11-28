@@ -18,14 +18,14 @@ keywords: [libnurt, nurt.h, ABI, bindings, extensions, wasm]
 
 The library `libnurt` is the crate `nurt-ffi`. It exposes the engine of `nurt-core` through the functions declared in `crates/nurt-ffi/include/nurt.h`. The header is maintained by hand and is the reference of the interface; the exported symbols are listed in `crates/nurt-ffi/nurt.symbols`. Only `nurt-ffi` exports C symbols. The crate builds a Rust library, a shared library and a static library.
 
-| System | Shared library | Static library |
-|---|---|---|
-| Linux (glibc) | `libnurt.so.1` (the SONAME carries the major version of the interface) | `libnurt.a` |
-| Linux (musl) | none | `libnurt.a` |
-| macOS | `libnurt.1.dylib` | `libnurt.a` |
-| Windows | `nurt.dll` with the import library `nurt.dll.lib` | `nurt.lib` (define `NURT_STATIC`) |
+| System | Libraries |
+|---|---|
+| Linux (glibc) | shared `libnurt.so.1` (the SONAME carries the major version of the interface) and static `libnurt.a` |
+| Linux (musl) | static `libnurt.a` |
+| macOS | shared `libnurt.1.dylib` and static `libnurt.a` |
+| Windows | shared `nurt.dll` with the import library `nurt.dll.lib`, and static `nurt.lib` (define `NURT_STATIC`) |
 
-The release publishes the library in its own archive `nurt-lib-<version>-<target>` with `nurt.h` and `nurt.pc`; the archive of the program does not hold it. On the musl targets of Linux that archive holds the static library `libnurt.a`, which must not be linked into one program with another static library written in Rust. The release candidate of 0.1.1 built library archives for Linux glibc, Linux musl and Windows MSVC, each for x86-64 and aarch64, and none for macOS.
+The release publishes the library in its own archive `nurt-lib-<version>-<target>` with `nurt.h` and `nurt.pc`. Library archives are built for Linux glibc, Linux musl and Windows MSVC, each for x86-64 and aarch64. The example `examples/c/hello.c` calls the library from C.
 
 The exported functions fall into groups: version and information (`nurt_abi_version`, `nurt_abi_check`, `nurt_version`, `nurt_info`), the engine (`nurt_engine_open`, `nurt_engine_close`, `nurt_engine_config_get`), the language (`nurt_parse`, `nurt_print`, `nurt_correct`, `nurt_check`), execution (`nurt_run_json`, `nurt_exec_start`, `nurt_exec_wait`, `nurt_exec_cancel`, `nurt_exec_free`, `nurt_page`), descriptions and state (`nurt_catalog`, `nurt_describe`, `nurt_help`, `nurt_schema`, `nurt_history`, `nurt_space`, `nurt_session_end`), extensions (`nurt_ext_load`, `nurt_ext_list`) and memory and diagnostics (`nurt_buf_free`, `nurt_last_error`, `nurt_set_log_callback`).
 
@@ -34,8 +34,8 @@ The exported functions fall into groups: version and information (`nurt_abi_vers
 - **Data.** Strings are UTF-8 with a terminating zero. Complex values are JSON in the published formats (`nurt-ast/1`, `nurt-bound/1`, `nurt-request/1`, `nurt-response/1`, `nurt-config/1`, events, errors). Results are returned in a `nurt_buf { ptr, len, cap }` released with `nurt_buf_free`. When a call fails, its output buffers stay empty.
 - **Two kinds of failure.** `nurt_status` reports only failures of the call. An error of the language (syntax, binding, assertion, stale target) returns `NURT_OK` and arrives inside the JSON result as `error` with a stable `E_*` code.
 - **Panics.** Every exported function runs inside a panic boundary; a panic is caught and reported as `NURT_E_INTERNAL`. The library is built with `panic = "unwind"` for this reason.
-- **Threads.** Every function is thread-safe and several engines may exist in one process. Events of an execution reach `nurt_event_cb` from one library thread per execution, in increasing `seq`, ending with `exec.finished`. After `fork()` without `exec()`, an engine of the parent process is not usable in the child.
-- **Test engine.** With the cargo feature `stub` the engine is replaced by a double that answers from recorded cases. The reference states that the feature is never enabled in a release build.
+- **Threads.** Every function is thread-safe and several engines exist in one process side by side. Events of an execution reach `nurt_event_cb` from one library thread per execution, in increasing `seq`, ending with `exec.finished`.
+- **Test engine.** With the cargo feature `stub` the engine is replaced by a double that answers from recorded cases; release builds leave the feature off.
 
 | Status | Value | Meaning |
 |---|---|---|
@@ -49,6 +49,8 @@ The exported functions fall into groups: version and information (`nurt_abi_vers
 
 ## Version numbers
 
+The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers, separate from the product version 0.1.2; a change between 0.x versions is recorded in the changelog.
+
 | Interface | Version | Rule |
 |---|---|---|
 | C ABI | `NURT_ABI_MAJOR` 1, `NURT_ABI_MINOR` 0 | `nurt_abi_version()` returns `(major << 16) \| minor`. A binding calls `nurt_abi_check(NURT_ABI_VERSION)` once; it fails with `NURT_E_ABI` when the major versions differ or the library is older than the header. Within one major version the interface only grows. |
@@ -56,36 +58,32 @@ The exported functions fall into groups: version and information (`nurt_abi_vers
 | Serve protocol | `nurt-rpc/1` | See [protocols](/architecture/protocols/). |
 | Extension interface | `nurt:ext@1.0` | A manifest is accepted when its major version equals that of the host and its minor version is not newer. |
 
-The changelog states that the language, the syntax tree, the command catalog and the C interface carry version numbers of their own, separate from the product version 0.1.2. The README states that the library interfaces may change between 0.x versions of the product, so a binding should pin the interface it was built against. The reference is [the C interface reference](/docs/reference/c-abi/), and the short form is [the C interface in the architecture documents](/docs/architecture/c-interface/).
+The reference is [the C interface reference](/docs/reference/c-abi/), and the short form is [the C interface in the architecture documents](/docs/architecture/c-interface/).
 
 ## Extensions
 
-Extensions add commands, document formats and grammars without changing the program. The crate `nurt-ext` implements the mechanism; the manifest is `nurt-ext.toml` in a directory under `ext.dir` (the environment variable `NURT_EXT_DIR`).
+Extensions add commands, document formats and grammars without changing the program. The crate `nurt-ext` implements the mechanism. An extension is a directory under `ext.dir` (the environment variable `NURT_EXT_DIR`) with the manifest `nurt-ext.toml` and a component or a library. An installation reads and checks the manifest, checks that every file it names exists, copies the directory through a staging directory and switches it in by rename, so an interrupted installation leaves the previous version in place. The commands of an extension are named `<extension>.<command>`, and the manifest declares their parameters, the record kinds they accept and produce, and the permissions they need.
 
-| Kind | Mechanism | Limits stated in the reference |
+| Kind | Mechanism | Execution bounds |
 |---|---|---|
-| WebAssembly component | hosted by `wasmtime`; world `extension` of the package `nurt:ext@1.0.0` with host calls `read-file`, `list-dir`, `write-file` and `log`, and the function `stage.run` | execution fuel 10 000 000 000 units per call; linear memory 512 MiB; every call runs in a new instance; files only within `permissions.read` and `permissions.write` |
-| Native library | exports `nurt_ext_api`, `nurt_ext_run` and `nurt_ext_free`; loaded only with `ext.native = true` and a build with the `native` feature | runs in the process of the engine without restrictions; cannot declare commands with `writes = true` |
+| WebAssembly component | hosted by `wasmtime`; world `extension` of the package `nurt:ext@1.0.0` with host calls `read-file`, `list-dir`, `write-file` and `log`, and the function `stage.run` | execution fuel 10 000 000 000 units per call; linear memory 512 MiB; every call runs in a new instance; files only within `permissions.read` and `permissions.write`, checked when the extension asks for a path and again when its writes are applied |
+| Native library | exports `nurt_ext_api`, `nurt_ext_run` and `nurt_ext_free`; loaded with `ext.native = true` and a build with the `native` feature | runs in the process of the engine |
 
-Installation does not verify a signature or a checksum; the account that installs an extension trusts its source. The changelog of 0.1.0 lists as a known limitation that native extensions are not available and that extensions are WebAssembly modules; the changelogs of 0.1.1 and 0.1.2 do not change that entry. See [the extensions reference](/docs/reference/extensions/).
+See [the extensions reference](/docs/reference/extensions/).
 
 ## The bindings
 
-The directory `bindings/` holds five bindings. Each of them has two backends: the library backend loads `libnurt` into the calling process, and the process backend starts `nurt serve --stdio` and speaks JSON-RPC 2.0 (`nurt-rpc/1`) to it. The bindings therefore relate to the engine only through these two interfaces; none of them contains an engine.
+The directory `bindings/` holds five bindings. Each of them has two backends: the library backend loads `libnurt` into the calling process, and the process backend starts `nurt serve --stdio` and speaks JSON-RPC 2.0 (`nurt-rpc/1`) to it. The bindings therefore relate to the engine through these two interfaces, and each of them returns the same JSON documents.
 
-| Binding | Package | Backends | Notes from its README |
+| Binding | Package | Backends | Requirements |
 |---|---|---|---|
-| Go | module `github.com/DanacoOfficial/nurt/bindings/go` | `process` (default, pure Go); `library` through cgo with the tag `nurt_cgo` | Go 1.23 or later; no dependencies outside the standard library |
+| Go | module `github.com/DanacoOfficial/nurt/bindings/go` | `process` (default, pure Go); `library` through cgo with the tag `nurt_cgo` | Go 1.23 or later; only the standard library |
 | Node.js | `nurt` | `library` (Node-API addon `nurt.node`, crate `nurt-node`); `process`; `auto` by default | Node.js 18 or later, Bun and Deno; the addon needs a runtime with Node-API |
 | .NET | `Danaco.Nurt` | `Library`, `Process`, `Auto` by default | targets .NET 8 and .NET Standard 2.0 |
 | Java | `pl.danaco-group:nurt`, `pl.danaco-group:nurt-ffm` | `nurt` runs `nurt serve --stdio` (Java 17 or later); `nurt-ffm` adds the library backend through the Foreign Function and Memory API (Java 22 or later) | no runtime dependencies |
 | Python | `nurt` | `library` through `ctypes`; `process`; `auto` by default | platform wheels contain the `nurt` executable and `libnurt` |
 
-<Callout type="note" title="Two crates with similar names">
-  The crate `nurt-bind` has nothing to do with the language bindings. It binds syntax trees to the command catalog, a step of the [engine](/architecture/engine/). The Node.js addon is the crate `nurt-node`; the other bindings are not Rust crates.
-</Callout>
-
-The bindings share the conformance cases in `conformance/bindings`, which each binding runs against the implementation named by environment variables such as `NURT_TEST_COMMAND` (Go) and `NURT_TEST_SERVE` and `NURT_TEST_LIBRARY` (.NET). The README files do not state which platforms have been tested per binding, so this page does not either. Measured results are on the [testing](/quality/testing/) page.
+The crate `nurt-bind` belongs to the engine: it binds syntax trees to the catalog, a step of the [engine](/architecture/engine/). The Node.js addon is the crate `nurt-node`; the other bindings are packages of their own languages. The bindings share the conformance cases in `conformance/bindings`, which each binding runs against the implementation named by environment variables such as `NURT_TEST_COMMAND` (Go) and `NURT_TEST_SERVE` and `NURT_TEST_LIBRARY` (.NET). Measured results are on the [testing](/quality/testing/) page.
 
 ## Next
 

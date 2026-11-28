@@ -51,6 +51,7 @@ const legal = legalLinks.map((link) => ({
         </a>
         <p class="site-footer__tagline">{ui.footer.tagline}</p>
         <p class="text-muted">{ui.footer.description}</p>
+        <p class="site-footer__creator">{ui.footer.creator} <strong>{site.creator}</strong></p>
         <ul class="site-footer__facts" role="list">
           <li><span>{ui.footer.version}</span> <a href={href('/project/releases/', locale)}>{product.version}</a></li>
           <li><span>{ui.footer.repository}</span> <a href={repository.url} rel="noopener">GitHub</a></li>

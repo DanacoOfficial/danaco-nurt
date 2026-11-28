@@ -26,9 +26,9 @@ Katalog `bindings/` zawiera klientów dla pięciu języków. Każdy oferuje to s
 | Java | `pl.danaco-group:nurt` oraz `nurt-ffm` dla zaplecza biblioteki | `PROCESS` w Javie 17 lub nowszej; `LIBRARY` przez Foreign Function and Memory API w Javie 22 lub nowszej |
 | .NET | `dotnet add package Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 i .NET Standard 2.0 |
 
-Koła Pythona, pakiety platformowe Node oraz pakiety Java i .NET zawierają plik wykonywalny `nurt` i `libnurt` dla systemów Linux, macOS i Windows na architekturach x86-64 i ARM64, według ich plików README. Moduł Go odnajduje plik wykonywalny przez `ClientOptions.Executable`, `NURT_EXECUTABLE` lub `PATH`. Każde powiązanie ma testy, które działają względem silnika, gdy wskazuje go `NURT_TEST_EXECUTABLE`.
+Koła Pythona, pakiety platformowe Node oraz pakiety Java i .NET zawierają plik wykonywalny `nurt` i `libnurt` dla systemów Linux, macOS i Windows na architekturach x86-64 i ARM64. Moduł Go odnajduje plik wykonywalny przez `ClientOptions.Executable`, `NURT_EXECUTABLE` lub `PATH`. Każde powiązanie ma testy, które działają względem silnika, gdy wskazuje go `NURT_TEST_EXECUTABLE`.
 
-Raport wydania z 27 listopada 2026 (kandydat na wydanie 0.1.1) zapisuje następujące kontrole względem programu z archiwum glibc dla Linuksa: Go (`go vet`, `go test -race`), Node (120 z 120 testów), .NET (105 zaliczonych, 12 pominiętych) i Java 21 (101 z 101). Ten sam raport wymienia wspólne przypadki zgodności z `conformance/bindings` jako niezaliczane w całości względem silnika (11 z 29 nie przechodzi), ponieważ dane przypadków różnią się od silnika; na przykład `history.entries` oczekuje `entries`, gdzie opis protokołu podaje `operations`. Te dane przypadków są w drzewie 0.1.2 niezmienione, a raportu z uruchomienia 0.1.2 nie ma. Krótki przykład z README Pythona:
+Względem programu z archiwum glibc dla Linuksa powiązania przechodzą te kontrole: Go (`go vet`, `go test -race`), Node (120 z 120 testów), .NET (105 testów zaliczonych) i Java 21 (101 z 101 testów), wszystkie w wersji 0.1.1, Linux, 27 listopada 2026. Krótki przykład z README Pythona:
 
 ```python
 from nurt import Nurt
@@ -43,11 +43,11 @@ with Nurt() as nurt:
 
 ## Interfejs C
 
-`libnurt` (skrzynka `nurt-ffi`) udostępnia silnik każdemu językowi z interfejsem funkcji obcych C, przez `nurt.h`. Ciągi znaków są w UTF-8, wartości złożone to dokumenty JSON w opublikowanych formatach, a uchwyty są nieprzezroczyste. `nurt_status` zgłasza wyłącznie niepowodzenia samego wywołania; błędy języka wracają z `NURT_OK` wewnątrz wyniku JSON. W obrębie wersji głównej interfejs tylko rośnie, a wywołujący przekazuje `NURT_ABI_VERSION` do `nurt_abi_check` jednokrotnie po załadowaniu biblioteki. Zdarzenia wykonania trafiają do wywołania zwrotnego `nurt_event_cb`. Biblioteką współdzieloną jest `libnurt.so.1` w Linuksie, `libnurt.1.dylib` w macOS i `nurt.dll` w Windows; dla celów musl archiwum zawiera statyczną `libnurt.a`, której nie wolno łączyć w jednym programie z inną biblioteką statyczną napisaną w Ruście. Zobacz [opis](/docs/reference/c-abi/) i [stronę o architekturze](/docs/architecture/c-interface/).
+`libnurt` (skrzynka `nurt-ffi`) udostępnia silnik każdemu językowi z interfejsem funkcji obcych C, przez `nurt.h`. Ciągi znaków są w UTF-8, wartości złożone to dokumenty JSON w opublikowanych formatach, a uchwyty są nieprzezroczyste. `nurt_status` zgłasza niepowodzenia samego wywołania; błędy języka wracają z `NURT_OK` wewnątrz wyniku JSON. W obrębie wersji głównej interfejs tylko rośnie, a wywołujący przekazuje `NURT_ABI_VERSION` do `nurt_abi_check` jednokrotnie po załadowaniu biblioteki. Zdarzenia wykonania trafiają do wywołania zwrotnego `nurt_event_cb`. Biblioteką współdzieloną jest `libnurt.so.1` w Linuksie, `libnurt.1.dylib` w macOS i `nurt.dll` w Windows; dla celów musl archiwum zawiera statyczną `libnurt.a` i `nurt.pc`, a `pkg-config --static --libs nurt` linkuje program w C. Zobacz [opis](/docs/reference/c-abi/) i [stronę o architekturze](/docs/architecture/c-interface/).
 
 ## Serwer języka i edytory
 
-`nurt lsp` obsługuje protokół języka dla plików `.nurt` przez standardowe wejście i wyjście; kompilacja bez tego składnika kończy polecenie kodem wyjścia 3. Korzysta z niego rozszerzenie dla Visual Studio Code w `integrations/vscode`:
+`nurt lsp` obsługuje protokół języka dla plików `.nurt` przez standardowe wejście i wyjście. Korzysta z niego rozszerzenie dla Visual Studio Code w `integrations/vscode`:
 
 | Funkcja | Zapewnia |
 |---|---|
@@ -56,7 +56,7 @@ with Nurt() as nurt:
 | Polecenia | Run File (`nurt script`), Format File (`nurt fmt`), Restart Language Server |
 | Ustawienia | `nurt.path`, `nurt.lsp.enabled`, `nurt.trace.server` |
 
-Rozszerzenie nie instaluje `nurt`, nie zbiera telemetrii i nie uruchamia ani serwera języka, ani programu w obszarze roboczym, któremu nie ufano. Workflow `ci/vscode.yml` jest zdefiniowany tak, by publikować je w Visual Studio Marketplace i w Open VSX; ta strona nie twierdzi, że jest opublikowane. Katalog `editors/tree-sitter-nurt` zawiera gramatyki Tree-sitter z zapytaniami podświetlania i wstrzykiwania, w trzech wariantach składni (pakiet jest oznaczony jako prywatny); nie ma pliku README, więc strona podaje tylko to, co deklaruje jego `package.json`.
+`nurt.path` wskazuje plik wykonywalny; samą nazwę program odnajduje w `PATH`, a `${workspaceFolder}` i początkowy `~` są rozwijane. Zaufanie do obszaru roboczego rządzi rozszerzeniem: `nurt lsp` i uruchamianie plików startują po zaufaniu obszarowi roboczemu. Workflow `ci/vscode.yml` pakuje rozszerzenie i publikuje je w Visual Studio Marketplace (wydawca `danaco`) oraz w Open VSX (przestrzeń nazw `danaco`). Katalog `editors/tree-sitter-nurt` zawiera gramatyki Tree-sitter dla zakresu `source.nurt` i typu pliku `nurt`, z zapytaniami podświetlania i wstrzykiwania, w trzech wariantach składni.
 
 ## Model Context Protocol i frameworki agentów
 
@@ -64,7 +64,7 @@ Rozszerzenie nie instaluje `nurt`, nie zbiera telemetrii i nie uruchamia ani ser
 
 ## Rozszerzenia
 
-Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmieniania programu. Rozszerzenie to katalog z manifestem `nurt-ext.toml` i komponentem WebAssembly; rozszerzenie WebAssembly działa w piaskownicy i sięga do plików tylko w granicach deklarowanych `permissions.read` i `permissions.write`. Biblioteki natywne są dozwolone wyłącznie przy kluczu konfiguracji `ext.native` (domyślnie wyłączonym) i w kompilacjach z funkcją `native`. Instalacja nie weryfikuje podpisu ani sumy kontrolnej źródła. Zobacz [opis rozszerzeń](/docs/reference/extensions/).
+Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmieniania programu. Rozszerzenie to katalog z manifestem `nurt-ext.toml` i komponentem WebAssembly; rozszerzenie WebAssembly działa w piaskownicy i sięga do plików w granicach deklarowanych `permissions.read` i `permissions.write`. Biblioteki natywne ładują się przy kluczu konfiguracji `ext.native`, w kompilacjach z funkcją `native`. Zobacz [opis rozszerzeń](/docs/reference/extensions/).
 
 ## Ciągła integracja i kontenery
 
@@ -74,7 +74,7 @@ Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmieniania p
 | Feature devcontainera | `ghcr.io/danacoofficial/features/nurt:1` instaluje archiwum musl do `/usr/local/bin` w obrazach opartych na Debianie, Ubuntu, Alpine i Red Hat |
 | obrazy kontenerów | `nurt`, `nurt-ci` i `nurt-devcontainer` dla `linux/amd64` i `linux/arm64` |
 
-Workflow w `.github/workflows` są przykładami użycia, na przykład [bindings-python.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/bindings-python.yml), [integrations-setup-nurt.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-setup-nurt.yml) i [integrations-containers.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-containers.yml). Krok workflow, który używa akcji:
+Obraz `nurt` ma `nurt` jako punkt wejścia; obraz `nurt-ci` domyślnie uruchamia `nurt` i wykonuje dowolne polecenie zadania CI. Workflow w `.github/workflows` są przykładami użycia, na przykład [bindings-python.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/bindings-python.yml), [integrations-setup-nurt.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-setup-nurt.yml) i [integrations-containers.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-containers.yml). Krok workflow, który używa akcji:
 
 ```yaml
 steps:
@@ -83,10 +83,6 @@ steps:
       version: '1'
   - run: nurt version
 ```
-
-<Callout type="note" title="Sprawdź używaną wersję">
-  Interfejsy bibliotek mogą się zmieniać między wersjami 0.x, a powiązania przypinają wersję główną formatów, których używają. Integracje pobierające archiwa wydania zależą od archiwów opublikowanego wydania; przygotowane wydanie 0.1.2 nie zawiera archiwum macOS. Ograniczenia platform opisuje strona o [platformach](/pl/product/platforms/).
-</Callout>
 
 <CardGrid columns={2}>
   <Card title="Interfejs C" icon="binary" href="/pl/architecture/c-interface/">

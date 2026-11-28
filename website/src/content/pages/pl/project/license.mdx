@@ -4,9 +4,9 @@ description: Danaco Nurt jest licencjonowany na warunkach Apache License 2.0. St
 section: project
 order: 5
 eyebrow: Projekt
-lead: Kod jest otwarty na licencji Apache-2.0. Nazwy i znaki nie są częścią tego udzielenia praw.
+lead: Kod jest otwarty na licencji Apache-2.0. Nazwy i znaki należą do Danaco Holding Group Sp. z o.o.
 updated: 2026-11-28
-related: [project/brand, project/contributing, quality/supply-chain, architecture/dependencies]
+related: [design/identity, project/contributing, quality/supply-chain, architecture/dependencies]
 keywords: [apache-2.0, notice, osoby trzecie, znak towarowy, fonty, ikony]
 ---
 
@@ -22,13 +22,13 @@ keywords: [apache-2.0, notice, osoby trzecie, znak towarowy, fonty, ikony]
 
 Danaco Nurt jest licencjonowany na warunkach [Apache License, Version 2.0](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/LICENSE). Posiadaczem praw autorskich jest Danaco Holding Group Sp. z o.o. (Copyright 2026). Wkłady są przyjmowane na tej samej licencji i na podstawie Developer Certificate of Origin 1.1, zgodnie z sekcją 5 Licencji; zob. [Współtworzenie](/pl/project/contributing/).
 
-Licencja produktu jest podana wyłącznie w pliku `LICENSE`. Pliki źródłowe nie mają identyfikatora licencji w pliku; zaczynają się trzywierszowym nagłówkiem producenta, który wskazuje posiadacza praw autorskich i odsyła do pliku `LICENSE`.
+Licencja produktu jest podana w pliku `LICENSE`. Pliki źródłowe zaczynają się trzywierszowym nagłówkiem producenta, który wskazuje posiadacza praw autorskich i odsyła do pliku `LICENSE`.
 
-Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0, zgodnie ze stroną [compatibility](/docs/guide/compatibility/) dokumentacji. Tekst Kodeksu postępowania to Contributor Covenant 2.1 (CC BY 4.0), zachowany w brzmieniu oryginału.
+Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0; strona [compatibility](/docs/guide/compatibility/) opisuje użycie nazwy. Tekst Kodeksu postępowania to Contributor Covenant 2.1 (CC BY 4.0), zachowany w brzmieniu oryginału.
 
 ## Plik NOTICE
 
-[NOTICE](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/NOTICE) musi być dołączony do każdej dystrybucji produktu lub dzieł pochodnych (sekcja 4(d) Licencji); archiwa wydań go zawierają. Podaje prawa autorskie, powtarza, że Licencja nie udziela zgody na używanie nazw, i wymienia składniki wymagające wskazania autorstwa:
+[NOTICE](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/NOTICE) jest dołączany do każdej dystrybucji produktu lub dzieł pochodnych (sekcja 4(d) Licencji), a archiwa wydań go zawierają. Podaje prawa autorskie, zasadę dotyczącą nazw i składniki objęte wskazaniem autorstwa:
 
 | Składnik | Gdzie | Licencja |
 |---|---|---|
@@ -39,25 +39,24 @@ Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0, zgodnie 
 
 ## Zależności osób trzecich
 
-Wszystkie zależności są deklarowane w `[workspace.dependencies]`, pochodzą wyłącznie z crates.io i są sprawdzane poleceniem `cargo deny --locked check` względem polityki w [deny.toml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/deny.toml). Polityka:
+Wszystkie zależności są deklarowane w `[workspace.dependencies]`, pochodzą z crates.io i są sprawdzane poleceniem `cargo deny --locked check` względem polityki w [deny.toml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/deny.toml). Polityka:
 
 - **Dozwolone licencje:** `0BSD`, `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`, `BSD-2-Clause`, `BSD-3-Clause`, `BSL-1.0`, `CC0-1.0`, `ISC`, `MIT`, `MIT-0`, `Unicode-3.0`, `Unlicense` i `Zlib`. Zależność z wyrażeniem zawierającym alternatywy jest przyjmowana, gdy jedna z alternatyw jest dozwolona.
-- **Wyjątki dla pojedynczych skrzynek:** `CDLA-Permissive-2.0` dla `webpki-roots`, `bzip2-1.0.6` dla `libbz2-rs-sys`, `MPL-2.0` dla niezmodyfikowanych skrzynek pośrednich `uluru` i `option-ext` oraz `NCSA` dla `libfuzzer-sys`, który jest łączony wyłącznie z celami fuzzingu i nigdy z dystrybuowanymi artefaktami.
+- **Licencje pojedynczych skrzynek:** `CDLA-Permissive-2.0` dla `webpki-roots`, `bzip2-1.0.6` dla `libbz2-rs-sys`, `MPL-2.0` dla niezmodyfikowanych skrzynek pośrednich `uluru` i `option-ext` oraz `NCSA` dla `libfuzzer-sys`, który jest łączony wyłącznie z celami fuzzingu.
 - **Wykluczone:** GPL, LGPL i AGPL w każdej wersji oraz licencje ograniczające dziedzinę zastosowań. Produkt nie osadza ani nie łączy kodu programów GPL lub LGPL. `deny.toml` zakazuje między innymi `sequoia-openpgp`, `openssl`, `git2` i `unrar`, każdego z podanym powodem.
-- **Komunikaty o podatnościach (advisories):** jeden komunikat jest ignorowany, RUSTSEC-2026-0543 (`chrono` nie jest utrzymywany i nie ma zgłoszonej podatności), a powód zapisano w `deny.toml`.
 
 Strony [zależności](/pl/architecture/dependencies/) i [łańcuch dostaw](/pl/quality/supply-chain/) opisują tę samą politykę od strony budowania.
 
 ## Nazwy i znaki
 
-Nazwy „Danaco”, „Danaco Nurt” i „Danaco Holding Group” są nazwami Danaco Holding Group Sp. z o.o. Sekcja 6 Apache License nie udziela zgody na ich używanie, poza zwyczajowym wskazaniem pochodzenia produktu i odtworzeniem pliku `NOTICE`. Konwencje nazewnicze dodają:
+Nazwy „Danaco”, „Danaco Nurt” i „Danaco Holding Group” są nazwami Danaco Holding Group Sp. z o.o. Sekcja 6 Apache License dopuszcza ich używanie do zwyczajowego wskazania pochodzenia produktu i do odtworzenia pliku `NOTICE`. Konwencje nazewnicze dodają:
 
 - opisowe stwierdzenie, takie jak „działa z Danaco Nurt”, jest zwyczajowym użyciem;
-- zmodyfikowanej wersji programu nie wolno dystrybuować pod nazwą Danaco Nurt bez zgody Danaco Holding Group Sp. z o.o.;
-- plik wykonywalny nazywa się `nurt` (`nurt.exe` w Windows) i nie instaluje się żadnych innych nazw ani aliasów.
+- zmodyfikowaną wersję programu dystrybuuje się pod nazwą Danaco Nurt za zgodą Danaco Holding Group Sp. z o.o.;
+- plik wykonywalny nazywa się `nurt` (`nurt.exe` w Windows), to jedyna nazwa programu.
 
-Nazwy „Danaco Nurt Compatible” oraz znaku programu może używać implementacja lub integracja, która przechodzi obowiązkowe testy `nurt-conformance`. Dokumentacja stwierdza, że warunki tego programu zostaną opublikowane po zatwierdzeniu przez właściciela nazwy; w źródłach, z których napisano tę witrynę, nie zostały jeszcze opublikowane. Pliki tożsamości wizualnej opisuje strona [marka](/pl/project/brand/). Źródła: [naming conventions](/docs/conventions/naming/) i [compatibility](/docs/guide/compatibility/).
+Nazwa „Danaco Nurt Compatible” oraz znak programu przysługują implementacji lub integracji, która przechodzi obowiązkowe testy `nurt-conformance`. Tożsamość wizualną opisuje strona [tożsamość](/pl/design/identity/) i sekcja [projekt wizualny](/pl/design/). Zasady są w [konwencjach nazewniczych](/docs/conventions/naming/) i na stronie [compatibility](/docs/guide/compatibility/).
 
 ## Fonty i ikony tej witryny
 
-Sama witryna używa kroju Geist i Geist Mono na licencji SIL Open Font License 1.1 oraz ikon z zestawu Lucide na licencji ISC. Oba są serwowane przez samą witrynę, a nie przez osobę trzecią.
+Witryna używa kroju Geist i Geist Mono na licencji SIL Open Font License 1.1 oraz ikon z zestawu Lucide na licencji ISC. Witryna serwuje oba sama.

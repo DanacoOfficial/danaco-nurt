@@ -15,8 +15,10 @@ export interface NavigationItem {
 
 export const mainNavigation: readonly NavigationItem[] = [
   { key: 'product', path: '/product/' },
+  { key: 'ai', path: '/ai/' },
   { key: 'quality', path: '/quality/' },
   { key: 'architecture', path: '/architecture/' },
+  { key: 'design', path: '/design/' },
   { key: 'docs', path: '/docs/' },
   { key: 'project', path: '/project/' },
 ];
@@ -29,9 +31,11 @@ export interface FooterColumn {
 
 export const footerColumns: readonly FooterColumn[] = [
   { key: 'product', section: 'product', pages: ['overview', 'features', 'journal-and-undo', 'language', 'ai-agents', 'platforms'] },
+  { key: 'ai', section: 'ai', pages: ['overview', 'model-labs', 'agent-engines', 'training-packages', 'benchmark'] },
   { key: 'quality', section: 'quality', pages: ['overview', 'testing', 'performance', 'reliability', 'security', 'supply-chain'] },
   { key: 'architecture', section: 'architecture', pages: ['overview', 'engine', 'crates', 'c-interface', 'protocols'] },
-  { key: 'project', section: 'project', pages: ['releases', 'status', 'contributing', 'license', 'brand', 'support'] },
+  { key: 'design', section: 'design', pages: ['overview', 'mark-and-colour', 'identity'] },
+  { key: 'project', section: 'project', pages: ['releases', 'status', 'contributing', 'license', 'support'] },
 ];
 
 export const legalLinks: readonly NavigationItem[] = [

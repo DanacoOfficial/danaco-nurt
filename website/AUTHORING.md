@@ -48,10 +48,10 @@ After the front matter every file starts with the three-line Danaco header as MD
 
 ## 3. Writing rules
 
-1. Write in a formal, factual register. State what the product does, where the behaviour is documented and what is not done. No superlatives, no promises, no comparison without a source.
-2. Every statement of fact comes from the repository: `README.md`, `CHANGELOG.md`, `docs/`, `spec/`, `catalog/`, `crates/`, the workflows in `.github/workflows` and the files in `bench/`, `conformance/` and `packaging/`. Do not state what you could not read.
-3. Numbers come from `src/data/facts.ts` through the `<Fact id="..." />` component. A number that is not there is written in the text together with its source and its date: "13,965 tests, release candidate of 0.1.1, 27 November 2026". A number without a source is not written.
-4. Name what is not finished. A page about quality states the limits of the checks; a page about a feature states the platforms on which it does not work.
+1. Write in a formal, factual register. A page states what the product is, what it does and how it is used. Every sentence is a positive statement about the product: a function, a behaviour, a result, a way of use.
+2. Every statement of fact comes from the repository: `README.md`, `CHANGELOG.md`, `docs/`, `spec/`, `catalog/`, `crates/`, the workflows in `.github/workflows` and the files in `bench/`, `conformance/` and `packaging/`. A statement that has no source in the repository is left out; it is not replaced by a remark that the source is missing.
+3. Numbers come from `src/data/facts.ts` through the `<Fact id="..." />` component. A number written in the text carries a short label of what was measured (the version, the platform, the date) and nothing more.
+4. A page does not explain itself and does not argue. It does not say where its statements come from, how the site was written or checked, what the site or the product lacks, what is unfinished, unpublished, unmeasured or unverified, and it does not comment on disagreements between source documents. Lists of limitations, open points, caveats and disclaimers are not written. Where two sources disagree, the narrower statement is written without comment. The compatibility policy on `project/versioning` is written as the rules that hold, in the words of the repository.
 5. Code examples are real programs of the language in fences marked `nurt`, or shell commands in fences marked `sh` or `powershell`. Examples come from `docs/`, `spec/` or `README.md`; a new example is checked against the command pages in `docs/commands`.
 6. Do not copy a long passage of the documentation: summarise it in two or three sentences and link to the documentation page.
 7. Names: the product is "Danaco Nurt", the program is `nurt`, the company is "Danaco Holding Group Sp. z o.o.".
@@ -69,6 +69,7 @@ The components below are available in every page without an import.
 | `<Callout type="note|tip|warning|important" title="...">` | a highlighted remark |
 | `<Terminal title="...">` with a code fence inside | a terminal window around a code block |
 | `<CommandCatalog level={3} />` (with `locale="pl"` on a Polish page) | the index of every command with its summary, read from the command pages of the repository |
+| `<Downloads group="identity" />` or `<Downloads group="training" />` (with `locale="pl"` on a Polish page) | the downloads of the group with their sizes, licenses and SHA-256 sums, from `config/downloads.json` |
 | `<CardGrid columns={2|3|4}>` with `<Card title icon href eyebrow>` | linked cards; `icon` is a name from `config/icons.ts` |
 | `<Stats>` with `<Fact id="..." />` or `<Stat value label source href />` | a row of figures |
 | `<Steps>` with `<Step title="...">` | a numbered procedure |

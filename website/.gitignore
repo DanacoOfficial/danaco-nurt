@@ -3,12 +3,13 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           website/.gitignore
-# Responsibility:   Paths of the website that Git does not track: installed packages, build outputs and the cache of the build.
+# Responsibility:   Paths of the website that Git does not track: installed packages, build outputs, the downloads packed by the build and the cache of the build.
 # Dependencies:     none
 
 node_modules/
 dist/
 dist-*/
+public/downloads/
 .astro/
 .DS_Store
 *.log

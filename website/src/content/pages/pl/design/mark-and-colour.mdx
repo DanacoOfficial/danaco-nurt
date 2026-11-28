@@ -1,0 +1,142 @@
+---
+title: Znak, kolor i krój pisma
+description: "Konstrukcja znaku Danaco Nurt, paleta kolorów ze współczynnikami kontrastu, logotyp w kroju Geist, układy i warianty, tła i zestawienia oraz wykończenie na ekrany i do druku."
+section: design
+order: 2
+eyebrow: Design
+lead: Siatka, kąt i tony znaku, krój pisma nazwy oraz warianty na każde tło.
+updated: 2026-11-28
+toc: true
+related: [design/overview, design/identity]
+keywords: [znak, konstrukcja, kolor, paleta, kontrast, logotyp, Geist, układ łączony, druk, folia, tłoczenie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Konstrukcja znaku
+
+Znak stoi na siatce 96 x 96 jednostek ze środkiem obrotu w punkcie (48, 48). Złoty szewron to srebrny obrócony o 180 stopni wokół tego środka; oba są rysowane z jednej listy wierzchołków, więc obrót jest dokładny. Narożniki są łukami kołowymi zapisanymi jako krzywe sześcienne. Ścieżki obu szewronów są w `identity.json`, pod kluczami `mark.paths_main.left` i `mark.paths_main.right`.
+
+| Parametr | Wartość |
+|---|---|
+| Siatka | 96 x 96 jednostek, środek obrotu (48, 48) |
+| Nachylenie ramion | 3 : 4 (36,8699 stopnia) |
+| Kreska | 11 jednostek |
+| Nurt (światło między szewronami) | 5,5 jednostki, równe na całej wstędze |
+| Wierzchołek srebrnego szewronu | x = 20, linia środkowa w y = 37,31 |
+| Cięcia ramion | pionowe, x = 49,7 (srebro) i x = 46,3 (złoto) |
+| Promienie | wierzchołek zewnętrzny 5,5 (połowa kreski), cztery końce 1,2, wierzchołek wewnętrzny 0,6 |
+| Pole znaku | 67,0 x 77,28 jednostki |
+| Zazębienie końców | 3,4 jednostki |
+
+Nachylenie 3 : 4 jest stosunkiem liczb całkowitych, a zazębienie końców sprawia, że żadna pionowa linia nie dzieli dwóch szewronów.
+
+<BrandImage name="render-macro-edge" alt="Zbliżenie krawędzi złotego szewronu." width={1000} caption="Render makro krawędzi złotego szewronu." />
+
+### Kompensacja optyczna złota względem srebra
+
+Geometria obu szewronów jest identyczna; kompensacja odbywa się w tonie i w położeniu. Srebro jest tonem jaśniejszym, a złoto głębszym. Na tle grafitowym środek masy znaku ważony luminancją leży 4,3 jednostki na lewo i 3,4 jednostki powyżej środka pola, na tle jasnym 1,4 i 1,1 jednostki. W poziomym układzie łączonym środek obrotu leży 3 jednostki wersalika poniżej połowy wysokości wersalików, czyli w położeniu, które obowiązuje na obu tłach.
+
+### Rysunki na małe rozmiary
+
+Trzy rysunki dopasowane do siatki pikseli zastępują rysunek główny poniżej 48 px. Ich cięcia mają proste końce i nie mają zazębienia, wierzchołek zewnętrzny jest zaokrąglony połową kreski, a wewnętrzny ostry.
+
+| Rysunek | Używany przy | Kreska | Nurt | Cięcia |
+|---|---|---|---|---|
+| S16 | 16 do 23 px | 3,00 px | 2,00 px | x = 42 i 54 |
+| S24 | 24 do 31 px | 3,50 px | 2,11 px | x = 44 i 52 |
+| S32 | 32 do 47 px | 4,00 px | 2,00 px | x = 48 i 48 |
+| Główny | od 48 px | 5,50 px przy 48 px | 2,75 px przy 48 px | x = 49,7 i 46,3 |
+
+Kontrast jasności srebra do złota w skali szarości, zmierzony na dostarczonych pikselach ikon od 16 do 96 px, wynosi 1,87 do 1,89 : 1.
+
+### Pole ochronne i rozmiar minimalny
+
+Wokół samego znaku pole ochronne to jedna czwarta wysokości pola, czyli 19 jednostek, z każdej strony. Wokół układu łączonego jest to wysokość wersalików logotypu, oznaczana x, z każdej strony. Minimalny rozmiar znaku to 16 px z rysunkiem S16, 6 mm w farbie i w folii oraz 19,3 mm w tłoczeniu ślepym.
+
+## Paleta kolorów
+
+Tokeny są w `identity.json` pod kluczem `tokens` i w `tokens.css`; nazwy opisują funkcję.
+
+| Nazwa | Hex | Rola | Kontrast (WCAG 2.1) |
+|---|---|---|---|
+| Grafit (`graphite`) | #0B0C0E | tło główne | srebro 14,9 : 1, złoto 8,1 : 1 |
+| Grafit łagodny (`graphite_soft`) | #15171A | tło łagodne | |
+| Głęboka czerń (`black_deep`) | #050506 | tło dla folii i metalu w druku | |
+| Srebro (`silver`) | #DDE1E6 | krok wstecz | srebro : złoto 1,83 : 1 |
+| Złoto (`gold`) | #C9A15A | krok naprzód | |
+| Tusz (`ink`) | #2B2F36 | tusz na jasnym | tusz na papierze 12,5 : 1, tusz : głębokie złoto 3,20 : 1 |
+| Głębokie złoto (`gold_deep`) | #A3722A | złoto na jasnym, znaki i linie | głębokie złoto na papierze 3,9 : 1 |
+| Papier (`paper`) | #F6F7F8 | tło jasne | |
+| Papier ciepły (`paper_warm`) | #F2EEE6 | tło ciepłe jasne | |
+| Złote tło (`gold_ground`) | #D9BC85 | tło kampanii, czarny wariant jednobarwny | |
+| Podpis (`caption`) | #7C8390 | tekst podpisów | |
+| Cyjan | #4FD1F5 | potok `\|>` w terminalu i w kodzie | |
+
+Cztery dalsze tony składają liternictwo: Danaco na ciemnym #C9CED5, Nurt na ciemnym #F6F7F8, Danaco na jasnym #4A515C i Nurt na jasnym #0B0C0E.
+
+## Logotyp i krój pisma
+
+Geist jest krojem nazwy, wybranym spośród ośmiu krojów na licencji SIL Open Font License 1.1 według czterech kryteriów: polskie znaki diakrytyczne, zakres grubości, płasko cięte zakończenia, które przyjmują cięcia znaku, oraz towarzysz dla terminala. Jest to neutralna geometryczna groteska z prosto ciętymi zakończeniami r i t oraz zwykłym N, z monospace’owym rodzeństwem Geist Mono dla terminala i kodu.
+
+| Parametr | Wartość |
+|---|---|
+| Grubości | Danaco 400, Nurt 700 |
+| Śledzenie (promile kwadratu) | Danaco +22, Nurt -4 |
+| Korekty par (promile kwadratu) | Da -10, an +4, na -4, ac +12, co -2, Nu +6, ur +6, rt +34 |
+| Odstęp między słowami | 40 jednostek wersalika (wysokość wersalika = 100) |
+| Ścięcia na N, r, t | 100 promili kwadratu, przy 3 : 4 |
+| Szerokość logotypu | 823,1 jednostki wersalika; wysokość x 74,6 |
+
+Pnie Danaco w grubości zwykłej mierzą 11,8 jednostki wersalika, a Nurt w grubości półgrubej 21,1, co daje stosunek 1 : 1,79. Para rt, z najmniejszym zbliżeniem 10,7 jednostki wersalika, jest najwęższym odstępem logotypu.
+
+## Układy i warianty
+
+Tożsamość ma trzy układy łączone, sam znak i logotyp. W układzie poziomym znak ma wysokość 2,2 wysokości wersalików, a odstęp między znakiem i nazwą wynosi 0,75 wersalika. Układ zwarty niesie samą nazwę Nurt, ze znakiem 2,0 i odstępem 0,68. W układzie pionowym znak ma 3,8 wysokości wersalików, odstęp 0,95, a logotyp jest wyśrodkowany pod znakiem.
+
+Każdy układ istnieje w dziesięciu wariantach; logotyp nie ma wariantu metalowego.
+
+| Wariant | Dozwolony na | Użycie |
+|---|---|---|
+| `color-dark` | grafit, głęboka czerń, grafit ze śladem | srebrny i złoty znak na ciemnych tłach |
+| `color-light` | papier, ciepły papier, papier ze śladem | tusz i głębokie złoto na jasnych tłach |
+| `black` | papier, ciepły papier, złote tło, papier ze śladem | druk jednobarwny |
+| `white` | grafit, głęboka czerń, grafit ze śladem | grawerowanie, druk jednobarwny |
+| `grey` | papier, ciepły papier, papier ze śladem | druk szary, fotokopie |
+| `grey-dark` | grafit, głęboka czerń, grafit ze śladem | szare ekrany |
+| `gold` | grafit, głęboka czerń, grafit ze śladem | tłoczenie folią |
+| `metal` | grafit, głęboka czerń, grafit ze śladem | ekrany od 128 px |
+| `emboss-light` | papier, ciepły papier | tłoczenie ślepe na papierze bawełnianym |
+| `emboss-dark` | grafit, głęboka czerń | tłoczenie ślepe na ciemnym kartonie |
+
+Rozmiary minimalne podano jako szerokość całego układu; sam znak mierzy się wysokością.
+
+| Układ | Ekran | Farba w druku | Folia na gorąco | Tłoczenie ślepe |
+|---|---|---|---|---|
+| Znak | 16, 24, 32 px; 48 px główny | 6 mm | 6,0 mm | 19,3 mm |
+| Poziomy | 96 px | 28 mm | 40,8 mm | 95,6 mm |
+| Pionowy | 64 px | 20 mm | 30,8 mm | 51,7 mm |
+| Zwarty | 56 px | 20 mm | 20,2 mm | 52,0 mm |
+| Logotyp | 72 px | 22 mm | 30,8 mm | 51,7 mm |
+
+## Tła i zestawienia
+
+Tożsamość niesie siedem teł: grafit #0B0C0E, głęboka czerń #050506, jasne #F6F7F8, ciepłe jasne #F2EEE6, ciepłe złote #D9BC85 oraz grafitowe i jasne ze śladem nurtu. Wariant jest dozwolony na tle, gdy znak zachowuje względem niego 3 : 1, a liternictwo 4,5 : 1. Kontrast `color-dark` na grafitowym wynosi 8,1 : 1, a `color-light` na jasnym 3,9 : 1.
+
+Ślad nurtu to zestaw cienkich linii o nachyleniu 3 : 4, zanikających ku środkowi, z jedną parą linii, srebrną i złotą, rozstawioną o nurt znaku. Płytki bez szwu dla CSS i druku to `pattern-stream-dark.svg` i `pattern-stream-light.svg`.
+
+## Wykończenie na ekrany
+
+Płaski metal premium ma srebro jako szczotkowany metal z drobnym poziomym włóknem, a złoto jako metal polerowany, z linią podświetlonej krawędzi 0,55 jednostki. Służy do dużych formatów i powierzchni głównych od 128 px, a liternictwo pozostaje płaskie. Poniżej 64 px i w produkcie obowiązują tony płaskie. Pięć renderów 3D (Blender Cycles, szewrony wyciągnięte o 8 jednostek siatki ze ścięciem 0,6 jednostki) pokazuje widok z przodu, widok pod kątem, krawędź w makro, jasne tło i wersję przezroczystą.
+
+<BrandImage name="render-light-ground" alt="Znak wyrenderowany na jasnym tle." width={1000} caption="Render na jasnym tle." />
+
+## Specyfikacja druku
+
+Specyfikacja druku podaje separacje jako wektorowe pliki PDF z kolorami dodatkowymi: `FOIL_GOLD`, `FOIL_SILVER`, `EMBOSS_DIE` i K 100 %, dla układów poziomego, pionowego i znaku. Kolor na ciemnym tle używa receptur CMYK obliczonych dla papieru powlekanego (FOGRA39) i niepowlekanego (FOGRA47); grafit drukuje się jako bogaty czarny, 60 / 50 / 50 / 100 na powlekanym i 50 / 40 / 40 / 100 na niepowlekanym.
+
+Tłoczenie folią na gorąco używa podgrzewanej matrycy i wysokobłyszczącej folii metalizowanej na nośniku poliestrowym, z linią co najmniej 0,25 mm i prześwitem co najmniej 0,4 mm. Tłoczenie ślepe ma głębokość 0,3 do 0,5 mm, ściany 45 do 55 stopni, linię co najmniej 0,5 mm i promień narożnika wewnętrznego co najmniej 0,15 mm; wierzchołek wewnętrzny znaku osiąga ten promień przy wysokości znaku 19,3 mm. Podłoża dla tłoczenia to czarny karton 400 do 600 g i papier bawełniany 300 do 600 g.
+
+<BrandImage name="mockup-business-card" alt="Wizytówka ze znakiem w złotej folii." width={1000} caption="Wizytówka: złota folia na czarnym kartonie." />

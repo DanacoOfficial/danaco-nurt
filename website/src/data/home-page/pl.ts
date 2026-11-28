@@ -22,13 +22,18 @@ export const homePl: HomeContent = {
     title: 'Powłoka, która odpowiada za to, co robi',
     lead: 'Cały projekt wynika z jednej obietnicy: widzisz, co program zrobi i co zrobił, i możesz to cofnąć.',
     cards: [
-      { icon: 'undo-2', title: 'Cofanie jest częścią języka', text: 'Zmiany w plikach trafiają do dziennika. Operację można przejrzeć, cofnąć i ponowić. Zmiany poza systemem plików, takie jak zmiana usługi, są zapisywane jako nieodwracalne.', path: '/product/journal-and-undo/' },
+      { icon: 'undo-2', title: 'Cofanie jest częścią języka', text: 'Zmiany w plikach trafiają do dziennika. Przejrzenie operacji, jej cofnięcie i ponowienie są poleceniami języka.', path: '/product/journal-and-undo/' },
       { icon: 'scan-search', title: 'Sprawdzone przed uruchomieniem', text: 'Nazwy, parametry i typy są weryfikowane względem katalogu poleceń, zanim cokolwiek się zmieni. Błędy mają stabilny kod, położenie i poprawkę.', path: '/product/language/' },
       { icon: 'braces', title: 'Rekordy zamiast tekstu', text: 'Etapy wymieniają rekordy z nazwanymi polami (pliki, wiersze, dopasowania, procesy) zamiast nieustrukturyzowanego tekstu, więc potok nie zależy od formatu wyjścia narzędzia.', path: '/product/language/' },
       { icon: 'file-text', title: 'Raport z każdego uruchomienia', text: 'Każde uruchomienie zwraca raport skutków w postaci tekstu, JSON albo Markdown. Schemat raportu jest opublikowany w specyfikacji.', path: '/product/effect-reports/' },
       { icon: 'bot', title: 'Stworzony dla agentów AI', text: 'Ten sam silnik działa jako program wiersza poleceń, serwer Model Context Protocol, serwer JSON-RPC, serwer języka i biblioteka C.', path: '/product/ai-agents/' },
       { icon: 'boxes', title: 'Jeden plik wykonywalny, nic do doinstalowania', text: 'Operacje na plikach, tekście, archiwach, dokumentach, kodzie, kontroli wersji, sieci i systemie są zaimplementowane w programie i nie wywołują zewnętrznych narzędzi.', path: '/product/platforms/' },
     ],
+  },
+  statement: {
+    eyebrow: 'Twórca',
+    quote: 'Powłoki powstały dla ludzi, którzy patrzą na ekran i pamiętają, co wpisali. Dziś polecenia piszą ludzie i maszyny, szybciej, niż ktokolwiek zdąży spojrzeć. Chciałem języka, który sprawdza program przed uruchomieniem, mówi, co uruchomienie zrobiło, i cofa zmianę. Żadna powłoka nie mogła dorosnąć do takiego języka, więc zaprojektowałem nową składnię i napisałem nowy program.',
+    role: 'twórca Danaco Nurt',
   },
   how: {
     eyebrow: 'Jak to działa',
@@ -38,7 +43,7 @@ export const homePl: HomeContent = {
     program: 'find "/home/user/project" glob: "**/*.go"\n  |> filter size > 1mb and modified > ago(24h)\n  |> sort size order: desc\n  |> first 20',
     sessionTitle: 'nurt 0.1.2: zmiana trzech plików i jej cofnięcie',
     sessionReplay: 'Odtwórz ponownie',
-    sessionCaption: 'Wynik nurt 0.1.2 w sesji interaktywnej; katalog jest skrócony, a dwie z trzech różnic pominięte.',
+    sessionCaption: 'Z sesji nurt 0.1.2: zamiana w trzech plikach i jej cofnięcie.',
     points: [
       { title: 'Sprawdzenie', text: 'Program jest analizowany i sprawdzany względem katalogu. Błąd w nazwie, parametrze lub typie zatrzymuje program, zanim cokolwiek się zmieni.' },
       { title: 'Uruchomienie', text: 'Etapy wymieniają typowane rekordy. Operacje są zaimplementowane w programie, na wszystkich trzech systemach.' },
@@ -48,13 +53,34 @@ export const homePl: HomeContent = {
   },
   numbers: {
     eyebrow: 'W liczbach',
-    title: 'Co jest w pudełku i jak to sprawdzono',
-    lead: 'Każda liczba ma swoje źródło. Wartości policzone są odczytywane z repozytorium podczas budowy witryny; wartości zmierzone wskazują przebieg, który je dał.',
+    title: 'Danaco Nurt w liczbach',
+    lead: 'Rozmiar katalogu poleceń i przestrzeni roboczej oraz wyniki testów i porównania z gitem.',
+  },
+  ai: {
+    eyebrow: 'Dla laboratoriów AI i silników agentowych',
+    title: 'Jedno narzędzie, którego model się uczy, a silnik agentowy je uruchamia',
+    lead: 'Danaco Nurt daje agentowi jedno narzędzie z opublikowaną definicją, programy sprawdzane przed uruchomieniem, ustrukturyzowane raporty i dziennik, który cofa zmianę. Laboratoria modeli otrzymują pakiety treningowe i benchmark zadań.',
+    action: 'Co zyskują laboratoria AI i silniki agentowe',
+    cards: [
+      { icon: 'bot', title: 'Dla silników agentowych', text: 'Wywołanie narzędzia, serwer Model Context Protocol, serwer JSON-RPC oraz biblioteka C z wiązaniami, z kontrolą polityki i uprawnień.', path: '/ai/agent-engines/' },
+      { icon: 'cpu', title: 'Dla laboratoriów modeli', text: 'Definicja narzędzia w ośmiu formatach po angielsku i po polsku, stabilne kody błędów z poprawkami i wersjonowane interfejsy.', path: '/ai/model-labs/' },
+      { icon: 'database', title: 'Pakiety treningowe', text: 'Pary zadania i programu sprawdzone przez silnik, postać czatu i wywołań narzędzia, definicje narzędzia i korpus dokumentacji.', path: '/ai/training-packages/' },
+      { icon: 'gauge', title: 'Benchmark zadań', text: '720 zadań w 12 dziedzinach, które porównują Danaco Nurt z bashem i PowerShellem jako narzędzie agenta.', path: '/ai/benchmark/' },
+    ],
+  },
+  design: {
+    eyebrow: 'Design',
+    title: 'Wstecz w srebrze, naprzód w złocie',
+    lead: 'Znak Danaco Nurt to dwa szewrony ustawione pod kątem nurtu: zmiana i jej cofnięcie. Identyfikacja jest opublikowana razem z plikami.',
+    cards: [
+      { icon: 'layers', title: 'Design Nurt', text: 'Idea znaku, jego konstrukcja, kolor, krój pisma i miejsce identyfikacji w produkcie.', path: '/design/overview/' },
+      { icon: 'download', title: 'Pliki identyfikacji', text: 'Księga identyfikacji, pliki wektorowe i rastrowe, ikony, specyfikacja druku i tokeny kolorów do pobrania.', path: '/design/identity/' },
+    ],
   },
   quality: {
     eyebrow: 'Jakość',
-    title: 'Jakość jest pokazana, nie zadeklarowana',
-    lead: 'Strony o jakości podają, co jest testowane, jak, z jakim wynikiem i co pozostaje otwarte.',
+    title: 'Przetestowane, porównane i zmierzone',
+    lead: 'Strony o jakości podają, co jest testowane i porównywane, jak i z jakim wynikiem.',
     cards: [
       { icon: 'flask-conical', title: 'Testy', text: 'Zestaw testów przestrzeni roboczej, platformy, na których działa, i scenariusze na czystym systemie.', path: '/quality/testing/' },
       { icon: 'scale', title: 'Zgodność', text: 'Porównanie z gitem, specyfikacja i przypadki zgodności bindingów języków.', path: '/quality/conformance/' },
@@ -64,8 +90,8 @@ export const homePl: HomeContent = {
   },
   docs: {
     eyebrow: 'Dokumentacja',
-    title: 'Publikowana z repozytorium',
-    lead: 'Dokumentacja jest tą z repozytorium, importowaną podczas budowy witryny, więc witryna i źródło nigdy się nie rozjeżdżają.',
+    title: 'Strona dla każdego polecenia',
+    lead: 'Przewodnik, książka kucharska z gotowymi programami, opis każdego polecenia i specyfikacja języka.',
     cards: [
       { icon: 'rocket', title: 'Przewodnik', text: 'Instalacja, pierwsze kroki, język, wiersz poleceń, raport skutków, dziennik i konfiguracja.', path: '/docs/guide/' },
       { icon: 'book-open', title: 'Książka kucharska', text: 'Gotowe programy do typowych zadań, od edycji wielu plików po administrację.', path: '/docs/cookbook/' },
@@ -74,7 +100,7 @@ export const homePl: HomeContent = {
     ],
   },
   cta: {
-    title: 'Wypróbuj na katalogu, który możesz zmienić',
+    title: 'Zainstaluj, zmień plik, cofnij zmianę',
     text: 'Zainstaluj plik wykonywalny, uruchom program, przeczytaj raport i cofnij zmianę.',
     primary: 'Zainstaluj Danaco Nurt',
     secondary: 'Przeczytaj pierwsze kroki',

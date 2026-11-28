@@ -26,21 +26,21 @@ search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
 |> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
 ```
 
-The cookbook has a second program that stops before any change when the pattern occurs in a different number of files than expected: `assert paths: 1` between `search` and `replace`. The report lists the changed targets and the unusual effects, for example `nothing_matched` or `mass_delete`. An operation with 200 or more targets is a bulk operation: the report shows the extensions, the first and last targets, and the rest through the cursor. The whole replacement is one journal entry, so one `undo` reverts it. The changelog of 0.1.2 records that a regular-expression search or replace no longer takes quadratic time in the number of matches on one line: 20,000 matches on a line of 60,000 bytes take about 0.1 s instead of 2.5 s. See also [text editing](/docs/guides/text-editing/).
+A second cookbook program stops before any change when the pattern occurs in a different number of files than expected: `assert paths: 1` between `search` and `replace`. The report lists the changed targets and the unusual effects, for example `nothing_matched` or `mass_delete`. An operation with 200 or more targets is a bulk operation: the report shows the extensions, the first and last targets, and the rest through the cursor. The whole replacement is one journal entry, so one `undo` reverts it. A regular-expression replacement of 20,000 matches on a line of 60,000 bytes takes about 0.1 s (version 0.1.2). See also [text editing](/docs/guides/text-editing/).
 
 ## Refactoring
 
-`search` and `replace` work on text; the `code.*` commands work on symbols, which a text search cannot tell apart from other uses of the same word. `code.rename` renames a symbol and its references in all files as one operation ([guide: refactoring](/docs/guides/refactoring/)):
+`search` and `replace` work on text; the `code.*` commands work on symbols, so a rename follows the definition and its references and leaves other uses of the same word untouched. `code.rename` renames a symbol and its references in all files as one operation ([guide: refactoring](/docs/guides/refactoring/)):
 
 ```nurt
 code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
 ```
 
-The guide states a limit: dynamic uses of a name, such as names built from strings, are not references and are not renamed. After the change, `verify` runs a check and rolls the change back when the check fails.
+After the change, `verify` runs a check and rolls the change back when the check fails, so a refactoring that breaks the build leaves the tree as it was.
 
 ## Working with Git
 
-All operations of the group `git` are built in and work without an installed git; OpenPGP signatures of commits and tags are made by GnuPG, and a missing program refuses the signature with `E_GIT_SIGN` (changelog 0.1.1). `git.review` checks the staged changes for conflict markers, secrets and other defects before a commit, and `git.checkpoint` keeps a snapshot of the working tree outside the branches ([guide: Git workflow](/docs/guides/git-workflow/)):
+All operations of the group `git` are built in and run on a machine that has no installed git; OpenPGP signatures of commits and tags are made through GnuPG. `git.review` checks the staged changes for conflict markers, secrets and other defects before a commit, and `git.checkpoint` keeps a snapshot of the working tree outside the branches ([guide: Git workflow](/docs/guides/git-workflow/)):
 
 ```nurt
 git.checkpoint "/srv/app" action: create label: "before-refactoring"
@@ -48,11 +48,11 @@ git.review "/srv/app" scope: staged checks: ["conflict_markers", "secrets"]
 git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"]
 ```
 
-Commit, switch, merge, rebase, reset and stash are recorded in the journal, and `undo` reverts a commit or a merge by moving the branch back. `fetch`, `clone`, `pull` and `push` act outside the local file system and are recorded as irreversible; the report says so. More programs: [cookbook: Git](/docs/cookbook/git/).
+Commit, switch, merge, rebase, reset and stash are recorded in the journal, and `undo` reverts a commit or a merge by moving the branch back. `fetch`, `clone`, `pull` and `push` act outside the local file system and are recorded as irreversible. More programs: [cookbook: Git](/docs/cookbook/git/).
 
 ## Administration
 
-Administration commands read the state of the system and, in some cases, change it. Since 0.1.1 the group `administration` also holds accounts, groups, mounts, kernel parameters, power, disks, the firewall, routes, name servers and the clock. Each of these commands records the state before and after, and `undo` runs the inverse where one exists; a password, a format, a partition change and an immediate restart or shutdown are irreversible ([guide: administration](/docs/guides/administration/)):
+Administration commands read the state of the system and change it. Since 0.1.1 the group `administration` holds accounts, groups, mounts, kernel parameters, power, disks, the firewall, routes, name servers and the clock. Each of these commands records the state before and after, and `undo` runs the inverse where one exists ([guide: administration](/docs/guides/administration/)):
 
 ```nurt
 processes name: "node" |> filter memory > 500mb |> select pid name memory
@@ -60,7 +60,7 @@ services name: "nginx" |> restart
 logs level: error since: ago(1h) limit: 50
 ```
 
-`restart` is irreversible; `start` and `stop` of a service and the installation of a package are undone by the opposite operation. Work that needs the rights of the administrator takes `privilege: elevated`; the console starts `sudo`, `doas` or `run0`, never asks for a password and otherwise ends with `E_PRIVILEGE`. `steps` runs several changes as one journal entry, all or nothing; an irreversible step is listed before the start:
+`start` and `stop` of a service and the installation of a package are undone by the opposite operation. Work that needs the rights of the administrator takes `privilege: elevated`; the console starts `sudo`, `doas` or `run0` and never asks for a password. `steps` runs several changes as one journal entry, all or nothing; the irreversible steps of the block are listed before the start:
 
 ```nurt
 steps {
@@ -71,7 +71,7 @@ steps {
 }
 ```
 
-The first and the third program above only read. See [cookbook: administration](/docs/cookbook/administration/) and the platform guides for [Unix](/docs/guides/unix/) and [Windows](/docs/guides/windows/).
+The first and the third program above read the state of the system. See [cookbook: administration](/docs/cookbook/administration/) and the platform guides for [Unix](/docs/guides/unix/) and [Windows](/docs/guides/windows/).
 
 ## Documents
 
@@ -92,7 +92,7 @@ A write that introduces a new syntax error into a known format is rolled back un
 schedule.create "sync" every: 1h action: (run ["sync"] cwd: "/srv") on_missed: run_once overlap: skip
 ```
 
-Schedules run only while `nurt service` is running; otherwise a schedule is stored and `schedule.list` reports `active: false`. `schedule.history` lists past runs with the journal operation of the changes they made, and a change made by a scheduled run can be undone like any other change.
+Schedules run while `nurt service` is running, and `schedule.list` reports whether each schedule is active. `schedule.history` lists past runs with the journal operation of the changes they made, and a change made by a scheduled run is undone like any other change.
 
 ## Searching a large tree
 
@@ -104,11 +104,7 @@ search "deprecated" "/srv/app/src" output: counts
 find "/srv/app" |> sort size order: desc |> first 10
 ```
 
-These programs read and change nothing, so the report has no journal entry. Reading a further page never runs a changing program again. See [cookbook: searching and reading](/docs/cookbook/search-and-read/).
-
-<Callout type="note" title="Check before you rely on it">
-  The programs on this page are taken from the documentation in the tree of release 0.1.2. The command catalog may change between 0.x versions, so check a program against the [command pages](/docs/commands/) of the version you run.
-</Callout>
+These programs only read. Reading a further page never runs a changing program again. See [cookbook: searching and reading](/docs/cookbook/search-and-read/).
 
 <CardGrid columns={2}>
   <Card title="Journal and undo" icon="undo-2" href="/product/journal-and-undo/">

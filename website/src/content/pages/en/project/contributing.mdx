@@ -14,9 +14,9 @@ keywords: [contributing, pull request, DCO, conventional commits, code of conduc
 {/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
 {/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
 
-## Where the rules are
+## The rules
 
-The binding text is [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md) in the repository. This page summarises it and links the conventions in `docs/conventions`:
+The rules of the repository are in [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md). The conventions are in `docs/conventions`:
 
 | Topic | Document |
 |---|---|
@@ -51,15 +51,15 @@ Commit messages follow Conventional Commits 1.0.0:
 [footers]
 ```
 
-`type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` is the name of the affected crate without the `nurt-` prefix (for example `journal` or `git-ops`) or an area such as `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` or `release`. The summary is imperative, starts with a lowercase letter, has no final period and has at most 72 characters. A breaking change is marked with `!` and described in a `BREAKING CHANGE:` footer. The script `tools/ci/check-commits.sh` checks the messages of a pull request; commits that were published before the checks applied to them are listed in `tools/ci/commits-allow.txt` and skipped, and a new commit is never added to that list.
+`type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` is the name of the affected crate without the `nurt-` prefix (for example `journal` or `git-ops`) or an area such as `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` or `release`. The summary is imperative, starts with a lowercase letter, has no final period and has at most 72 characters. A breaking change is marked with `!` and described in a `BREAKING CHANGE:` footer. The script `tools/ci/check-commits.sh` checks the messages of a pull request.
 
 ## Building and testing
 
 The commands are those of the README. The required Rust toolchain is pinned in `rust-toolchain.toml`, and a C compiler is needed because bundled components such as SQLite and the tree-sitter grammars are compiled from source.
 
 ```sh
-git clone https://github.com/DanacoOfficial/nurt.git
-cd nurt
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
+cd danaco-nurt
 cargo build --release --locked
 cargo test --workspace --locked
 ```

@@ -4,7 +4,7 @@ description: Jak dziennik Danaco Nurt zachowuje się po awarii, na pełnym dysku
 section: quality
 order: 5
 eyebrow: Jakość
-lead: Co dziennik gwarantuje, gdy uruchomienie zostanie przerwane albo na dysku zabraknie miejsca, jak to testowano i gdzie gwarancja się kończy.
+lead: Co dziennik gwarantuje, gdy uruchomienie zostanie przerwane albo na dysku zabraknie miejsca, oraz jak to testowano.
 updated: 2026-11-28
 related: [quality/testing, product/journal-and-undo, architecture/crates]
 keywords: [dziennik, awaria, odtwarzanie, nieodwracalne, miejsce na dysku, tmpfs, spool, macOS]
@@ -16,80 +16,69 @@ keywords: [dziennik, awaria, odtwarzanie, nieodwracalne, miejsce na dysku, tmpfs
 
 ## Co jest gwarantowane po awarii
 
-Kontraktem dziennika jest specyfikacja [Journal and file system contract](/docs/specification/journal/). Jej druga zasada określa kolejność: poprzednia zawartość każdego celu jest zachowywana, zanim cokolwiek zostanie zmienione, więc w każdej chwili awarii poprzednia zawartość istnieje w co najmniej jednym miejscu. Odtwarzanie uruchamia się przed pierwszą transakcją procesu i przed pierwszą operacją po ponownym uruchomieniu systemu.
+Kontraktem dziennika jest specyfikacja [Dziennik i kontrakt systemu plików](/docs/specification/journal/). Jej druga zasada to kolejność: poprzednia zawartość każdego celu jest zachowywana, zanim cokolwiek zostanie zmienione, więc w każdej chwili awarii poprzednia zawartość istnieje w co najmniej jednym miejscu. Odtwarzanie działa przed pierwszą transakcją procesu i przed pierwszą operacją po ponownym uruchomieniu systemu.
 
 | Moment awarii | Stan po odtworzeniu (specyfikacja, sekcja 4) |
 |---|---|
-| Przed ustawieniem wpisu w stan `prepared` | Nic się nie zmieniło; wpisu nie ma. |
-| Po `prepared`, w trakcie zachowywania albo stosowania zmian | Wpis jest wycofywany i przyjmuje stan `undone` z przyczyną `crash`. |
-| W trakcie wycofywania | Wycofanie jest dokańczane; operacja jest idempotentna. |
+| Zanim wpis jest `prepared` | Nic się nie zmieniło; brak wpisu. |
+| Po `prepared`, podczas zachowywania lub stosowania | Wpis jest wycofywany i staje się `undone` z przyczyną `crash`. |
+| Podczas wycofywania | Wycofanie jest dokończone; jest idempotentne. |
 | Po `committed` | Wpis jest kompletny i można go cofnąć. |
-| Manifest nie przechodzi kontroli integralności | Wpis przyjmuje stan `corrupt`; jego dane są zachowywane do ręcznego ratowania. |
+| Manifest nie przechodzi kontroli integralności | Wpis staje się `corrupt`; jego dane są zachowane do ręcznego ratowania. |
 
-Operacja na wielu celach jest jednym wpisem, więc awaria pozostawia ją w całości wykonaną albo w całości niewykonaną. Woluminy, których system plików nie ma trwałych metadanych po opróżnieniu buforów, mają dziennik domyślnie wyłączony.
+Operacja na wielu celach to jeden wpis, więc awaria zostawia wszystko wykonane albo nic. Woluminy, których system plików nie ma trwałych metadanych po zapisie na dysk, mają dziennik domyślnie wyłączony.
 
 ## Jak to jest testowane
 
-Skrzynka `nurt-crashfs` jest zestawem narzędzi testowych i nie wchodzi w skład dostarczanego programu. Modeluje utratę zasilania w pamięci: obraz bieżący i obraz trwały każdego woluminu, losowo zasiewany wybór operacji, które przetrwają awarię, przerwane zapisy oraz sześć profili trwałości (`posix_worst_case`, `ext4_ordered`, `xfs`, `btrfs`, `ntfs`, `apfs`). Wstrzykuje też błędy wywołań systemowych i zabija proces potomny na prawdziwym systemie plików. Po odtworzeniu wyrocznia sprawdza, że poprzednia zawartość każdego celu istnieje, że drzewo jest równe stanowi sprzed operacji albo po niej i nigdy ich mieszaninie, że nie zostały żadne wpisy tymczasowe oraz że drugie odtworzenie niczego nie zmienia.
+Skrzynka `nurt-crashfs` to uprząż testowa, a nie część dostarczanego programu. Symuluje utratę zasilania na dowolnej implementacji systemu plików, która zmienia dane. Trzyma w pamięci obraz bieżący i obraz trwały każdego woluminu, wybiera ziarnem operacje, które przetrwają awarię, tworzy zapisy urwane w połowie i udostępnia sześć profili trwałości: `posix_worst_case`, `ext4_ordered`, `xfs`, `btrfs`, `ntfs` i `apfs`. Wstrzykuje też błędy wywołań systemowych, generuje punkty awarii z ziarna i zabija proces potomny na prawdziwym systemie plików. Po odtworzeniu wyrocznia sprawdza, że poprzednia zawartość każdego celu istnieje, że drzewo jest równe stanowi sprzed albo po operacji i nigdy ich mieszaninie, że nie zostały wpisy tymczasowe i że drugie odtworzenie niczego nie zmienia.
 
-Testy pokrycia (`tests/d2/coverage`) porównują tabelę `tables/journal-coverage.toml` z katalogiem poleceń i dla każdego wiersza wykonują pełny cykl cofnięcia i ponowienia. Poniższe liczby zliczono w drzewie roboczym wydania 0.1.2 (rewizja `527e4cb5a`): wiersze z tabeli, przypadki ze stałej `CASE_COUNT` w `consistency.rs`. Tabela i stałe są takie same w tagu `v0.1.1`. Liczby określają rozmiar pokrycia, a nie wynik przebiegu testów 0.1.2.
+Zestawy dziennika w `tests/d2` działają na tej uprzęży. Cel `crash` zawiera punkty awarii, wstrzykiwanie błędów, pojemność, odzyskiwanie miejsca, cofanie i przypadki skali. Cel `coverage` sprawdza tabelę `tables/journal-coverage.toml` względem katalogu poleceń i uruchamia pełny cykl cofnięcia i ponowienia dla każdego wiersza. Cel `property` uruchamia losowe sekwencje operacji, cofnięć, zmian limitów, kroków zegara i restartów względem modelu odniesienia. Cel `retention` obejmuje limity kroków, wieku i rozmiaru oraz rezerwę miejsca, a cel `volumes` działa na przygotowanych woluminach opartych na plikach i montowaniach overlay. Długie korpusy awarii liczą po 100 000 punktów awarii.
 
 <Stats>
-  <Stat value="265" label="wierszy tabeli pokrycia" source="tables/journal-coverage.toml, rewizja 527e4cb5a (0.1.2); tak samo w v0.1.1" />
-  <Stat value="307" label="przypadków pokrycia, po jednym na funkcję testową" source="tests/d2/coverage, rewizja 527e4cb5a (0.1.2); tak samo w v0.1.1" />
+  <Stat value="265" label="wierszy tabeli pokrycia" source="tables/journal-coverage.toml, wersja 0.1.2" />
+  <Stat value="307" label="przypadków pokrycia, po jednym na funkcję testową" source="tests/d2/coverage, wersja 0.1.2" />
 </Stats>
 
-Z 265 wierszy 120 ma wartość `full`, 21 `partial`, 37 `none` i 87 `no_effect`.
-
-<Callout type="note" title="Granice testów awarii">
-  Profile trwałości przybliżają udokumentowane zachowanie systemów plików; są modelem. Długie korpusy awarii (po 100 000 punktów awarii) i test odtwarzania z milionem wpisów są oznaczone `#[ignore]` i uruchamiane na żądanie. Raport końcowy kandydata do wydania 0.1.1 nie podaje czasu odtwarzania dziennika z milionem wpisów; dziennik zmian wydania 0.1.0 odnotował 6,2 sekundy przy celu 5 sekund, przed późniejszymi poprawkami. Nie odnotowano kampanii testów awarii dla 0.1.2.
-</Callout>
+Z 265 wierszy 120 jest oznaczonych `full`, a 87 `no_effect`, dla poleceń bez skutku w systemie plików.
 
 ## Miejsce na dysku i pełny wolumin
 
-Przed zachowaniem celu dopuszczanie sprawdza, czy wolumin się kwalifikuje, czy wolne miejsce po zapisie pozostaje co najmniej równe rezerwie powiększonej o margines oraz czy mieści się budżet rozmiaru. W przeciwnym razie dziennik zwalnia swoje najstarsze wpisy w synchronicznym budżecie czasu; jeśli to nie wystarcza, operacja przebiega bez zachowania poprzedniej zawartości, a cel jest oznaczany jako nieodwracalny wraz z przyczyną (`no_space_for_copy`, `too_large_for_journal`, `journal_inactive`, `network_volume` albo `removable_volume`).
+Przed zachowaniem celu kontrola przyjęcia sprawdza, że wolumin się kwalifikuje, że wolne miejsce po zapisie pozostaje co najmniej na poziomie rezerwy plus zapas i że budżet rozmiaru jest dotrzymany. W przeciwnym razie dziennik zwalnia swoje najstarsze wpisy w synchronicznym budżecie czasu; jeśli to nie wystarcza, operacja przebiega bez zachowania poprzedniej zawartości, a cel jest oznaczany jako nieodwracalny z przyczyną (`no_space_for_copy`, `too_large_for_journal`, `journal_inactive`, `network_volume` lub `removable_volume`).
 
 | Stan woluminu | Warunek | Zachowanie |
 |---|---|---|
-| `normal` | wolne miejsce co najmniej równe progowi miękkiemu | dane są przyjmowane |
-| `soft` | między rezerwą a progiem miękkim | dane są przyjmowane, dopóki wolne miejsce po zapisie pozostaje powyżej rezerwy powiększonej o margines |
-| `hard` | poniżej rezerwy | dane nie są przyjmowane; natychmiastowe zwalnianie |
+| `normal` | wolne miejsce co najmniej na progu miękkim | dane przyjmowane |
+| `soft` | między rezerwą a progiem miękkim | dane przyjmowane, dopóki wolne miejsce po zapisie jest powyżej rezerwy plus zapas |
+| `hard` | poniżej rezerwy | dane nie są przyjmowane; natychmiastowe odzyskiwanie |
 | `emergency` | poniżej połowy rezerwy | jak `hard`, na wszystkich rdzeniach |
 
-Domyślnie `space.reserve` wynosi `15%`, z ograniczeniem do przedziału od `5gib` do `50gib`. Brak miejsca na dziennik, nieaktywny dziennik i błędy wejścia i wyjścia dziennika nigdy nie są błędami operacji użytkownika. Specyfikacja podaje jeden wyjątek: jeśli dziennik zawiedzie podczas przenoszenia usuwanego celu do dziennika, usunięcie kończy się błędem, a cel pozostaje na miejscu.
+Domyślnie `space.reserve` wynosi `15%`, ograniczone do przedziału od `5gib` do `50gib`. Brak miejsca dla dziennika, nieaktywny dziennik i błędy wejścia i wyjścia dziennika nigdy nie są błędami operacji użytkownika. Specyfikacja podaje jeden wyjątek: jeśli dziennik zawiedzie przy przenoszeniu usuwanego celu do dziennika, usunięcie kończy się niepowodzeniem, a cel zostaje na miejscu.
 
-Dziennik jest domyślnie nieaktywny na woluminach sieciowych, wymiennych i działających w pamięci; na woluminach overlay jest aktywny. Na `tmpfs` cofnięcie kończy się wtedy błędem `E_JOURNAL_NOOP`; dziennik zmian wydania 0.1.1 odnotowuje, że testy cofania kończyły się tym kodem, gdy `TMPDIR` był na `tmpfs`.
+Dziennik jest domyślnie nieaktywny na woluminach sieciowych, wymiennych i opartych na pamięci, a aktywny na woluminach overlay. Na `tmpfs` cofnięcie kończy się błędem `E_JOURNAL_NOOP`.
 
-## Co jest nieodwracalne i jak to oznaczono
+## Co jest nieodwracalne i jak jest oznaczane
 
-Cel bez zachowanej zawartości otrzymuje znacznik nieodwracalności z przyczyną, a raport wymienia takie skutki osobno. Przykłady: żądanie sieciowe, `accounts.password`, natychmiastowe `power.restart`, `clock.set`, `disks.partition`, `disks.format` oraz pliki zmienione przez program uruchomiony poleceniem `run` z `privilege: elevated`. Raporty nie podają, do kiedy operację można cofnąć ([specyfikacja raportu](/docs/specification/report/)). Polecenia opisuje [Journal and undo](/docs/guides/journal-undo/).
+Cel bez zachowanej zawartości nosi znacznik nieodwracalności z przyczyną, a raport wymienia takie skutki osobno. Przykłady: żądanie sieciowe, `accounts.password`, natychmiastowe `power.restart`, `clock.set`, `disks.partition`, `disks.format` oraz pliki zmienione przez program uruchomiony przez `run` z `privilege: elevated`. Raporty nie podają, do kiedy operację można cofnąć ([specyfikacja raportu](/docs/specification/report/)). Polecenia opisuje [Dziennik i cofanie](/docs/guides/journal-undo/).
 
 ## Limity uruchomienia i nietypowe ścieżki
 
-`run.spool_max` ma od wydania 0.1.1 wartość domyślną `1gib` (wcześniej `unlimited`). Program, który zapisuje bez końca, zachowuje swoją pierwszą część oraz, do jednej czwartej limitu (najwyżej 64 MiB), ostatnią; reszta jest liczona, haszowana i zgłaszana z adnotacją `spool_limit`.
+`run.spool_max` domyślnie wynosi `1gib`. Program, który pisze bez końca, zachowuje swój początek oraz, do jednej czwartej limitu (najwyżej 64 MiB), swój koniec; reszta jest liczona, haszowana i raportowana uwagą `spool_limit`.
 
-Ścieżka, która nie jest poprawnym Unicode, jest zapisywana z natywnymi bajtami obok postaci wyświetlanej, w raportach (pole `raw_path`, Base64, w formacie `json`) i w manifestach dziennika, aby wpis prowadził z powrotem do zmienionego pliku.
+Ścieżka, która nie jest poprawnym Unicode, jest zapisywana z natywnymi bajtami obok postaci wyświetlanej, w raportach (pole `raw_path`, Base64, w formacie `json`) i w manifestach dziennika, tak aby wpis prowadził z powrotem do zmienionego pliku.
 
 ## Wydanie 0.1.2 i macOS
 
-Dziennik zmian wydania 0.1.2 (28 listopada 2026) poprawia jedną wadę, która dotyczyła dziennika. W macOS punkt montowania woluminu danych, `/System/Volumes/Data`, nie jest przedrostkiem ścieżek katalogów z firmlinkami, więc żaden katalog woluminu nie kwalifikował się jako kotwica dziennika i każda operacja przebiegała bez dziennika. Wolumin zgłasza teraz punkt montowania, który obejmuje jego ścieżki; skrzynka `nurt-journal` nie ma zmian logiki między `v0.1.1` a 0.1.2.
+Na macOS punkt montowania woluminu danych, `/System/Volumes/Data`, nie jest prefiksem ścieżek katalogów połączonych przez firmlink. Wersja 0.1.2 sprawia, że wolumin zgłasza punkt montowania, który zawiera jego ścieżki, więc katalogi woluminu danych kwalifikują się jako kotwice dziennika, a każda operacja na nich jest zapisywana w dzienniku.
 
-macOS nie ma dowodów wydania. Dziennik zmian wymienia jako znany problem, że testy śledzenia zmian w `nurt-proc` i jeden test protokołu `nurt-service` zawodzą sporadycznie na runnerach macOS ciągłej integracji; przyczyna nie jest ustalona. Archiwum dla macOS nie jest publikowane.
+## Testy woluminów wersji 0.1.1
 
-## Testy woluminów kandydata do wydania 0.1.1
-
-Źródło: raport końcowy sesji wydania 0.1.1, 27 listopada 2026. Wyniki pochodzą z wymienionych rewizji, a nie z jednego przebiegu; nie ma odpowiadającego raportu dla 0.1.2.
-
-| Kontrola | Rewizja | Wynik |
-|---|---|---|
-| Testy woluminów w kontenerze bez uprawnień | `70e8dddd` | 5 z 8; btrfs i overlay niedostępne |
-| Testy woluminów na maszynie z puli (Debian 13, jądro 6.12) | `fee503cf` | 8 z 8: 7 jako root, jeden jako konto zwykłe |
-| Usunięcie i cofnięcie miliona plików | `fee503cf`, `afd3571e` | zabity z braku pamięci na maszynie 16 GB po 424 s; zaliczony w kontenerze 32 GB, usuwanie 24 minuty |
+| Kontrola | Wynik |
+|---|---|
+| Testy woluminów na maszynie z puli (Debian 13, jądro 6.12, 27 listopada 2026) | 8 z 8: 7 jako root, test overlay bez miejsca jako zwykłe konto |
+| Usunięcie, cofnięcie i ponowienie miliona plików, testy skali (wersja 0.1.1, Linux, 27 listopada 2026) | kod wyjścia 0; usunięcie 24 minuty |
 
 <Stats>
   <Fact id="tests" />
 </Stats>
 
-Test overlay `overlay_without_space_for_copy_marks_removal_irreversible` nie przechodzi jako root, ponieważ bloki zarezerwowane ext4 mieszczą kopię; raport stwierdza, że kod jest poprawny.
-
-Dalsza lektura: [testy](/pl/quality/testing/), strona [dziennik i cofanie](/pl/product/journal-and-undo/) albo [przewodnik po dzienniku](/docs/guide/journal/).
+Dalej: [testowanie](/pl/quality/testing/), strona [dziennik i cofanie](/pl/product/journal-and-undo/) lub [przewodnik po dzienniku](/docs/guide/journal/).

@@ -1,10 +1,10 @@
 ---
 title: Security
-description: "The security model of Danaco Nurt and the process around it: how to report a vulnerability, the policy of privilege, what integrators enforce, the advisories fixed in 0.1.1 and what is not claimed."
+description: "The security model of Danaco Nurt and the process around it: how to report a vulnerability, the policy of privilege, what integrators enforce, the checks in CI and the advisories fixed in 0.1.1."
 section: quality
 order: 6
 eyebrow: Quality
-lead: What the program does to limit the effect of a mistake or a hostile program, how a vulnerability is reported and handled, and what the project does not claim.
+lead: What the program does to limit the effect of a mistake or a hostile program, how a vulnerability is reported and handled, and which checks protect the code and the releases.
 updated: 2026-11-28
 related: [quality/supply-chain, product/ai-agents, architecture/protocols, project/support]
 keywords: [security, vulnerability, privilege, elevation, advisories, secrets, policy]
@@ -16,9 +16,9 @@ keywords: [security, vulnerability, privilege, elevation, advisories, secrets, p
 
 ## Reporting a vulnerability
 
-Suspected vulnerabilities are reported by e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`, not in a public issue, pull request or discussion. Reports may be written in English or Polish. The policy is the file [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); the documentation page is [Security](/docs/guide/security/).
+Suspected vulnerabilities are reported by e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`, not in a public issue, pull request or discussion. Reports are accepted in English or Polish. The policy is the file [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); the documentation page is [Security](/docs/guide/security/).
 
-A report names the affected version, the system, the issue and its impact, and steps to reproduce. The policy sets these target times:
+A report names the affected version, commit or release artifact, the operating system and architecture, the issue and its impact, and steps to reproduce. The policy sets these target times:
 
 | Step | Target time |
 |---|---|
@@ -29,11 +29,11 @@ A report names the affected version, the system, the issue and its impact, and s
 
 Fixed vulnerabilities are described in a security advisory of the repository and in the changelog; a CVE identifier is requested where appropriate, and reporters are credited unless they ask otherwise.
 
-The scope covers the `nurt` executable and `libnurt`, the Model Context Protocol server and the language server, the journal including recovery and undo, the release artifacts and installers, and the continuous integration configuration. Out of scope: vulnerabilities in third-party programs that a Nurt program starts on request, issues that need an attacker who already controls the user account or its configuration files, and denial of service through programs that intentionally consume resources beyond configured limits.
+The scope covers the `nurt` executable and `libnurt`, the Model Context Protocol server and the language server, the journal including recovery and undo, the release artifacts, installers and packages, and the continuous integration configuration. The policy names as relevant issues the execution of effects that the program check did not show or permit, escapes from the configured working scope, loss or corruption of journal data, unsafe extraction of archives, command injection through argument quoting, memory safety defects in the C interface, and disclosure of credentials or environment data in reports. Vulnerabilities in third-party Rust crates are also reported to the maintainers of the crate and to the RustSec advisory database.
 
 ## Supported versions
 
-Version 0.1.0 is the first release; the current release is 0.1.2. Until the first stable release, security fixes are applied to the `main` branch and published in a new release. The support period of stable and long-term support releases will be stated in `SECURITY.md` when they are published.
+Version 0.1.0 is the first release; the current release is 0.1.2. Until the first stable release, security fixes are applied to the `main` branch and published in a new release.
 
 ## Properties of the shell
 
@@ -45,28 +45,31 @@ The documentation lists the properties that limit the effect of a program ([Secu
 - **Report.** Each run reports its targets, unusual effects and irreversible effects.
 - **Secrets.** Parameters marked `secret` in the catalog are masked in the journal, the report and printed trees. The value of `accounts.password` goes to standard input.
 - **Project files.** A project file cannot grant itself trust: the keys that widen trust are ignored in `.nurt.toml`.
+- **Journal.** Effects are recorded in the journal and undone with `undo`; the [reliability](/quality/reliability/) page describes the guarantees.
 
 ## Privilege
 
-The console does not raise privileges by itself. A call asks for the rights of the administrator with the parameter `privilege` (`account`, `elevated`, `auto`) and for another account with `as_user`. Nurt applies no policy of its own: the embedding engine decides, and `privilege.allowed = false` refuses `elevated` and `auto` with `E_PRIVILEGE` and the reason `disabled_by_configuration`. A project file cannot set `privilege.*`.
+The console does not raise privileges by itself. A call asks for the rights of the administrator with the parameter `privilege` (`account`, `elevated`, `auto`) and for another account with `as_user`. The embedding engine decides the policy, and `privilege.allowed = false` refuses `elevated` and `auto` with `E_PRIVILEGE` and the reason `disabled_by_configuration`. A project file cannot set `privilege.*`.
 
 | Backend | How it works |
 |---|---|
 | `self` | the process already is the administrator |
 | `sudo`, `doas`, `run0` | `nurt elevated-exec` runs with the rights of the administrator and reads one request on standard input; no shell text is built and no password is asked |
-| `broker` | the privileged service `nurt-elevation`; reported as `not_installed` until it is released |
+| `broker` | the privileged service `nurt-elevation` |
 
-Access control is that of the operating system: an account that may run `nurt` through `sudo`, `doas` or `run0` is administrator-equivalent. The elevated process refuses to run unless its identity is the administrator or the account named by `as_user`, and writes its journal entry with the rights of the account that asked. Files changed by a program started with `run` and `privilege: elevated` are not preserved and the entry is irreversible.
-
-The final report of the release session of 0.1.1 (27 November 2026) lists an open point that it assigned to 0.1.2: in the descriptor mode of the account journal, calls that read, move and remove check the chain of directories and then act by path, which leaves a window for replacing a directory with a link (creation of files is not affected). The changelog of 0.1.2 lists no fix, and the account journal files of `nurt-fs` are unchanged between `v0.1.1` and 0.1.2, so the point is treated as open.
+Access control is that of the operating system: an account that is allowed to run `nurt` through `sudo`, `doas` or `run0` is administrator-equivalent. The elevated process runs only when its identity is the administrator or the account named by `as_user`, and writes its journal entry with the rights of the account that asked. Files changed by a program started with `run` and `privilege: elevated` are not preserved and the entry is irreversible.
 
 ## Policy of integrators
 
-The console runs the programs it receives; it does not decide which programs an agent may run. The host enforces its policy before `run`, on data computed without any effect: `nurt check` and `run` with `preview: true` ([policy of integrators](/docs/integrators/policy/)). The document `nurt-check/1` returns the strongest effect, the weakest reversibility, the paths named by the program, the network targets, the programs to run and the command groups. Decisions are made on the corrected and bound program, never on the program text.
+The console runs the programs it receives; the host decides which programs an agent runs. The host enforces its policy before `run`, on data computed without any effect: `nurt check` and `run` with `preview: true` ([policy of integrators](/docs/integrators/policy/)). The document `nurt-check/1` returns the strongest effect, the weakest reversibility, the paths named by the program, the network targets, the programs to run and the command groups. Decisions are made on the corrected and bound program, never on the program text.
+
+## Checks in CI
+
+The workspace lints set `unsafe_code = "deny"`, and `unsafe` is allowed only in the crates that call operating system or foreign interfaces, with a `// SAFETY:` comment on every block. Clippy denies `unwrap_used`, `expect_used`, `panic`, `dbg_macro` and `print_stdout` in production code. The job Dependency policy runs `cargo deny` for bans, licences, sources and advisories, and the daily run of `ci.yml` evaluates new security advisories. The workflows run with read access to the repository contents, check out without persisting credentials, and pin every action to a commit hash. The hygiene check rejects home directories of real users, private network addresses and other content that does not belong in a public repository. The changelog records that a code review of 0.1.0 corrected defects in every crate.
 
 ## Advisories fixed in 0.1.1
 
-The changelog (section Security, 0.1.1, 27 November 2026) lists changes of the dependency graph. They are advisories in third-party crates, not vulnerabilities reported in the code of Nurt. The changelog of 0.1.2 has no Security section; `deny.toml` is unchanged since `v0.1.1`, and `Cargo.lock` differs from `v0.1.1` only in the version numbers of the workspace crates, so the dependency graph of 0.1.2 is that of 0.1.1. No `cargo audit` or `cargo deny` run of 0.1.2 is recorded.
+The changelog (section Security, 0.1.1, 27 November 2026) lists these changes of the dependency graph:
 
 | Change | Advisory |
 |---|---|
@@ -74,12 +77,6 @@ The changelog (section Security, 0.1.1, 27 November 2026) lists changes of the d
 | unused `netstat2` removed; AVIF encoder of `image` (`ravif`, `rav1e`) removed, which removes `paste` | RUSTSEC-2024-0436 |
 | OpenPGP signing and checking moved to GnuPG, which removes `rsa` 0.9 and `crypto-bigint` 0.5 | RUSTSEC-2023-0071, RUSTSEC-2026-0387 |
 | `pdf-extract` text extraction taken into the workspace on `lopdf` 0.47, which drops `ttf-parser` | RUSTSEC-2026-0192 |
-| `chrono` feature disabled where possible; it stays through `macos-unifiedlogs` and `russh-util` | RUSTSEC-2026-0543, ignored in `deny.toml` with a stated reason |
+| `chrono` feature disabled where possible | RUSTSEC-2026-0543, listed in `deny.toml` with a reason |
 
-## What is not claimed
-
-<Callout type="warning" title="No audit is claimed">
-  No source in the repository records a formal external security audit, a penetration test or a certification. The changelog records a code review of 0.1.0 that corrected defects in every crate. The checks that exist are in [supply chain and releases](/quality/supply-chain/) and [testing](/quality/testing/). Version 0.1 is not stable.
-</Callout>
-
-The Authenticode certificate of `nurt.exe` is issued by Danaco Holding Group Sp. z o.o. itself, so Windows reports the publisher as unverified; see [supply chain and releases](/quality/supply-chain/).
+The page [supply chain and releases](/quality/supply-chain/) describes the dependency policy, the signing of releases and of commits, and [testing](/quality/testing/) describes the test suites.

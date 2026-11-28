@@ -16,9 +16,7 @@ keywords: [semantic versioning, compatibility, deprecation, abi, catalog]
 
 ## One program, several versions
 
-The program `nurt` is versioned with [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The language, the syntax tree, the command catalog, the report format and the C interface carry version numbers of their own, so that a host program can depend on a format without depending on the version of the program. The changelog says the same: these elements "carry their own version numbers, described in the specification".
-
-The current program version is 0.1.2. Below 1.0.0 the rules on this page describe the intended behaviour within a major version, and the [status](/project/status/) page states that the language, the syntax tree, the catalog, the report format and the library interfaces may change between 0.x versions.
+The program `nurt` is versioned with [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The language, the syntax tree, the command catalog, the report format and the C interface carry version numbers of their own, so that a host program depends on a format without depending on the version of the program. The current program version is 0.1.2; the [current state](/project/status/) page lists the version of every format.
 
 ## What carries which version
 
@@ -35,11 +33,11 @@ The table joins the documentation page [Versioning and support](/docs/guide/vers
 | Protocol | `nurt-rpc/1` | the host checks the major version and reads the feature list that `initialize` returns |
 | C interface | `NURT_ABI_MAJOR.MINOR`, library name `libnurt.so.<MAJOR>` | functions, status codes and JSON members are only added, never removed or changed |
 
-The format `nurt-ast/1` is at version 1.1 since release 0.1.1: version 1.1 adds the control constructs (`when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`, `params`), and documents of version 1.0 are read unchanged. The sources in the specification are [syntax trees](/docs/specification/syntax-tree/), [catalog](/docs/specification/catalog/) and [report](/docs/specification/report/). The C interface values `NURT_ABI_MAJOR` = 1 and `NURT_ABI_MINOR` = 0 are stated in the [C interface reference](/docs/reference/c-abi/).
+The format `nurt-ast/1` is at version 1.1 since release 0.1.1: version 1.1 adds the control constructs (`when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`, `params`), and documents of version 1.0 are read unchanged. The specification pages are [syntax trees](/docs/specification/syntax-tree/), [catalog](/docs/specification/catalog/) and [report](/docs/specification/report/). The C interface values are `NURT_ABI_MAJOR` = 1 and `NURT_ABI_MINOR` = 0, stated in the [C interface reference](/docs/reference/c-abi/).
 
 ## How a reader treats a newer version
 
-A document carries its version in the member `nurt`, written `MAJOR.MINOR`. The rules in the specification and the integrator documentation:
+A document carries its version in the member `nurt`, written `MAJOR.MINOR`. The rules of the specification and the integrator documentation:
 
 - a reader accepts a document whose minor version is not greater than its own; a newer minor version of a syntax tree is rejected with `E_AST_VERSION` and the list of unknown node kinds (a reader of version 1.0 rejects a document that holds a statement added in 1.1), and a newer major version is rejected as unsupported;
 - a reader ignores report fields it does not know;
@@ -50,23 +48,19 @@ The first request of a session, `initialize`, returns the protocol, the versions
 
 ## Changes that need a new major version
 
-For the catalog the specification is explicit: removing or renaming a command or a parameter, changing a type incompatibly, and changing a default are changes of the major version. The same section lists what is allowed within `nurt-catalog/1`: new commands, new optional parameters with a default that keeps the previous behaviour, new enumeration values and new optional keys.
+For the catalog the specification is explicit: removing or renaming a command or a parameter, changing a type incompatibly, and changing a default are changes of the major version. The same section lists what holds within `nurt-catalog/1`: new commands, new optional parameters with a default that keeps the previous behaviour, new enumeration values and new optional keys.
 
 ## Deprecation and support
 
-| Subject | Rule | Source |
+| Subject | Rule | Documentation |
 |---|---|---|
 | Deprecation of a language element | marked in `help`; removed no earlier than 24 months later, in a major version | [Versioning and support](/docs/guide/versioning/) |
-| Previous major version of the syntax tree | accepted for 24 months; the specification says at least 24 months | the same page and `spec/syntax-tree.md` |
+| Previous major version of the syntax tree | accepted for at least 24 months | [Versioning and support](/docs/guide/versioning/) and [syntax trees](/docs/specification/syntax-tree/) |
 | Long-term support | one release a year is a long-term support release; it receives fixes of defects and vulnerabilities for 36 months and no new features | [Versioning and support](/docs/guide/versioning/) |
-| Security fixes before the first stable release | applied to the `main` branch and published in a new release | [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) |
-
-<Callout type="note" title="No long-term support release exists yet">
-  The documentation defines the long-term support rule, but no release of 0.x is designated as such. SECURITY.md says that the support period of stable and long-term support releases will be stated there when they are published.
-</Callout>
+| Security fixes | applied to the `main` branch and published in a new release | [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) |
 
 ## Names that use a version
 
-"Danaco Nurt Compatible" may be used by an implementation or an integration that passes the mandatory tests of `nurt-conformance`; the terms of that program are published after the owner of the name approves them. See [License](/project/license/).
+"Danaco Nurt Compatible" is the name of an implementation or an integration that passes the mandatory tests of `nurt-conformance`. See [License](/project/license/).
 
-For the list of releases and what each changed, see [Releases](/project/releases/).
+For the list of releases and what each brought, see [Releases](/project/releases/).

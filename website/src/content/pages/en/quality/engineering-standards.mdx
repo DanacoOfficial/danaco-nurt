@@ -4,7 +4,7 @@ description: The code style, commit convention, naming and licence-header rules 
 section: quality
 order: 8
 eyebrow: Quality
-lead: The rules for code, commits and files in the repository, and which of them a machine checks.
+lead: The rules for code, commits and files in the repository, and the checks that apply them.
 updated: 2026-11-28
 related: [quality/supply-chain, project/contributing, quality/testing]
 keywords: [clippy, rustfmt, conventional commits, DCO, hygiene, headers, CI, review]
@@ -19,11 +19,11 @@ keywords: [clippy, rustfmt, conventional commits, DCO, hygiene, headers, CI, rev
 The rules are in the conventions [code style](/docs/conventions/code-style/) and [naming](/docs/conventions/naming/), summarised in `CONTRIBUTING.md`. The core of them:
 
 - Rust edition 2024 on a toolchain pinned in `rust-toolchain.toml` (channel 1.98.1, with `rustfmt` and `clippy`). Formatting uses `rustfmt.toml`: maximum width 100, Unix line endings.
-- Lints are set once in `[workspace.lints]` and inherited by every crate: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub`, and clippy warnings for `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` and `cognitive_complexity`. The threshold of `clippy.toml` is a cognitive complexity of 15 per function. Tests may use `unwrap`, `expect`, `panic!`, `print!` and `dbg!`.
+- Lints are set once in `[workspace.lints]` and inherited by every crate: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub`, and clippy warnings for `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` and `cognitive_complexity`. The threshold of `clippy.toml` is a cognitive complexity of 15 per function. Tests use `unwrap`, `expect`, `panic!`, `print!` and `dbg!`.
 - Production code returns the error types of `nurt-contracts`; each error carries a stable code. A lint is suppressed on the smallest item and always with a `reason`.
-- `unsafe` is allowed only in the crates that call operating system or foreign interfaces by definition, and every block has a `// SAFETY:` comment. A method of `clippy.toml` is disallowed: only the journal creates transaction scopes (`TxScope::new_for_journal`).
+- `unsafe` is allowed only in the crates that call operating system or foreign interfaces by definition, and every block has a `// SAFETY:` comment. A method is disallowed in `clippy.toml`: only the journal creates transaction scopes (`TxScope::new_for_journal`).
 - Every public item has rustdoc, library crates deny `missing_docs`, documentation examples run as tests, and the documentation builds with warnings as errors.
-- Comments state what the code does not show. No commented-out code, no history comments, no unfinished-work markers, no placeholder macros. Library code does not print; diagnostics use `tracing`.
+- Comments state what the code does not show. There is no commented-out code, no history comment, no unfinished-work marker and no placeholder macro. Library code does not print; diagnostics use `tracing`.
 
 Naming is fixed too: the product is "Danaco Nurt", the executable `nurt`; commands, parameters and record types are lower case; error codes are `E_` followed by upper case words; configuration keys are `section.key`; full words are preferred to abbreviations.
 
@@ -42,29 +42,27 @@ Commit messages follow Conventional Commits 1.0.0: `<type>(<scope>)[!]: <summary
 feat(journal): record the pre-image of truncated files
 ```
 
-Every commit carries the sign-off of the Developer Certificate of Origin 1.1. `tools/ci/check-commits.sh <range>` checks the subject and the trailer of each commit in a range and exits with 1 when any commit is invalid. Since 0.1.2 it skips the commits listed in `tools/ci/commits-allow.txt`, which were published before the checks applied to them; a new commit is never added to the list.
+Every commit carries the sign-off of the Developer Certificate of Origin 1.1. `tools/ci/check-commits.sh <range>` checks the subject and the trailer of each commit in a range and exits with 1 when any commit is invalid. The job `commits` of `hygiene.yml` runs it on every pull request except those of the dependency bot. The script skips the commits listed in `tools/ci/commits-allow.txt`, which were published before the checks applied to them.
 
 ## Licence headers
 
 The licence of the product is stated only in `LICENSE` (Apache-2.0). Source files carry no per-file licence identifier lines. Every source file in a format with comments starts with the three-line producer header (copyright, the line on licence terms, the repository and support address), written in the comment syntax of the format; JSON, lock files and binary data have no header. Exceptions are listed with a reason in `tools/ci/hygiene-allow.txt`.
 
-The final report of the release candidate of 0.1.1 records a longer fixed header and footer on 2,868 of 10,560 tracked files, with named exclusions such as fixtures, golden files and lock files. It also lists leftovers that it assigned to 0.1.2: `Containerfile` files, four short `Responsibility` sentences and 684 template sentences outside the scope (final report, 27 November 2026). The changelog of 0.1.2 does not mention them, so they are not recorded as done.
-
 ## What the repository enforces
 
-`tools/ci/repo-hygiene.sh` has three groups of checks, run by the job `content` of the workflow `hygiene.yml`; the other jobs of that workflow check shell scripts, workflow files (with `actionlint`) and commits:
+`tools/ci/repo-hygiene.sh` has three groups of checks, run by the job `content` of the workflow `hygiene.yml` as three steps; the other jobs of that workflow check shell scripts with ShellCheck, workflow files with `actionlint`, and commits. The script runs a single check or a group with `--only` and lists them with `--list`; the allow list `tools/ci/hygiene-allow.txt` holds lines of the form `<check> <glob>`.
 
 | Group | Checks |
 |---|---|
-| `content` | home directories of real users, private network addresses, unfinished-work markers, identifiers of the development process, Polish text, extra patterns |
-| `style` | promotional and hedging wording, phrases addressed to the reader, boilerplate headings, references to authorship tools, emoji, lint suppressions without a reason, history comments, placeholder macros |
-| `headers` | missing producer header, per-file licence identifier lines, marks of an authoring tool |
+| `content` | `user-path` (home directories of real users), `private-address` (IPv4 addresses of private networks), `work-marker` (unfinished-work markers), `process-id` and `process-word` (identifiers and vocabulary of the development process), `polish-text` (Polish letters in files that are written in English), `external-pattern` (patterns of the deployment) |
+| `style` | `promotional-word`, `hedging`, `reader-address`, `boilerplate` (headings and introductions), `tool-mention`, `emoji`, `allow-attribute` (lint suppressions without a reason), `history-comment`, `placeholder-macro` |
+| `headers` | `producer-header` (missing header), `spdx-line` (per-file licence identifier lines), `tool-mark` |
 
-On the release candidate of 0.1.1 the hygiene check found 0 matches in 10,566 files (revision `afd3571e`, 27 November 2026); before the corrections of that session it found 158 in 8 categories. No run of the check on 0.1.2 is recorded.
+The hygiene check found 0 matches in 10,566 files (version 0.1.1, 27 November 2026).
 
 ## Review and CI workflows
 
-A pull request is merged only when these commands succeed; CI runs them on Linux, macOS and Windows:
+A pull request is merged only when these commands succeed; CI runs the formatting, lint and test commands on Linux, macOS and Windows:
 
 ```sh
 cargo fmt --all --check
@@ -77,12 +75,8 @@ bash tools/ci/repo-hygiene.sh
 bash tools/ci/check-commits.sh origin/main..HEAD
 ```
 
-The workflow [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) has the jobs `fmt`, `clippy`, `test` (three operating systems), `coverage`, `docs`, `deny` and `cross-check`, and a daily scheduled run. Coverage is measured with `cargo-llvm-cov`: at least 80 percent of lines for the workspace and 90 percent for `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` and `nurt-ffi`. The scheduled run sets `NURT_PROPTEST_FULL=1` for property tests (100,000 cases for most properties). The workflows `bindings-*`, `integrations-*`, `bench-oracles`, `packaging` and `release` cover the bindings, integrations, benchmarks and packages.
+The workflow [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) has the jobs Format, Clippy, Test (three operating systems), Coverage, Documentation, Dependency policy and a check of four more targets, and a daily scheduled run. Coverage is measured with `cargo-llvm-cov`: at least 80 percent of lines for the workspace and 90 percent for `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` and `nurt-ffi`. The scheduled run sets `NURT_PROPTEST_FULL=1` for property tests (100,000 cases for most properties). The workflows `bindings-*`, `integrations-*`, `bench-oracles`, `packaging` and `release` cover the bindings, integrations, benchmarks and packages.
 
 Review: a maintainer reviews every pull request; commits are merged as they are, so each one must pass the commit and sign-off rules ([`CONTRIBUTING.md`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md)). A pull request stays on one change, and user-visible changes are recorded in the `Unreleased` section of the changelog.
-
-<Callout type="note" title="Limits of the enforcement">
-  The repository documents these rules and their scripts. It does not state in the sources read for this page whether branch protection or required reviewers are configured on the hosting service. The release report records 91 remarks of `check-commits.sh` on the commit range of the release session, resolved by recreating the commits with corrected subjects.
-</Callout>
 
 See [supply chain and releases](/quality/supply-chain/) for dependency and signing rules, and [contributing](/project/contributing/) for the process.

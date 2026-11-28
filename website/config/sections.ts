@@ -6,7 +6,7 @@
 // Responsibility:   Map of the authored pages: the sections of the site and the ordered list of page slugs in each of them.
 // Dependencies:     none.
 
-export const sectionKeys = ['product', 'quality', 'architecture', 'project', 'legal'] as const;
+export const sectionKeys = ['product', 'ai', 'quality', 'architecture', 'design', 'project', 'legal'] as const;
 export type SectionKey = (typeof sectionKeys)[number];
 
 export const sectionPages: Record<SectionKey, readonly string[]> = {
@@ -23,6 +23,7 @@ export const sectionPages: Record<SectionKey, readonly string[]> = {
     'platforms',
     'integrations',
   ],
+  ai: ['overview', 'model-labs', 'agent-engines', 'training-packages', 'benchmark'],
   quality: [
     'overview',
     'testing',
@@ -34,7 +35,8 @@ export const sectionPages: Record<SectionKey, readonly string[]> = {
     'engineering-standards',
   ],
   architecture: ['overview', 'engine', 'crates', 'c-interface', 'protocols', 'dependencies'],
-  project: ['releases', 'status', 'versioning', 'contributing', 'license', 'brand', 'about', 'support'],
+  design: ['overview', 'mark-and-colour', 'identity'],
+  project: ['releases', 'status', 'versioning', 'contributing', 'license', 'about', 'support'],
   legal: ['privacy', 'accessibility'],
 };
 

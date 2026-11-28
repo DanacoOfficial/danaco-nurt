@@ -21,10 +21,12 @@ import Terminal from './Terminal.astro';
 import Timeline from './Timeline.astro';
 
 import CommandCatalog from '../docs/CommandCatalog.astro';
+import Downloads from './Downloads.astro';
 
 export const mdxComponents = {
   Badge,
   CommandCatalog,
+  Downloads,
   BrandImage,
   Callout,
   Card,

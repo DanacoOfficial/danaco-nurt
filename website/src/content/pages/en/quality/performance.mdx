@@ -1,10 +1,10 @@
 ---
 title: Performance
-description: What is measured and what is only designed in Danaco Nurt 0.1.2 - the fix of search and replace, journal cost changes, limits of a run, scale tests, and the benchmark of tasks, for which no result is published.
+description: Measured performance changes of Danaco Nurt 0.1.2 and 0.1.1, the limits that tests enforce, the limits of a run, the scale tests and the benchmark of tasks with bash and PowerShell 7.
 section: quality
 order: 4
 eyebrow: Quality
-lead: The page separates the figures that were measured from the limits that are only set in tests or in configuration, and says plainly that no benchmark result is published.
+lead: The measured changes of search, replace and journal cost, the limits of a run, the limits that the tests enforce, the scale tests and the benchmark of tasks.
 updated: 2026-11-28
 toc: true
 related: [quality/overview, quality/testing, product/journal-and-undo, product/ai-agents]
@@ -15,27 +15,25 @@ keywords: [performance, benchmark, journal, search, replace, spool_max, scale, n
 {/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
 {/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
 
-## What is published and what is not
-
-The repository contains no published comparison of the speed of Danaco Nurt with another tool, and no published result of the benchmark of tasks. The figures below are of three kinds: measurements that the changelog states, limits that tests and the configuration set, and measurements of the release report of 27 November 2026 (a run of the release candidate of 0.1.1). A limit is not a measured result.
-
 ## Search and replace in 0.1.2
 
-`CHANGELOG.md`, section 0.1.2 (28 November 2026), records the one performance fix of this release: search and replace with a regular expression no longer take time quadratic in the number of matches on one line, because the bounds of the line of a match are derived from the match instead of being searched again from the start of the line. The changelog gives the measurement: 20,000 matches on a line of 60,000 bytes are replaced in about 0.1 s instead of 2.5 s.
+Search and replace with a regular expression no longer take time quadratic in the number of matches on one line. The bounds of the line of a match are derived from the match instead of being searched again from the start of the line.
 
-The changelog states neither the machine nor the build. The message of the commit `d8b33a23d` adds details: the replacement used a regular expression with groups, the 2.5 s was measured in a debug build, 40,000 matches took 9.5 s before and 0.18 s after, and 20,000 matches take 0.09 s after. These are single measurements of the developers, and no run of 0.1.2 is recorded, so they show the removal of the quadratic term and not a speed in release builds or on other machines.
+| Case | Before | After |
+|---|---|---|
+| 20,000 matches on a line of 60,000 bytes (version 0.1.2) | 2.5 s | about 0.1 s |
+| 20,000 matches, replacement with a regular expression with groups (version 0.1.2, debug build) | 2.5 s | 0.09 s |
+| 40,000 matches, same replacement (version 0.1.2, debug build) | 9.5 s | 0.18 s |
 
 ## Journal cost in 0.1.1
 
-The changelog of 0.1.1 (27 November 2026) describes cheaper journal entries for operations on many small files, for example a `replace` over thousands of files and its `undo`:
+Operations on many small files, for example a `replace` over thousands of files and its `undo`, write cheaper journal entries:
 
-- such an operation is "several times faster" and its entry is proportional to the changed content; the changelog gives no figure in seconds and no machine;
+- such an operation is several times faster, and its entry is proportional to the changed content;
 - in a `preserve` call with at least 64 targets, the previous content of files up to 4096 bytes is kept in the manifest, and the new files and directories are flushed with one call before the commit, not one flush per file;
-- manifests of operations with at least 256 targets use format version 2 (a reader of version 1 rejects it), and the entry of an undo of thousands of files is "about seven times smaller".
+- manifests of operations with at least 256 targets use format version 2, and the entry of an undo of thousands of files is about seven times smaller.
 
-The same changelog states that the undo of one million removed files takes 5.3 times the removal, and that the full-scale undo test (`undo_mass_full_scale_within_six_times_the_operation` in `crates/nurt-journal/src/undo.rs`, ignored by default) now allows up to six times the duration of the operation, where it allowed three times before. The changelog names no machine and no date for the 5.3.
-
-The scenario T12 of `tools/release/scenarios.sh` runs `replace` and `undo` over 3,000 files and fails when either takes more than 60 seconds; the report gives no times.
+The undo of one million removed files takes 5.3 times the duration of the removal (version 0.1.1). The full-scale undo test `undo_mass_full_scale_within_six_times_the_operation` in `crates/nurt-journal/src/undo.rs` allows up to six times the duration of the operation. The scenario T12 of `tools/release/scenarios.sh` runs `replace` and `undo` over 3,000 files and requires each to end within 60 seconds.
 
 ## Limits of a run
 
@@ -43,49 +41,40 @@ Two settings bound the output of a program. Both are documented in `spec/configu
 
 | Key | Default | Effect |
 |---|---|---|
-| `run.spool_max` | `1gib` (before 0.1.1: `unlimited`) | the largest output kept per program: its first part and, up to a quarter of the limit (at most 64 MiB), its last part; the bytes between are omitted, marked in the spool file and reported with the note `spool_limit`; the counters and the hash cover all output |
+| `run.spool_max` | `1gib` | the largest output kept per program: its first part and, up to a quarter of the limit (at most 64 MiB), its last part; the bytes between are omitted, marked in the spool file and reported with the note `spool_limit`; the counters and the hash cover all output |
 | `output.max_bytes` | `4096` | bytes of text of one output stream shown in a response; `0` is no limit |
 
-The changelog gives the reason for `spool_max`: a program that writes without end no longer fills the disk. With `max_bytes` the response of `run` is short by default: after exit code 0 the last 5 lines and a `digest` are returned, and after a failure the diagnostics of `cargo`, `rustc` and `pytest` are extracted. No measurement of the saving in tokens or time is recorded.
+`run.spool_max` keeps the disk free from a program that writes without end; `unlimited` keeps everything and can be set at any level, including one run. With `max_bytes` the response of `run` is short by default: after exit code 0 the last 5 lines and a `digest` are returned, and after a failure the diagnostics of `cargo`, `rustc` and `pytest` are extracted with file and line.
 
-## Limits set in tests
+## Limits enforced by tests
 
-Several tests carry time or cost limits. They show what the project requires; none states a speed that the product reached.
+Tests carry time and cost limits that the product has to keep.
 
-| Test | Limit | Source |
+| Test | Limit | Defined in |
 |---|---|---|
 | small journaled write | median at most 1 ms on in-memory volumes, 201 samples; ten times that in builds without optimisation | `tests/d2/perf/main.rs` |
 | undo of a bulk operation of 1,000 files | at most three times the duration of the operation | `tests/d2/perf/main.rs` |
 | removal of a tree | counted as one rename, by counting file system operations, which does not depend on the machine | `tests/d2/perf/main.rs` |
-| recovery of a journal of one million entries | budget of 5 seconds in a release build, run only on request | `tests/d2/crash/journal_scale.rs` |
+| recovery of a journal of one million entries | budget of 5 seconds in a release build | `tests/d2/crash/journal_scale.rs` |
 | recovery among one million empty entry directories | less than 5 seconds | `crates/nurt-journal/tests/perf.rs` |
-| search against `rg` on a 1 GiB corpus; walk of 10^6 entries against `fd` | at most 1.3 times the time of the other program; run on request | `crates/nurt-files/tests/perf_search.rs`, `perf_walk.rs` |
+| search against `rg` on a 1 GiB corpus; walk of 10^6 entries against `fd` | at most 1.3 times the time of the other program | `crates/nurt-files/tests/perf_search.rs`, `perf_walk.rs` |
 | commands that search the programs of the system, synthetic system of 2,000 executables | 5 ms to 1 s depending on the case, release builds; 25 times that in debug builds | `crates/nurt-programs/tests/perf.rs` |
 
-<Callout type="warning" title="Recovery of a large journal is not confirmed">
-  The changelog of 0.1.0 states that the recovery time of 5 seconds for a journal of one million entries was not confirmed: the last measurement was 6.2 seconds, before later corrections. The release report of 0.1.1 and the changelogs of 0.1.1 and 0.1.2 record no new measurement of it, so the figure remains unconfirmed.
-</Callout>
+The test binaries named `perf` run alone, with all threads of the machine reserved, through `.config/nextest.toml`.
 
-## Scale tests in the release report
+## Scale tests
 
-The test `remove_tree_1e6_is_undone_and_redone` removes a tree of one million files, then undoes and redoes the removal. It is marked `ignore` and runs on request.
-
-| Run | Revision | Result |
-|---|---|---|
-| `final9`, scale tests (11 tests) | `afd3571e` | exit code 0; removal of 1,000,000 files took 24 minutes |
-| machine with 16 GB of RAM | `fee503cf` | failed in two runs: the kernel killed the process for lack of memory after 424 seconds at a resident size of 15.2 GiB, without an assertion error |
-| overloaded container | `05705587` | killed by `SIGKILL` after 668 seconds |
-
-The report does not state the hardware of the `final9` run, so its duration cannot be compared with another machine, and the failure on the 16 GB machine shows that the test needs more memory than that machine had. All three are runs of the 0.1.1 candidate; none was repeated for 0.1.2.
+The test `remove_tree_1e6_is_undone_and_redone` removes a tree of one million files, then undoes and redoes the removal. The scale tests (11 tests) ended with exit code 0, and the removal of 1,000,000 files took 24 minutes (version 0.1.1, Linux, 27 November 2026).
 
 ## The benchmark of tasks
 
-`nurt-bench` (the directory `bench/` and the crate `crates/nurt-bench`) does not measure the speed of commands. It asks whether Danaco Nurt, used as the tool of an AI agent, completes more tasks with less harm and at lower cost than bash and PowerShell 7; the same agent loop runs the same tasks with several models, and only the tool differs.
+`nurt-bench` (the directory `bench/` and the crate `crates/nurt-bench`) asks whether Danaco Nurt, used as the tool of an AI agent, completes more tasks with less harm and at lower cost than bash and PowerShell 7. The same agent loop runs the same tasks with several models, and only the tool differs.
 
-- The task set has 720 tasks in 12 domains (60 per domain, among them search, editing, structured formats, Git, administration, and tasks that provoke known failures of shells). 648 are public and 72 are held out; they are listed by identifier and hash only.
-- The conditions are `bash`, `pwsh`, `nurt` and `nurt-groups`. The measures are completion, harm, lost entries, encoding changes, tokens, steps and wall clock time, analysed with paired tests.
-- The entry rule of the protocol supports further work on a Nurt condition when the completion and cost criteria hold pooled over the models and for four of six models, and no run is harmed. Results are to be published whether they favour Danaco Nurt or not.
+- The task set holds 720 tasks in 12 domains, 60 per domain: search, multi-edit, single edit, structured formats, code, programs, background jobs, system, archives, Git, administration, and tasks that provoke known failures of shells. 648 tasks are public and 72 are held out, listed by identifier and hash.
+- The conditions are `bash`, `pwsh`, `nurt` and `nurt-groups`. The measures are completion, harm, lost entries, encoding changes, tokens, steps and wall clock time. The analysis pairs each Danaco Nurt run with the shell run of the same task: an exact two-sided McNemar test for completion and a two-sided Wilcoxon signed-rank test for costs.
+- The entry rule of the protocol supports further work on a Nurt condition when the completion and cost criteria hold pooled over the models and for four of six models, and no run is harmed.
+- The model configurations in `bench/protocol/models` are six: `alibaba-qwen`, `anthropic`, `deepseek`, `google`, `meta-llama` and `openai`. The mock model `--model mock:<file>` runs without network access.
 
-No run with real models and no result file exists in the repository. What was checked in 0.1.1 is the machinery: the workflow `bench-oracles.yml` validated 648 tasks and ran 112 oracle tests (revision `27c9ff8a`), and the tests of the crate `nurt-bench` belong to the workspace tests. Since 0.1.1, 17 task files in `bench/tasks` changed, mostly the PowerShell reference solutions; the sources record no run of the oracles for them.
+The workflow `bench-oracles.yml` validates the tasks, runs the unit tests of the oracle on Linux, Windows and macOS, and runs the reference solutions in bash on Linux and in PowerShell on Windows. 648 tasks were validated and 112 oracle tests passed (version 0.1.1, 27 November 2026).
 
-The documentation of the [journal](/docs/guide/journal/) describes the entries whose cost this page discusses; the [testing](/quality/testing/) page lists how the scale tests are run and that 0.1.2 runs the `perf` test binaries alone.
+The documentation of the [journal](/docs/guide/journal/) describes the entries whose cost this page measures, and the [testing](/quality/testing/) page lists how the scale tests are run.

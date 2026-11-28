@@ -14,8 +14,10 @@ export const pl: UiStrings = {
   nav: {
     label: 'Nawigacja główna',
     product: 'Produkt',
+    ai: 'AI',
     quality: 'Jakość',
     architecture: 'Architektura',
+    design: 'Design',
     docs: 'Dokumentacja',
     project: 'Projekt',
     search: 'Szukaj',
@@ -35,10 +37,13 @@ export const pl: UiStrings = {
   footer: {
     tagline: 'Powłoka poleceń i język, w których każdą zmianę można cofnąć.',
     description: 'Dla ludzi i agentów AI. Jedno narzędzie dla Linuksa, Windows i macOS.',
+    creator: 'Projekt i opracowanie:',
     columns: {
       product: 'Produkt',
+      ai: 'AI',
       quality: 'Jakość',
       architecture: 'Architektura',
+      design: 'Design',
       project: 'Projekt',
     },
     documentation: 'Dokumentacja',
@@ -56,6 +61,15 @@ export const pl: UiStrings = {
   breadcrumbs: { label: 'Ścieżka nawigacji', home: 'Start' },
   toc: { title: 'Na tej stronie' },
   pager: { label: 'Sąsiednie strony', previous: 'Poprzednia', next: 'Następna' },
+  downloads: {
+    file: 'Plik',
+    content: 'Zawartość',
+    size: 'Rozmiar',
+    license: 'Licencja',
+    checksum: 'SHA-256',
+    files: 'plików',
+    caption: 'Pliki do pobrania',
+  },
   common: {
     copy: 'Kopiuj',
     copied: 'Skopiowano',
@@ -86,6 +100,10 @@ export const pl: UiStrings = {
       title: 'Produkt',
       lead: 'Czym jest Danaco Nurt, co robi i jak się zachowuje: język, dziennik, katalog poleceń, raporty i integracje.',
     },
+    ai: {
+      title: 'AI',
+      lead: 'Co twórcy modeli i silników agentowych zyskują dzięki Danaco Nurt: jedno narzędzie z opublikowaną definicją, programy sprawdzane przed uruchomieniem, ustrukturyzowane raporty, dziennik cofania, dane treningowe i benchmark zadań.',
+    },
     quality: {
       title: 'Jakość',
       lead: 'Jak sprawdzana jest praca: testy, zgodność, wydajność, niezawodność, bezpieczeństwo i łańcuch dostaw, z liczbami i ich źródłem.',
@@ -94,9 +112,13 @@ export const pl: UiStrings = {
       title: 'Architektura',
       lead: 'Jak zbudowany jest silnik: potok, skrzynki, interfejs C, protokoły i zależności.',
     },
+    design: {
+      title: 'Projekt wizualny',
+      lead: 'Identyfikacja Danaco Nurt: idea znaku, jego konstrukcja, kolor i typografia oraz pliki identyfikacji do pobrania.',
+    },
     project: {
       title: 'Projekt',
-      lead: 'Wydania, stan, wersjonowanie, wkład, licencja, marka i kontakt.',
+      lead: 'Wydania, stan, wersjonowanie, wkład, licencja i kontakt.',
     },
     legal: {
       title: 'Informacje prawne',
@@ -108,8 +130,8 @@ export const pl: UiStrings = {
     lead: 'Dokumentacja Danaco Nurt jest publikowana z repozytorium: przewodnik, strony poleceń, książka kucharska, ściągawki, opis interfejsów i specyfikacja.',
     sidebarLabel: 'Działy dokumentacji',
     sectionsLabel: 'Działy dokumentacji',
-    englishOnlyTitle: 'Ta strona jest dostępna tylko po angielsku',
-    englishOnlyBody: 'Dokumentacja jest pisana i utrzymywana po angielsku. Poniższa strona jest pokazana w oryginalnym języku.',
+    englishOnlyTitle: 'Dokumentacja po angielsku',
+    englishOnlyBody: 'Dokumentacja jest pisana i utrzymywana po angielsku.',
     translatedNotice: 'Tłumaczenie strony angielskiej. Wiążący jest tekst angielski.',
     viewEnglish: 'Przeczytaj stronę angielską',
     onGithub: 'Plik źródłowy na GitHubie',
@@ -171,7 +193,7 @@ export const pl: UiStrings = {
   language: {
     switchTo: 'Przełącz na',
     available: 'Ta strona jest dostępna także w języku',
-    missing: 'Ta strona nie ma jeszcze tłumaczenia.',
+    missing: 'Ta strona jest dostępna po angielsku.',
   },
   home: {
     heroActions: { start: 'Zacznij', docs: 'Czytaj dokumentację', github: 'Kod na GitHubie' },
@@ -182,7 +204,5 @@ export const pl: UiStrings = {
     nextSteps: 'Dalej',
   },
   status: {
-    prestable: 'Wersja przedstabilna',
-    prestableBody: 'Wersja 0.1 nie jest stabilna. Język, drzewo składni, katalog poleceń, format raportu i interfejsy bibliotek mogą się zmieniać między wersjami 0.x.',
   },
 };

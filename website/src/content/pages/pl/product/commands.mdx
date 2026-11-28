@@ -16,7 +16,7 @@ keywords: [katalog, polecenia, grupy, sygnatury, typy, walidacja]
 
 ## Czym jest katalog
 
-Katalog poleceń jest jedynym źródłem sygnatur poleceń. Według [specyfikacji katalogu](/docs/specification/catalog/) czytają go wiązanie, wbudowana pomoc, opis dla modelu, dokumentacja referencyjna, definicje narzędzi i zestaw zgodności. Składa się z plików TOML w formacie `nurt-catalog/1`: `core.toml` dla poleceń rdzenia, jednego pliku dla każdej opcjonalnej grupy oraz indeksu (`_index.toml`), który wymienia pliki i oczekiwaną liczbę poleceń.
+Katalog poleceń jest jedynym źródłem sygnatur poleceń. Czytają go wiązanie, wbudowana pomoc, opis dla modelu, dokumentacja referencyjna, definicje narzędzi i zestaw zgodności, tak jak definiuje to [specyfikacja katalogu](/docs/specification/catalog/). Składa się z plików TOML w formacie `nurt-catalog/1`: `core.toml` dla poleceń rdzenia, jednego pliku dla każdej opcjonalnej grupy oraz indeksu (`_index.toml`), który wymienia pliki i oczekiwaną liczbę poleceń.
 
 <Stats>
   <Fact id="commands" />
@@ -24,7 +24,7 @@ Katalog poleceń jest jedynym źródłem sygnatur poleceń. Według [specyfikacj
   <Fact id="optionalGroups" />
 </Stats>
 
-Wpis każdego polecenia podaje jego nazwę, kategorię (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` lub `help`), odwracalność (`read`, `reversible`, `reversible_if_preserved` lub `irreversible`), rodzaje rekordów wejścia i wyjścia oraz parametry z typem, pozycją, wartością domyślną i streszczeniem. Polecenie może być ograniczone do niektórych systemów operacyjnych; w innym systemie wiązanie kończy się błędem `E_OS_ONLY`.
+Wpis każdego polecenia podaje jego nazwę, kategorię (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` lub `help`), odwracalność (`read`, `reversible`, `reversible_if_preserved` lub `irreversible`), rodzaje rekordów wejścia i wyjścia oraz parametry z typem, pozycją, wartością domyślną i streszczeniem. Polecenie może należeć do jednego systemu operacyjnego; w innym systemie wiązanie odpowiada kodem `E_OS_ONLY`.
 
 ```toml
 [[command]]
@@ -38,11 +38,11 @@ output = ["effect"]
 summary = "Set values at key paths, preserving layout."
 ```
 
-Wpis pochodzi ze specyfikacji katalogu. Zmiany wykonane przez polecenie są zapisywane w [dzienniku](/pl/product/journal-and-undo/) zgodnie z podaną tu odwracalnością.
+Zmiany wykonane przez polecenie są zapisywane w [dzienniku](/pl/product/journal-and-undo/) zgodnie z podaną tu odwracalnością.
 
 ## Polecenia rdzenia i opcjonalne grupy
 
-34 polecenia rdzenia są zawsze opisywane modelowi. Obejmują pliki (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), tekst (`search`, `replace`, `insert`, `edit`), rekordy (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), kontrole (`assert`, `verify`), programy (`run`, `jobs`, `stop`, `retry`), dziennik (`history`, `undo`, `redo`), kontynuację skróconej odpowiedzi (`next`) oraz `help`. Pozostałe polecenia należą do opcjonalnych grup, opisywanych na żądanie. Poniższe liczby pochodzą z `catalog/_index.toml`.
+34 polecenia rdzenia są zawsze opisywane modelowi. Obejmują pliki (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), tekst (`search`, `replace`, `insert`, `edit`), rekordy (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), kontrole (`assert`, `verify`), programy (`run`, `jobs`, `stop`, `retry`), dziennik (`history`, `undo`, `redo`), kontynuację skróconej odpowiedzi (`next`) oraz `help`. Pozostałe polecenia należą do opcjonalnych grup, opisywanych na żądanie.
 
 | Grupa | Polecenia | Obejmuje | Dokumentacja |
 |---|---|---|---|
@@ -62,7 +62,7 @@ Wpis pochodzi ze specyfikacji katalogu. Zmiany wykonane przez polecenie są zapi
 | program | 4 | zainstalowane programy: wyszukiwanie, opisy | [grupa program](/docs/groups/program/) |
 | verify | 8 | testy i analiza kodu przez typowane opakowania | [`test.run`](/docs/commands/test.run/) |
 
-Strony grup opisują zakres, rekordy, różnice między platformami i odwracalność. Pozostałe grupy są opisane na stronach ich poleceń. Grupa administration urosła w wersji 0.1.1 z 6 do 34 poleceń; nazwa `admin` z wcześniejszych rewizji już nie istnieje.
+Strony grup opisują zakres, rekordy, różnice między platformami i odwracalność; pozostałe grupy są opisane na stronach ich poleceń. Grupa administration ma od wersji 0.1.1 34 polecenia.
 
 ## Jak zbudowana jest strona polecenia
 
@@ -82,20 +82,20 @@ Pierwsze trzy przykłady to te, które pokazuje `help <command>`.
 
 ## Jak kompilacja sprawdza strony
 
-Kompilacja dokumentacji kończy się niepowodzeniem, gdy:
+Kompilacja dokumentacji weryfikuje, że:
 
-- polecenie nie ma strony albo strona nie ma polecenia;
-- front matter (`command`, `group`, `summary`) różni się od katalogu;
-- sekcja generowana różni się od tekstu wygenerowanego z katalogu;
-- strona ma mniej niż trzy bloki `nurt example`;
-- przykład nie daje się przeanalizować, nie wiąże się, nie uruchamia się na wirtualnym systemie plików albo jego wynik nie zawiera oczekiwanego fragmentu;
-- nazwa polecenia lub parametru w odwrotnych apostrofach nie istnieje w katalogu.
+- każde polecenie ma stronę, a każda strona należy do polecenia;
+- front matter (`command`, `group`, `summary`) jest równy katalogowi;
+- sekcja generowana jest równa tekstowi wygenerowanemu z katalogu;
+- strona ma co najmniej trzy bloki `nurt example`;
+- każdy przykład daje się przeanalizować, wiąże się, uruchamia się na wirtualnym systemie plików i daje oczekiwany fragment wyniku;
+- nazwa polecenia lub parametru w odwrotnych apostrofach istnieje w katalogu.
 
-Sam katalog jest sprawdzany przez zestaw testów, który wymaga braku problemów w każdym pliku `catalog/`. Wśród kontroli: nazwy są poprawne i niepowtarzalne, każde wyrażenie typu daje się przeanalizować, parametr wymagany nie ma wartości domyślnej, a indeks wymienia każdy plik z właściwą liczbą poleceń, sumującą się do `total`.
+Zestaw testów sprawdza każdy plik `catalog/`: nazwy są poprawne i niepowtarzalne, każde wyrażenie typu daje się przeanalizować, parametr wymagany nie ma wartości domyślnej, a indeks wymienia każdy plik z właściwą liczbą poleceń, sumującą się do `total`.
 
 ## Jak sprawdzane są nazwy, parametry i typy
 
-Wiązanie działa przed jakimkolwiek skutkiem. Program, który nie może być poprawny, jest odrzucany kodem nazywającym problem, a błąd wymienia najbliższe nazwy lub dopuszczalne typy.
+Wiązanie działa przed jakimkolwiek skutkiem. Program, który nie może być poprawny, jest odrzucany kodem nazywającym problem, a błąd wymienia najbliższe nazwy lub dopuszczalne typy, więc poprawka jest częścią odpowiedzi.
 
 | Kod | Problem |
 |---|---|
@@ -107,13 +107,13 @@ Wiązanie działa przed jakimkolwiek skutkiem. Program, który nie może być po
 
 Typy zapisuje się jako wyrażenia, takie jak `path | list<path>`, `enum(report|force|abort)` czy `stream<entry>`. Tekst w cudzysłowie jest w miejscu danego typu przekształcany na `path`, `glob`, `instant`, `key`, `size` lub `duration`. Każde związane drzewo zapisuje `catalog_rev`, czyli SHA-256 kanonicznego katalogu, więc każda zmiana polecenia, parametru lub opisu zmienia rewizję.
 
-<Callout type="warning" title="Katalog może się zmieniać między wersjami 0.x">
-  W ramach `nurt-catalog/1` katalog tylko rośnie: nowe polecenia, parametry opcjonalne, wartości wyliczeń i klucze. Usunięcie lub zmiana nazwy polecenia albo niezgodna zmiana typu jest zmianą wersji głównej. W wersjach 0.x dziennik zmian ostrzega, że katalog może się zmieniać.
+<Callout type="note" title="Wersjonowanie katalogu">
+  W ramach `nurt-catalog/1` katalog rośnie o nowe polecenia, parametry opcjonalne, wartości wyliczeń i klucze. Usunięcie lub zmiana nazwy polecenia albo niezgodna zmiana typu jest zmianą wersji głównej. Zmiana między wersjami 0.x jest zapisana w dzienniku zmian.
 </Callout>
 
 ## Wszystkie polecenia
 
-Poniższy indeks jest odczytywany ze stron poleceń w repozytorium podczas budowy witryny. Każda nazwa prowadzi do strony polecenia ze składnią, parametrami, skutkami, błędami i przykładami. Opisy poleceń pochodzą z repozytorium i są po angielsku.
+Poniższy indeks wymienia każde polecenie z jego streszczeniem. Każda nazwa prowadzi do strony polecenia ze składnią, parametrami, skutkami, błędami i przykładami.
 
 <CommandCatalog locale="pl" level={3} />
 

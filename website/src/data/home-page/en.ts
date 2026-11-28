@@ -22,13 +22,18 @@ export const homeEn: HomeContent = {
     title: 'A shell that answers for what it does',
     lead: 'The design follows from one promise: you can see what a program will do, what it did, and take it back.',
     cards: [
-      { icon: 'undo-2', title: 'Undo is part of the language', text: 'File changes are recorded in a journal. Review an operation, undo it, redo it. Changes outside the file system, such as a service change, are recorded as irreversible.', path: '/product/journal-and-undo/' },
+      { icon: 'undo-2', title: 'Undo is part of the language', text: 'File changes are recorded in a journal. Reviewing an operation, undoing it and redoing it are commands of the language.', path: '/product/journal-and-undo/' },
       { icon: 'scan-search', title: 'Checked before it runs', text: 'Names, parameters and types are validated against the command catalog before any effect takes place. Errors carry a stable code, a position and a correction.', path: '/product/language/' },
       { icon: 'braces', title: 'Records, not text', text: 'Stages exchange records with named fields (files, lines, matches, processes) instead of unstructured text, so a pipeline does not depend on how a tool formats its output.', path: '/product/language/' },
       { icon: 'file-text', title: 'A report of every run', text: 'Each run returns a report of its effects in text, JSON or Markdown form. The schema of the report is published in the specification.', path: '/product/effect-reports/' },
       { icon: 'bot', title: 'Built for AI agents', text: 'The same engine runs as a command line program, as a Model Context Protocol server, as a JSON-RPC server, as a language server and as a C library.', path: '/product/ai-agents/' },
       { icon: 'boxes', title: 'One executable, no tools to install', text: 'File, text, archive, document, code, version control, network and system operations are implemented in the program and do not invoke external tools.', path: '/product/platforms/' },
     ],
+  },
+  statement: {
+    eyebrow: 'The creator',
+    quote: 'Shells were made for people who watch the screen and remember what they typed. Today commands are written by people and by machines, faster than anyone can watch. I wanted a language that checks a program before it runs, says what the run did, and takes a change back. No shell could grow into that language, so I designed a new syntax and wrote a new program.',
+    role: 'creator of Danaco Nurt',
   },
   how: {
     eyebrow: 'How it works',
@@ -38,7 +43,7 @@ export const homeEn: HomeContent = {
     program: 'find "/home/user/project" glob: "**/*.go"\n  |> filter size > 1mb and modified > ago(24h)\n  |> sort size order: desc\n  |> first 20',
     sessionTitle: 'nurt 0.1.2: change three files, then undo',
     sessionReplay: 'Play again',
-    sessionCaption: 'Output of nurt 0.1.2 in an interactive session; the directory is shortened and two of the three differences are left out.',
+    sessionCaption: 'From a session of nurt 0.1.2: a replacement in three files and its undo.',
     points: [
       { title: 'Check', text: 'The program is parsed and checked against the catalog. A mistake in a name, a parameter or a type stops the program before anything changes.' },
       { title: 'Run', text: 'Stages exchange typed records. The operations are implemented in the program, on all three operating systems.' },
@@ -48,13 +53,34 @@ export const homeEn: HomeContent = {
   },
   numbers: {
     eyebrow: 'In numbers',
-    title: 'What is in the box, and how it was checked',
-    lead: 'Every number carries its source. Counted values are read from the repository when the site is built; measured values name the run that produced them.',
+    title: 'Danaco Nurt in numbers',
+    lead: 'The size of the command catalog and of the workspace, and the results of the tests and of the comparison with git.',
+  },
+  ai: {
+    eyebrow: 'For AI labs and agent engines',
+    title: 'One tool for a model to learn and for an agent engine to run',
+    lead: 'Danaco Nurt gives an agent one tool with a published definition, programs checked before they run, structured reports and a journal that takes a change back. Model labs receive training packages and a benchmark of tasks.',
+    action: 'What AI labs and agent engines get',
+    cards: [
+      { icon: 'bot', title: 'For agent engines', text: 'A tool call, a Model Context Protocol server, a JSON-RPC server and a C library with bindings, with policy and privilege control.', path: '/ai/agent-engines/' },
+      { icon: 'cpu', title: 'For model labs', text: 'The tool definition in eight formats in English and Polish, stable error codes with corrections and versioned interfaces.', path: '/ai/model-labs/' },
+      { icon: 'database', title: 'Training packages', text: 'Pairs of a task and a program checked by the engine, chat and tool-call forms, tool definitions and a documentation corpus.', path: '/ai/training-packages/' },
+      { icon: 'gauge', title: 'The benchmark of tasks', text: '720 tasks in 12 domains that compare Danaco Nurt with bash and PowerShell as the tool of an agent.', path: '/ai/benchmark/' },
+    ],
+  },
+  design: {
+    eyebrow: 'Design',
+    title: 'Back in silver, forward in gold',
+    lead: 'The mark of Danaco Nurt is two chevrons on the angle of the stream: a change and its undo. The identity is published with its files.',
+    cards: [
+      { icon: 'layers', title: 'The design of Nurt', text: 'The idea of the mark, its construction, the colour, the typeface and the place of the identity in the product.', path: '/design/overview/' },
+      { icon: 'download', title: 'Identity files', text: 'The guidelines, the vector and raster files, the icons, the print specification and the colour tokens to download.', path: '/design/identity/' },
+    ],
   },
   quality: {
     eyebrow: 'Quality',
-    title: 'Quality is shown, not claimed',
-    lead: 'The quality pages state what is tested, how, with which result, and what is still open.',
+    title: 'Tested, compared and measured',
+    lead: 'The quality pages state what is tested and compared, how, and with which result.',
     cards: [
       { icon: 'flask-conical', title: 'Testing', text: 'The test suite of the workspace, the platforms it runs on and the scenarios on a clean system.', path: '/quality/testing/' },
       { icon: 'scale', title: 'Conformance', text: 'Comparison with git, the specification and the conformance cases of the language bindings.', path: '/quality/conformance/' },
@@ -64,8 +90,8 @@ export const homeEn: HomeContent = {
   },
   docs: {
     eyebrow: 'Documentation',
-    title: 'Published from the repository',
-    lead: 'The documentation is the one in the repository, imported when the site is built, so the site and the source never disagree.',
+    title: 'A page for every command',
+    lead: 'The guide, the cookbook of ready programs, the reference of every command and the specification of the language.',
     cards: [
       { icon: 'rocket', title: 'Guide', text: 'Installation, first steps, the language, the command line, the effect report, the journal and configuration.', path: '/docs/guide/' },
       { icon: 'book-open', title: 'Cookbook', text: 'Ready programs for common tasks, from editing many files to administration.', path: '/docs/cookbook/' },
@@ -74,7 +100,7 @@ export const homeEn: HomeContent = {
     ],
   },
   cta: {
-    title: 'Try it on a directory you can afford to change',
+    title: 'Install it, change a file, take the change back',
     text: 'Install the executable, run a program, read the report and undo the change.',
     primary: 'Install Danaco Nurt',
     secondary: 'Read the first steps',

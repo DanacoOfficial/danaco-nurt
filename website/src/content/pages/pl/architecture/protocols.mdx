@@ -19,35 +19,35 @@ keywords: [JSON-RPC, MCP, LSP, nurt-rpc, zdarzenia, definicja narzędzia, wersjo
 | Interfejs | Transport | Uruchamiany przez | Skrzynka |
 |---|---|---|---|
 | Protokół serve `nurt-rpc/1` | JSON-RPC 2.0 przez standardowe wejście i wyjście | `nurt serve --stdio` | `nurt-cli` (moduł `serve`) |
-| Model Context Protocol | MCP przez standardowe wejście i wyjście albo strumieniowe HTTP | `nurt mcp --stdio`, `nurt mcp --http <address>` | `nurt-mcp` |
+| Model Context Protocol | MCP przez standardowe wejście i wyjście albo strumieniowy HTTP | `nurt mcp --stdio`, `nurt mcp --http <adres>` | `nurt-mcp` |
 | Serwer języka | Language Server Protocol 3.17 przez JSON-RPC | `nurt lsp` | `nurt-langserver` |
 | ABI języka C | funkcje `libnurt` w procesie hosta | host ładuje bibliotekę | `nurt-ffi` |
 
-Podpolecenia `mcp`, `lsp`, `migrate`, `service` i `journal` są dołączane cechami Cargo skrzynki `nurt-cli`. Domyślna kompilacja dołącza wszystkie, a podpolecenie, którego składnika brakuje, kończy się kodem wyjścia 3. `nurt serve` jest obecne w każdej kompilacji. Przewodnik integratora opisuje `nurt serve --socket <path>` (gniazdo domeny Unix albo potok nazwany), ale opis wiersza poleceń podaje, że ta opcja kończy się kodem wyjścia 3, a skrzynka wiersza poleceń odpowiada na nią jako niedostępną, więc w 0.1.2 należy polegać na `--stdio`. Błędy języka, takie jak nieznane polecenie czy nieudana asercja, są częścią raportu w każdym interfejsie; błędy wywołania, takie jak zniekształcony JSON czy nieznana metoda, są błędami interfejsu.
+Podpolecenia `mcp`, `lsp`, `migrate`, `service` i `journal` są dołączane cechami Cargo skrzynki `nurt-cli`, a domyślna kompilacja dołącza wszystkie. `nurt serve` wchodzi w skład każdej kompilacji. Błędy języka, takie jak nieznane polecenie lub niespełniona asercja, są częścią raportu w każdym interfejsie; błędy wywołania, takie jak źle sformowany JSON lub nieznana metoda, są błędami interfejsu.
 
 ## Protokół serve
 
-`nurt serve` uruchamia silnik za serwerem JSON-RPC 2.0. Ramkowanie to `ndjson` (jeden dokument JSON w wierszu, domyślnie) albo `content-length` (wiersze nagłówka, a potem dokładnie podana liczba bajtów). Standardowe wyjście niesie wyłącznie komunikaty protokołu. Komunikat dłuższy niż 16 MiB (`limits.max_message_bytes`) jest pomijany i kończy się odpowiedzią `-32600`.
+`nurt serve` uruchamia silnik za serwerem JSON-RPC 2.0. Ramkowanie to `ndjson` (jeden dokument JSON w wierszu, domyślne) albo `content-length` (wiersze nagłówka, potem dokładnie podana liczba bajtów). Standardowe wyjście niesie wyłącznie komunikaty protokołu; diagnostyka trafia na standardowe wyjście błędów albo, gdy zdarzenia są włączone, do zdarzeń `log`. Komunikat dłuższy niż 16 MiB (`limits.max_message_bytes`) jest pomijany i otrzymuje odpowiedź `-32600`; tak samo odpowiadana jest paczka (batch): klient wysyła jedno żądanie na komunikat.
 
-Pierwszym żądaniem jest `initialize`; przed nim każda metoda poza `initialize` i `shutdown` dostaje odpowiedź `-32600`. Serwer przyjmuje kilka żądań naraz (`limits.max_inflight`, domyślnie 16), każde we własnym wątku, a `initialize`, `cancel` i `shutdown` obsługuje w wątku czytającym, aby anulowanie nigdy nie czekało w kolejce za żądaniem, które anuluje.
+Pierwszym żądaniem jest `initialize`; przed nim każda metoda poza `initialize` i `shutdown` otrzymuje odpowiedź `-32600`. `initialize` sprawdza główną wersję `protocol`, `abi` i `ast` oraz zwraca wersję produktu, wersje formatów, cechy, grupy poleceń i limity. Serwer przyjmuje kilka żądań naraz (`limits.max_inflight`, domyślnie 16), każde we własnym wątku, a `initialize`, `cancel` i `shutdown` obsługuje w wątku czytającym, więc anulowanie nigdy nie czeka w kolejce za żądaniem, które anuluje. `shutdown` albo koniec wejścia sprawia, że serwer czeka na żądania w toku, odpowiada na nie i kończy się kodem 0; uszkodzone wejście lub wyjście kończy go kodem 1.
 
-Metody to `run`, `check` (parsuje, koryguje, wiąże i planuje bez skutku; zwraca `nurt-check/1`), `parse`, `print`, `correct`, `page`, `describe`, `help`, `schema`, `catalog`, `history`, `space`, `info`, `cancel` i `shutdown`. Od wydania 0.1.1 koperta żądania ma składową `params`, która przekazuje parametry programu deklarującego `params`.
+Metody to `run`, `check` (parsowanie, korekta, wiązanie i planowanie bez skutku; zwraca `nurt-check/1`), `parse`, `print`, `correct`, `page`, `describe`, `help`, `schema`, `catalog`, `history`, `space`, `info`, `cancel` i `shutdown`. Koperta żądania ma składową `params`, która przekazuje parametry programu deklarującego `params`. Anulowany `run` otrzymuje odpowiedź `-32002` z odpowiedzią programu z błędem `E_CANCELLED` w `data.response`.
 
-Błędy protokołu używają kodów JSON-RPC (od `-32700` do `-32603`), a błąd aplikacji to `-32000` minus status interfejsu C, z nazwą w `data.status`; na przykład `-32002` to `NURT_E_CANCELLED`, a `-32004` to `NURT_E_ABI`. Pełne odniesienie to [protokół serve](/docs/reference/serve-protocol/).
+Błędy protokołu używają kodów JSON-RPC (od `-32700` do `-32603`), a błąd aplikacji to `-32000` minus status interfejsu C, z `data.status` podającym jego nazwę; na przykład `-32002` to `NURT_E_CANCELLED`, a `-32004` to `NURT_E_ABI`. Pełne odniesienie to [protokół serve](/docs/reference/serve-protocol/).
 
 ```json
 {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocol": "nurt-rpc/1", "client": {"name": "example-host", "version": "1.0.0"}, "capabilities": {"events": true}}}
 ```
 
-Pierwsze żądanie sesji, jak w opisie [wersji i zgodności](/docs/integrators/versioning/).
+Pierwsze żądanie sesji, jak w [wersjach i zgodności](/docs/integrators/versioning/).
 
 ## Zdarzenia i zdalne użycie
 
-Gdy w `initialize` ustawiono `capabilities.events`, każde wykonanie `run` wysyła powiadomienia `nurt/event`. Parametrami jest dokument `nurt-event/1`, który `libnurt` dostarcza także do `nurt_event_cb`. Każde zdarzenie ma typ `t`, numer `seq` liczony od 1 w obrębie wykonania, czas oraz, gdy żądanie ma identyfikator, `request`. Zdarzenia jednego wykonania przychodzą w kolejności `seq`, zaczynają się od `exec.started`, kończą na `exec.finished` i poprzedzają odpowiedź na żądanie.
+Gdy w `initialize` ustawiono `capabilities.events`, każde wykonanie `run` wysyła powiadomienia `nurt/event`. Parametrami jest dokument `nurt-event/1`, który `libnurt` dostarcza także do `nurt_event_cb`. Każde zdarzenie ma typ `t`, numer `seq` od 1 w obrębie wykonania, czas oraz, gdy żądanie ma identyfikator, `request`. Zdarzenia jednego wykonania przychodzą w kolejności `seq`, zaczynają się od `exec.started`, kończą na `exec.finished` i poprzedzają odpowiedź na żądanie.
 
-Typy to `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log` i `exec.finished`.
+Typy to `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log` i `exec.finished`. Zdarzenie `progress` niesie polecenie, fazę i liczby wykonanych elementów oraz bajtów; zdarzenia `job.*` śledzą zadanie w tle od startu, przez jego wiersze wyjścia i wartości procentowe, do końca.
 
-Przy użyciu na innym urządzeniu host parsuje program lokalnie przez `parse`, stosuje swoją politykę przez `check` i wysyła drzewo składni jako składową `ast` żądania do działającego tam `nurt serve`. Zdalna instancja nie koryguje drzewa ponownie, więc uruchamiany jest program, który sprawdziła polityka. Drzewo w nowszej wersji, niż instancja obsługuje, jest odrzucane z błędem `E_AST_VERSION`, a transport, uwierzytelnianie i wybór urządzenia należą do hosta. Zobacz [instancje zdalne i zdarzenia](/docs/integrators/remote-and-events/) oraz [politykę](/docs/integrators/policy/).
+Przy użyciu na innym urządzeniu host parsuje program lokalnie przez `parse`, stosuje swoją politykę przez `check` i wysyła drzewo składni jako składową `ast` żądania do `nurt serve` działającego tam. Zdalna instancja nie koryguje drzewa ponownie, więc uruchamiany program jest tym, który sprawdziła polityka. Drzewo o nowszej wersji, niż instancja obsługuje, jest odrzucane z błędem `E_AST_VERSION`, a transport, uwierzytelnianie i wybór urządzenia należą do hosta. Zobacz [instancje zdalne i zdarzenia](/docs/integrators/remote-and-events/) oraz [politykę](/docs/integrators/policy/).
 
 ## Serwer Model Context Protocol
 
@@ -60,17 +60,17 @@ Skrzynka `nurt-mcp` udostępnia trzy narzędzia i zestaw zasobów tylko do odczy
 | `nurt_check` | narzędzie | sprawdza program bez uruchamiania; zwraca `nurt-check/1` |
 | `nurt://help/{topic}`, `nurt://schema/{name}`, `nurt://describe/core`, `nurt://describe/group/{name}` | zasoby | pomoc, opublikowane schematy JSON, warstwy opisu dla modeli |
 
-Wywołanie `nurt` zwraca wyrenderowany tekst raportu jako pierwszy blok zawartości, a raport `nurt-report/1` jako zawartość strukturalną; `isError` jest prawdą tylko wtedy, gdy raport niesie błąd albo wywołanie się nie powiodło. Postęp jest wysyłany jako `notifications/progress`, gdy klient poda token postępu, a `notifications/cancelled` zatrzymuje program. Serwer jest zbudowany na skrzynce `rmcp` i negocjuje rewizje protokołu 2024-11-05, 2025-03-26, 2025-06-18 i 2025-11-25; klient, który zażąda innej rewizji, otrzymuje 2025-11-25. Transport HTTP obsługuje jeden punkt końcowy, `/mcp`, z identyfikatorem sesji w nagłówku `Mcp-Session-Id`, limitem bezczynności jednej godziny na sesję oraz sprawdzaniem nagłówków `Host` i `Origin` przed atakiem DNS rebinding.
+Wywołanie `nurt` zwraca wyrenderowany tekst raportu jako pierwszy blok zawartości, a raport `nurt-report/1` jako zawartość strukturalną; `isError` jest prawdą, gdy raport niesie błąd albo wywołanie się nie powiodło. Postęp jest wysyłany jako `notifications/progress`, gdy klient poda token postępu, a `notifications/cancelled` zatrzymuje program. Serwer jest zbudowany na skrzynce `rmcp` i negocjuje rewizje protokołu 2024-11-05, 2025-03-26, 2025-06-18 i 2025-11-25; klient, który zażąda innej rewizji, otrzymuje 2025-11-25. Transport HTTP obsługuje jeden punkt końcowy, `/mcp`, z identyfikatorem sesji w nagłówku `Mcp-Session-Id`, limitem bezczynności jednej godziny na sesję oraz sprawdzaniem nagłówków `Host` i `Origin` przed atakiem DNS rebinding.
 
 ## Serwer języka
 
-`nurt lsp` implementuje Language Server Protocol 3.17 dla plików `.nurt`. Publikuje diagnostykę (korekty zapisu oraz błędy odczytu i wiązania, z kodem, położeniem i poprawkami), stosuje szybkie poprawki, formatuje dokument do jego tekstu kanonicznego, uzupełnia nazwy, parametry i odwołania `@`, pokazuje sygnatury i opisy po najechaniu oraz klasyfikuje tokeny na potrzeby podświetlania. Położenia są wymieniane w UTF-32, gdy klient je oferuje, a w przeciwnym razie w UTF-16.
+`nurt lsp` implementuje Language Server Protocol 3.17 dla plików `.nurt`. Publikuje diagnostykę (korekty zapisu oraz błędy odczytu i wiązania, z kodem, pozycją i poprawkami), stosuje szybkie poprawki, formatuje dokument do jego postaci kanonicznej, uzupełnia nazwy, parametry i odwołania `@`, pokazuje sygnatury i opisy po najechaniu oraz klasyfikuje tokeny na potrzeby podświetlania. Pozycje są wymieniane w UTF-32, gdy klient to oferuje, a w UTF-16 w pozostałych przypadkach.
 
-Skrzynka `nurt-lspclient` działa w przeciwnym kierunku. To klient, który na żądanie uruchamia serwery innych języków programowania, po jednym na serwer i katalog główny projektu, na potrzeby poleceń kodu źródłowego. To nie jest protokół Danaco Nurt.
+Skrzynka `nurt-lspclient` działa w przeciwnym kierunku. To klient, który na żądanie uruchamia serwery języka innych języków, po jednym na serwer i korzeń projektu, dla poleceń kodu źródłowego.
 
 ## Schemat definicji narzędzia
 
-Agent AI wywołuje produkt przez jedno narzędzie o nazwie `nurt`. `nurt schema tool` drukuje opublikowany schemat `nurt-tool/1`, a z opcjami także definicję narzędzia dla platformy; skrzynka `nurt-tooldef` tworzy to samo wyjście przez `render`. Dla tych samych danych wejściowych wyjście jest deterministyczne.
+Agent AI wywołuje produkt przez jedno narzędzie o nazwie `nurt`. `nurt schema tool` drukuje opublikowany schemat `nurt-tool/1` oraz, z opcjami, definicję narzędzia dla platformy; skrzynka `nurt-tooldef` tworzy te same dane przez `render`. Wynik jest deterministyczny dla tych samych danych wejściowych.
 
 | Format | Platforma |
 |---|---|
@@ -86,20 +86,20 @@ nurt schema tool --format anthropic
 nurt schema tool --format mcp --language pl --groups all
 ```
 
-Opis zawiera grupę rdzenia, a po niej wybrane grupy opcjonalne, aby host mógł ładować grupy poleceń na żądanie. `catalog_version` zapisuje wersję katalogu poleceń, z którego pochodzi opis. Zobacz [definicję narzędzia](/docs/integrators/tool-definition/) i [wywołania narzędzia](/docs/integrators/tool-calls/).
+Opis zawiera grupę podstawową, a potem wybrane grupy opcjonalne, dzięki czemu host ładuje grupy poleceń na żądanie. `catalog_version` zapisuje wersję katalogu poleceń, z którego pochodzi opis. Zobacz [definicję narzędzia](/docs/integrators/tool-definition/) i [wywołania narzędzia](/docs/integrators/tool-calls/).
 
 ## Wersjonowanie każdego interfejsu
 
 | Interfejs | Wersja | Reguła |
 |---|---|---|
-| Żądanie, odpowiedź, raport | `nurt: "1.0"` w każdym dokumencie | wersja podrzędna dodaje opcjonalne pola i nowe wartości wyliczeń; czytnik ignoruje nieznane pola opcjonalne |
-| Drzewa składni | `nurt: "1.1"` (oraz `bound: "1.1"` w drzewie powiązanym) | w obrębie głównej wersji dodawane są tylko opcjonalne składowe i nowe rodzaje węzłów; nowsza wersja podrzędna jest odrzucana z błędem `E_AST_VERSION`, a czytniki przyjmują poprzednią wersję główną co najmniej przez 24 miesiące |
+| Żądanie, odpowiedź, raport | `nurt: "1.0"` w każdym dokumencie | wersja podrzędna dodaje pola opcjonalne i nowe wartości wyliczeń; czytnik pomija nieznane pola opcjonalne |
+| Drzewa składni | `nurt: "1.1"` (oraz `bound: "1.1"` w drzewie powiązanym) | w obrębie głównej wersji dodawane są tylko składowe opcjonalne i nowe rodzaje węzłów; nowsza wersja podrzędna jest odrzucana z błędem `E_AST_VERSION`, a czytniki przyjmują poprzednią wersję główną przez co najmniej 24 miesiące |
 | Protokół serve | `nurt-rpc/1` | `initialize` sprawdza główną wersję protokołu, `abi` i `ast` oraz zwraca wersje formatów, cechy i limity |
 | ABI języka C | 1.0 | główna wersja musi się zgadzać; w jej obrębie interfejs tylko rośnie |
 | Definicja narzędzia | podąża za `nurt-request/1` | nowa opcja staje się nowym argumentem opcjonalnym; nazwy narzędzi i istniejące argumenty nie zmieniają się w obrębie głównej wersji |
-| Katalog poleceń | `catalog_version` | polecenia i parametry są dodawane w obrębie głównej wersji; opisy mogą się zmieniać między wersjami podrzędnymi |
+| Katalog poleceń | `catalog_version` | polecenia i parametry są dodawane w obrębie głównej wersji; opisy są redagowane między wersjami podrzędnymi |
 
-README stwierdza, że te interfejsy mogą się zmieniać między wersjami 0.x produktu. Host przypina główną wersję używanych formatów i testuje zestawem zgodności `nurt-conformance`, który rozmawia z implementacją wyłącznie przez `nurt serve --stdio`. Plik wersji zestawu zawiera w tym wydaniu 0.1.0. Schematy wszystkich dokumentów są w `spec/schemas/`.
+Zestaw zgodności `nurt-conformance` rozmawia z implementacją wyłącznie przez `nurt serve --stdio`, więc host przypina główną wersję używanych formatów i sprawdza implementację tymi samymi przypadkami. Schematy wszystkich dokumentów są w `spec/schemas/`.
 
 ## Dalej
 

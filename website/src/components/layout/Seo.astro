@@ -61,6 +61,7 @@ if (home) {
     softwareVersion: product.version,
     license: 'https://www.apache.org/licenses/LICENSE-2.0',
     description: seo.descriptions[locale],
+    author: { '@type': 'Person', name: site.creator },
     publisher: { '@id': `${site.companyUrl}/#organization` },
   });
 }
@@ -80,6 +81,7 @@ const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': grap
 
 <title>{fullTitle}</title>
 <meta name="description" content={text} />
+<meta name="author" content={site.creator} />
 <link rel="canonical" href={canonical} />
 {noindex ? <meta name="robots" content="noindex, follow" /> : <meta name="robots" content="index, follow" />}
 {alternates.map((alternate) => <link rel="alternate" hreflang={alternate.htmlLang} href={alternate.url} />)}

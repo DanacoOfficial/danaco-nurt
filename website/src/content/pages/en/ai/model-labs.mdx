@@ -1,0 +1,62 @@
+---
+title: For model labs
+description: What a lab that trains or evaluates models receives from Danaco Nurt, namely the tool definition in eight formats and two languages, stable error codes, training packages and a held-out task set.
+section: ai
+order: 2
+eyebrow: AI
+lead: The definition of the tool, the language description inside it, the error codes with their corrections, the training data and the held-out evaluation set come from one repository and one executable.
+updated: 2026-11-28
+related: [ai/overview, ai/training-packages, ai/benchmark, product/language]
+keywords: [model labs, training, evaluation, tool definition, error codes, held-out, CC BY 4.0, versioning]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The tool definition
+
+A lab that trains a model to call a tool, or evaluates how a model calls it, receives the definition of the tool `nurt` from the installed program. The command `nurt schema tool` renders it in eight formats and two languages:
+
+```sh
+nurt schema tool --format anthropic --language en
+nurt schema tool --format openai-responses-strict --language pl --groups core,git
+nurt schema tool --format gemini --groups all
+```
+
+The formats are `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` and `json-schema`. The option `--language` takes `en` or `pl`, and `--groups` takes `core`, `all` or a list of command groups. The output is deterministic for the same inputs, so a definition that enters a training set is reproduced exactly by the same version of the program. The tool name is `nurt` in every format, and the arguments are the same in every format: exactly one of `program`, `ast`, `cursor` and `accept`, plus the call options. The [tool definition reference](/docs/integrators/tool-definition/) lists the rules that adapt the schema to each platform.
+
+## The language inside the definition
+
+The description of the tool holds the description of the language: the notation of a program, the pipeline of typed records, the commands of the core group and the rules of the corrections. A model that receives the definition receives what it needs to write a program. The core group is always present, and the description of another command group is added with `--groups` or with the text of `describe` for the group. The description exists in English and in Polish, so a lab trains and evaluates a model on either language of the instruction.
+
+## Error codes as a learnable signal
+
+Every error of the language has a stable code with the prefix `E_`, a message, the stage, the position in the program (`line`, `column`, `length`) and ready replacements of the program text in `fix`, in ranked order. `E_UNKNOWN_COMMAND` lists up to eight nearest names, `E_UNKNOWN_VALUE` lists the accepted values, and `E_AMBIGUOUS` lists ranked candidates that the next call accepts by identifier. Codes are only added within a major version, and the meaning of a code never changes. The [error specification](/docs/specification/errors/) is the list.
+
+An error of the stages `parse` and `bind` has no effect on the world. It describes a mistake in the program and the way to correct it, so the pair "faulty program, error object, corrected program" is a training example, and the next call of a model that reads `fix` is an evaluation of its use of feedback. The file `rejected.jsonl` of the package `pairs` keeps the programs that the engine rejected, each with its code and message.
+
+## Training packages
+
+The [training packages](/ai/training-packages/) hold 1,457 accepted pairs "input → Danaco Nurt program", the same pairs as chat conversations and as tool-call conversations, the tool definitions and a corpus of 251 documents of the documentation and the specification. The engine of release 0.1.2 validated every program of the pairs against the command catalog. The packages are split by a stable rule into a training part and a validation part.
+
+## The held-out task set
+
+The benchmark holds 720 tasks, and 72 of them are held out. The file `holdout.json` lists them by identifier and content hash. The pairs of the training packages are built from the 648 public tasks, so a model that trains on the pairs is evaluated on the held-out set with `nurt-bench`. The protocol runs the held-out tasks with the public tasks and reports them separately; a significant difference between the two parts indicates that the task set reached the training data. The [benchmark page](/ai/benchmark/) describes the conditions, the measures and the commands.
+
+## Licenses
+
+The data of the training packages, the tasks and the protocol files are licensed under CC BY 4.0, and the license of the data set expressly permits use for training and for evaluating machine learning models. The attribution line is "nurt-bench pairs, Danaco Holding Group Sp. z o.o., CC BY 4.0". The code, the documentation, the tool definitions and the documentation corpus are licensed under Apache-2.0. The datasheet of the pairs states the sources, the validation and the provenance of every record.
+
+## Versions that a trained model targets
+
+Each interface carries its own version, so a lab states the version that a model targets:
+
+| Element | Version form | Rule |
+|---|---|---|
+| Language | `language MAJOR.MINOR` | within a major version the language only grows; a deprecation is marked in `help` and the removal comes no earlier than 24 months later |
+| Syntax tree | `nurt-ast/MAJOR` | a new minor version only adds; the previous major version is accepted for 24 months |
+| Command catalog | `catalog_version` | new commands and optional parameters are added within a major version |
+| Report and request | `nurt: "MAJOR.MINOR"` | a minor version adds optional fields; a reader ignores unknown optional fields |
+
+The manifest of the training packages records the release (0.1.2) and the catalog revision of the engine that checked the programs (`ad74233c7b6b`), and the definition of the tool carries the catalog version as `catalog_version` (format `json-schema`) or `_meta["pl.danaco-group/nurt-catalog"]` (format `mcp`). The pages [versioning](/docs/guide/versioning/) and [versions and compatibility](/docs/integrators/versioning/) hold the rules, and the changelog records every change between 0.x versions.

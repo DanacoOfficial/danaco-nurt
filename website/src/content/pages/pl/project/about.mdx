@@ -6,7 +6,7 @@ order: 7
 eyebrow: Projekt
 lead: Danaco Nurt tworzy Danaco Holding Group Sp. z o.o. i publikuje jako oprogramowanie otwarte.
 updated: 2026-11-28
-related: [project/license, project/brand, project/support, product/overview]
+related: [project/license, design/identity, project/support, product/overview]
 keywords: [o projekcie, Danaco Holding Group, nazwa, oprogramowanie otwarte, repozytorium]
 ---
 
@@ -16,13 +16,21 @@ keywords: [o projekcie, Danaco Holding Group, nazwa, oprogramowanie otwarte, rep
 
 ## Kto go tworzy
 
-Danaco Nurt jest produktem Danaco Holding Group Sp. z o.o. Spółka posiada prawa autorskie (Copyright 2026 Danaco Holding Group Sp. z o.o., jak stwierdzają `NOTICE` i `README.md` repozytorium), publikuje archiwa wydań, instalatory i pakiety oraz jest właścicielem nazw „Danaco”, „Danaco Nurt” i „Danaco Holding Group”. Polityka bezpieczeństwa wskazuje ją jako wydawcę artefaktów wydań, a certyfikat podpisujący `nurt.exe` wystawiła sama spółka.
+Danaco Nurt jest produktem Danaco Holding Group Sp. z o.o. Spółka posiada prawa autorskie (Copyright 2026 Danaco Holding Group Sp. z o.o.), publikuje archiwa wydań, instalatory i pakiety oraz jest właścicielem nazw „Danaco”, „Danaco Nurt” i „Danaco Holding Group”. Spółka jest wydawcą artefaktów wydań i wystawia certyfikat podpisujący `nurt.exe`.
 
-Pliki repozytorium mają nagłówek producenta z nazwami Danaco Official i Danaco Holding Group Sp. z o.o., adresem `www.danaco-group.pl`, organizacją GitHub `DanacoOfficial` i adresem kontaktowym `support@danaco-group.pl`. Źródła użyte do tej witryny nie wymieniają innych produktów spółki, a ta strona żadnego nie opisuje. Nie podaje też historii spółki, ponieważ żadne źródło w repozytorium jej nie zawiera.
+Pliki repozytorium mają nagłówek producenta z nazwami Danaco Official i Danaco Holding Group Sp. z o.o., adresem `www.danaco-group.pl`, organizacją GitHub `DanacoOfficial` i adresem kontaktowym `support@danaco-group.pl`.
+
+## Twórca
+
+Danaco Nurt zaprojektował i opracował Dariusz Naharnowicz.
+
+> Powłoki powstały dla ludzi, którzy patrzą na ekran i pamiętają, co wpisali. Dziś polecenia piszą ludzie i maszyny, szybciej, niż ktokolwiek zdąży spojrzeć. Chciałem języka, który sprawdza program przed uruchomieniem, mówi, co uruchomienie zrobiło, i cofa zmianę. Żadna powłoka nie mogła dorosnąć do takiego języka, więc zaprojektowałem nową składnię i napisałem nowy program.
+>
+> Dariusz Naharnowicz, twórca Danaco Nurt
 
 ## Czym jest
 
-Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cofnąć, stworzone dla ludzi i agentów AI. Program nazywa się `nurt` (wymowa: *NURT*, polskie słowo „nurt”). Opis produktu w repozytorium przedstawia założenia projektu:
+Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cofnąć, stworzone dla ludzi i agentów AI. Program nazywa się `nurt` (wymowa: *NURT*, polskie słowo „nurt”). Założenia projektu to pięć punktów:
 
 - jeden plik wykonywalny na system operacyjny, dla Linuksa, macOS i Windows;
 - operacje na plikach, tekście, archiwach, dokumentach, kodzie, kontroli wersji, sieci i systemie wbudowane w program;
@@ -30,27 +38,29 @@ Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cof
 - ustrukturyzowany raport skutków każdego uruchomienia;
 - dziennik zmian w plikach, który można przeglądać i cofać.
 
-Silnik jest biblioteką w języku Rust z interfejsem C. Repozytorium zawiera też bindingi dla kilku języków (Python, Go, Node, Java i .NET mają przepływy ciągłej integracji), integracje dla edytorów i kontenerów, zestaw zgodności i testy wydajności. Opisują je strony [przegląd](/pl/product/overview/) i [architektura](/pl/architecture/overview/).
+Silnik jest biblioteką w języku Rust z interfejsem C. Repozytorium zawiera też wiązania dla Pythona, Go, Node, Javy i .NET, integracje dla edytorów i kontenerów, zestaw zgodności i testy wydajności. Opisują je strony [przegląd](/pl/product/overview/) i [architektura](/pl/architecture/overview/).
 
 ## Pochodzenie nazwy
 
-*Nurt* to polskie słowo oznaczające strumień lub prąd. Dokumenty tożsamości wyjaśniają, jak pokazuje to znak: dwa szewrony, srebrny, który się cofa, i złoty, który idzie naprzód, rozdziela kanał między ich równoległymi ramionami, a ten kanał to nurt, nazwa produktu. Znak jest też figurą głównej idei produktu: drugi szewron to pierwszy obrócony o 180 stopni, tak jak cofnięcie obraca zmianę. Szczegóły są na stronie [marka](/pl/project/brand/).
+*Nurt* to polskie słowo oznaczające strumień lub prąd. Pokazuje to znak: dwa szewrony, srebrny, który się cofa, i złoty, który idzie naprzód, rozdziela kanał między ich równoległymi ramionami, a ten kanał to nurt, nazwa produktu. Znak jest też figurą głównej idei produktu: drugi szewron to pierwszy obrócony o 180 stopni, tak jak cofnięcie obraca zmianę.
+
+Sekcja [projekt wizualny](/pl/design/) przedstawia tożsamość wizualną: znak, kolory i wytyczne ich użycia. Strona [Tożsamość](/pl/design/identity/) zawiera wytyczne.
 
 ## Warunki otwartości
 
-Kod jest licencjonowany na warunkach Apache License, Version 2.0, a każda dystrybucja zawiera plik `NOTICE`. Licencja nie udziela zgody na używanie nazw poza zwyczajowym wskazaniem pochodzenia produktu. Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0. Polityka zależności przyjmuje wyłącznie licencje liberalne, z krótką listą zweryfikowanych wyjątków. Pełne stwierdzenie jest na stronie [Licencja](/pl/project/license/).
+Kod jest licencjonowany na warunkach Apache License, Version 2.0, a każda dystrybucja zawiera plik `NOTICE`. Licencja dopuszcza zwyczajowe wskazanie pochodzenia produktu z użyciem nazw. Specyfikacja i zbiory danych są licencjonowane na warunkach CC BY 4.0. Polityka zależności przyjmuje licencje liberalne, z krótką listą zweryfikowanych licencji pojedynczych skrzynek. Pełne stwierdzenie jest na stronie [Licencja](/pl/project/license/).
 
-Wkłady są mile widziane na podstawie Developer Certificate of Origin 1.1 i Kodeksu postępowania repozytorium. Każda rewizja gałęzi `main` jest podpisana dedykowanym kluczem OpenPGP, a wydania są podpisane osobnym kluczem wydań, jak opisuje [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md). Jak wziąć udział, mówi strona [współtworzenie](/pl/project/contributing/).
+Wkłady powstają na podstawie Developer Certificate of Origin 1.1 i Kodeksu postępowania repozytorium. Każda rewizja gałęzi `main` jest podpisana dedykowanym kluczem OpenPGP, a wydania są podpisane osobnym kluczem wydań, jak opisuje [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md). Jak wziąć udział, mówi strona [współtworzenie](/pl/project/contributing/).
 
 ## Gdzie jest repozytorium
 
 <Facts
   items={[
-    { term: 'Repozytorium', value: 'github.com/DanacoOfficial/nurt', href: 'https://github.com/DanacoOfficial/nurt' },
-    { term: 'Wydania', value: 'github.com/DanacoOfficial/nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
-    { term: 'Zgłoszenia', value: 'github.com/DanacoOfficial/nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
+    { term: 'Repozytorium', value: 'github.com/DanacoOfficial/danaco-nurt', href: 'https://github.com/DanacoOfficial/danaco-nurt' },
+    { term: 'Wydania', value: 'github.com/DanacoOfficial/danaco-nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
+    { term: 'Zgłoszenia', value: 'github.com/DanacoOfficial/danaco-nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
     { term: 'Kontakt', value: 'support@danaco-group.pl', href: 'mailto:support@danaco-group.pl' },
   ]}
 />
 
-Repozytorium zawiera skrzynki Rust, specyfikację (`spec/`), katalog poleceń (`catalog/`), dokumentację (`docs/`), pakowanie, testy i tę witrynę. Bieżąca wersja to 0.1.2, z datą 2026-11-28; co to oznacza, mówi strona [Stan i ograniczenia](/pl/project/status/).
+Repozytorium zawiera skrzynki Rust, specyfikację (`spec/`), katalog poleceń (`catalog/`), dokumentację (`docs/`), pakowanie, testy i tę witrynę. Bieżąca wersja to 0.1.2, z datą 2026-11-28; strona [stan bieżący](/pl/project/status/) podaje systemy, interfejsy i dokumentację każdej części.

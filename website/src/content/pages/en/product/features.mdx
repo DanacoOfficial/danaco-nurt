@@ -16,7 +16,7 @@ keywords: [features, commands, files, git, processes, administration, scheduling
 
 ## The catalog in numbers
 
-Every capability of Danaco Nurt is a command of one catalog. The core commands are always available; the other commands belong to optional groups that are described on request. How the catalog is built and checked is explained on the [command catalog](/product/commands/) page.
+Every capability of Danaco Nurt is a command of one catalog. The core commands are always available; the other commands belong to optional groups that are described on request. The [command catalog](/product/commands/) page shows how the catalog is built and checked.
 
 <Stats>
   <Fact id="commands" />
@@ -24,23 +24,23 @@ Every capability of Danaco Nurt is a command of one catalog. The core commands a
   <Fact id="optionalGroups" />
 </Stats>
 
-The sections below follow the thing a command works on. Counts per group are taken from `catalog/_index.toml` in the repository. Programs for each area are in the [cookbook](/docs/cookbook/), which has twelve categories of recipes.
+The sections below follow the thing a command works on. Programs for each area are in the [cookbook](/docs/cookbook/), which has twelve categories of recipes.
 
 ## What the commands work on
 
 ### Files and directories
 
-`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create` and `attributes` read and change files, directories, links and attributes. Paths may carry the provider prefixes `registry:`, `env:` and `archive:`; the file commands accept `registry:` paths on Windows. Every change goes through the journal, so it can be undone. Since 0.1.1, `create` also makes named pipes (`type: fifo`) and device nodes (`type: device`, with `privilege: elevated`) on Linux and macOS; on Windows both fail with `E_OS_ONLY`.
+`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create` and `attributes` read and change files, directories, links and attributes. Paths can carry the provider prefixes `registry:`, `env:` and `archive:`; the file commands accept `registry:` paths on Windows. Every change goes through the journal, so it can be undone. Since 0.1.1, `create` also makes named pipes (`type: fifo`) and device nodes (`type: device`, with `privilege: elevated`) on Linux and macOS, and `undo` removes them.
 
 ### Text
 
-`search` looks for literal text, regular expressions or syntax patterns. `replace`, `insert` and `edit` change text; `edit` applies a list of changes to one file, all or none. `diff`, `patch`, `hash` and `convert` (encodings and line endings) complete the group. The guide on [text editing](/docs/guides/text-editing/) shows the forms. Release 0.1.2 removes a quadratic cost of search and replace with a regular expression on one line: according to the changelog, 20 000 matches on a line of 60 000 bytes are replaced in about 0.1 s instead of 2.5 s.
+`search` looks for literal text, regular expressions or syntax patterns. `replace`, `insert` and `edit` change text; `edit` applies a list of changes to one file, all or none. `diff`, `patch`, `hash` and `convert` (encodings and line endings) complete the group. The guide on [text editing](/docs/guides/text-editing/) shows the forms. Release 0.1.2 replaces 20,000 matches of a regular expression on a line of 60,000 bytes in about 0.1 s instead of 2.5 s.
 
 ```nurt
 search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
 ```
 
-The program stops with `E_ASSERT` before any change unless the search found exactly 12 files (source: `docs/guides/text-editing.md`).
+The program stops with `E_ASSERT` before any change unless the search found exactly 12 files, so the number of targets is part of the program.
 
 ### Records
 
@@ -60,7 +60,7 @@ set "deploy.yaml" key: "#1:spec.replicas" value: 3
 
 ### Source code
 
-Thirteen `code.*` commands list symbols and outlines, find definitions and references, report diagnostics and rename symbols by syntax. The implementation of such a command can be a language server; the catalog allows a fallback to built-in syntax analysis, and a server failure is reported as `semantic_fallback`. Eight commands of the `verify` group wrap test frameworks and analyzers (`test.run`, `analyze.check` and others). See [refactoring](/docs/guides/refactoring/).
+Thirteen `code.*` commands list symbols and outlines, find definitions and references, report diagnostics and rename symbols by syntax. The implementation of such a command is a language server or the built-in syntax analysis; a fallback from the server to the analysis is reported as `semantic_fallback`. Eight commands of the `verify` group wrap test frameworks and analyzers (`test.run`, `analyze.check` and others). See [refactoring](/docs/guides/refactoring/).
 
 ```nurt
 code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
@@ -68,7 +68,7 @@ code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "new
 
 ### Version control
 
-The [git group](/docs/groups/git/) has 22 commands that read and change repositories inside the program: `git.status`, `git.diff`, `git.commit`, `git.rebase`, `git.push` and others. No `git` program, credential helper or SSH client is started. Repository hooks and filter drivers are the only programs that run, under the rules of `run`. A change of the working tree is one journal operation. A push or fetch that updates remote references is marked irreversible. Since 0.1.1, OpenPGP signatures of commits and tags are made by GnuPG, which must be installed; SSH signatures are made in the process.
+The [git group](/docs/groups/git/) has 22 commands that read and change repositories inside the program: `git.status`, `git.diff`, `git.commit`, `git.rebase`, `git.push` and others. The program implements repository access, credentials and SSH itself; repository hooks and filter drivers run under the rules of `run`. A change of the working tree is one journal operation. A push or fetch that updates remote references is marked irreversible. Since 0.1.1, OpenPGP signatures of commits and tags are made by GnuPG, and SSH signatures are made in the process.
 
 ### Archives
 
@@ -76,7 +76,7 @@ The [git group](/docs/groups/git/) has 22 commands that read and change reposito
 
 ### Network
 
-The [network group](/docs/groups/network/) has `http.request`, `http.download`, `network.ping`, `network.resolve` and `network.interfaces`. A download writes a file and can be undone; a request with `post`, `put`, `patch` or `delete` is irreversible and listed so in the report.
+The [network group](/docs/groups/network/) has `http.request`, `http.download`, `network.ping`, `network.resolve` and `network.interfaces`. A download writes a file and can be undone; a request with `post`, `put`, `patch` or `delete` is listed as irreversible in the report.
 
 ### Processes
 
@@ -84,7 +84,7 @@ The [network group](/docs/groups/network/) has `http.request`, `http.download`, 
 
 ### System administration
 
-The [administration group](/docs/groups/administration/) has 34 commands. Services (`services`, `start`, `restart`, `enable`, `disable`) and Windows CIM objects (`windows.cim`, with method calls through `invoke`) are joined, since 0.1.1, by accounts, groups, mounts, kernel parameters and modules, power, disks, the firewall, routes, DNS and the clock. Each command that changes the system reads the state it changes, reports `unchanged` when nothing is to do, records the state before and after, and accepts `privilege` (`account`, `elevated` or `auto`) with the backends `sudo`, `doas` and `run0`. The [package group](/docs/groups/package/) lists, searches, installs, removes and upgrades packages through `apt`, `dnf`, `pacman`, `zypper`, `brew`, `winget`, `choco` or `scoop`. `host`, `disks`, `environment`, `accounts` and `logs` report the state of the computer. Which of these changes `undo` can reverse is stated in [journal and undo](/product/journal-and-undo/); the rest appear under `irreversible` in the [effect report](/product/effect-reports/).
+The [administration group](/docs/groups/administration/) has 34 commands. Services (`services`, `start`, `restart`, `enable`, `disable`) and Windows CIM objects (`windows.cim`, with method calls through `invoke`) are joined, since 0.1.1, by accounts, groups, mounts, kernel parameters and modules, power, disks, the firewall, routes, DNS and the clock. The registry provider and `windows.cim` work on Windows. Each command that changes the system reads the state it changes, reports `unchanged` when nothing is to do, records the state before and after, and accepts `privilege` (`account`, `elevated` or `auto`) with the backends `sudo`, `doas` and `run0`. The [package group](/docs/groups/package/) lists, searches, installs, removes and upgrades packages through `apt`, `dnf`, `pacman`, `zypper`, `brew`, `winget`, `choco` or `scoop`. `host`, `disks`, `environment`, `accounts` and `logs` report the state of the computer. The page [journal and undo](/product/journal-and-undo/) lists the changes that `undo` reverses; the other effects appear under `irreversible` in the [effect report](/product/effect-reports/).
 
 ### Scheduling
 
@@ -101,9 +101,7 @@ The [schedule group](/docs/groups/schedule/) has seven commands. One syntax repl
 | Use by programs: `nurt serve`, `nurt mcp`, `nurt lsp` and the C interface | [Nurt for AI agents](/product/ai-agents/) |
 | Translating Bash and PowerShell scripts (`nurt migrate`) | [Migration](/product/migration/) |
 
-<Callout type="warning" title="Limits of version 0.1.2">
-  The changelog states that no macOS archive is published for 0.1.2. Several tests of change tracking and one protocol test fail intermittently on the macOS runners of the continuous integration; the cause is not yet established. The registry provider and `windows.cim` are Windows features. See [platforms](/product/platforms/) and the [status](/project/status/) page.
-</Callout>
+Release 0.1.2 runs on Linux, Windows and macOS. On macOS the journal is active for the paths of the data volume, `max_memory` measures the resident memory, and a program whose process group has ended is suspended, resumed and stopped without an error. The [platforms](/product/platforms/) page lists the differences between the systems.
 
 ## Where to go next
 
@@ -115,6 +113,6 @@ The [schedule group](/docs/groups/schedule/) has seven commands. One syntax repl
     Programs for common tasks in twelve categories.
   </Card>
   <Card title="Journal and undo" icon="undo-2" href="/product/journal-and-undo/">
-    What can be undone, and what cannot.
+    What is recorded, how it is undone and which effects are irreversible.
   </Card>
 </CardGrid>

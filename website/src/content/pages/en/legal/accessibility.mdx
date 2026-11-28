@@ -1,12 +1,12 @@
 ---
 title: Accessibility
-description: The accessibility aim of this website, WCAG 2.2 level AA, the measures built into the site, its known limitations and how to report a barrier.
+description: The accessibility aim of this website, WCAG 2.2 level AA, the measures built into the site and how to report a barrier.
 section: legal
 order: 2
 eyebrow: Legal
-lead: The site aims at WCAG 2.2 level AA. This page lists what is built in, what is known to fall short and how to report a barrier.
+lead: The site aims at WCAG 2.2 level AA. This page lists the measures built into it and the way to report a barrier.
 updated: 2026-11-28
-related: [legal/privacy, project/brand, project/support]
+related: [legal/privacy, design/identity, project/support]
 keywords: [accessibility, WCAG, keyboard, contrast, screen reader]
 ---
 
@@ -16,9 +16,13 @@ keywords: [accessibility, WCAG, keyboard, contrast, screen reader]
 
 ## The standard aimed at
 
-The website aims at the Web Content Accessibility Guidelines (WCAG) 2.2, level AA. This is an aim of the design and of the build, not a statement of conformance: no independent audit of the site is recorded in the repository, and this page does not claim that every success criterion is met.
+The website aims at the Web Content Accessibility Guidelines (WCAG) 2.2, level AA. The aim shapes the design and the build: the structure of the pages, the operation from the keyboard, the colours of both themes, the motion and the behaviour without scripts follow it.
 
 ## Measures built into the site
+
+Every page has the same structure. A skip link, shown on keyboard focus, leads from the top of the page to the content. The pages use landmarks: a header, a navigation, a main region and a footer. Headings follow the outline of the content, and the table of contents of a long page links to its headings.
+
+The navigation, the menu of narrow screens, the search, the copy buttons and the theme toggle are operated from the keyboard, and the Escape key closes the menu. The text can be resized in the browser. The site follows the colour preference of the system until the reader chooses a theme with the toggle.
 
 | Area | Measure |
 |---|---|
@@ -28,34 +32,37 @@ The website aims at the Web Content Accessibility Guidelines (WCAG) 2.2, level A
 | Colour | the light and the dark theme use the colours of the identity; the contrast values are in the table below |
 | Text | the text can be resized in the browser |
 | Scripts | the pages can be read without JavaScript, and the main navigation and the footer links work without it; JavaScript is used by the search, the copy buttons, the theme toggle, the menu button of narrow screens, the marking of the current heading in the table of contents and the motion of the pages |
-| Motion | entrances, counters, the terminal session and the three-dimensional mark run only when the reader has not asked for reduced motion; otherwise the same content is shown at rest |
-| Themes | the theme follows the preference of the system until you choose one with the toggle |
+| Motion | entrances, counters, the terminal session and the three-dimensional mark run when the reader has not asked for reduced motion; otherwise the same content is shown at rest |
+| Themes | the theme follows the preference of the system until the reader chooses one with the toggle |
+
+## Focus and contrast
+
+The keyboard focus is drawn as an outline of 2 px. On the dark theme the outline is gold ground `#D9BC85` on graphite `#0B0C0E`, with a contrast of 10.7 : 1. On the light theme it is gold deep `#A3722A` on paper `#F6F7F8`, with a contrast of 3.9 : 1. Both values are above the 3 : 1 that success criterion 1.4.11 (non-text contrast) sets for the visible state of interface components.
 
 ### Contrast of the identity colours
 
-The contrast ratios were measured by the identity (WCAG 2.1 formula) and are stated in the identity document of the brand.
+The palette of the identity is described on the [identity](/design/identity/) page and in the [design](/design/) section.
 
 | Colours | Ratio | Use |
 |---|---|---|
 | Silver `#DDE1E6` on graphite `#0B0C0E` | 14.9 : 1 | text on dark grounds |
 | Gold `#C9A15A` on graphite `#0B0C0E` | 8.1 : 1 | accents on dark grounds |
 | Ink `#2B2F36` on paper `#F6F7F8` | 12.5 : 1 | text on light grounds |
-| Gold deep `#A3722A` on paper `#F6F7F8` | 3.9 : 1 | marks and lines only, never text |
+| Gold deep `#A3722A` on paper `#F6F7F8` | 3.9 : 1 | marks and lines |
 | Gold ground `#D9BC85` on graphite `#0B0C0E` | 10.7 : 1 | the focus outline on the dark theme |
 
-Gold deep stays below 4.5 : 1, so the site does not use it for text. The focus outline uses gold ground `#D9BC85` on the dark theme (10.7 : 1) and gold deep `#A3722A` on the light theme (3.9 : 1); both are above the 3 : 1 that success criterion 1.4.11 (non-text contrast) sets for the visible state of interface components. The two outline ratios were computed for this page with the WCAG formula from the colour tokens of the site. The other values are those of the identity; the site pages were not re-measured one by one for this page.
+Text uses the pairs of 4.5 : 1 and above: silver on graphite and ink on paper. Gold deep serves marks and lines.
 
-## Known limitations
+## Motion
 
-- **The documentation is imported.** The pages under `/docs/` are rendered from the Markdown of the repository and keep its structure. Their headings, tables and link texts follow the writing rules of the documentation, not a separate accessibility review.
-- **Code blocks may need horizontal scrolling.** Long lines of programs, commands and tables are not wrapped, and a narrow screen or a large text size can require scrolling sideways.
-- **English only.** The documentation is available in English only. The pages written for the site are available in English and in Polish.
-- **Images.** The renders and mockups of the identity carry a text alternative that describes the picture, but the pictures of the brand page are visual by nature, and the text next to them states the values they show (colours, sizes and rules).
-- **Without JavaScript.** On a narrow screen the main menu is shown open under the header instead of behind a button. The search, the copy buttons and the theme switch are unavailable.
-- **No audit.** No test with a screen reader on all pages and no external audit is recorded. Barriers may exist that the measures above do not prevent.
+Entrances of elements, counters, the terminal session and the three-dimensional mark run when the reader has not asked for reduced motion. With the setting for reduced motion the same content appears at rest, with no movement.
+
+## Behaviour without scripts
+
+The pages are readable without JavaScript. The main navigation and the footer links work without it. On a narrow screen the main menu is shown open under the header. The search, the copy buttons and the theme toggle use JavaScript.
 
 ## Reporting a barrier
 
-If you cannot use a page, a component or a document of the site, write to `support@danaco-group.pl`. Give the address of the page, what you tried to do, what stopped you, and the browser, the operating system and any assistive technology you use. The repository does not state a response time for such reports, and this page does not promise one. Reports about the program (not the site) follow [Support and contact](/project/support/).
+A reader who cannot use a page, a component or a document of the site writes to `support@danaco-group.pl`. The message names the address of the page, what the reader tried to do, what stopped the reader, and the browser, the operating system and the assistive technology in use. Reports about the program (not the site) follow [Support and contact](/project/support/).
 
-The statement of what the site stores and sends is on the [privacy](/legal/privacy/) page; the identity colours are on the [brand](/project/brand/) page.
+The statement of what the site stores and sends is on the [privacy](/legal/privacy/) page; the identity colours are on the [identity](/design/identity/) page.

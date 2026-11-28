@@ -16,14 +16,14 @@ keywords: [language, pipeline, records, stages, control constructs, corrections,
 
 ## Programs and pipelines
 
-A program is a sequence of statements separated by line breaks. A statement is a pipeline or a `let` binding. A pipeline is a command followed by commands joined with `|>`; a line break before `|>` continues the pipeline. `let name = pipeline` stores a result and `@name` uses it. There are no text variables and no substitution of `$` in values.
+A program is a sequence of statements separated by line breaks. A statement is a pipeline or a `let` binding. A pipeline is a command followed by commands joined with `|>`; a line break before `|>` continues the pipeline. `let name = pipeline` stores a result and `@name` uses it, so a value keeps its type from one statement to the next.
 
 ```nurt
 let recent = find "/home/user/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
 @recent |> count
 ```
 
-The example is from the [language guide](/docs/guide/language/). Each stage takes records and returns records, a single value or nothing, so no stage parses the text of another one. A stage that needs the whole input in memory, such as `sort`, `last` or `group`, collects it with a bound: exceeding `limits.max_records` fails with `E_LIMIT`, and records are never dropped silently.
+Each stage takes records and returns records, a single value or nothing, so no stage parses the text of another one. The [language guide](/docs/guide/language/) describes every form. A stage that needs the whole input in memory, such as `sort`, `last` or `group`, collects it with a bound: exceeding `limits.max_records` fails with `E_LIMIT`, and records are never dropped silently.
 
 ## Values, records and key paths
 
@@ -47,7 +47,7 @@ set "package.json" key: "keywords[+]" value: "cli"
 read "users.json" key: "users[?age >= 18 and active].name"
 ```
 
-The examples are from [key paths](/docs/specification/keypath/). Expressions in `filter`, `sort`, `select`, `assert` and `evaluate` use `== != < <= > >= ~ !~ in and or not + - * /`, where `~` matches a regular expression.
+The [key path specification](/docs/specification/keypath/) defines the syntax. Expressions in `filter`, `sort`, `select`, `assert` and `evaluate` use `== != < <= > >= ~ !~ in and or not + - * /`, where `~` matches a regular expression.
 
 ## Stages and effects
 
@@ -64,7 +64,7 @@ A pipeline is executed in fixed steps, and steps 0 to 4 have no effect on the wo
 | 6 | verify | failure rolls the effect back |
 | 7 | report | none |
 
-A pipeline has at most one stage that changes the world or runs a program; another one fails with `E_ONE_EFFECT`, and its first candidate is the same pipelines inside `steps`. Only `assert`, `filter`, `select`, `first`, `last`, `skip`, `count`, `sort` and `group` may follow the effect. `verify` is the last stage and rolls the change back when its check fails:
+A pipeline has one stage that changes the world or runs a program; a second one fails with `E_ONE_EFFECT`, whose first candidate is the same pipelines inside `steps`. Only `assert`, `filter`, `select`, `first`, `last`, `skip`, `count`, `sort` and `group` can follow the effect. `verify` is the last stage and rolls the change back when its check fails:
 
 ```nurt
 search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
@@ -72,7 +72,7 @@ search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
 |> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
 ```
 
-The example is from the cookbook, [editing many files](/docs/cookbook/edit-many-files/). Syntax variants A and B produce the same syntax tree; variant C writes every argument by name. The program text is not executed: the syntax tree is, and the journal and the report store its hash (`ast_hash`).
+The cookbook recipe [editing many files](/docs/cookbook/edit-many-files/) uses this form. Syntax variants A and B produce the same syntax tree; variant C writes every argument by name. The program text is not executed: the syntax tree is, and the journal and the report store its hash (`ast_hash`).
 
 ## Control constructs
 
@@ -85,14 +85,14 @@ steps {
 }
 ```
 
-The example is from the [language guide](/docs/guide/language/). A construct is one journal entry and is all or nothing: when a part fails, the changes already made are rolled back, and the parts that cannot be rolled back, such as a program run, are listed before the change. `preview` computes the chosen branch, the iterations and every effect without a change, and types, names and arity are checked before any effect. Without `limit`, a loop ends at `loop.max_iterations` (10 000) or `loop.max_time` (10 minutes). A parameter of type `bool` written without a value is `true`, so `remove "/tmp/x" preview` is valid.
+A construct is one journal entry and is all or nothing: when a part fails, the changes already made are rolled back, and the parts that cannot be rolled back, such as a program run, are listed before the change. `preview` computes the chosen branch, the iterations and every effect without a change, and types, names and arity are checked before any effect. Without `limit`, a loop ends at `loop.max_iterations` (10 000) or `loop.max_time` (10 minutes). A parameter of type `bool` written without a value is `true`, so `remove "/tmp/x" preview` is valid.
 
 ## Corrections
 
 Danaco Nurt accepts the habits of other shells and forms with small errors. A correction changes the form of a program and never its meaning, and applied corrections are listed in the report. Two rules govern a name that touches a change:
 
 - A misspelt name of a command that only reads is corrected and the program runs.
-- A misspelt name of a command that changes files or runs a program, such as `remvoe`, is never corrected on its own. The answer is `E_AMBIGUOUS` in step 1, nothing runs, and `candidates` holds ranked programs, the first of them ready to be sent again.
+- A misspelt name of a command that changes files or runs a program, such as `remvoe`, is answered with `E_AMBIGUOUS` in step 1. Nothing runs, and `candidates` holds ranked programs, the first of them ready to be sent again.
 
 `undo op: 18` is corrected to `undo id: 18` (rule L06). The habits of bash and PowerShell and their forms are in the cheat sheets for [bash](/docs/cheatsheets/nurt-for-bash-users/) and [PowerShell](/docs/cheatsheets/nurt-for-powershell-users/).
 
@@ -107,7 +107,7 @@ An error has a stable code with the prefix `E_`, a message in English and, where
 | `E_TYPE` | 1, 2 | a value or record stream has a type the place does not accept |
 | `E_ASSERT` | 3, 4, 5a | an assertion does not hold |
 
-Errors of the stages parse and bind describe a mistake in the program and how to correct it, and have no effect on the world. The [error specification](/docs/specification/errors/) lists every code.
+An error of the stages parse and bind describes the mistake in the program and its correction, and the world stays as it was. The [error specification](/docs/specification/errors/) lists every code.
 
 ## Checking before running
 
@@ -117,8 +117,8 @@ Errors of the stages parse and bind describe a mistake in the program and how to
 nurt check -e 'remove "/home/user/app/build"'
 ```
 
-<Callout type="warning" title="The language may change">
-  The language, the syntax tree and the catalog carry their own version numbers and may change between 0.x versions (changelog).
+<Callout type="note" title="Versions">
+  The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers; a change between 0.x versions is recorded in the changelog.
 </Callout>
 
 ## Where to go next

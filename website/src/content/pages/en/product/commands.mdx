@@ -16,7 +16,7 @@ keywords: [catalog, commands, groups, signatures, types, validation]
 
 ## What the catalog is
 
-The command catalog is the single source of command signatures. According to the [catalog specification](/docs/specification/catalog/) the binder, the built-in help, the model description, the reference documentation, the tool definitions and the conformance suite all read it. It consists of TOML files in the format `nurt-catalog/1`: `core.toml` for the core commands, one file for each optional group, and an index (`_index.toml`) that lists the files and the expected number of commands.
+The command catalog is the single source of command signatures. The binder, the built-in help, the model description, the reference documentation, the tool definitions and the conformance suite all read it, as the [catalog specification](/docs/specification/catalog/) defines. It consists of TOML files in the format `nurt-catalog/1`: `core.toml` for the core commands, one file for each optional group, and an index (`_index.toml`) that lists the files and the expected number of commands.
 
 <Stats>
   <Fact id="commands" />
@@ -24,7 +24,7 @@ The command catalog is the single source of command signatures. According to the
   <Fact id="optionalGroups" />
 </Stats>
 
-Each command entry states its name, its category (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` or `help`), its reversibility (`read`, `reversible`, `reversible_if_preserved` or `irreversible`), the input and output record kinds, and its parameters with type, position, default and a summary. A command may be limited to some operating systems; on another system binding fails with `E_OS_ONLY`.
+Each command entry states its name, its category (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` or `help`), its reversibility (`read`, `reversible`, `reversible_if_preserved` or `irreversible`), the input and output record kinds, and its parameters with type, position, default and a summary. A command can belong to one operating system; on another system binding answers with `E_OS_ONLY`.
 
 ```toml
 [[command]]
@@ -38,11 +38,11 @@ output = ["effect"]
 summary = "Set values at key paths, preserving layout."
 ```
 
-The entry is from the catalog specification. Changes made by a command are recorded in the [journal](/product/journal-and-undo/) according to the reversibility stated here.
+Changes made by a command are recorded in the [journal](/product/journal-and-undo/) according to the reversibility stated here.
 
 ## Core commands and optional groups
 
-The 34 core commands are always described to a model. They cover files (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), text (`search`, `replace`, `insert`, `edit`), records (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), checks (`assert`, `verify`), programs (`run`, `jobs`, `stop`, `retry`), the journal (`history`, `undo`, `redo`), continuation of a shortened response (`next`) and `help`. The other commands belong to optional groups, described on request. The counts below are those of `catalog/_index.toml`.
+The 34 core commands are always described to a model. They cover files (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), text (`search`, `replace`, `insert`, `edit`), records (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), checks (`assert`, `verify`), programs (`run`, `jobs`, `stop`, `retry`), the journal (`history`, `undo`, `redo`), continuation of a shortened response (`next`) and `help`. The other commands belong to optional groups, described on request.
 
 | Group | Commands | Covers | Documentation |
 |---|---|---|---|
@@ -62,7 +62,7 @@ The 34 core commands are always described to a model. They cover files (`list`, 
 | program | 4 | installed programs: lookup, search, descriptions | [group program](/docs/groups/program/) |
 | verify | 8 | tests and code analysis through typed wrappers | [`test.run`](/docs/commands/test.run/) |
 
-The group pages describe scope, records, platform differences and reversibility. The other groups are described on the pages of their commands. The administration group grew from 6 to 34 commands in 0.1.1; the name `admin` of earlier revisions no longer exists.
+The group pages describe scope, records, platform differences and reversibility; the other groups are described on the pages of their commands. The administration group holds 34 commands since 0.1.1.
 
 ## How a command page is built
 
@@ -72,7 +72,7 @@ Every command of the catalog has one page, and every page belongs to a command. 
 |---|---|
 | Synopsis | generated from the catalog |
 | Description | written |
-| Parameters (name, type, default, description) | generated, descriptions may be extended |
+| Parameters (name, type, default, description) | generated, descriptions can be extended |
 | Input and output | generated |
 | Effect (category, reversibility and its conditions) | generated, notes written |
 | Examples (at least three) | written |
@@ -82,20 +82,20 @@ The first three examples are the ones that `help <command>` shows.
 
 ## How the build checks the pages
 
-The documentation build fails when:
+The documentation build verifies that:
 
-- a command has no page, or a page has no command;
-- the front matter (`command`, `group`, `summary`) differs from the catalog;
-- a generated section differs from the text generated from the catalog;
-- a page has fewer than three `nurt example` blocks;
-- an example does not parse, does not bind, fails to run on a virtual file system, or its result lacks the expected fragment;
-- a command or parameter name in backticks does not exist in the catalog.
+- every command has a page and every page belongs to a command;
+- the front matter (`command`, `group`, `summary`) equals the catalog;
+- a generated section equals the text generated from the catalog;
+- a page has at least three `nurt example` blocks;
+- every example parses, binds, runs on a virtual file system and yields the expected fragment;
+- a command or parameter name in backticks exists in the catalog.
 
-The catalog itself is checked by the test suite, which requires no problems in any file of `catalog/`. Among the checks: names are valid and unique, every type expression parses, a required parameter has no default, and the index lists every file with the right number of commands, summing to its `total`.
+The test suite checks every file of `catalog/`: names are valid and unique, every type expression parses, a required parameter has no default, and the index lists every file with the right number of commands, summing to its `total`.
 
 ## How names, parameters and types are validated
 
-Binding runs before any effect. A program that cannot be valid is refused with a code that names the problem, and the error lists the nearest names or the accepted types.
+Binding runs before any effect. A program that cannot be valid is refused with a code that names the problem, and the error lists the nearest names or the accepted types, so the correction is part of the answer.
 
 | Code | Problem |
 |---|---|
@@ -107,13 +107,13 @@ Binding runs before any effect. A program that cannot be valid is refused with a
 
 Types are written as expressions such as `path | list<path>`, `enum(report|force|abort)` or `stream<entry>`. A quoted text is converted to `path`, `glob`, `instant`, `key`, `size` or `duration` in a place of that type. Each bound tree records a `catalog_rev`, the SHA-256 of the canonical catalog, so any change of a command, parameter or description changes the revision.
 
-<Callout type="warning" title="The catalog may change between 0.x versions">
-  Within `nurt-catalog/1` the catalog only grows: new commands, optional parameters, enumeration values and keys. Removing or renaming a command or changing a type incompatibly is a change of the major version. In 0.x the changelog warns that the catalog may change.
+<Callout type="note" title="Versioning of the catalog">
+  Within `nurt-catalog/1` the catalog grows by new commands, optional parameters, enumeration values and keys. Removing or renaming a command or changing a type incompatibly is a change of the major version. A change between 0.x versions is recorded in the changelog.
 </Callout>
 
 ## Every command
 
-The index below is read from the command pages of the repository when the site is built. Each name leads to the page of the command, with its synopsis, parameters, effects, errors and examples.
+The index below lists every command with its summary. Each name leads to the page of the command, with its synopsis, parameters, effects, errors and examples.
 
 <CommandCatalog level={3} />
 

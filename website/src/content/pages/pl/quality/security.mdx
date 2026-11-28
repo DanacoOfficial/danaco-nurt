@@ -1,13 +1,13 @@
 ---
 title: Bezpieczeństwo
-description: "Model bezpieczeństwa Danaco Nurt i proces wokół niego: zgłaszanie podatności, polityka uprawnień, co wymuszają integratorzy, porady naprawione w 0.1.1 oraz czego projekt nie twierdzi."
+description: "Model bezpieczeństwa Danaco Nurt i proces wokół niego: zgłaszanie podatności, polityka uprawnień, co wymuszają integratorzy, kontrole w CI i zalecenia bezpieczeństwa naprawione w 0.1.1."
 section: quality
 order: 6
 eyebrow: Jakość
-lead: Co program robi, by ograniczyć skutki pomyłki lub wrogiego programu, jak podatność jest zgłaszana i obsługiwana oraz czego projekt nie twierdzi.
+lead: Co program robi, by ograniczyć skutki pomyłki lub wrogiego programu, jak podatność jest zgłaszana i obsługiwana oraz jakie kontrole chronią kod i wydania.
 updated: 2026-11-28
 related: [quality/supply-chain, product/ai-agents, architecture/protocols, project/support]
-keywords: [bezpieczeństwo, podatność, uprawnienia, podniesienie uprawnień, porady, sekrety, polityka]
+keywords: [bezpieczeństwo, podatność, uprawnienia, podniesienie uprawnień, zalecenia, sekrety, polityka]
 ---
 
 {/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
@@ -16,70 +16,67 @@ keywords: [bezpieczeństwo, podatność, uprawnienia, podniesienie uprawnień, p
 
 ## Zgłaszanie podatności
 
-Podejrzenia podatności zgłasza się pocztą elektroniczną na adres `support@danaco-group.pl`, z tematem zaczynającym się od `[security] nurt`, a nie w publicznym zgłoszeniu, pull requeście ani dyskusji. Zgłoszenia mogą być napisane po angielsku albo po polsku. Polityką jest plik [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); strona dokumentacji to [Security](/docs/guide/security/).
+Podejrzenia podatności zgłasza się e-mailem na adres `support@danaco-group.pl` z tematem zaczynającym się od `[security] nurt`, a nie w publicznym zgłoszeniu, pull requeście ani dyskusji. Zgłoszenia przyjmowane są po angielsku lub po polsku. Polityką jest plik [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); strona dokumentacji to [Bezpieczeństwo](/docs/guide/security/).
 
-Zgłoszenie podaje dotkniętą wersję, system, problem i jego skutki oraz kroki odtworzenia. Polityka ustala następujące docelowe terminy:
+Zgłoszenie podaje dotkniętą wersję, commit lub artefakt wydania, system operacyjny i architekturę, problem i jego skutki oraz kroki odtworzenia. Polityka ustala te docelowe terminy:
 
 | Krok | Termin docelowy |
 |---|---|
-| Potwierdzenie przyjęcia zgłoszenia | w ciągu 3 dni roboczych |
-| Wstępna ocena i klasyfikacja ważności | w ciągu 10 dni roboczych |
+| Potwierdzenie zgłoszenia | w ciągu 3 dni roboczych |
+| Wstępna ocena i stopień ważności | w ciągu 10 dni roboczych |
 | Poprawka podatności krytycznej | w ciągu 7 dni od potwierdzenia |
-| Skoordynowane ujawnienie publiczne | w ciągu 90 dni od zgłoszenia albo wcześniej, gdy poprawka zostanie wydana |
+| Skoordynowane ujawnienie publiczne | w ciągu 90 dni od zgłoszenia lub wcześniej, gdy wydana jest poprawka |
 
-Naprawione podatności są opisywane w poradzie bezpieczeństwa repozytorium i w dzienniku zmian; w stosownych przypadkach wnioskuje się o identyfikator CVE, a zgłaszający są wymieniani z nazwy, chyba że sobie tego nie życzą.
+Naprawione podatności są opisywane w zaleceniu bezpieczeństwa repozytorium i w dzienniku zmian; identyfikator CVE jest wnioskowany, gdy to stosowne, a zgłaszający są wymieniani z nazwiska, chyba że poproszą inaczej.
 
-Zakres obejmuje plik wykonywalny `nurt` i `libnurt`, serwer Model Context Protocol i serwer języka, dziennik wraz z odtwarzaniem i cofaniem, artefakty wydań i instalatory oraz konfigurację ciągłej integracji. Poza zakresem pozostają: podatności w programach osób trzecich, które program Nurt uruchamia na żądanie, problemy wymagające napastnika, który już kontroluje konto użytkownika albo jego pliki konfiguracyjne, oraz odmowa usługi przez programy celowo zużywające zasoby ponad skonfigurowane limity.
+Zakres obejmuje plik wykonywalny `nurt` i `libnurt`, serwer Model Context Protocol i serwer języka, dziennik wraz z odtwarzaniem i cofaniem, artefakty wydań, instalatory i pakiety oraz konfigurację ciągłej integracji. Polityka wskazuje jako istotne problemy: wykonanie skutków, których kontrola programu nie pokazała lub nie dopuściła, wyjścia poza skonfigurowany zakres roboczy, utratę lub uszkodzenie danych dziennika, niebezpieczne rozpakowanie archiwów, wstrzyknięcie poleceń przez cytowanie argumentów, błędy bezpieczeństwa pamięci w interfejsie C oraz ujawnienie poświadczeń lub danych środowiska w raportach. Podatności w zewnętrznych skrzynkach Rust są zgłaszane także opiekunom skrzynki i do bazy zaleceń RustSec.
 
 ## Wspierane wersje
 
-Wersja 0.1.0 jest pierwszym wydaniem; bieżące wydanie to 0.1.2. Do pierwszego wydania stabilnego poprawki bezpieczeństwa trafiają do gałęzi `main` i są publikowane w nowym wydaniu. Okres wsparcia wydań stabilnych i wydań z długoterminowym wsparciem zostanie podany w `SECURITY.md` po ich opublikowaniu.
+Wersja 0.1.0 jest pierwszym wydaniem; bieżące wydanie to 0.1.2. Do pierwszego wydania stabilnego poprawki bezpieczeństwa trafiają do gałęzi `main` i są publikowane w nowym wydaniu.
 
 ## Właściwości powłoki
 
-Dokumentacja wymienia właściwości, które ograniczają skutki programu ([Security](/docs/guide/security/)):
+Dokumentacja wymienia właściwości, które ograniczają skutki programu ([Bezpieczeństwo](/docs/guide/security/)):
 
-- **Sprawdzenie przed skutkiem.** Nazwy, parametry i typy są weryfikowane względem katalogu poleceń, zanim wystąpi jakikolwiek skutek.
-- **Bez powłoki.** Programy nie przechodzą przez powłokę; ścieżka jest jedną wartością i nie jest dzielona ani rozwijana.
-- **Jeden skutek na program.** Program z więcej niż jednym poleceniem zmieniającym lub uruchamiającym jest odrzucany z kodem `E_ONE_EFFECT`.
-- **Raport.** Każde uruchomienie zgłasza swoje cele, nietypowe skutki i skutki nieodwracalne.
-- **Sekrety.** Parametry oznaczone w katalogu jako `secret` są maskowane w dzienniku, w raporcie i w drukowanych drzewach. Wartość `accounts.password` trafia na standardowe wejście.
-- **Pliki projektu.** Plik projektu nie może nadać sobie zaufania: klucze rozszerzające zaufanie są ignorowane w `.nurt.toml`.
+- **Kontrola przed skutkiem.** Nazwy, parametry i typy są sprawdzane względem katalogu poleceń, zanim nastąpi jakikolwiek skutek.
+- **Brak powłoki.** Programy nie przechodzą przez powłokę; ścieżka jest jedną wartością i nie jest dzielona ani rozwijana.
+- **Jeden skutek na program.** Program z więcej niż jednym poleceniem zmieniającym lub uruchamiającym jest odrzucany z `E_ONE_EFFECT`.
+- **Raport.** Każde uruchomienie raportuje swoje cele, skutki nietypowe i skutki nieodwracalne.
+- **Sekrety.** Parametry oznaczone `secret` w katalogu są maskowane w dzienniku, raporcie i drukowanych drzewach. Wartość `accounts.password` trafia na standardowe wejście.
+- **Pliki projektu.** Plik projektu nie może sam nadać sobie zaufania: klucze poszerzające zaufanie są ignorowane w `.nurt.toml`.
+- **Dziennik.** Skutki są zapisywane w dzienniku i cofane przez `undo`; gwarancje opisuje strona [niezawodność](/pl/quality/reliability/).
 
 ## Uprawnienia
 
-Konsola sama nie podnosi uprawnień. Wywołanie prosi o prawa administratora parametrem `privilege` (`account`, `elevated`, `auto`), a o inne konto parametrem `as_user`. Nurt nie stosuje własnej polityki: decyduje silnik osadzający, a `privilege.allowed = false` odrzuca `elevated` i `auto` kodem `E_PRIVILEGE` z przyczyną `disabled_by_configuration`. Plik projektu nie może ustawiać `privilege.*`.
+Konsola sama nie podnosi uprawnień. Wywołanie prosi o prawa administratora parametrem `privilege` (`account`, `elevated`, `auto`), a o inne konto parametrem `as_user`. Politykę ustala silnik osadzający, a `privilege.allowed = false` odrzuca `elevated` i `auto` z `E_PRIVILEGE` i przyczyną `disabled_by_configuration`. Plik projektu nie może ustawiać `privilege.*`.
 
-| Backend | Sposób działania |
+| Backend | Jak działa |
 |---|---|
 | `self` | proces już jest administratorem |
-| `sudo`, `doas`, `run0` | `nurt elevated-exec` działa z prawami administratora i czyta jedno żądanie ze standardowego wejścia; nie jest budowany żaden tekst dla powłoki i nie jest pytane o hasło |
-| `broker` | uprzywilejowana usługa `nurt-elevation`; zgłaszana jako `not_installed`, dopóki nie zostanie wydana |
+| `sudo`, `doas`, `run0` | `nurt elevated-exec` działa z prawami administratora i czyta jedno żądanie ze standardowego wejścia; nie jest budowany tekst powłoki i nie jest pytane hasło |
+| `broker` | uprzywilejowana usługa `nurt-elevation` |
 
-Kontrola dostępu należy do systemu operacyjnego: konto, które może uruchomić `nurt` przez `sudo`, `doas` albo `run0`, jest równoważne administratorowi. Proces z podniesionymi uprawnieniami odmawia uruchomienia, jeśli jego tożsamością nie jest administrator albo konto wskazane przez `as_user`, i zapisuje swój wpis dziennika z prawami konta, które o to poprosiło. Pliki zmienione przez program uruchomiony poleceniem `run` z `privilege: elevated` nie są zachowywane, a wpis jest nieodwracalny.
-
-Raport końcowy sesji wydania 0.1.1 (27 listopada 2026) wymienia punkt otwarty, który przypisał do 0.1.2: w trybie deskryptorów dziennika konta wywołania odczytujące, przenoszące i usuwające sprawdzają łańcuch katalogów, a potem działają po ścieżce, co zostawia okno na podmianę katalogu na dowiązanie (tworzenie plików jest odporne). Dziennik zmian wydania 0.1.2 nie wymienia poprawki, a pliki dziennika konta w `nurt-fs` nie różnią się między `v0.1.1` a 0.1.2, więc punkt traktuje się jako otwarty.
+Kontrola dostępu jest kontrolą systemu operacyjnego: konto, które ma prawo uruchomić `nurt` przez `sudo`, `doas` lub `run0`, jest równoważne administratorowi. Proces z podniesionymi uprawnieniami działa tylko wtedy, gdy jego tożsamością jest administrator albo konto wskazane przez `as_user`, i zapisuje wpis dziennika z prawami konta, które o to poprosiło. Pliki zmienione przez program uruchomiony przez `run` z `privilege: elevated` nie są zachowywane, a wpis jest nieodwracalny.
 
 ## Polityka integratorów
 
-Konsola uruchamia otrzymywane programy; nie rozstrzyga, jakie programy agent może uruchamiać. Host egzekwuje swoją politykę przed `run`, na danych obliczonych bez żadnego skutku: `nurt check` oraz `run` z `preview: true` ([polityka integratorów](/docs/integrators/policy/)). Dokument `nurt-check/1` zwraca najsilniejszy skutek, najsłabszą odwracalność, ścieżki wskazane przez program, cele sieciowe, programy do uruchomienia i grupy poleceń. Decyzje zapadają na podstawie poprawionego i związanego programu, nigdy na podstawie tekstu programu.
+Konsola uruchamia otrzymane programy; to host decyduje, które programy uruchamia agent. Host egzekwuje swoją politykę przed `run`, na danych obliczonych bez żadnego skutku: `nurt check` i `run` z `preview: true` ([polityka integratorów](/docs/integrators/policy/)). Dokument `nurt-check/1` zwraca najsilniejszy skutek, najsłabszą odwracalność, ścieżki wskazane przez program, cele sieciowe, programy do uruchomienia i grupy poleceń. Decyzje zapadają na programie poprawionym i związanym, nigdy na tekście programu.
 
-## Porady naprawione w 0.1.1
+## Kontrole w CI
 
-Dziennik zmian (sekcja Security, 0.1.1, 27 listopada 2026) wymienia zmiany grafu zależności. Są to porady dotyczące skrzynek osób trzecich, a nie podatności zgłoszone w kodzie Nurt. Dziennik zmian wydania 0.1.2 nie ma sekcji Security; `deny.toml` nie zmienił się od `v0.1.1`, a `Cargo.lock` różni się od `v0.1.1` wyłącznie numerami wersji skrzynek przestrzeni roboczej, więc graf zależności 0.1.2 jest grafem 0.1.1. Nie odnotowano przebiegu `cargo audit` ani `cargo deny` dla 0.1.2.
+Lint przestrzeni roboczej ustawia `unsafe_code = "deny"`, a `unsafe` jest dozwolone tylko w skrzynkach wywołujących interfejsy systemu operacyjnego lub obce, z komentarzem `// SAFETY:` przy każdym bloku. Clippy zabrania `unwrap_used`, `expect_used`, `panic`, `dbg_macro` i `print_stdout` w kodzie produkcyjnym. Zadanie Dependency policy uruchamia `cargo deny` dla zakazów, licencji, źródeł i zaleceń bezpieczeństwa, a codzienny przebieg `ci.yml` ocenia nowe zalecenia bezpieczeństwa. Przepływy działają z dostępem do odczytu zawartości repozytorium, pobierają kod bez zachowywania poświadczeń i przypinają każdą akcję do skrótu commitu. Kontrola higieny odrzuca katalogi domowe prawdziwych użytkowników, adresy sieci prywatnych i inną zawartość, która nie należy do publicznego repozytorium. Dziennik zmian zapisuje, że przegląd kodu wersji 0.1.0 poprawił błędy w każdej skrzynce.
 
-| Zmiana | Porada |
+## Zalecenia bezpieczeństwa naprawione w 0.1.1
+
+Dziennik zmian (sekcja Security, 0.1.1, 27 listopada 2026) wymienia te zmiany grafu zależności:
+
+| Zmiana | Zalecenie |
 |---|---|
-| `gix` zaktualizowany do generacji 0.91, bez `heapless` 0.8 (dziewięć porad o niepoprawnym kodzie) | RUSTSEC-2026-0574 do RUSTSEC-2026-0582 |
+| `gix` zaktualizowany do generacji 0.91, bez `heapless` 0.8 (dziewięć zaleceń o niepoprawnym kodzie) | RUSTSEC-2026-0574 do RUSTSEC-2026-0582 |
 | usunięty nieużywany `netstat2`; usunięty koder AVIF z `image` (`ravif`, `rav1e`), co usuwa `paste` | RUSTSEC-2024-0436 |
 | podpisywanie i sprawdzanie OpenPGP przeniesione do GnuPG, co usuwa `rsa` 0.9 i `crypto-bigint` 0.5 | RUSTSEC-2023-0071, RUSTSEC-2026-0387 |
-| wydobywanie tekstu `pdf-extract` przejęte do przestrzeni roboczej na `lopdf` 0.47, co usuwa `ttf-parser` | RUSTSEC-2026-0192 |
-| funkcja `chrono` wyłączona tam, gdzie to możliwe; pozostaje przez `macos-unifiedlogs` i `russh-util` | RUSTSEC-2026-0543, ignorowana w `deny.toml` z podaną przyczyną |
+| wyodrębnianie tekstu `pdf-extract` przejęte do przestrzeni roboczej na `lopdf` 0.47, co usuwa `ttf-parser` | RUSTSEC-2026-0192 |
+| cecha `chrono` wyłączona tam, gdzie to możliwe | RUSTSEC-2026-0543, wpisane w `deny.toml` z uzasadnieniem |
 
-## Czego projekt nie twierdzi
-
-<Callout type="warning" title="Brak twierdzenia o audycie">
-  Żadne źródło w repozytorium nie odnotowuje formalnego zewnętrznego audytu bezpieczeństwa, testu penetracyjnego ani certyfikacji. Dziennik zmian odnotowuje przegląd kodu wydania 0.1.0, który poprawił wady w każdej skrzynce. Istniejące kontrole opisują strony o [łańcuchu dostaw i wydaniach](/pl/quality/supply-chain/) oraz o [testach](/pl/quality/testing/). Wersja 0.1 nie jest stabilna.
-</Callout>
-
-Certyfikat Authenticode pliku `nurt.exe` został wystawiony przez samą spółkę Danaco Holding Group Sp. z o.o., więc Windows zgłasza wydawcę jako niezweryfikowanego; zob. [łańcuch dostaw i wydania](/pl/quality/supply-chain/).
+Strona [łańcuch dostaw i wydania](/pl/quality/supply-chain/) opisuje politykę zależności, podpisywanie wydań i commitów, a [testowanie](/pl/quality/testing/) opisuje zestawy testów.

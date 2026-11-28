@@ -22,6 +22,7 @@ export const site = {
   programName: 'nurt',
   tagline: 'Command shell and language where every change can be undone',
   company: 'Danaco Holding Group Sp. z o.o.',
+  creator: 'Dariusz Naharnowicz',
   companyUrl: 'https://www.danaco-group.pl',
   copyrightYear: 2026,
   license: 'Apache-2.0',

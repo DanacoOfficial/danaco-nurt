@@ -18,6 +18,7 @@ export const revealSelectors: readonly string[] = [
   '.timeline > li',
   '.step',
   '.callout',
+  '.downloads__item',
   '.figure',
   '.cta-band__inner',
   '.prose > h2',

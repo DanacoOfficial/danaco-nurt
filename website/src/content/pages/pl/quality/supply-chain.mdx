@@ -1,13 +1,13 @@
 ---
 title: Łańcuch dostaw i wydania
-description: Polityka zależności egzekwowana przez cargo-deny, sposób budowy, sum kontrolnych i podpisywania archiwów wydań, ich weryfikacja oraz to, co nie jest jeszcze objęte, jak archiwa macOS i publiczny certyfikat dla Windows.
+description: Polityka zależności egzekwowana przez cargo-deny, sposób budowy, sum kontrolnych i podpisywania archiwów wydań, ich weryfikacja oraz podpisywanie commitów.
 section: quality
 order: 7
 eyebrow: Jakość
 lead: Co projekt przyjmuje jako zależność, jak powstaje i jest podpisywane wydanie oraz jak zweryfikować pobrane pliki.
 updated: 2026-11-28
 related: [quality/security, quality/engineering-standards, architecture/dependencies, project/releases]
-keywords: [cargo-deny, licencje, podpis, sumy kontrolne, powtarzalność, wydanie, DCO, fuzzing]
+keywords: [cargo-deny, licencje, podpis, sumy kontrolne, powtarzalne, wydanie, DCO, fuzz]
 ---
 
 {/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
@@ -16,23 +16,23 @@ keywords: [cargo-deny, licencje, podpis, sumy kontrolne, powtarzalność, wydani
 
 ## Polityka zależności
 
-Polityką jest plik `deny.toml`, sprawdzany poleceniem `cargo deny --locked check`. Wszystkie zależności są zadeklarowane w `[workspace.dependencies]` głównego `Cargo.toml`, pochodzą wyłącznie z crates.io i są uzasadniane w pull requeście, który je dodaje ([konwencje licencyjne](/docs/conventions/licensing/)).
+Polityką jest plik `deny.toml`, sprawdzany przez `cargo deny --locked check`. Wszystkie zależności są zadeklarowane w `[workspace.dependencies]` głównego `Cargo.toml`, pochodzą wyłącznie z crates.io i są uzasadniane w pull requeście, który je dodaje ([konwencje licencyjne](/docs/conventions/licensing/)).
 
 | Sekcja | Reguła w `deny.toml` |
 |---|---|
-| `graph` | oceniany dla ośmiu celów: Linux, macOS i Windows na x86-64 i aarch64 (Linux w glibc i musl), ze wszystkimi funkcjami |
-| `advisories` | wycofane skrzynki (yanked) są zabronione; jedna porada jest ignorowana, RUSTSEC-2026-0543 (`chrono`, bez opiekuna, bez zgłoszonej podatności), z przyczyną zapisaną w pliku |
-| `licenses` | lista dozwolonych 13 licencji liberalnych (m.in. `Apache-2.0`, `MIT`, `BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-3.0`), próg pewności 0,93, pięć wyjątków dla pojedynczych skrzynek |
-| `bans` | wymagania wersji z symbolem wieloznacznym są zabronione; kilka wersji jednej skrzynki tylko ostrzega; wskazane skrzynki są zabronione, każda z przyczyną |
-| `sources` | nieznane rejestry i nieznane źródła git są zabronione; dozwolony jest tylko indeks crates.io |
+| `graph` | oceniany dla ośmiu celów: Linux, macOS i Windows na x86-64 i aarch64 (Linux w glibc i musl), ze wszystkimi cechami |
+| `advisories` | wycofane skrzynki (yanked) są zabronione; jedno zalecenie jest wpisane, RUSTSEC-2026-0543 (`chrono`, niepielęgnowana, bez zgłoszonej podatności), z uzasadnieniem zapisanym w pliku |
+| `licenses` | lista dozwolonych 13 licencji permisywnych (m.in. `Apache-2.0`, `MIT`, `BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-3.0`), próg pewności 0,93, pięć wyjątków dla pojedynczych skrzynek |
+| `bans` | wymagania wersji z dzikimi kartami zabronione; kilka wersji jednej skrzynki ostrzega; nazwane skrzynki zabronione, każda z uzasadnieniem |
+| `sources` | nieznane rejestry i nieznane źródła git zabronione; dozwolony tylko indeks crates.io |
 
-Zabronione skrzynki obejmują `openssl` i `openssl-sys` (TLS korzysta z rustls), `git2` i `libgit2-sys` (obsługa Git to `gix`), `curl-sys`, `serde_yaml` (bez opiekuna), `sequoia-openpgp` (LGPL; podpisy OpenPGP wykonuje GnuPG uruchamiany jako program) oraz `unrar` (jego licencja zabrania tworzenia kompresora RAR). Kod przestrzeni roboczej jest na licencji Apache-2.0; skrzynka `nurt-pdf-extract` jest kopią `pdf-extract` 0.12.1 na licencji MIT.
+Zabronione skrzynki to m.in. `openssl` i `openssl-sys` (TLS używa rustls), `git2` i `libgit2-sys` (obsługą Git jest `gix`), `curl-sys`, `serde_yaml` (niepielęgnowana), `sequoia-openpgp` (LGPL; podpisy OpenPGP wykonuje GnuPG uruchamiany jako program) oraz `unrar` (jego licencja zabrania tworzenia kompresora RAR). Kod przestrzeni roboczej jest na licencji Apache-2.0; skrzynka `nurt-pdf-extract` jest kopią `pdf-extract` 0.12.1 na licencji MIT.
 
-W przepływie [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) zadanie `deny` uruchamia `bans licenses sources` i `advisories` w osobnych krokach, a przepływ ma codzienne uruchomienie zaplanowane (04:17 UTC) „for new security advisories and toolchain regressions” (pod kątem nowych porad bezpieczeństwa i regresji łańcucha narzędzi). Raport wydania 0.1.1 odnotowuje też `cargo audit` z kodem wyjścia 0 na kandydacie do wydania (rewizja `afd3571e`, 27 listopada 2026) oraz `cargo deny` 0.20.2 bez uwag na `8510818a` (CI używa 0.22). `cargo audit` nie jest krokiem żadnego przepływu w repozytorium.
+W przepływie [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) zadanie `deny` uruchamia `bans licenses sources` i `advisories` jako osobne kroki, a przepływ ma codzienny przebieg zaplanowany (04:17 UTC) dla nowych zaleceń bezpieczeństwa i regresji łańcucha narzędzi. `cargo audit` zakończył się kodem wyjścia 0, a `cargo deny` 0.20.2 zakończył się bez błędów (wersja 0.1.1, 27 listopada 2026).
 
 ## Pliki blokad i cele fuzzingu
 
-`Cargo.lock` jest w repozytorium, a każde polecenie CI używa `--locked`. Cele fuzzingu mają własne manifesty; pliki blokad `nurt-syntax` i `nurt-correct` są w repozytorium (dziennik zmian 0.1.1, sekcja Security, odnotowuje ich ponowne wygenerowanie), a plik `nurt-syslog` jest wykluczony przez jego `.gitignore`:
+`Cargo.lock` jest zatwierdzony, a każde polecenie CI używa `--locked`. Cele fuzzingu mają własne manifesty, a pliki blokad `nurt-syntax` i `nurt-correct` są zatwierdzone:
 
 | Skrzynka | Cele fuzzingu |
 |---|---|
@@ -40,21 +40,19 @@ W przepływie [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/rele
 | `nurt-correct` | `correct` |
 | `nurt-syslog` | `journal_file`, `journal_object` |
 
-<Callout type="note" title="Czego nie stwierdzono">
-  Żaden przepływ w repozytorium nie uruchamia celów fuzzingu i żadne źródło nie podaje, jak długo ani jak często je uruchamiano. Strona stwierdza wyłącznie ich istnienie i pliki blokad.
-</Callout>
+Cele `nurt-syntax` obejmują parser tekstu programu oraz dekodery JSON i CBOR drzewa składniowego, a cel `nurt-correct` obejmuje etap korekty.
 
 ## Jak powstaje wydanie
 
-Skrypt `tools/release/build-release.sh <version> <output-dir> [--sign <gnupg-home> <key-id>]` buduje i pakuje archiwa, zapisuje `checksums.txt` oraz, z opcją `--sign`, odłączony podpis ASCII `checksums.txt.asc`, który weryfikuje poleceniem `gpg --verify`. Klucz nigdy nie jest czytany z domyślnej lokalizacji: `--sign` wymaga jawnego katalogu domowego GnuPG. `packaging/release/pack.py` składa każde archiwum: wpisy są posortowane, należą do roota i mają czas podany w `SOURCE_DATE_EPOCH` (czas rewizji `HEAD`, gdy zmienna nie jest ustawiona). Dokumentacja archiwów nazywa je powtarzalnymi; żadne źródło nie odnotowuje niezależnej przebudowy, która porównałaby bajty.
+Skrypt `tools/release/build-release.sh <wersja> <katalog-wyjściowy> [--sign <katalog-gnupg> <id-klucza>]` buduje i pakuje archiwa, zapisuje `checksums.txt` i, z `--sign`, odłączony podpis w formacie ASCII `checksums.txt.asc`, który weryfikuje przez `gpg --verify`. Klucz nigdy nie jest czytany z lokalizacji domyślnej: `--sign` wymaga jawnego katalogu GnuPG. `packaging/release/pack.py` składa każde archiwum: wpisy są posortowane, należą do roota i niosą czas podany w `SOURCE_DATE_EPOCH` (czas commitu `HEAD`, gdy nie ustawiono), tak aby te same dane wejściowe dawały to samo archiwum.
 
-Dziennik zmian 0.1.0 wymienia archiwa dla Linuksa (glibc, x86-64) i Windows (MSVC, x86-64), a dziennik zmian 0.1.1 dodaje statyczne archiwum musl. Sesja wydania 0.1.1 zbudowała 12 archiwów (sześć celów, po jednym archiwum programu i biblioteki); raport nie wymienia tych celów z nazwy. Skrypt potrafi zbudować Linuksa x86-64 i aarch64 (glibc i musl) oraz Windows (x86-64 i aarch64, MSVC), gdy jest dostępny łańcuch narzędzi. Archiwum dla macOS nie jest budowane: dziennik zmian 0.1.1 stwierdza, że kod dla macOS przechodzi `cargo check` dla `x86_64-apple-darwin` i `aarch64-apple-darwin`, ale nie jest uruchamiany, a dziennik zmian 0.1.2 ponownie stwierdza, że dla tego wydania nie publikuje się archiwum macOS; odnotowuje też sporadyczne niepowodzenia niektórych testów na runnerach macOS w CI ([notatki o wydaniu](/pl/project/releases/)). W 0.1.2 skrypt zyskał zmienną `NURT_MSVC_CLANG`, która wskazuje clang opakowań MSVC przy budowie dla Windows.
+Skrypt buduje plik wykonywalny i bibliotekę C dla Linuksa na x86-64 i aarch64 w postaciach glibc i musl oraz dla Windows na x86-64 i aarch64 z MSVC. Wersja 0.1.0 dostarczała archiwa Linux (glibc, x86-64) i Windows (MSVC, x86-64), a wersja 0.1.1 dodała statyczne archiwum musl; sesja wydania 0.1.1 zbudowała 12 archiwów dla sześciu celów, po jednym archiwum programu i jednym archiwum biblioteki dla każdego. Zmienna `NURT_MSVC_CLANG` wskazuje clang opakowań MSVC budowy dla Windows. Budowy Linux musl i aarch64 używają `zig cc` przez opakowania w `packaging/release`.
 
-Przepływ `release.yml` („Publish packages”, uruchamiany ręcznie z podaniem wersji) pobiera archiwa wydania, wykonuje `sha256sum --check --strict checksums.txt`, sprawdza skryptem `tools/ci/check-dependencies.sh`, że pliki binarne Linuksa nie wskazują żadnej biblioteki współdzielonej spoza krótkiej listy bibliotek systemowych, podpisuje sumy kontrolne i repozytorium apt, a następnie instaluje opublikowane pakiety na czystych systemach. Akcje używane w przepływach są przypięte do skrótów rewizji.
+Przepływ `release.yml` („Publish packages”, uruchamiany z wersją) buduje archiwum musl ze znacznika, pobiera archiwa wydania i uruchamia `sha256sum --check --strict checksums.txt`. Sprawdza przez `tools/ci/check-dependencies.sh`, że pliki binarne Linuksa nie wskazują żadnej biblioteki współdzielonej poza `libc.so.6`, `libm.so.6`, `libgcc_s.so.1`, dynamicznymi ładowarkami i `linux-vdso.so.1`. Następnie podpisuje sumy kontrolne i repozytorium apt, buduje pakiety Debian, renderuje manifesty, aktualizuje tap Homebrew i bucket Scoop oraz instaluje opublikowane pakiety na czystych systemach. Akcje używane w przepływach są przypięte do skrótów commitów.
 
 ## Weryfikacja wydania
 
-Każde wydanie zawiera `checksums.txt` i jego podpis `checksums.txt.asc`. Klucz, tak jak podaje `SECURITY.md`:
+Każde wydanie zawiera `checksums.txt` i jego podpis `checksums.txt.asc`. Klucz, jak podaje `SECURITY.md`:
 
 ```text
 Danaco Nurt (Danaco Holding Group Sp. z o.o.) <support@danaco-group.pl>
@@ -67,10 +65,10 @@ gpg --verify checksums.txt.asc checksums.txt
 sha256sum --check checksums.txt
 ```
 
-Klucz publiczny to `packaging/release/danaco-nurt.asc`. Tag każdego wydania jest podpisany tym samym kluczem (`git tag -v`). W sesji wydania 0.1.1 wszystkie 12 archiwów przeszło `sha256sum -c`, a podpis był poprawny (raport końcowy, 27 listopada 2026); nie odnotowano takiej kontroli dla 0.1.2. Plik `nurt.exe` ma podpis Authenticode; jego certyfikat (`packaging/release/danaco-nurt-codesign.pem`) został wystawiony przez samą spółkę Danaco Holding Group Sp. z o.o., więc Windows zgłasza wydawcę jako niezweryfikowanego, dopóki certyfikatu nie zastąpi certyfikat publicznego urzędu.
+Kluczem publicznym jest `packaging/release/danaco-nurt.asc`. Znacznik każdego wydania jest podpisany tym samym kluczem (`git tag -v`). 12 archiwów wersji 0.1.1 przeszło `sha256sum -c`, a podpis `checksums.txt` jest poprawny (wersja 0.1.1, 27 listopada 2026). `nurt.exe` nosi podpis Authenticode; jego certyfikatem jest `packaging/release/danaco-nurt-codesign.pem` z podmiotem `C=PL, O=Danaco Holding Group Sp. z o.o., CN=Danaco Nurt`.
 
-## Podpisane rewizje i sign-off
+## Podpisane commity i podpis Signed-off-by
 
-Każda rewizja gałęzi `main` jest podpisana odrębnym kluczem OpenPGP używanym wyłącznie do rewizji, poświadczonym kluczem wydań (`packaging/release/danaco-nurt-commit-signing.asc`, odcisk `62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62`). Historię weryfikuje się poleceniami `git log --show-signature` lub `git verify-commit`. Wkłady są przyjmowane na zasadach Developer Certificate of Origin 1.1; każda rewizja ma stopkę `Signed-off-by` zgodną z autorem, a `tools/ci/check-commits.sh` sprawdza ją w zadaniu `commits` przepływu higieny ([standardy inżynierskie](/pl/quality/engineering-standards/)).
+Każdy commit gałęzi `main` jest podpisany osobnym kluczem OpenPGP używanym tylko do commitów, poświadczonym kluczem wydań (`packaging/release/danaco-nurt-commit-signing.asc`, odcisk `62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62`). Historię weryfikuje się przez `git log --show-signature` lub `git verify-commit`. Wkłady są przyjmowane na podstawie Developer Certificate of Origin 1.1; każdy commit ma wiersz `Signed-off-by` zgodny z autorem, a `tools/ci/check-commits.sh` sprawdza go w zadaniu `commits` przepływu higieny przy każdym pull requeście ([standardy inżynierskie](/pl/quality/engineering-standards/)). Skrypt pomija commity wymienione w `tools/ci/commits-allow.txt`, opublikowane, zanim objęły je kontrole ([konwencje commitów](/docs/conventions/commits/)). Przeniesienie do publicznego repozytorium odtworzyło 145 commitów z podpisami i poprawionymi tematami (wersja 0.1.1, 27 listopada 2026).
 
-Dwa fakty z historii. Raport wydania 0.1.1 (27 listopada 2026) odnotowuje, że 91 rewizji z zakresu `8c304f01..HEAD` wywołało uwagi `check-commits.sh` oraz że przeniesienie do repozytorium publicznego odtworzyło 145 rewizji z podpisami i poprawionymi tematami. Od 0.1.2 skrypt pomija rewizje wymienione w `tools/ci/commits-allow.txt` (82 identyfikatory; zmienna `NURT_COMMITS_ALLOW_FILE`), ponieważ opublikowana historia nie jest przepisywana; nowa rewizja nigdy nie jest dopisywana do listy ([konwencje commitów](/docs/conventions/commits/)). Źródła nie odnotowują publikacji wydania 0.1.2 w GitHub, a strona jej nie twierdzi. Zob. też [bezpieczeństwo](/pl/quality/security/) i [zależności](/pl/architecture/dependencies/).
+Zobacz też [bezpieczeństwo](/pl/quality/security/) i [zależności](/pl/architecture/dependencies/).

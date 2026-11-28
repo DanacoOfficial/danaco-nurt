@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: What Danaco Nurt is, what it works with, who it is for and where the product stands today.
+description: What Danaco Nurt is, what it works with, who it is for and which release and versions the product carries.
 section: product
 order: 1
 eyebrow: Product
@@ -16,7 +16,7 @@ keywords: [shell, language, journal, undo, agents]
 
 ## What it is
 
-`nurt` (pronounced *NOORT*) is a command shell with its own language for working with files, text, structured documents, source code, version control, processes and the operating system. It is one tool for Linux, Windows and macOS.
+`nurt` (pronounced *NOORT*) is a command shell with its own language for working with files, text, structured documents, source code, version control, processes and the operating system. It is one tool for Linux, Windows and macOS, delivered as one executable per operating system (`nurt`, `nurt.exe`). The musl build for Linux is linked statically.
 
 A program is a pipeline of typed records. Each program is checked before it runs, and each run is described by a structured report of its effects. File changes are recorded in a journal and can be reviewed and undone.
 
@@ -27,7 +27,7 @@ find "/home/user/project" glob: "**/*.go"
   |> first 20
 ```
 
-The program above lists the 20 largest Go source files changed during the last day. Every stage takes records and returns records; none of them has to parse the text of another tool.
+The program above lists the 20 largest Go source files changed during the last day. Every stage takes records and returns records; none of them has to parse the text of another tool. A record has named fields such as the path, the size and the modification time of a file, so `filter` and `sort` address a field by name.
 
 ## The ideas behind it
 
@@ -57,16 +57,18 @@ The program above lists the 20 largest Go source files changed during the last d
 
 The engine is a Rust library with a C interface (`libnurt`, `nurt.h`). The command line program and the Model Context Protocol server use that same engine, and so can your own program. The [architecture](/architecture/overview/) pages describe how the parts fit together.
 
+The command line program covers the whole language. `nurt check` validates a program and prints its canonical form, `nurt serve` and `nurt mcp` expose the engine to other programs, `nurt lsp` serves editors, and `nurt migrate` translates bash and PowerShell scripts into programs of the language. The command catalog holds the core commands and the optional groups; the [features](/product/features/) page lists them by the thing they work on.
+
 ## Who it is for
 
 - **People at a terminal.** A shell where a mistaken `remove` or `replace` can be taken back, and where a program that cannot be valid is refused before it touches a file. See the [use cases](/product/use-cases/).
 - **AI agents and the platforms that host them.** The same engine is available as a tool through the Model Context Protocol, a JSON-RPC server or a library, and every call returns a report that a program can read. See [Nurt for AI agents](/product/ai-agents/).
-- **Teams moving off bash and PowerShell.** The documentation maps the habits of both shells to their forms in Nurt. See [migration](/product/migration/).
+- **Teams moving off bash and PowerShell.** The documentation maps the habits of both shells to their forms in Nurt, and `nurt migrate` translates conditions, loops, functions and script parameters into `when`, `each`, `define` and `params`. See [migration](/product/migration/).
 
-## Where the product stands
+## Release and versions
 
-<Callout type="warning" title="Version 0.1 is not stable">
-  The language, the syntax tree, the command catalog, the report format and the library interfaces may change between 0.x versions. The known limitations are listed on the [status](/project/status/) page and in the changelog.
-</Callout>
+The current release is <Badge tone="accent">0.1.2</Badge>, dated 28 November 2026. It removes the quadratic cost of search and replace with a regular expression on one line: 20,000 matches on a line of 60,000 bytes are replaced in about 0.1 s instead of 2.5 s. On macOS the journal is active for the paths of the data volume, `max_memory` measures the resident memory, and a program whose process group has ended can be suspended, resumed and stopped. The [release notes](/project/releases/) list the content of every release.
 
-The current release is <Badge tone="accent">0.1.2</Badge>, dated 28 November 2026 in the changelog. It is a prepared release: the sources record no publication, and the changelog states that no macOS archive is published for it. The [release notes](/project/releases/) say what it contains, and the [quality](/quality/overview/) pages say how it was checked.
+The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers; a change between 0.x versions is recorded in the changelog. The rules of compatibility are on the [versioning](/project/versioning/) page.
+
+Measured results: 13,965 tests passed in the workspace run (version 0.1.1, Linux, 27 November 2026); 13,455 tests passed on Windows 11 (version 0.1.1); 775 of 775 comparisons with git agree (version 0.1.1); 19 end-to-end scenarios passed on a clean system (version 0.1.1). The [quality](/quality/overview/) pages describe the test suites.

@@ -14,15 +14,21 @@ keywords: [crates, workspace, layers, vendored, jaq-json, pdf-extract]
 {/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
 {/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
 
-## How the list is built
+## The workspace
 
 <Stats>
   <Fact id="crates" />
 </Stats>
 
-The tables below list every directory of `crates/`. The description of each crate is the `description` field of its `Cargo.toml` (without the product name where the field repeats it); every crate of the workspace has one. The grouping is the build layer assigned to the crate in `tables/crate-graph.toml`. A crate depends only on crates of the same or a lower layer, and the test `workspace_graph.rs` of `nurt-contracts` fails when a manifest breaks that rule. The functional view of the same crates is on the [overview](/architecture/overview/) page.
+The tables below list every directory of `crates/`. The description of each crate is the `description` field of its `Cargo.toml`, without the product name where the field repeats it; every crate of the workspace has one, and it states the role of the crate in the system. The grouping is the build layer assigned to the crate in `tables/crate-graph.toml`. A crate depends only on crates of the same or a lower layer, and the test `workspace_graph.rs` of `nurt-contracts` fails when a manifest breaks that rule, declares a dependency the table does not allow or has no entry in the table. The functional view of the same crates is on the [overview](/architecture/overview/) page.
+
+Every crate inherits the edition 2024, the minimum Rust version 1.98, the license Apache-2.0 and the lint table of the workspace manifest. The lints deny `unsafe_code`, so only the crates that call operating system interfaces by definition, `nurt-ffi`, `nurt-fs` and `nurt-sys`, contain `unsafe` blocks, each with a `// SAFETY:` comment. The lints also flag a `pub` item that `lib.rs` does not reach, and library crates document every public item.
 
 The workspace crates take the version 0.1.2 and `publish = false` from the workspace manifest. The two vendored crates keep the versions of their upstream sources, 2.0.3 for `jaq-json` and 0.12.1 for `nurt-pdf-extract`.
+
+The layers have these roles. The contract layer, `nurt-contracts`, holds the types, traits and schemas shared by every crate. The foundation layer holds the values of the language and the command registry. The base layer holds the file system layer, the syntax and the test support. The library layer holds reusable services such as the journal, the report, the planner and the text, document, code and process libraries. The component layer holds the commands, the binding, the execution and the extension points. The host layer composes all components into the engine facade and the background service. The interface layer holds the entry points: the C interface, the command line and the Model Context Protocol server. The tool layer holds the conformance suite and the benchmark. The test support crate `nurt-testkit` is also a development dependency of any crate of the base layer or above.
+
+Each crate exposes what its `lib.rs` re-exports, and its internal modules are private. The exception is `nurt-contracts`, whose public modules are the namespaces of the contracts: `nurt_contracts::config`, `nurt_contracts::journal`, `nurt_contracts::stage`, `nurt_contracts::services` and `nurt_contracts::fs`. A capability that two areas share is a trait in `nurt-contracts`, implemented in its own area and passed in by the host layer.
 
 ## Contract, foundation and base
 
@@ -100,14 +106,10 @@ The workspace crates take the version 0.1.2 and `publish = false` from the works
 
 ## Vendored third-party crates
 
-Two crates of the workspace contain the source of a third-party project. Both are licensed MIT, not by the workspace manifest, and both are named in `NOTICE`.
+Two crates of the workspace contain the source of a third-party project. Both are licensed MIT and both are named in `NOTICE`.
 
-- **`jaq-json`** is a copy of jaq-json 2.0.3 from crates.io (author Michael Färber). Its manifest states that the only change to the upstream source is a limit on the length of a repeated string (`"x" * n`), implemented in `src/limit.rs`. The workspace keeps the copy because the multiplication is implemented in the value type of the crate and cannot be limited from outside. The crate is not marked as unpublished, so `deny.toml` checks its license like that of any other dependency.
-- **`nurt-pdf-extract`** contains the source of pdf-extract 0.12.1 by Jeff Muizelaar. `NOTICE` records that it was changed to use lopdf 0.47 instead of lopdf 0.42. Release 0.1.1 took this step so that the build no longer needs the unmaintained `ttf-parser` crate (RUSTSEC-2026-0192). The library name is `pdf_extract`.
-
-<Callout type="note" title="The crate graph document">
-  The page [crate graph and visibility](/docs/architecture/crate-graph/) still calls five existing crates (`nurt-programs`, `nurt-tooldef`, `nurt-docgen`, `nurt-crashfs` and `nurt`) reserved names of planned crates, and its layer table omits some existing crates, for example `nurt-node` and `jaq-json`. `tables/crate-graph.toml` is the authority on the layer of each crate.
-</Callout>
+- **`jaq-json`** is a copy of jaq-json 2.0.3 from crates.io (author Michael Färber). The only change to the upstream source is a limit on the length of a repeated string (`"x" * n`), implemented in `src/limit.rs`. The multiplication is implemented in the value type of the crate, which is why the workspace keeps the copy. `deny.toml` checks the license of the crate like that of any other dependency.
+- **`nurt-pdf-extract`** contains the source of pdf-extract 0.12.1 by Jeff Muizelaar, changed to use lopdf 0.47 instead of lopdf 0.42, as `NOTICE` records. Release 0.1.1 took this step so that the build does not need the unmaintained `ttf-parser` crate (RUSTSEC-2026-0192). The library name is `pdf_extract`.
 
 ## Next
 

@@ -1,0 +1,102 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.downloads
+ * Responsibility:   The list of downloads: one framed entry per file with the link row (icon, title, size), the content line and the facts (file name, license, SHA-256 sum).
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.downloads {
+  margin-block: var(--space-6);
+}
+
+.downloads .downloads__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.downloads .downloads__item {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--bg-raised);
+}
+
+.downloads__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.downloads__link:hover .downloads__title {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+.downloads__icon {
+  flex: none;
+  color: var(--accent-strong);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.downloads__link:hover .downloads__icon {
+  transform: translateY(2px);
+}
+
+.downloads__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.downloads__size {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.downloads__content {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.downloads__facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+}
+
+.downloads__facts > div {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+}
+
+.downloads__facts dt {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.downloads__facts dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.downloads__sum {
+  overflow-wrap: anywhere;
+}

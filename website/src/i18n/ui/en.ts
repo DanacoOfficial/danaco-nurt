@@ -12,8 +12,10 @@ export const en = {
   nav: {
     label: 'Main navigation',
     product: 'Product',
+    ai: 'AI',
     quality: 'Quality',
     architecture: 'Architecture',
+    design: 'Design',
     docs: 'Documentation',
     project: 'Project',
     search: 'Search',
@@ -33,10 +35,13 @@ export const en = {
   footer: {
     tagline: 'Command shell and language where every change can be undone.',
     description: 'Built for people and AI agents. One tool for Linux, Windows and macOS.',
+    creator: 'Designed and developed by',
     columns: {
       product: 'Product',
+      ai: 'AI',
       quality: 'Quality',
       architecture: 'Architecture',
+      design: 'Design',
       project: 'Project',
     },
     documentation: 'Documentation',
@@ -54,6 +59,15 @@ export const en = {
   breadcrumbs: { label: 'Breadcrumb', home: 'Home' },
   toc: { title: 'On this page' },
   pager: { label: 'Neighbouring pages', previous: 'Previous', next: 'Next' },
+  downloads: {
+    file: 'File',
+    content: 'Content',
+    size: 'Size',
+    license: 'License',
+    checksum: 'SHA-256',
+    files: 'files',
+    caption: 'Downloads',
+  },
   common: {
     copy: 'Copy',
     copied: 'Copied',
@@ -84,6 +98,10 @@ export const en = {
       title: 'Product',
       lead: 'What Danaco Nurt is, what it does and how it behaves: the language, the journal, the command catalog, the reports and the integrations.',
     },
+    ai: {
+      title: 'AI',
+      lead: 'What model makers and builders of agent engines get from Danaco Nurt: one tool with a published definition, checked programs, structured reports, an undo journal, training data and a benchmark of tasks.',
+    },
     quality: {
       title: 'Quality',
       lead: 'How the work is checked: tests, conformance, performance, reliability, security and the supply chain, with the numbers and where they come from.',
@@ -92,9 +110,13 @@ export const en = {
       title: 'Architecture',
       lead: 'How the engine is built: the pipeline, the crates, the C interface, the protocols and the dependencies.',
     },
+    design: {
+      title: 'Design',
+      lead: 'The identity of Danaco Nurt: the idea of the mark, its construction, colour and type, and the identity files to download.',
+    },
     project: {
       title: 'Project',
-      lead: 'Releases, status, versioning, contribution, license, brand and contact.',
+      lead: 'Releases, status, versioning, contribution, license and contact.',
     },
     legal: {
       title: 'Legal',
@@ -106,8 +128,8 @@ export const en = {
     lead: 'The documentation of Danaco Nurt is published from the repository: the guide, the command pages, the cookbook, the cheat sheets, the reference and the specification.',
     sidebarLabel: 'Documentation sections',
     sectionsLabel: 'Sections of the documentation',
-    englishOnlyTitle: 'This page is available in English only',
-    englishOnlyBody: 'The documentation is written and maintained in English. The page below is shown in its original language.',
+    englishOnlyTitle: 'Documentation in English',
+    englishOnlyBody: 'The documentation is written and maintained in English.',
     translatedNotice: 'Translated from the English page. The English text is binding.',
     viewEnglish: 'Read the English page',
     onGithub: 'Source file on GitHub',
@@ -169,7 +191,7 @@ export const en = {
   language: {
     switchTo: 'Switch to',
     available: 'This page is also available in',
-    missing: 'This page has no translation yet.',
+    missing: 'This page is available in English.',
   },
   home: {
     heroActions: { start: 'Get started', docs: 'Read the documentation', github: 'Source on GitHub' },
@@ -180,8 +202,6 @@ export const en = {
     nextSteps: 'Next',
   },
   status: {
-    prestable: 'Pre-stable',
-    prestableBody: 'Version 0.1 is not stable. The language, the syntax tree, the command catalog, the report format and the library interfaces may change between 0.x versions.',
   },
 } as const;
 

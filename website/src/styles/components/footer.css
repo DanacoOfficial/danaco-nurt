@@ -119,3 +119,13 @@
     gap: var(--space-9);
   }
 }
+
+.site-footer__creator {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.site-footer__creator strong {
+  font-weight: 600;
+  color: var(--text);
+}

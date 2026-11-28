@@ -23,15 +23,15 @@ keywords: [JSON-RPC, MCP, LSP, nurt-rpc, events, tool definition, versioning]
 | Language server | Language Server Protocol 3.17 over JSON-RPC | `nurt lsp` | `nurt-langserver` |
 | C ABI | functions of `libnurt` in the host process | the host loads the library | `nurt-ffi` |
 
-The subcommands `mcp`, `lsp`, `migrate`, `service` and `journal` are linked by Cargo features of `nurt-cli`. The default build links all of them, and a subcommand whose component is missing ends with exit code 3. `nurt serve` is present in every build. The integrator guide describes `nurt serve --socket <path>` (a Unix domain socket or a named pipe), but the command line reference lists the option as ending with exit code 3 and the command line crate answers it as unavailable, so `--stdio` is the attachment to rely on in 0.1.2. Language errors, such as an unknown command or a failed assertion, are part of the report in every interface; call errors, such as malformed JSON or an unknown method, are errors of the interface.
+The subcommands `mcp`, `lsp`, `migrate`, `service` and `journal` are linked by Cargo features of `nurt-cli`, and the default build links all of them. `nurt serve` is part of every build. Language errors, such as an unknown command or a failed assertion, are part of the report in every interface; call errors, such as malformed JSON or an unknown method, are errors of the interface.
 
 ## The serve protocol
 
-`nurt serve` runs the engine behind a JSON-RPC 2.0 server. The framing is either `ndjson` (one JSON document per line, the default) or `content-length` (header lines, then exactly the stated number of bytes). Standard output carries protocol messages only. A message longer than 16 MiB (`limits.max_message_bytes`) is skipped and answered with `-32600`.
+`nurt serve` runs the engine behind a JSON-RPC 2.0 server. The framing is either `ndjson` (one JSON document per line, the default) or `content-length` (header lines, then exactly the stated number of bytes). Standard output carries protocol messages only; diagnostics go to standard error or, when events are enabled, to `log` events. A message longer than 16 MiB (`limits.max_message_bytes`) is skipped and answered with `-32600`, and a batch is answered with `-32600` as well: the client sends one request per message.
 
-The first request is `initialize`; before it, every method except `initialize` and `shutdown` is answered with `-32600`. The server accepts several requests in flight (`limits.max_inflight`, default 16), each on its own thread, and answers `initialize`, `cancel` and `shutdown` on the reading thread so that a cancellation is never queued behind the request it cancels.
+The first request is `initialize`; before it, every method except `initialize` and `shutdown` is answered with `-32600`. It checks the major version of `protocol`, `abi` and `ast` and returns the version of the product, the versions of the formats, the features, the command groups and the limits. The server accepts several requests in flight (`limits.max_inflight`, default 16), each on its own thread, and answers `initialize`, `cancel` and `shutdown` on the reading thread so that a cancellation is never queued behind the request it cancels. `shutdown`, or the end of the input, makes the server wait for the requests in flight, answer and exit with code 0; a broken input or output ends it with code 1.
 
-The methods are `run`, `check` (parse, correct, bind and plan without effect; returns `nurt-check/1`), `parse`, `print`, `correct`, `page`, `describe`, `help`, `schema`, `catalog`, `history`, `space`, `info`, `cancel` and `shutdown`. Since release 0.1.1 the request envelope has a member `params`, which passes the parameters of a program that declares `params`.
+The methods are `run`, `check` (parse, correct, bind and plan without effect; returns `nurt-check/1`), `parse`, `print`, `correct`, `page`, `describe`, `help`, `schema`, `catalog`, `history`, `space`, `info`, `cancel` and `shutdown`. The request envelope has a member `params`, which passes the parameters of a program that declares `params`. A cancelled `run` is answered with `-32002` and the response of the program with `E_CANCELLED` in `data.response`.
 
 Errors of the protocol use the codes of JSON-RPC (`-32700` to `-32603`), and an application error is `-32000` minus the status of the C interface, with `data.status` naming it; for example `-32002` is `NURT_E_CANCELLED` and `-32004` is `NURT_E_ABI`. The complete reference is [the serve protocol](/docs/reference/serve-protocol/).
 
@@ -45,7 +45,7 @@ The first request of a session, as in [versions and compatibility](/docs/integra
 
 With `capabilities.events` set in `initialize`, each execution of `run` sends notifications `nurt/event`. The parameters are the document `nurt-event/1`, which `libnurt` also delivers to `nurt_event_cb`. Each event has a type `t`, a number `seq` from 1 within the execution, the time and, when the request has an identifier, `request`. The events of one execution arrive in the order of `seq`, begin with `exec.started`, end with `exec.finished` and precede the reply to the request.
 
-The types are `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log` and `exec.finished`.
+The types are `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log` and `exec.finished`. A `progress` event carries the command, the phase and the counts of items and bytes done; the `job.*` events follow a background job from its start, through its output lines and percentages, to its end.
 
 For use on another device, the host parses the program locally with `parse`, applies its policy with `check`, and sends the syntax tree as the `ast` member of a request to `nurt serve` running there. The remote instance does not correct the tree again, so the program that runs is the one the policy checked. A tree with a newer version than the instance supports is rejected with `E_AST_VERSION`, and the transport, authentication and choice of device belong to the host. See [remote instances and events](/docs/integrators/remote-and-events/) and [policy](/docs/integrators/policy/).
 
@@ -60,13 +60,13 @@ The crate `nurt-mcp` serves three tools and a set of read-only resources.
 | `nurt_check` | tool | checks a program without running it; returns `nurt-check/1` |
 | `nurt://help/{topic}`, `nurt://schema/{name}`, `nurt://describe/core`, `nurt://describe/group/{name}` | resources | help, published JSON schemas, description layers for models |
 
-A `nurt` call returns the rendered text of the report as the first content block and the report `nurt-report/1` as structured content; `isError` is true only when the report carries an error or the call failed. Progress is sent as `notifications/progress` when the client gives a progress token, and `notifications/cancelled` stops the program. The server is built on the `rmcp` crate and negotiates the protocol revisions 2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25; a client that asks for another revision receives 2025-11-25. The HTTP transport serves one endpoint, `/mcp`, with a session identifier in the header `Mcp-Session-Id`, an idle timeout of one hour per session, and checks of the `Host` and `Origin` headers against DNS rebinding.
+A `nurt` call returns the rendered text of the report as the first content block and the report `nurt-report/1` as structured content; `isError` is true when the report carries an error or the call failed. Progress is sent as `notifications/progress` when the client gives a progress token, and `notifications/cancelled` stops the program. The server is built on the `rmcp` crate and negotiates the protocol revisions 2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25; a client that asks for another revision receives 2025-11-25. The HTTP transport serves one endpoint, `/mcp`, with a session identifier in the header `Mcp-Session-Id`, an idle timeout of one hour per session, and checks of the `Host` and `Origin` headers against DNS rebinding.
 
 ## The language server
 
 `nurt lsp` implements the Language Server Protocol 3.17 for `.nurt` files. It publishes diagnostics (corrections of notation and errors of reading and binding, with code, position and fixes), applies quick fixes, formats a document into its canonical text, completes names, parameters and `@` references, shows signatures and hover descriptions, and classifies tokens for highlighting. Positions are exchanged in UTF-32 when the client offers it and in UTF-16 otherwise.
 
-The crate `nurt-lspclient` goes the other way. It is a client that starts language servers of other languages on demand, one per server and project root, for the source code commands. It is not a protocol of Danaco Nurt.
+The crate `nurt-lspclient` goes the other way. It is a client that starts language servers of other languages on demand, one per server and project root, for the source code commands.
 
 ## The tool definition schema
 
@@ -86,7 +86,7 @@ nurt schema tool --format anthropic
 nurt schema tool --format mcp --language pl --groups all
 ```
 
-The description holds the core group and then the selected optional groups, so that a host can load command groups on demand. `catalog_version` records the version of the command catalog the description came from. See [the tool definition](/docs/integrators/tool-definition/) and [tool calls](/docs/integrators/tool-calls/).
+The description holds the core group and then the selected optional groups, so that a host loads command groups on demand. `catalog_version` records the version of the command catalog the description came from. See [the tool definition](/docs/integrators/tool-definition/) and [tool calls](/docs/integrators/tool-calls/).
 
 ## Versioning of each interface
 
@@ -97,9 +97,9 @@ The description holds the core group and then the selected optional groups, so t
 | Serve protocol | `nurt-rpc/1` | `initialize` checks the major version of the protocol, `abi` and `ast`, and returns the versions of the formats, the features and the limits |
 | C ABI | 1.0 | the major version must match; within it the interface only grows |
 | Tool definition | follows `nurt-request/1` | a new option becomes a new optional argument; tool names and existing arguments do not change within a major version |
-| Command catalog | `catalog_version` | commands and parameters are added within a major version; descriptions may change between minor versions |
+| Command catalog | `catalog_version` | commands and parameters are added within a major version; descriptions are revised between minor versions |
 
-The README states that these interfaces may change between 0.x versions of the product. A host pins the major version of the formats it uses and tests with the conformance suite `nurt-conformance`, which talks to an implementation only through `nurt serve --stdio`. The version file of the suite reads 0.1.0 in this release. The schemas of all documents are in `spec/schemas/`.
+The conformance suite `nurt-conformance` talks to an implementation only through `nurt serve --stdio`, so a host pins the major version of the formats it uses and checks an implementation with the same cases. The schemas of all documents are in `spec/schemas/`.
 
 ## Next
 

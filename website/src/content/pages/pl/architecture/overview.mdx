@@ -16,14 +16,14 @@ keywords: [architektura, skrzynki, warstwy, repozytorium, silnik]
 
 ## Kształt systemu
 
-Danaco Nurt to przestrzeń robocza Cargo. Manifest deklaruje wersję 0.1.2, edycję 2024, minimalną wersję Rust 1.98 i licencję Apache-2.0, a każdy katalog w `crates/` jest jej członkiem. Lint przestrzeni roboczej `unsafe_code` ma wartość `deny`. Skrzynka, która wywołuje interfejsy systemu operacyjnego, rezygnuje z tego lintu (`nurt-fs` robi to na początku swojego `lib.rs`), a dokument grafu skrzynek wymaga komentarza `// SAFETY:` przy każdym bloku `unsafe`; `nurt-types` na przykład całkowicie zabrania kodu `unsafe`.
+Danaco Nurt to przestrzeń robocza Cargo. Manifest deklaruje wersję 0.1.2, edycję 2024, minimalną wersję Rust 1.98 i licencję Apache-2.0, a każdy katalog w `crates/` jest jej członkiem. Lint przestrzeni roboczej `unsafe_code` ma wartość `deny`. Skrzynka, która wywołuje interfejsy systemu operacyjnego, rezygnuje z tego lintu (`nurt-fs` robi to na początku swojego `lib.rs`), a każdy blok `unsafe` ma komentarz `// SAFETY:`; `nurt-types` na przykład całkowicie zabrania kodu `unsafe`. Linty przestrzeni roboczej wymagają także dokumentacji każdego elementu publicznego, zgłaszają element `pub`, którego `lib.rs` nie udostępnia, i oznaczają `unwrap`, `expect`, `panic`, `dbg!`, `todo!` oraz bezpośrednie drukowanie w kodzie bibliotek.
 
 <Stats>
   <Fact id="crates" />
   <Fact id="specFiles" />
 </Stats>
 
-Program przechodzi przez system w jednym kierunku. Tekst jest parsowany do drzewa składni, drzewo jest wiązane z katalogiem poleceń i sprawdzane, powstaje plan, moduł wykonawczy uruchamia etapy i przekazuje między nimi rekordy, polecenia zmieniają świat przez dziennik, a raport opisuje skutki. Strona o [silniku](/pl/architecture/engine/) prowadzi jeden program przez te kroki. Punkty wejścia same nie implementują języka: interfejs C, serwer protokołu, interfejs wiersza poleceń i integracje wywołują tę samą fasadę Rust, `Engine` ze skrzynki `nurt-core`.
+Program przechodzi przez system w jednym kierunku. Tekst jest parsowany do drzewa składni, drzewo jest wiązane z katalogiem poleceń i sprawdzane, powstaje plan, moduł wykonawczy uruchamia etapy i przekazuje między nimi rekordy, polecenia zmieniają świat przez dziennik, a raport opisuje skutki. Strona o [silniku](/pl/architecture/engine/) prowadzi jeden program przez te kroki. Punkty wejścia same nie implementują języka: interfejs C, serwer protokołu, interfejs wiersza poleceń i integracje wywołują tę samą fasadę Rust, `Engine` ze skrzynki `nurt-core`. Żądanie, które przychodzi dowolnym z nich, jest tym samym dokumentem, `nurt-request/1`, a odpowiedzią jest ta sama odpowiedź `nurt-response/1` z raportem skutków `nurt-report/1`.
 
 ## Warstwy
 
@@ -43,20 +43,17 @@ Tabela wymienia skrzynki każdej warstwy funkcjonalnej. Skrzynka `nurt-contracts
 | Serwer języka | diagnostyka, uzupełnianie i formatowanie plików `.nurt` | `nurt-langserver` |
 | Interfejs C i wiązania | ABI języka C i dodatek Node.js; pozostałe wiązania są w `bindings/` | `nurt-ffi`, `nurt-node` |
 
-Pozostałe skrzynki to wsparcie i narzędzia: `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` oraz dwie dołączone skrzynki zewnętrzne, `jaq-json` i `nurt-pdf-extract`. Strona o [skrzynkach](/pl/architecture/crates/) wymienia każdą skrzynkę z jej opisem.
+Skrzynki wsparcia i narzędzi to `nurt-testkit`, `nurt-conformance`, `nurt-bench`, `nurt-git-difftest`, `nurt-crashfs`, `nurt-docgen` oraz dwie dołączone skrzynki zewnętrzne, `jaq-json` i `nurt-pdf-extract`. Strona o [skrzynkach](/pl/architecture/crates/) wymienia każdą skrzynkę z jej opisem.
 
 ## Reguły grafu zależności
 
-Dozwolone zależności między skrzynkami przestrzeni roboczej są danymi w `tables/crate-graph.toml`. Test `crates/nurt-contracts/tests/workspace_graph.rs` czyta każdy manifest i kończy się niepowodzeniem, gdy skrzynka deklaruje zależność, której tabela nie dopuszcza. Reguły opisuje dokument [graf skrzynek i widoczność](/docs/architecture/crate-graph/):
+Dozwolone zależności między skrzynkami przestrzeni roboczej są danymi w `tables/crate-graph.toml`. Test `crates/nurt-contracts/tests/workspace_graph.rs` czyta każdy manifest i kończy się niepowodzeniem, gdy skrzynka deklaruje zależność, której tabela nie dopuszcza, więc nowa zależność między skrzynkami przestrzeni roboczej zaczyna się od zmiany tabeli. Reguły opisuje dokument [graf skrzynek i widoczność](/docs/architecture/crate-graph/):
 
 - Każda skrzynka należy do jednej z ośmiu warstw budowania, od najniższej: kontrakt, fundament, baza, biblioteka, komponent, host, interfejs i narzędzie. Skrzynka zależy tylko od skrzynek tej samej lub niższej warstwy, a graf jest acykliczny.
-- Każda skrzynka należy też do obszaru: środowisko uruchomieniowe, język, przechowywanie, pliki, dane strukturalne, procesy, system, git lub integracja. Skrzynki różnych obszarów zależą od siebie tylko przez skrzynki wspólne, takie jak `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` i `nurt-journal`.
+- Każda skrzynka należy też do obszaru: środowisko uruchomieniowe, język, przechowywanie, pliki, dane strukturalne, procesy, system, git lub integracja. Skrzynki różnych obszarów zależą od siebie tylko przez skrzynki wspólne, takie jak `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` i `nurt-journal`. Warstwy hosta, interfejsu i narzędzi łączą skrzynki wszystkich obszarów.
 - Polecenie, które potrzebuje możliwości z innego obszaru, wywołuje cechę usługi zdefiniowaną w `nurt-contracts`, a implementację przekazuje warstwa hosta. Zmiany plików przechodzą przez interfejs transakcji dziennika, nigdy obok niego.
+- Elementy są domyślnie prywatne, elementy współdzielone wewnątrz skrzynki mają `pub(crate)`, a interfejs publiczny skrzynki to to, co jej `lib.rs` re-eksportuje. Pomocnicze elementy testów leżą w modułach `#[cfg(test)]` albo w `nurt-testkit`.
 - Tylko `nurt-ffi` eksportuje symbole języka C, zadeklarowane w `crates/nurt-ffi/include/nurt.h`.
-
-<Callout type="note" title="Dokument, który odstaje od tabeli">
-  Dokument grafu skrzynek w wersji 0.1.2 nadal ma sekcję „Reserved names”, która nazywa `nurt-programs`, `nurt-tooldef`, `nurt-docgen`, `nurt-crashfs` i `nurt` skrzynkami planowanymi. Wszystkie pięć istnieje w `crates/` w wersji 0.1.2, a `tables/crate-graph.toml` ma dla każdej z nich wpis bez znacznika rezerwacji. Wiążąca jest tabela.
-</Callout>
 
 ## Układ repozytorium
 

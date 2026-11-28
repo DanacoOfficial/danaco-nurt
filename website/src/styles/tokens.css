@@ -72,7 +72,9 @@
 }
 
 :root,
-:root[data-theme='dark'] {
+/* The class theme-dark gives an area the dark theme of the identity whatever the theme of the page. */
+:root[data-theme='dark'],
+.theme-dark {
   color-scheme: dark;
   --bg: var(--brand-graphite);
   --bg-raised: #111317;

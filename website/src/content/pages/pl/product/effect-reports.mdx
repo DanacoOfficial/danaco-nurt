@@ -16,9 +16,9 @@ keywords: [raport, skutek, json, markdown, schemat, uruchomienie, wyjście, kont
 
 ## Co zawiera raport
 
-Format to `nurt-report/1`. Specyfikacja formułuje zasadę: raport pokazuje skutek, a nie fakt, że coś się wykonało. Wymienia cele, zmienione i usunięte pliki z ich liczbą i łącznym rozmiarem, rozmiary i skróty przed zmianą i po niej, próbkę różnic, podsumowanie operacji masowych oraz niezwykłe skutki. Puste listy są pomijane, podobnie jak pola opcjonalne, gdy ich nie ma, więc raport zwykłego skutku pozostaje krótki.
+Format to `nurt-report/1`. Raport pokazuje skutek, a nie tylko fakt, że coś się wykonało. Wymienia cele, zmienione i usunięte pliki z ich liczbą i łącznym rozmiarem, rozmiary i skróty przed zmianą i po niej, próbkę różnic, podsumowanie operacji masowych oraz niezwykłe skutki. Puste listy są pomijane, podobnie jak pola opcjonalne, gdy ich nie ma, więc raport zwykłego skutku pozostaje krótki.
 
-Raport zawiera numer operacji `op` i nic więcej o dzienniku (zobacz niżej). Pełna lista pól znajduje się w [specyfikacji raportu](/docs/specification/report/).
+Raport zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem w dzienniku (zobacz niżej). [Specyfikacja raportu](/docs/specification/report/) wymienia każde pole.
 
 ## Postacie raportu
 
@@ -31,7 +31,7 @@ Parametr wywołania `format` wybiera postać renderowanego wyniku.
 | `markdown` | nagłówki, tabele z kreskami pionowymi i bloki kodu dla różnic |
 | `compact` | jeden rekord w wierszu, bez nagłówków |
 
-Tekst, JSON i Markdown to postacie dla czytelników i programów; dokumentacja referencyjna opisuje także `compact`. Tekstowa postać zamiany wygląda następująco (z [dokumentacji referencyjnej wyjścia raportu](/docs/reference/report-output/)):
+Tekst, JSON i Markdown to postacie dla czytelników i programów. Tekstowa postać zamiany wygląda następująco; [dokumentacja referencyjna wyjścia raportu](/docs/reference/report-output/) opisuje każdą postać:
 
 ```text
 op 18  replace  ok
@@ -61,7 +61,7 @@ Nagłówki i etykiety postaci tekstowej, Markdown i compact są słowami kluczow
 | `op` | numer wpisu dziennika; nieobecny dla odczytów, podglądów i programów bez celów |
 | `targets`, `summary` | liczby plików, katalogów i bajtów; liczby utworzeń, modyfikacji, usunięć i zamian |
 | `changes` | zmienione cele na stronie, każdy z `action`, na przykład `create`, `modify`, `delete` lub `rename`; `state` oznacza zmianę poza systemem plików |
-| `notable` | niezwykłe skutki według ważności (`info`, `notice`, `warning`, `alert`); niczego nie blokuje |
+| `notable` | niezwykłe skutki według ważności (`info`, `notice`, `warning`, `alert`); informuje i nie zatrzymuje programu |
 | `irreversible` | skutki, których `undo` nie może odwrócić, z przyczyną, na przykład `service_changed` lub `package_changed` |
 | `error` | `code`, `message`, `at`, `fix` i `candidates` nieudanego programu |
 | `corrections`, `ran` | poprawki zastosowane w tekście programu oraz kanoniczny tekst, który został wykonany |
@@ -75,11 +75,11 @@ Szczegółowość to `quiet`, `normal` (domyślna) lub `detailed`, `limit` ustal
 
 ## Raport a dziennik
 
-Raport wskazuje operację przez `op` i nic nie mówi o cofaniu: żadne pole nie podaje, czy, jak ani do kiedy operację można cofnąć. Stan wpisu pokazuje `history`. Brak `irreversible` nie niesie informacji o cofaniu. Raport `undo` i `redo` jest zwykłym raportem skutków. Zobacz [dziennik i cofanie](/pl/product/journal-and-undo/).
+Raport wskazuje operację przez `op`. Stan wpisu, `available`, `partial`, `expired` lub `undone`, pokazuje `history`, a `irreversible` wymienia skutki, których `undo` nie może odwrócić. Raport `undo` i `redo` jest zwykłym raportem skutków. Zobacz [dziennik i cofanie](/pl/product/journal-and-undo/).
 
 ## Wyjście `run` i jego kontynuacja
 
-Od wersji 0.1.1 odpowiedź [`run`](/docs/commands/run/) jest według dziennika zmian domyślnie krótka. Pełne wyjście jest przechowywane w pliku kolejki, a odpowiedź je kształtuje:
+Od wersji 0.1.1 odpowiedź [`run`](/docs/commands/run/) jest domyślnie krótka. Pełne wyjście jest przechowywane w pliku kolejki, a odpowiedź je kształtuje:
 
 | Reguła | Wartość domyślna |
 |---|---|
@@ -90,12 +90,12 @@ Od wersji 0.1.1 odpowiedź [`run`](/docs/commands/run/) jest według dziennika z
 | po niepowodzeniu z więcej niż 20 wierszami | rozpoznawane jest wyjście `cargo`/`rustc` i `pytest`: `diagnostics` zawiera liczby i pierwsze 10 różnych błędów; tekst zachowuje ostatnie 10 wierszy |
 | wyjście jednego programu | `run.spool_max` wynosi `1gib`; powyżej tego wyjście jest liczone, haszowane i oznaczane `spool_limit` |
 
-Ograniczenia: diagnostyka powstaje tylko dla dwóch rozpoznawanych narzędzi i tylko po niepowodzeniu przy dłuższym wyjściu, a wcześniejsze zachowanie przywracają `dedupe: false`, `max_bytes: 0` lub `head` i `tail`.
+Diagnostyka obejmuje wyjście `cargo`/`rustc` i `pytest` po niepowodzeniu przy dłuższym wyjściu, a `dedupe: false`, `max_bytes: 0` lub `head` i `tail` przywracają wcześniejszą postać odpowiedzi.
 
 Od wersji 0.1.1 polecenie `next` i pole `continuation` zastępują dawne `read_hint`. Odpowiedź, która pomija wiersze, rekordy lub końce długich wierszy, zawiera `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`), a jej tekst kończy się `more: next`. `next`, `next 200`, `next all` i `next full` zwracają kolejną część z pliku wyjścia, z zachowanego wyniku polecenia odczytującego lub z kursora `logs`, bez ponownego uruchamiania programu. Zachowane wyniki wygasają po `continuation.max_age` (1 godzina) i są ograniczone przez `continuation.max_count` (50) oraz `continuation.max_size` (256 MiB); wygasła kontynuacja kończy się błędem `E_CONTINUATION_EXPIRED`.
 
-<Callout type="note" title="Format raportu w wersjach 0.x">
-  Dziennik zmian stwierdza, że format raportu może się zmieniać między wersjami 0.x. Wersja formatu to `1.0`, zapisywana jako `"nurt": "1.0"`.
+<Callout type="note" title="Wersja formatu raportu">
+  Wersja formatu to `1.0`, zapisywana jako `"nurt": "1.0"`. Format raportu ma własny numer wersji; zmiana między wersjami 0.x jest zapisana w dzienniku zmian.
 </Callout>
 
 ## Dokąd dalej

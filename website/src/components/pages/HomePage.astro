@@ -4,12 +4,13 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.pages.HomePage
-// Responsibility:   The home page in one language: the hero, the pillars, how a program runs, the numbers, the quality entry points, the documentation entry points and the closing call to action.
+// Responsibility:   The home page in one language: the hero, the pillars, the statement of the creator, how a program runs, the section for AI labs and agent engines, the numbers, the quality entry points, the design entry points, the documentation entry points and the closing call to action.
 // Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.*, website.src.components.content.*, website.src.components.motion.*, website.src.data.home-page.*
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Hero from '../sections/Hero.astro';
 import Section from '../sections/Section.astro';
+import Statement from '../sections/Statement.astro';
 import CtaBand from '../sections/CtaBand.astro';
 import Card from '../content/Card.astro';
 import CardGrid from '../content/CardGrid.astro';
@@ -20,6 +21,7 @@ import Stats from '../content/Stats.astro';
 import Button from '../base/Button.astro';
 import type { Locale } from '../../../config/i18n';
 import { seo } from '../../../config/seo';
+import { site } from '../../../config/site';
 import { homeEn } from '../../data/home-page/en';
 import { homePl } from '../../data/home-page/pl';
 import { href, localisedPath } from '../../lib/urls';
@@ -44,6 +46,8 @@ const content = locale === 'pl' ? homePl : homeEn;
     </CardGrid>
   </Section>
 
+  <Statement eyebrow={content.statement.eyebrow} quote={content.statement.quote} name={site.creator} role={content.statement.role} />
+
   <Section id="how" tone="raised" eyebrow={content.how.eyebrow} title={content.how.title} lead={content.how.lead}>
     <div class="how">
       <ol class="how__points" role="list">
@@ -66,7 +70,22 @@ const content = locale === 'pl' ? homePl : homeEn;
     </div>
   </Section>
 
-  <Section id="numbers" eyebrow={content.numbers.eyebrow} title={content.numbers.title} lead={content.numbers.lead}>
+  <Section id="ai" eyebrow={content.ai.eyebrow} title={content.ai.title} lead={content.ai.lead}>
+    <Stats>
+      <Fact id="trainingPairs" />
+      <Fact id="benchTasks" />
+      <Fact id="toolFormats" />
+      <Fact id="integrationExamples" />
+    </Stats>
+    <CardGrid columns={4}>
+      {content.ai.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
+    </CardGrid>
+    <div class="cluster">
+      <Button href={href('/ai/overview/', locale)} variant="primary" iconAfter="arrow-right">{content.ai.action}</Button>
+    </div>
+  </Section>
+
+  <Section id="numbers" tone="raised" eyebrow={content.numbers.eyebrow} title={content.numbers.title} lead={content.numbers.lead}>
     <Stats>
       <Fact id="commands" />
       <Fact id="platforms" />
@@ -77,9 +96,15 @@ const content = locale === 'pl' ? homePl : homeEn;
     </Stats>
   </Section>
 
-  <Section id="quality" tone="raised" eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
+  <Section id="quality" eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
     <CardGrid columns={4}>
       {content.quality.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
+    </CardGrid>
+  </Section>
+
+  <Section id="design" tone="raised" eyebrow={content.design.eyebrow} title={content.design.title} lead={content.design.lead}>
+    <CardGrid columns={2}>
+      {content.design.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
     </CardGrid>
   </Section>
 

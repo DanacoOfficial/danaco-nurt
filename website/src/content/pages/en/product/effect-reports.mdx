@@ -16,9 +16,9 @@ keywords: [report, effect, json, markdown, schema, run, output, continuation]
 
 ## What a report contains
 
-The format is `nurt-report/1`. The specification states the principle: the report shows the effect, not the fact that something ran. It lists the targets, the changed and deleted files with their number and total size, sizes and hashes before and after, a sample of differences, a summary of bulk operations and the unusual effects. Lists are omitted when empty and optional fields when absent, so the report of an ordinary effect stays short.
+The format is `nurt-report/1`. The report shows the effect, not only the fact that something ran. It lists the targets, the changed and deleted files with their number and total size, sizes and hashes before and after, a sample of differences, a summary of bulk operations and the unusual effects. Lists are omitted when empty and optional fields when absent, so the report of an ordinary effect stays short.
 
-The report carries the operation number `op` and nothing else about the journal (see below). The full field list is in the [report specification](/docs/specification/report/).
+The report carries the operation number `op`, which connects the run to its journal entry (see below). The [report specification](/docs/specification/report/) lists every field.
 
 ## The forms of the report
 
@@ -31,7 +31,7 @@ The call parameter `format` selects the form of the rendered result.
 | `markdown` | headings, pipe tables and fenced blocks for differences |
 | `compact` | one record per line, without headings |
 
-Text, JSON and Markdown are the forms for readers and programs; the reference also documents `compact`. The text form of a replacement looks like this (from the [report output reference](/docs/reference/report-output/)):
+Text, JSON and Markdown are the forms for readers and programs. The text form of a replacement looks like this; the [report output reference](/docs/reference/report-output/) documents every form:
 
 ```text
 op 18  replace  ok
@@ -61,7 +61,7 @@ Headings and labels of the text, Markdown and compact forms are keywords and sta
 | `op` | the number of the journal entry; absent for reads, previews and programs without targets |
 | `targets`, `summary` | counts of files, directories and bytes; counts of creations, modifications, deletions and replacements |
 | `changes` | changed targets on the page, each with an `action` such as `create`, `modify`, `delete` or `rename`; `state` marks a change outside the file system |
-| `notable` | unusual effects by severity (`info`, `notice`, `warning`, `alert`); it never blocks anything |
+| `notable` | unusual effects by severity (`info`, `notice`, `warning`, `alert`); it informs and does not stop the program |
 | `irreversible` | effects that undo cannot reverse, with a reason such as `service_changed` or `package_changed` |
 | `error` | `code`, `message`, `at`, `fix` and `candidates` of a failed program |
 | `corrections`, `ran` | corrections applied to the program text, and the canonical text that ran |
@@ -75,11 +75,11 @@ Verbosity is `quiet`, `normal` (default) or `detailed`, `limit` sets the page si
 
 ## The report and the journal
 
-The report names the operation with `op` and states nothing about undo: no field says whether, how or until when an operation can be undone. The state of an entry is shown by `history`. The absence of `irreversible` carries no information about undo. The report of `undo` and `redo` is an ordinary effect report. See [journal and undo](/product/journal-and-undo/).
+The report names the operation with `op`. The state of the entry, `available`, `partial`, `expired` or `undone`, is shown by `history`, and `irreversible` lists the effects that undo cannot reverse. The report of `undo` and `redo` is an ordinary effect report. See [journal and undo](/product/journal-and-undo/).
 
 ## The output of `run` and its continuation
 
-Since 0.1.1 the response of [`run`](/docs/commands/run/) is short by default, according to the changelog. The full output is kept in a spool file, and the response shapes it:
+Since 0.1.1 the response of [`run`](/docs/commands/run/) is short by default. The full output is kept in a spool file, and the response shapes it:
 
 | Rule | Default |
 |---|---|
@@ -90,12 +90,12 @@ Since 0.1.1 the response of [`run`](/docs/commands/run/) is short by default, ac
 | after a failure with more than 20 lines | the output of `cargo`/`rustc` and `pytest` is recognised: `diagnostics` holds the counts and the first 10 distinct errors; the text keeps the last 10 lines |
 | output of one program | `run.spool_max` is `1gib`; beyond it output is counted, hashed and noted `spool_limit` |
 
-The limits: the diagnostics are produced only for the two recognised tools and only after a failure of longer output, and the earlier behaviour is returned with `dedupe: false`, `max_bytes: 0` or `head` and `tail`.
+The diagnostics cover the output of `cargo`/`rustc` and `pytest` after a failure with longer output, and `dedupe: false`, `max_bytes: 0` or `head` and `tail` return the earlier shape of the response.
 
 Since 0.1.1 the command `next` and the field `continuation` replace the former `read_hint`. A response that leaves lines, records or the end of long lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`), and its text ends with `more: next`. `next`, `next 200`, `next all` and `next full` return the next part from the output file, from the kept result of a reading command or from the cursor of `logs`, without running the program again. Kept results expire after `continuation.max_age` (1 hour) and are limited by `continuation.max_count` (50) and `continuation.max_size` (256 MiB); an expired continuation ends with `E_CONTINUATION_EXPIRED`.
 
-<Callout type="note" title="Report format in 0.x">
-  The changelog states that the report format may change between 0.x versions. The format version is `1.0`, written `"nurt": "1.0"`.
+<Callout type="note" title="Version of the report format">
+  The format version is `1.0`, written `"nurt": "1.0"`. The report format carries its own version number; a change between 0.x versions is recorded in the changelog.
 </Callout>
 
 ## Where to go next

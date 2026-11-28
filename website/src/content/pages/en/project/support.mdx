@@ -4,7 +4,7 @@ description: Where to ask questions and report defects in Danaco Nurt, how vulne
 section: project
 order: 8
 eyebrow: Project
-lead: Questions and defects go to the repository or to support@danaco-group.pl; vulnerabilities go to e-mail only.
+lead: Questions and defects go to the repository or to support@danaco-group.pl; vulnerabilities go to e-mail.
 updated: 2026-11-28
 related: [quality/security, project/contributing, project/status]
 keywords: [support, contact, issues, bug report, security report]
@@ -21,15 +21,19 @@ keywords: [support, contact, issues, bug report, security report]
 | Understand how something works | the [documentation](/docs/guide/): guide, command reference, cookbook, cheatsheets and specification |
 | Report a defect or request a feature | the [issues of the repository](https://github.com/DanacoOfficial/danaco-nurt/issues); the repository offers a form for a bug report and a form for a feature request |
 | Ask a question or reach the maintainers | `support@danaco-group.pl` |
-| Report a suspected vulnerability | `support@danaco-group.pl`, subject starting with `[security] nurt`, never in a public issue |
+| Report a suspected vulnerability | `support@danaco-group.pl`, subject starting with `[security] nurt` |
 | Report a breach of the Code of Conduct | `support@danaco-group.pl` |
 | Report an accessibility barrier on this site | `support@danaco-group.pl`; see [Accessibility](/legal/accessibility/) |
 
-The documentation on versioning and support names the same address for questions and defects. Before you open an issue, search the existing ones; the repository does not accept blank issues, so an issue is opened with one of the forms.
+Search the existing issues before you open one. An issue is opened with one of the forms of the repository.
+
+## Help in the program and in the documentation
+
+The program answers questions about itself. `nurt help [topic]` prints the help of the language and of a topic, `nurt catalog [command | group]` prints the signature and the description of a command or of a group, and `nurt doctor` reports the properties of the file system, the permissions, the service and the language servers. Every error carries a stable code (`E_...`), a position and a correction. The archives of a release hold the documentation as a site that works offline in the directory `doc/`; open `doc/index.html`. The online documentation has one page for each command, with examples that the build of the documentation runs.
 
 ## Reporting a vulnerability
 
-Vulnerabilities are not reported in an issue, a pull request or a discussion. Send an e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`. Reports may be written in English or Polish. A report contains, as far as available:
+A vulnerability is reported by e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`. Reports may be written in English or Polish. A report contains:
 
 - the affected version, commit or release artifact;
 - the operating system and architecture;
@@ -55,11 +59,11 @@ nurt --version
 nurt exec --json '<program>'
 ```
 
-The second line is an example of the form of `nurt exec` with `--json`, as the command line page documents it; replace `<program>` with the minimal program. The exact options are on the [command line](/docs/guide/command-line/) page.
+The second line shows the form of `nurt exec` with `--json`; replace `<program>` with the minimal program. The exact options are on the [command line](/docs/guide/command-line/) page.
 
-## Response times
+## Handling of security reports
 
-The only response times that a source in the repository states are those of the security process in SECURITY.md:
+The security process of SECURITY.md sets these target times:
 
 | Step | Target time |
 |---|---|
@@ -68,4 +72,4 @@ The only response times that a source in the repository states are those of the 
 | Fix for a critical vulnerability | within 7 days of confirmation |
 | Coordinated public disclosure | within 90 days of the report, or earlier when a fix is released |
 
-No response time is stated for questions, defect reports or feature requests, and this page makes no promise for them. For the state of the product and its known limits, read [Status and limitations](/project/status/) first; to propose a change yourself, see [Contributing](/project/contributing/).
+The reporter is informed of the progress of the assessment and of the planned release date. Fixed vulnerabilities are described in a security advisory of the repository and in the changelog, and reporters are credited in the advisory unless they ask otherwise. The [current state](/project/status/) page lists the version and the systems; to propose a change yourself, see [Contributing](/project/contributing/).

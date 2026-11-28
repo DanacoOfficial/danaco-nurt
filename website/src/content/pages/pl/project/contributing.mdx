@@ -14,9 +14,9 @@ keywords: [współtworzenie, pull request, DCO, conventional commits, kodeks pos
 {/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
 {/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
 
-## Gdzie są zasady
+## Zasady
 
-Wiążącym tekstem jest [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md) w repozytorium. Ta strona go streszcza i odsyła do konwencji w `docs/conventions`:
+Zasady repozytorium są w [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md). Konwencje są w `docs/conventions`:
 
 | Temat | Dokument |
 |---|---|
@@ -51,15 +51,15 @@ Komunikaty rewizji stosują Conventional Commits 1.0.0:
 [footers]
 ```
 
-`type` to jedno z: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` to nazwa zmienianej skrzynki bez przedrostka `nurt-` (na przykład `journal` lub `git-ops`) albo obszar, taki jak `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` lub `release`. Streszczenie ma tryb rozkazujący, zaczyna się małą literą, nie kończy się kropką i ma co najwyżej 72 znaki. Zmianę łamiącą zgodność oznacza się znakiem `!` i opisuje w stopce `BREAKING CHANGE:`. Skrypt `tools/ci/check-commits.sh` sprawdza komunikaty pull requesta; rewizje opublikowane, zanim objęły je kontrole, są wypisane w `tools/ci/commits-allow.txt` i pomijane, a nowa rewizja nigdy nie trafia na tę listę.
+`type` to jedno z: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` to nazwa zmienianej skrzynki bez przedrostka `nurt-` (na przykład `journal` lub `git-ops`) albo obszar, taki jak `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` lub `release`. Streszczenie ma tryb rozkazujący, zaczyna się małą literą, nie kończy się kropką i ma co najwyżej 72 znaki. Zmianę łamiącą zgodność oznacza się znakiem `!` i opisuje w stopce `BREAKING CHANGE:`. Skrypt `tools/ci/check-commits.sh` sprawdza komunikaty pull requesta.
 
 ## Budowanie i testowanie
 
 Polecenia są takie jak w README. Wymagany łańcuch narzędzi Rust jest przypięty w `rust-toolchain.toml`, a potrzebny jest kompilator C, ponieważ dołączone komponenty, takie jak SQLite i gramatyki tree-sitter, są kompilowane ze źródeł.
 
 ```sh
-git clone https://github.com/DanacoOfficial/nurt.git
-cd nurt
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
+cd danaco-nurt
 cargo build --release --locked
 cargo test --workspace --locked
 ```

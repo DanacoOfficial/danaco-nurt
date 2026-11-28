@@ -1,0 +1,37 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.Statement
+// Responsibility:   The statement of the creator of the product: a quotation set large on a graphite band with the mark, followed by the name and the role of its author.
+// Dependencies:     website.src.components.brand.Mark, website.src.styles.components.statement
+
+import '../../styles/components/statement.css';
+import Mark from '../brand/Mark.astro';
+
+interface Props {
+  eyebrow: string;
+  quote: string;
+  name: string;
+  role: string;
+}
+
+const { eyebrow, quote, name, role } = Astro.props;
+---
+
+<section class="statement stream-trace theme-dark">
+  <div class="container statement__inner">
+    <Mark class="statement__mark" size={56} />
+    <figure class="statement__figure">
+      <p class="eyebrow">{eyebrow}</p>
+      <blockquote class="statement__quote">
+        <p>{quote}</p>
+      </blockquote>
+      <figcaption class="statement__author">
+        <span class="statement__name">{name}</span>
+        <span class="statement__role">{role}</span>
+      </figcaption>
+    </figure>
+  </div>
+</section>

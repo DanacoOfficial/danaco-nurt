@@ -10,8 +10,8 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/build-search.mjs",
-    "build:site": "astro build",
+    "build": "node scripts/build-downloads.mjs && astro build && node scripts/build-search.mjs",
+    "build:site": "node scripts/build-downloads.mjs && astro build",
     "build:search": "node scripts/build-search.mjs",
     "preview": "astro preview",
     "check:i18n": "node scripts/check-i18n.mjs",
@@ -19,13 +19,17 @@
     "check:links": "node scripts/check-links.mjs",
     "check": "node scripts/check-i18n.mjs && node scripts/check-content.mjs && node scripts/check-links.mjs",
     "fonts": "python3 scripts/build_fonts.py $FONT_SOURCE src/assets/fonts",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "downloads": "node scripts/build-downloads.mjs",
+    "predev": "node scripts/build-downloads.mjs",
+    "training": "python3 scripts/build_training_packs.py"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.4.3",
     "@astrojs/mdx": "^8.0.3",
     "@astrojs/sitemap": "^3.7.4",
     "astro": "^7.3.8",
+    "fflate": "^0.8.3",
     "satteri": "^0.10.5",
     "sharp": "^0.35.5",
     "three": "^0.186.0",

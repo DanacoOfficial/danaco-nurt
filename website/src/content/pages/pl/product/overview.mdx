@@ -1,6 +1,6 @@
 ---
 title: Przegląd
-description: Czym jest Danaco Nurt, z czym pracuje, dla kogo jest i na jakim etapie jest dziś produkt.
+description: Czym jest Danaco Nurt, z czym pracuje, dla kogo jest oraz jakie wydanie i jakie wersje niesie produkt.
 section: product
 order: 1
 eyebrow: Produkt
@@ -16,7 +16,7 @@ keywords: [powłoka, język, dziennik, cofanie, agenci]
 
 ## Czym jest
 
-`nurt` (wymowa: *NURT*, polskie słowo „nurt”) to powłoka poleceń z własnym językiem do pracy z plikami, tekstem, dokumentami strukturalnymi, kodem źródłowym, kontrolą wersji, procesami i systemem operacyjnym. To jedno narzędzie dla Linuksa, Windows i macOS.
+`nurt` (wymowa: *NURT*, polskie słowo „nurt”) to powłoka poleceń z własnym językiem do pracy z plikami, tekstem, dokumentami strukturalnymi, kodem źródłowym, kontrolą wersji, procesami i systemem operacyjnym. To jedno narzędzie dla Linuksa, Windows i macOS, dostarczane jako jeden plik wykonywalny na system operacyjny (`nurt`, `nurt.exe`). Kompilacja musl dla Linuksa jest linkowana statycznie.
 
 Program to potok typowanych rekordów. Każdy program jest sprawdzany przed uruchomieniem, a każde uruchomienie jest opisane ustrukturyzowanym raportem skutków. Zmiany w plikach są zapisywane w dzienniku i można je przejrzeć oraz cofnąć.
 
@@ -27,7 +27,7 @@ find "/home/user/project" glob: "**/*.go"
   |> first 20
 ```
 
-Powyższy program wypisuje 20 największych plików źródłowych Go zmienionych w ciągu ostatniej doby. Każdy etap przyjmuje rekordy i zwraca rekordy; żaden nie musi analizować tekstu innego narzędzia.
+Powyższy program wypisuje 20 największych plików źródłowych Go zmienionych w ciągu ostatniej doby. Każdy etap przyjmuje rekordy i zwraca rekordy; żaden nie musi analizować tekstu innego narzędzia. Rekord ma nazwane pola, takie jak ścieżka, rozmiar i czas modyfikacji pliku, więc `filter` i `sort` odwołują się do pola po nazwie.
 
 ## Idee, na których to stoi
 
@@ -57,16 +57,18 @@ Powyższy program wypisuje 20 największych plików źródłowych Go zmienionych
 
 Silnik jest biblioteką Rust z interfejsem C (`libnurt`, `nurt.h`). Program wiersza poleceń i serwer Model Context Protocol korzystają z tego samego silnika, tak samo może korzystać Twój własny program. Strony o [architekturze](/pl/architecture/overview/) opisują, jak części do siebie pasują.
 
+Program wiersza poleceń obejmuje cały język. `nurt check` sprawdza program i drukuje jego postać kanoniczną, `nurt serve` i `nurt mcp` udostępniają silnik innym programom, `nurt lsp` obsługuje edytory, a `nurt migrate` tłumaczy skrypty basha i PowerShella na programy języka. Katalog poleceń zawiera polecenia rdzenia i grupy opcjonalne; strona o [funkcjach](/pl/product/features/) wymienia je według tego, na czym pracują.
+
 ## Dla kogo
 
 - **Dla ludzi przy terminalu.** Powłoka, w której błędne `remove` lub `replace` można cofnąć, a program, który nie może być poprawny, jest odrzucany, zanim dotknie pliku. Zobacz [przykłady zastosowań](/pl/product/use-cases/).
 - **Dla agentów AI i platform, które je uruchamiają.** Ten sam silnik jest dostępny jako narzędzie przez Model Context Protocol, serwer JSON-RPC albo bibliotekę, a każde wywołanie zwraca raport, który program potrafi odczytać. Zobacz [Nurt dla agentów AI](/pl/product/ai-agents/).
-- **Dla zespołów odchodzących od basha i PowerShella.** Dokumentacja przypisuje nawyki obu powłok do ich postaci w Nurt. Zobacz [migrację](/pl/product/migration/).
+- **Dla zespołów odchodzących od basha i PowerShella.** Dokumentacja przypisuje nawyki obu powłok do ich postaci w Nurt, a `nurt migrate` tłumaczy warunki, pętle, funkcje i parametry skryptów na `when`, `each`, `define` i `params`. Zobacz [migrację](/pl/product/migration/).
 
-## Na jakim etapie jest produkt
+## Wydanie i wersje
 
-<Callout type="warning" title="Wersja 0.1 nie jest stabilna">
-  Język, drzewo składni, katalog poleceń, format raportu i interfejsy bibliotek mogą się zmieniać między wersjami 0.x. Znane ograniczenia wymienia strona o [stanie projektu](/pl/project/status/) i dziennik zmian.
-</Callout>
+Bieżące wydanie to <Badge tone="accent">0.1.2</Badge> z 28 listopada 2026. Usuwa kwadratowy koszt wyszukiwania i zamiany wyrażeniem regularnym w jednym wierszu: 20 000 trafień w wierszu o długości 60 000 bajtów jest zamienianych w około 0,1 s zamiast w 2,5 s. W macOS dziennik jest aktywny dla ścieżek woluminu danych, `max_memory` mierzy pamięć rezydentną, a program, którego grupa procesów się zakończyła, można wstrzymać, wznowić i zatrzymać. [Notatki o wydaniu](/pl/project/releases/) opisują zawartość każdego wydania.
 
-Bieżące wydanie to <Badge tone="accent">0.1.2</Badge>, z datą 28 listopada 2026 w dzienniku zmian. To wydanie przygotowane: źródła nie zapisują jego publikacji, a dziennik zmian stwierdza, że nie publikuje się dla niego archiwum macOS. [Notatki o wydaniu](/pl/project/releases/) mówią, co zawiera, a strony o [jakości](/pl/quality/overview/) — jak je sprawdzono.
+Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji; zmiana między wersjami 0.x jest zapisana w dzienniku zmian. Reguły zgodności zawiera strona o [wersjonowaniu](/pl/project/versioning/).
+
+Zmierzone wyniki: 13 965 testów zaliczonych w przebiegu przestrzeni roboczej (wersja 0.1.1, Linux, 27 listopada 2026); 13 455 testów zaliczonych na Windows 11 (wersja 0.1.1); 775 z 775 porównań z gitem zgodnych (wersja 0.1.1); 19 scenariuszy end-to-end zaliczonych na czystym systemie (wersja 0.1.1). Strony o [jakości](/pl/quality/overview/) opisują zestawy testów.
