@@ -10,7 +10,7 @@ summary: System services, the registry provider, CIM, the firewall, routes, DNS 
 <!-- Responsibility:   Documents Group administration. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Group administration
@@ -42,10 +42,10 @@ change made with `write` can be undone.
 | Command | Category | Input and output | Reversibility | Page |
 |---|---|---|---|---|
 | `services` | source | none to `service` | read | [services](../commands/services.md) |
-| `start` | run | `service` to `effect` | irreversible | [start](../commands/start.md) |
+| `start` | run | `service` to `effect` | reversible_if_preserved | [start](../commands/start.md) |
 | `restart` | run | `service` to `effect` | irreversible | [restart](../commands/restart.md) |
-| `enable` | change | `service` to `effect` | irreversible | [enable](../commands/enable.md) |
-| `disable` | change | `service` to `effect` | irreversible | [disable](../commands/disable.md) |
+| `enable` | change | `service` to `effect` | reversible_if_preserved | [enable](../commands/enable.md) |
+| `disable` | change | `service` to `effect` | reversible_if_preserved | [disable](../commands/disable.md) |
 | `windows.cim` | change | none to `cim_object`, `effect` | read | [windows.cim](../commands/windows.cim.md) |
 | `firewall.rules` | source | none to `map` | read | [firewall.rules](../commands/firewall.rules.md) |
 | `firewall.allow` | change | none to `effect` | reversible | [firewall.allow](../commands/firewall.allow.md) |
@@ -116,9 +116,13 @@ and `disable` are the last stage that changes anything: `services name: "nginx"
 |> restart` selects in the read step and restarts in the apply step.
 
 Changing the state of a service is an effect outside the file system. The
-operation journal records it as irreversible, `undo` does not reverse it, and
-the effect report lists it among the irreversible effects. A preview shows the
-services that would be changed and changes nothing.
+operation journal records the state before and after; `undo` runs the opposite
+command for `start`, `enable` and `disable`, and a service whose state before
+no command restores stays irreversible. `restart` has no inverse. The catalog
+classifies `start`, `enable` and `disable` as `reversible_if_preserved` and
+`restart` as `irreversible`; the effect report lists the irreversible effects
+that remain. A preview shows the services that would be changed and changes
+nothing.
 
 ## Firewall, routes, DNS and the clock
 

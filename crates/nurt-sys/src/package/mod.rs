@@ -14,8 +14,12 @@
 //! `package.list` and `package.search` read the databases and repository
 //! indexes of the managers and start no program. `package.install`,
 //! `package.remove` and `package.upgrade` start the program of the manager
-//! through the process host of the execution context; the change is marked
-//! in the journal as irreversible (`package_changed`).
+//! through the process host of the execution context. The command marks the
+//! change in the journal as irreversible (`package_changed`) because the
+//! journal keeps no file content for it; after the change the engine derives
+//! the inverse operation from the recorded states (`nurt_core::inverse`) and
+//! drops the marker, unless the repository no longer offers a recorded
+//! version. `undo` runs the inverse operation.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;

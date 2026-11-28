@@ -134,6 +134,18 @@ their own version numbers, described in the specification.
   establish are listed with their reason in `PENDING_ROWS`), correction seeds of
   the new commands, and the placeholder of the identifier of a job in the exec
   and journal cases follows the record `job` (`report/job/fields/id/v`).
+- Catalog: `package.install`, `package.remove`, `package.upgrade`, `start`,
+  `enable` and `disable` were classified as `irreversible`, although `undo` has
+  restored them by the inverse operation since 0.1.1. They are now
+  `reversible_if_preserved` with a note that states the condition (a version
+  that the repository no longer offers, and a service state that no command
+  restores, stay irreversible); `restart` stays `irreversible`. The
+  classification is what `nurt check`, the signature in `help` and the
+  command pages report; the irreversible stages that a construct announces
+  before it runs are unchanged because they follow the effect `external`. The groups
+  `package` and `administration` of the documentation, the table of
+  the journal coverage, the specification of the catalog and the golden bound
+  trees (`catalog_rev`) follow.
 - `nurt serve --socket <path>`: the documentation presented the option as
   working or as available in some builds. No build contains a socket
   transport; the option is recognised and ends with exit code 3. The integrator
@@ -146,7 +158,9 @@ their own version numbers, described in the specification.
   release archives (Linux glibc and musl and Windows MSVC, each on x86_64 and
   aarch64; no macOS archive) and marks the NuGet and Maven channels as planned;
   the ban reasons of `deny.toml` name `saphyr` instead of `yaml-edit`; the
-  readmes of the integrations name the workflow files of `.github/workflows`.
+  readmes of the integrations name the workflow files of `.github/workflows`;
+  35 examples of the command pages, the cookbook and the git group use absolute
+  paths, because the language rejects a relative path (`E_PATH_RELATIVE`).
 
 ### Known issues
 
