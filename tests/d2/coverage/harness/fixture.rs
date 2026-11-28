@@ -368,8 +368,12 @@ impl Fixture {
 
     /// Snapshot of volume `index` without the journal directory.
     pub(crate) fn snapshot_of(&self, index: usize) -> TreeSnapshot {
-        let journal_dir = self.options.journal.dir_name.as_str();
-        TreeSnapshot::take(self.fs.as_ref(), self.volume(index), &[journal_dir])
+        let journal_dir = services::journal_dir_name(&self.options.journal);
+        TreeSnapshot::take(
+            self.fs.as_ref(),
+            self.volume(index),
+            &[journal_dir.as_str()],
+        )
     }
 
     /// Every entry of `history`, newest first.

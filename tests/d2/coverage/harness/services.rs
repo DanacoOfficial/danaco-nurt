@@ -177,16 +177,27 @@ pub(crate) fn bind(
     Bound { journal, audit }
 }
 
+/// Name of the journal directory on the host system: the configured name,
+/// with the suffix `.noindex` that the journal adds on macOS.
+pub(crate) fn journal_dir_name(config: &JournalConfig) -> String {
+    if cfg!(target_os = "macos") && !config.dir_name.ends_with(".noindex") {
+        format!("{}.noindex", config.dir_name)
+    } else {
+        config.dir_name.clone()
+    }
+}
+
 /// Journal directory of every volume: the directory of the configured name
 /// at the mount point, where the journal anchors it.
 fn journal_dirs(fs: &dyn Fs, roots: &[AbsPath], config: &JournalConfig) -> Vec<AbsPath> {
+    let name = journal_dir_name(config);
     roots
         .iter()
         .map(|root| {
             fs.volume(root)
                 .expect("volume of a fixture root is known")
                 .mount
-                .join_name(&config.dir_name)
+                .join_name(&name)
                 .expect("journal directory name is a single component")
         })
         .collect()
