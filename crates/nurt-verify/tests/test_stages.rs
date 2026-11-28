@@ -163,8 +163,25 @@ fn run_reads_the_results_of_a_custom_command_in_tap_format() {
     assert_eq!(number(&header, "failed"), Some(1));
 }
 
+/// Fingerprint reported by a run of the test program in the project.
+///
+/// A test program built for coverage measurement writes its own profile
+/// (`*.profraw`) into the directory it runs in; the files are removed after
+/// the run, so that the next fingerprint covers the files of the project only.
 fn fingerprint_of(ctx: &nurt_contracts::stage::ExecCtx, workspace: &Workspace) -> String {
     let (output, _) = apply(ctx, "test.run", &run_args(workspace, &[])).unwrap();
+    for entry in std::fs::read_dir(workspace.project.path())
+        .unwrap()
+        .flatten()
+    {
+        let path = entry.path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "profraw")
+        {
+            std::fs::remove_file(path).unwrap();
+        }
+    }
     field(&output.header.unwrap(), "fingerprint")
         .unwrap()
         .to_owned()
