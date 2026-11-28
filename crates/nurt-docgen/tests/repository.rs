@@ -6,7 +6,7 @@
 // Responsibility:   Checks of the documentation of the repository against its catalog.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Checks of the documentation of the repository against its catalog.
@@ -192,6 +192,11 @@ fn manual_pages_exist_for_every_command_and_lint_when_mandoc_is_available() {
         .arg(out.path().join("nurt-find.1"))
         .status()
     else {
+        assert!(
+            std::env::var("NURT_REQUIRE_MANDOC").as_deref() != Ok("1"),
+            "NURT_REQUIRE_MANDOC is 1, but mandoc is not installed"
+        );
+        eprintln!("mandoc is not installed: the lint of the manual pages is skipped");
         return;
     };
     assert!(status.success());

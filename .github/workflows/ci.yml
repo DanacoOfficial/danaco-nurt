@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or workflow definition of .github/workflows/ci.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: CI
@@ -128,6 +128,9 @@ jobs:
         continue-on-error: true
         with:
           tool: cargo-nextest
+      - name: Install mandoc
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends mandoc
       - name: Build
         run: cargo build --workspace --all-targets --locked
       - name: Run tests
@@ -135,6 +138,9 @@ jobs:
           # The scheduled (nightly) run generates the full number of cases of
           # the property tests; other runs use the small default.
           NURT_PROPTEST_FULL: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          # On Linux the lint of the manual pages must run: mandoc is installed
+          # above, so a missing mandoc fails the test instead of skipping it.
+          NURT_REQUIRE_MANDOC: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: |
           if cargo nextest --version >/dev/null 2>&1; then
             cargo nextest run --workspace --locked --no-fail-fast --no-tests=fail
