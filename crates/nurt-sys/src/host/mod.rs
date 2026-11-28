@@ -76,6 +76,22 @@ const VERSIONS: &str = "versions";
 /// Variables that name the locale, in order of precedence.
 const LOCALE_VARIABLES: [&str; 3] = ["LC_ALL", "LC_MESSAGES", "LANG"];
 
+/// Name that the time zone database gives to a zone it cannot identify.
+const UNIDENTIFIED_ZONE: &str = "Etc/Unknown";
+
+/// Name of the time zone of the system in the IANA database, or `None` when
+/// the system reports no zone or a zone without such a name.
+///
+/// Windows names its zones in its own way (`Central European Standard Time`);
+/// the answer is the IANA name of the same zone (`Europe/Warsaw`).
+#[must_use]
+pub fn system_time_zone() -> Option<String> {
+    let zone = jiff::tz::TimeZone::try_system().ok()?;
+    zone.iana_name()
+        .filter(|name| *name != UNIDENTIFIED_ZONE)
+        .map(str::to_owned)
+}
+
 /// Values about the host that change while the program runs, read from the
 /// operating system.
 #[derive(Debug, Clone, Default, PartialEq)]

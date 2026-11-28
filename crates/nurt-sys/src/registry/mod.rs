@@ -6,7 +6,7 @@
 // Responsibility:   Windows registry provider.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Windows registry provider.
@@ -566,10 +566,18 @@ impl RegistryProvider {
         Ok(None)
     }
 
+    /// Creates the keys of the path that do not exist.
+    ///
+    /// A key that exists is left alone: creating it again would ask its
+    /// parent for the right to create subkeys, which the account may lack on
+    /// a key it only passes through.
     fn ensure_keys(&self, key: &KeyPath) -> FsResult<()> {
         for depth in 1..=key.keys().len() {
-            self.api
-                .create_key(self.view, &key.prefix(depth), "", false)?;
+            let prefix = key.prefix(depth);
+            if matches!(self.key_exists(&prefix), Ok(true)) {
+                continue;
+            }
+            self.api.create_key(self.view, &prefix, "", false)?;
         }
         Ok(())
     }

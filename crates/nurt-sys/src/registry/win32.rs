@@ -6,7 +6,7 @@
 // Responsibility:   Registry back end over the Win32 registry functions.
 // Dependencies:     nurt_contracts, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Registry back end over the Win32 registry functions.
@@ -50,6 +50,12 @@ const MAX_NAME_UNITS: usize = 16_384;
 
 /// Longest class name, in UTF-16 units, including the terminator.
 const MAX_CLASS_UNITS: usize = 32_768;
+
+/// Smallest class buffer, in UTF-16 units, that a key is asked with. The
+/// system reports the longest class name among the subkeys of a key and not
+/// the length of the class name of the key itself, so the first size is a
+/// guess that grows on `ERROR_MORE_DATA`.
+const FIRST_CLASS_UNITS: usize = 64;
 
 /// Initial size of a data buffer in bytes; it grows on `ERROR_MORE_DATA`.
 const INITIAL_DATA_BYTES: usize = 1_024;
@@ -388,13 +394,16 @@ fn raw_info(handle: &Key, class: &mut [u16]) -> (RawInfo, WIN32_ERROR) {
 
 /// Reads the counts, the time of the last write and the class of a key.
 ///
-/// The class buffer is sized from the longest class name the key reports: a
-/// buffer of the largest possible size is refused by the system with
-/// `ERROR_INSUFFICIENT_BUFFER`.
+/// The class buffer starts at the longest class name the key reports for its
+/// subkeys, and at [`FIRST_CLASS_UNITS`] at least, because a key without
+/// subkeys that carry a class may carry one itself. A buffer of the largest
+/// possible size is refused by the system with `ERROR_INSUFFICIENT_BUFFER`.
 fn query_info(handle: &Key, key: &KeyPath) -> FsResult<Counts> {
     let (counts, status) = raw_info(handle, &mut []);
     check(status, "query_key", key)?;
-    let mut size = usize::try_from(counts.max_class).unwrap_or(MAX_CLASS_UNITS);
+    let mut size = usize::try_from(counts.max_class)
+        .unwrap_or(MAX_CLASS_UNITS)
+        .max(FIRST_CLASS_UNITS);
     let mut class = String::new();
     let mut known = counts;
     while size > 0 {

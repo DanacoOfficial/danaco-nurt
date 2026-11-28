@@ -6,7 +6,7 @@
 // Responsibility:   Syntax of `registry:` paths and their mapping to provider keys.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Syntax of `registry:` paths and their mapping to provider keys.
@@ -22,6 +22,13 @@
 //! Key names may contain `/`, which the language uses as the separator, so a
 //! segment escapes `%` as `%25` and `/` as `%2F`. No other character is
 //! escaped.
+//!
+//! The registry separates keys with `\`, so the name of a key never contains
+//! one, while the name of a value may (`C:\Program Files\app.exe`). A path
+//! with `\` in a segment that names a key is refused, and so is a path whose
+//! only segment below the root key contains `\`: it is a path written with
+//! the separator of the registry, and read as a value it would address the
+//! root key itself.
 
 use std::fmt;
 
@@ -37,6 +44,8 @@ pub const PREFIX: &str = "registry:/";
 pub const DEFAULT_VALUE_SEGMENT: &str = "(default)";
 
 const SEPARATOR: char = '/';
+/// Separator of keys in the native form of the registry.
+const NATIVE_SEPARATOR: char = '\\';
 const ESCAPE: char = '%';
 const ESCAPED_PERCENT: &str = "%25";
 const ESCAPED_SEPARATOR: &str = "%2F";
@@ -352,6 +361,18 @@ impl RegistryPath {
         if default_value {
             segments.pop();
         }
+        let keys = if default_value || segments.len() == 1 {
+            segments.len()
+        } else {
+            segments.len().saturating_sub(1)
+        };
+        if let Some(name) = segments
+            .iter()
+            .take(keys)
+            .find(|name| name.contains(NATIVE_SEPARATOR))
+        {
+            return Err(PathError::NativeSeparator(name.clone()));
+        }
         Ok(Self {
             hive,
             segments,
@@ -376,9 +397,17 @@ impl RegistryPath {
 
     /// The path read as a key.
     ///
-    /// Returns `None` when the path ends with `(default)`.
+    /// Returns `None` when the path ends with `(default)` and when its last
+    /// segment contains `\`, which only the name of a value may contain.
     pub fn as_key(&self) -> Option<KeyPath> {
-        (!self.default_value).then(|| KeyPath::new(self.hive, self.segments.clone()))
+        let value_only = self
+            .segments
+            .last()
+            .is_some_and(|last| last.contains(NATIVE_SEPARATOR));
+        if self.default_value || value_only {
+            return None;
+        }
+        Some(KeyPath::new(self.hive, self.segments.clone()))
     }
 
     /// The path read as a value: the last segment is the value name, or the
@@ -426,6 +455,9 @@ pub enum PathError {
     /// A `%` is not followed by `25` or `2F`.
     #[error("invalid escape in `{0}`; write `%25` for `%` and `%2F` for `/`")]
     Escape(String),
+    /// A segment that names a key contains `\`.
+    #[error("`{0}` contains `\\`, which no key name contains; write `/` between the keys")]
+    NativeSeparator(String),
 }
 
 /// Escapes a key or value name for use as one path segment.
@@ -569,6 +601,33 @@ mod tests {
         assert_eq!(
             RegistryPath::parse("registry:/HKCU//x"),
             Err(PathError::EmptySegment)
+        );
+    }
+
+    #[test]
+    fn a_backslash_is_accepted_only_in_the_name_of_a_value() {
+        assert_eq!(
+            RegistryPath::parse("registry:/HKCU/Software\\Vendor/App"),
+            Err(PathError::NativeSeparator("Software\\Vendor".to_owned()))
+        );
+        assert_eq!(
+            RegistryPath::parse("registry:/HKCU/Software\\Vendor\\App"),
+            Err(PathError::NativeSeparator(
+                "Software\\Vendor\\App".to_owned()
+            ))
+        );
+        assert_eq!(
+            RegistryPath::parse("registry:/HKCU/Software\\Vendor/(default)"),
+            Err(PathError::NativeSeparator("Software\\Vendor".to_owned()))
+        );
+        let layer = RegistryPath::parse("registry:/HKCU/Layers/C:\\Tools\\app.exe").unwrap();
+        assert_eq!(layer.as_key(), None);
+        let (key, name) = layer.as_value().unwrap();
+        assert_eq!(key.to_language_string(), "registry:/HKCU/Layers");
+        assert_eq!(name, "C:\\Tools\\app.exe");
+        assert_eq!(
+            layer.to_string(),
+            "registry:/HKCU/Layers/C:\\Tools\\app.exe"
         );
     }
 

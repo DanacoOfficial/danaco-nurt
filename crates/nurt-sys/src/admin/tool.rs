@@ -6,7 +6,7 @@
 // Responsibility:   Running the programs of the operating system for administration commands.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Running the programs of the operating system for administration commands.
@@ -21,8 +21,13 @@ use nurt_contracts::stage::{CancelToken, ExecCtx};
 /// Bytes of standard error kept in the message of a failure.
 const STDERR_TAIL: usize = 400;
 
-/// Phrases of the programs that report missing rights.
-const DENIED: [&str; 8] = [
+/// Phrases of the programs that report missing rights, in lower case.
+///
+/// `permissiondenied` and `windows system error 5,` are the error category and
+/// the error identifier that Windows PowerShell prints in every display
+/// language; `odmowa dost` is the start of the Polish text of the Windows
+/// error 5, cut before the first letter outside ASCII.
+const DENIED: [&str; 11] = [
     "permission denied",
     "operation not permitted",
     "must be root",
@@ -31,6 +36,9 @@ const DENIED: [&str; 8] = [
     "access is denied",
     "requires elevation",
     "not authorized",
+    "permissiondenied",
+    "windows system error 5,",
+    "odmowa dost",
 ];
 
 /// Family of the operating system the programs run on.
@@ -278,6 +286,41 @@ fn tail_of(stderr: &str, stdout: &str) -> String {
         start += 1;
     }
     text[start..].to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Standard error of Windows PowerShell for a refused change, on a system
+    /// with the Polish display language.
+    const REFUSAL: &str = "New-NetFirewallRule : Odmowa dost\u{119}pu.\n\
+        + CategoryInfo : PermissionDenied: (MSFT_NetFirewallRule) [New-NetFirewallRule]\n\
+        + FullyQualifiedErrorId : Windows System Error 5,New-NetFirewallRule";
+
+    fn failed(stderr: &str) -> Error {
+        let output = Output {
+            code: Some(1),
+            stdout: String::new(),
+            stderr: stderr.to_owned(),
+        };
+        failure(&Call::powershell("New-NetFirewallRule"), &output)
+    }
+
+    #[test]
+    fn a_refusal_is_recognised_in_another_display_language() {
+        assert_eq!(failed(REFUSAL).code(), ErrorCode::Privilege);
+        let category = "+ CategoryInfo : PermissionDenied: (rule) [New-NetFirewallRule]";
+        assert_eq!(failed(category).code(), ErrorCode::Privilege);
+        let identifier = "+ FullyQualifiedErrorId : Windows System Error 5,New-NetRoute";
+        assert_eq!(failed(identifier).code(), ErrorCode::Privilege);
+    }
+
+    #[test]
+    fn another_system_error_is_not_a_refusal() {
+        let identifier = "+ FullyQualifiedErrorId : Windows System Error 50,New-NetRoute";
+        assert_eq!(failed(identifier).code(), ErrorCode::StageFailed);
+    }
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.

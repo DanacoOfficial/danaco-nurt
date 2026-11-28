@@ -6,7 +6,7 @@
 // Responsibility:   The system seen by the administration commands: programs that read and change it, files that describe it, the clock and the operating system.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The system seen by the administration commands: programs that read and
@@ -24,8 +24,13 @@ use nurt_contracts::stage::ExecCtx;
 /// Bytes of standard error kept in the message of a failed program.
 const STDERR_TAIL: usize = 400;
 
-/// Texts of standard error that mean the account lacks rights.
-const DENIED: [&str; 7] = [
+/// Texts of standard error that mean the account lacks rights, in lower case.
+///
+/// `permissiondenied` and `windows system error 5,` are the error category and
+/// the error identifier that Windows PowerShell prints in every display
+/// language; `odmowa dost` is the start of the Polish text of the Windows
+/// error 5, cut before the first letter outside ASCII.
+const DENIED: [&str; 10] = [
     "permission denied",
     "operation not permitted",
     "must be root",
@@ -33,6 +38,9 @@ const DENIED: [&str; 7] = [
     "only root",
     "access is denied",
     "requires elevation",
+    "permissiondenied",
+    "windows system error 5,",
+    "odmowa dost",
 ];
 
 /// One program to run.

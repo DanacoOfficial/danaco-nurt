@@ -6,7 +6,7 @@
 // Responsibility:   `accounts.create`, `accounts.modify`, `accounts.remove` and `accounts.password`.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! `accounts.create`, `accounts.modify`, `accounts.remove` and
@@ -17,6 +17,11 @@
 //! | Linux | `getent passwd`, `id`, `passwd -S` | `useradd`, `usermod`, `userdel`, `chpasswd` |
 //! | macOS | `dscl`, `id` | `sysadminctl`, `dseditgroup`, `pwpolicy`, `dscl` |
 //! | Windows | `net user` | `net user`, `net localgroup`, `Set-LocalUser` |
+//!
+//! `net user` prints its labels in the display language of the system. A
+//! listing that is not in English only proves that the account exists; its
+//! fields are then read through ADSI by Windows PowerShell, whose answer is
+//! the same in every display language.
 //!
 //! The home directory of a removed account is not deleted by the system
 //! program: it is removed through the journal, so that `undo` restores it.
@@ -589,12 +594,80 @@ pub(crate) fn parse_dscl(output: &str) -> AccountState {
     state
 }
 
+/// Label that `net user` prints only in English.
+const NET_USER_ENGLISH_LABEL: &str = "Full Name";
+
+/// Security identifier of the built-in group of the users.
+const USERS_GROUP_SID: &str = "S-1-5-32-545";
+
+/// Script of Windows PowerShell that prints the account named by the variable
+/// `NURT_ACCOUNT` as lines `key=value`: the full name, the home directory,
+/// the disabled flag, the name of the built-in group of the users on this
+/// system and one line for each local group of the account.
+const ACCOUNT_SCRIPT: &str = "\
+    try{[Console]::OutputEncoding=New-Object Text.UTF8Encoding $false}catch{};\
+    $u=[ADSI]('WinNT://./'+$env:NURT_ACCOUNT+',user');\
+    'comment='+$u.FullName.Value;\
+    'home='+$u.HomeDirectory.Value;\
+    'disabled='+[int](($u.UserFlags.Value -band 2) -ne 0);\
+    $sid=New-Object Security.Principal.SecurityIdentifier $env:NURT_USERS_SID;\
+    'users='+$sid.Translate([Security.Principal.NTAccount]).Value;\
+    $u.Groups()|ForEach-Object{\
+    'group='+$_.GetType().InvokeMember('Name','GetProperty',$null,$_,$null)}";
+
+/// Call of Windows PowerShell that runs `script`.
+fn powershell(script: &str) -> Call {
+    Call::new(
+        "powershell",
+        ["-NoProfile", "-NonInteractive", "-Command", script],
+    )
+}
+
 fn read_windows(sys: &dyn Sys, name: &str) -> Result<Option<AccountState>> {
     let output = sys.run(&Call::new("net", ["user", name]))?;
     if !output.ok() {
         return Ok(None);
     }
-    Ok(Some(parse_net_user(&output.stdout)))
+    let english = output
+        .stdout
+        .lines()
+        .any(|line| line.starts_with(NET_USER_ENGLISH_LABEL));
+    if english {
+        return Ok(Some(parse_net_user(&output.stdout)));
+    }
+    let call = powershell(ACCOUNT_SCRIPT)
+        .with_env("NURT_ACCOUNT", name)
+        .with_env("NURT_USERS_SID", USERS_GROUP_SID);
+    let state = match sys.run(&call) {
+        Ok(listed) if listed.ok() => parse_account_lines(&listed.stdout),
+        _ => parse_net_user(&output.stdout),
+    };
+    Ok(Some(state))
+}
+
+/// Fields of the output of [`ACCOUNT_SCRIPT`]. The built-in group of the
+/// users is left out, as it is for the listing of `net user`.
+pub(crate) fn parse_account_lines(output: &str) -> AccountState {
+    let mut state = AccountState::default();
+    let mut users = None;
+    for line in output.lines() {
+        let line = line.trim_start_matches('\u{feff}');
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+        match key {
+            "comment" => state.comment = value.to_owned(),
+            "home" if !value.is_empty() => state.home = Some(value.to_owned()),
+            "disabled" => state.locked = value == "1",
+            "users" => users = value.rsplit('\\').next().map(str::to_owned),
+            "group" if !value.is_empty() => state.groups.push(value.to_owned()),
+            _ => {}
+        }
+    }
+    state.groups.retain(|group| Some(group) != users.as_ref());
+    state.groups.sort();
+    state
 }
 
 /// Fields of the output of `net user NAME`.

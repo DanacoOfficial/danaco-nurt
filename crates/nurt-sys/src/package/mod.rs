@@ -60,7 +60,7 @@ use root::{HostEnv, SysPaths};
 pub use version::VersionScheme;
 
 const SOURCE_NAME: &str = "package";
-const STDERR_TAIL_BYTES: usize = 400;
+const OUTPUT_TAIL_BYTES: usize = 400;
 const PHASED_COMPLETE: u8 = 100;
 const ARCHITECTURE_ALL: &str = "all";
 
@@ -811,13 +811,22 @@ fn effect_record(
     }
 }
 
+/// Error of a manager that did not end with code 0, with the end of its
+/// standard error, or of its standard output when the standard error is
+/// empty: winget, Chocolatey and Scoop report a failure on standard output.
 fn call_failure(call: &Invocation, outcome: &ProgramOutcome) -> Error {
     let stderr = String::from_utf8_lossy(&outcome.stderr);
-    let mut tail_start = stderr.len().saturating_sub(STDERR_TAIL_BYTES);
-    while !stderr.is_char_boundary(tail_start) {
+    let stdout = String::from_utf8_lossy(&outcome.stdout);
+    let text = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    let mut tail_start = text.len().saturating_sub(OUTPUT_TAIL_BYTES);
+    while !text.is_char_boundary(tail_start) {
         tail_start += 1;
     }
-    let tail = stderr[tail_start..].trim();
+    let tail = text[tail_start..].trim();
     let status = outcome.exit_code.map_or_else(
         || "was stopped".to_owned(),
         |code| format!("exited with code {code}"),
