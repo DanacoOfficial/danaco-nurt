@@ -32,18 +32,6 @@
   }
 }
 
-/* On very wide windows the cards keep their size and the rows gain columns, so the text is not enlarged and the cards do not stretch. */
-@media (min-width: 100rem) {
-  .card-grid--3,
-  .card-grid--4 {
-    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
-  }
-
-  .card-grid--2 {
-    grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr));
-  }
-}
-
 /* The card is drawn as a frame: the element is filled with the line colour and clipped to the cut corners, and its ::before, one pixel inside, carries the fill under the same cut. The border therefore follows the diagonal of each cut corner. */
 .card {
   --cut: 16px;

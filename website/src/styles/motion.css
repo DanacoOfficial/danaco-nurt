@@ -78,6 +78,20 @@
   animation: motion-stage 1200ms var(--motion-ease) 200ms both;
 }
 
+/* The stream trace flows: a thin line of light travels along the angle of the mark; it is masked out of the side that holds the text. */
+.motion .stream-trace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(36.87deg, transparent 49.72%, var(--trace-gold) 49.9%, var(--trace-silver) 50%, var(--trace-gold) 50.1%, transparent 50.28%);
+  background-size: 260% 260%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0 48%, #000 82%);
+  mask-image: linear-gradient(90deg, transparent 0 48%, #000 82%);
+  animation: motion-stream 11s linear infinite;
+}
+
 /* Cards tilt in perspective towards the pointer and carry a highlight under it. */
 .motion .card--link,
 .motion .stat {
@@ -181,6 +195,15 @@
   }
 }
 
+@keyframes motion-stream {
+  from {
+    background-position: 100% 100%;
+  }
+
+  to {
+    background-position: 0% 0%;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .motion *,

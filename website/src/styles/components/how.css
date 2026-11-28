@@ -11,10 +11,9 @@
   display: grid;
   gap: var(--space-7);
   grid-template-columns: minmax(0, 1fr);
-  align-items: start;
 }
 
-/* The four steps run in one row, each under a rule; the terminals follow below in two columns. */
+/* The four steps run in one row, each under a rule with a short gold mark; the two terminals follow below side by side. */
 .how__points {
   display: grid;
   gap: var(--space-5);
@@ -47,10 +46,6 @@
   font-size: var(--text-lg);
 }
 
-.how__point p {
-  color: var(--text-muted);
-}
-
 .how__index {
   flex: none;
   display: grid;
@@ -66,7 +61,11 @@
 }
 
 .how__terminals {
-  display: contents;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
 }
 
 @media (min-width: 40rem) {
@@ -75,36 +74,14 @@
   }
 }
 
-/* On wide windows the session fills the left column over its full height; the four steps and the program fill the right column. */
 @media (min-width: 64rem) {
-  .how {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    gap: var(--space-6) var(--space-8);
-  }
-
   .how__points {
-    grid-column: 2;
-    grid-row: 1;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
   }
 
-  .how__point {
-    flex-direction: row;
-    gap: var(--space-4);
-    padding-top: var(--space-4);
-  }
-
-  .how__terminals > :first-child {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-  }
-
-  .how__terminals > :last-child {
-    grid-column: 2;
-    grid-row: 2;
-    align-self: start;
+  .how__terminals {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   }
 }
 
@@ -118,7 +95,7 @@
 }
 
 .how__points:has(.is-active) .how__point:not(.is-active) {
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 .how__point.is-active .how__index {
