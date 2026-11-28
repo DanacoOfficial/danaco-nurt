@@ -92,6 +92,12 @@
   max-width: min(100%, 64rem);
 }
 
+/* Beyond 2240 px the text keeps its measure and stands in the middle; the navigation and the table of contents share the rest, so no single empty band opens beside the text. */
+@media (min-width: 140rem) {
+  .docs-page:not(.docs-page--index) {
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 64rem) minmax(14rem, 1fr);
+  }
+}
 /* A page without headings is an index of other pages: it has no table of contents, and its lists take the whole column. */
 @media (min-width: 108rem) {
   .docs-page.docs-page--index {

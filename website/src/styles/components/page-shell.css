@@ -56,3 +56,10 @@
     overflow-y: auto;
   }
 }
+
+/* Beyond 2240 px the text keeps its measure and stands in the middle; the navigation and the table of contents share the rest. */
+@media (min-width: 140rem) {
+  .page-shell.page-shell--with-nav.page-shell--with-toc {
+    grid-template-columns: minmax(15rem, 1fr) minmax(0, 64rem) minmax(15rem, 1fr);
+  }
+}
