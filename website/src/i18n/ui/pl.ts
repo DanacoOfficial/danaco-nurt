@@ -76,6 +76,7 @@ export const pl: UiStrings = {
     copyFailed: 'Nie udało się skopiować',
     learnMore: 'Dowiedz się więcej',
     readMore: 'Czytaj dalej',
+    siteSections: 'Działy witryny',
     pageCount: { one: 'strona', few: 'strony', many: 'stron' },
     viewSource: 'Zobacz plik źródłowy',
     viewOnGithub: 'Zobacz na GitHubie',

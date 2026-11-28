@@ -3,20 +3,27 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.components.not-found
- * Responsibility:   The page for a missing address: a centred column with the mark, the message and the ways back.
+ * Responsibility:   The page for a missing address: the mark, the message and the ways back beside the sections of the site, once for each language.
  * Dependencies:     website.src.styles.tokens
  */
 
-.not-found {
+.not-found__message {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-4);
-  max-width: 44rem;
-  padding-block: var(--space-9);
 }
 
-.not-found hr {
-  width: 100%;
-  margin-block: var(--space-5);
+.not-found__title {
+  font-size: var(--text-3xl);
+  letter-spacing: -0.025em;
+  line-height: var(--leading-tight);
+}
+
+.not-found__language[hidden] {
+  display: none;
+}
+
+.not-found__language + .not-found__language {
+  border-top: 1px solid var(--line);
 }

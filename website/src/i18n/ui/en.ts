@@ -74,6 +74,7 @@ export const en = {
     copyFailed: 'Copy failed',
     learnMore: 'Learn more',
     readMore: 'Read more',
+    siteSections: 'Sections of the site',
     pageCount: { one: 'page', few: 'pages', many: 'pages' },
     viewSource: 'View the source file',
     viewOnGithub: 'View on GitHub',

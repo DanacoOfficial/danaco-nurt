@@ -61,7 +61,7 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
   type="article"
   breadcrumbs={crumbs.map((crumb) => ({ label: crumb.label, path: crumb.path ?? path }))}
 >
-  <div class="container docs-page">
+  <div class:list={['container', 'docs-page', { 'docs-page--index': headings.length === 0 }]}>
     <button class="docs-page__menu-button" type="button" aria-expanded="false" aria-controls="docs-menu" data-docs-menu>
       <span>{ui.docs.title} · {sectionLabel}</span>
       <Icon name="chevron-down" size={18} />
@@ -87,9 +87,11 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
         next={next ? { title: localized.title(next), path: entryUrl(next) } : undefined}
       />
     </article>
-    <div class="docs-page__toc">
-      <Toc locale={locale} headings={headings} />
-    </div>
+    {headings.length > 0 && (
+      <div class="docs-page__toc">
+        <Toc locale={locale} headings={headings} />
+      </div>
+    )}
   </div>
   <noscript>
     <style is:inline>

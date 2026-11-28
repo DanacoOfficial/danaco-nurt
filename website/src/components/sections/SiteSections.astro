@@ -1,0 +1,46 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.SiteSections
+// Responsibility:   The sections of the main menu as numbered linked rows, each with its name and lead, for pages that send the reader on: the search page and the page for a missing address.
+// Dependencies:     website.config.navigation, website.src.components.base.Icon, website.src.lib.urls, website.src.i18n
+
+import '../../styles/components/directory.css';
+import Icon from '../base/Icon.astro';
+import type { Locale } from '../../../config/i18n';
+import { mainNavigation } from '../../../config/navigation';
+import type { SectionKey } from '../../../config/sections';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = useUi(locale);
+const rows = mainNavigation.map((item) => {
+  const entry = item.key === 'docs' ? ui.docs : ui.section[item.key as SectionKey];
+  return { path: item.path, title: entry.title, lead: entry.lead };
+});
+---
+
+<nav class="site-sections" aria-label={ui.common.siteSections} lang={locale}>
+  <p class="eyebrow">{ui.common.siteSections}</p>
+  <ol class="site-sections__list" role="list">
+    {rows.map((row, index) => (
+      <li>
+        <a class="directory__link" href={href(row.path, locale)}>
+          <span class="section-index__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+          <span class="directory__text">
+            <span class="directory__name">{row.title}</span>
+            <span class="directory__note">{row.lead}</span>
+          </span>
+          <Icon name="arrow-right" size={16} class="directory__arrow" />
+        </a>
+      </li>
+    ))}
+  </ol>
+</nav>

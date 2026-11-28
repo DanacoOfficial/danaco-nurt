@@ -85,6 +85,21 @@
   max-width: min(100%, 64rem);
 }
 
+/* A page without headings is an index of other pages: it has no table of contents, and its lists take the whole column. */
+@media (min-width: 84rem) {
+  .docs-page.docs-page--index {
+    grid-template-columns: 16rem minmax(0, 1fr);
+  }
+}
+
+.docs-page--index .docs-page__main .prose {
+  max-width: none;
+}
+
+.docs-page--index .docs-page__main .prose > .lead {
+  max-width: 64rem;
+}
+
 /* On a narrow screen the navigation of the documentation opens from a button, so the text of the page starts on the first screen. */
 .docs-page__menu-button {
   display: flex;

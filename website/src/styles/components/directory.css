@@ -185,3 +185,29 @@
 .section-index__list > li {
   display: grid;
 }
+
+/* The sections of the main menu as one column of numbered linked rows, placed beside the content of a page that sends the reader on. */
+.site-sections {
+  min-width: 0;
+}
+
+.site-sections__list {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line-strong);
+}
+
+/* A page in two parts: the content on the left and the sections of the site on the right. */
+.split-page {
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: var(--space-7) var(--space-9);
+}
+
+@media (min-width: 64rem) {
+  .split-page {
+    grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 1fr);
+  }
+}

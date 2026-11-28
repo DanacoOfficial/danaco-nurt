@@ -4,11 +4,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.pages.SearchPage
-// Responsibility:   The search page: a Pagefind user interface loaded from the index that is built together with the site, with a message when the index is not present.
-// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.config.search, website.src.styles.components.search
+// Responsibility:   The search page: a Pagefind user interface loaded from the index that is built together with the site, with a message when the index is not present, beside the sections of the site.
+// Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.sections.SiteSections, website.config.search, website.src.styles.components.search
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHeader from '../sections/PageHeader.astro';
+import SiteSections from '../sections/SiteSections.astro';
 import type { Locale } from '../../../config/i18n';
 import { search } from '../../../config/search';
 import { withBase } from '../../lib/urls';
@@ -27,9 +28,12 @@ const indexPath = withBase(`/${search.outputDirectory}/`);
 <BaseLayout title={ui.search.title} description={ui.search.lead} locale={locale} path="/search/" searchable={false} noindex={true}>
   <PageHeader locale={locale} title={ui.search.title} lead={ui.search.lead} crumbs={[{ label: ui.search.title }]} />
   <div class="container">
-    <div class="page-shell">
-      <div id="search" class="search" data-index={indexPath} data-results={search.resultsPerPage} data-min={search.minimumQueryLength} data-empty={ui.search.noResults} data-loading={ui.search.loading} data-unavailable={ui.search.unavailable} data-placeholder={ui.search.placeholder} data-label={ui.search.label} data-clear={ui.search.clear} data-locale={locale}></div>
-      <noscript><p>{ui.search.unavailable}</p></noscript>
+    <div class="split-page">
+      <div class="search-panel">
+        <div id="search" class="search" data-index={indexPath} data-results={search.resultsPerPage} data-min={search.minimumQueryLength} data-empty={ui.search.noResults} data-loading={ui.search.loading} data-unavailable={ui.search.unavailable} data-placeholder={ui.search.placeholder} data-label={ui.search.label} data-clear={ui.search.clear} data-locale={locale}></div>
+        <noscript><p>{ui.search.unavailable}</p></noscript>
+      </div>
+      <SiteSections locale={locale} />
     </div>
   </div>
 </BaseLayout>
