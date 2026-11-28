@@ -68,8 +68,11 @@ const polishHref = locale === 'en' && available.includes('pl') ? href(path, 'pl'
     <script is:inline set:html={motionInit}></script>
     <noscript>
       <style is:inline>
-        .site-header__panel { display: block; max-height: none; }
-        .site-header__menu-button { display: none; }
+        @media (max-width: 65.9375rem) {
+          .site-header { position: static !important; }
+          .site-header__panel { display: block !important; max-height: none !important; }
+          .site-header__menu-button { display: none !important; }
+        }
         .docs-page__sidebar { display: block !important; }
         .docs-page__menu-button { display: none !important; }
       </style>
