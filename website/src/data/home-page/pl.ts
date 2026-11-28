@@ -32,7 +32,7 @@ export const homePl: HomeContent = {
   },
   statement: {
     eyebrow: 'Twórca',
-    quote: 'Powłoki powstały dla ludzi, którzy patrzą na ekran i pamiętają, co wpisali. Dziś polecenia piszą ludzie i maszyny, szybciej, niż ktokolwiek zdąży spojrzeć. Chciałem języka, który sprawdza program przed uruchomieniem, mówi, co uruchomienie zrobiło, i cofa zmianę. Żadna powłoka nie mogła dorosnąć do takiego języka, więc zaprojektowałem nową składnię i napisałem nowy program.',
+    quote: 'Nie chciałem kolejnej powłoki. Chciałem języka stworzonego dla epoki AI. Języka, który daje pełną świadomość zmian przed ich wykonaniem, pełną przejrzystość po ich wykonaniu i pełną kontrolę nad cofnięciem każdej z nich. Kiedy nie znalazłem takiego rozwiązania, zaprojektowałem je od podstaw.',
     role: 'twórca Danaco Nurt',
   },
   how: {

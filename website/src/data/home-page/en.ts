@@ -32,7 +32,7 @@ export const homeEn: HomeContent = {
   },
   statement: {
     eyebrow: 'The creator',
-    quote: 'Shells were made for people who watch the screen and remember what they typed. Today commands are written by people and by machines, faster than anyone can watch. I wanted a language that checks a program before it runs, says what the run did, and takes a change back. No shell could grow into that language, so I designed a new syntax and wrote a new program.',
+    quote: 'I did not want another shell. I wanted a language made for the age of AI. A language that gives full awareness of changes before they are made, full transparency after they are made, and full control over undoing each of them. When I did not find such a solution, I designed it from scratch.',
     role: 'creator of Danaco Nurt',
   },
   how: {
