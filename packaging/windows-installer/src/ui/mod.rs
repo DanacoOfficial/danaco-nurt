@@ -131,7 +131,7 @@ pub(crate) enum DialogKind {
     CancelUndo,
     /// Close the setup on a screen that changed nothing.
     Close,
-    /// Undo the setup that has just finished.
+    /// Undo the setup that finished in this window.
     ConfirmUndo,
 }
 

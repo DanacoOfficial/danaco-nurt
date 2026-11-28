@@ -192,8 +192,8 @@ their own version numbers, described in the specification.
 - `nurt ast --to cbor` refuses to write the binary output to a terminal.
 - The setup counts the space for the files that it installs: without the
   documentation, not for the whole archive.
-- The setup asks for confirmation before it undoes a setup that has just
-  finished.
+- The setup asks for confirmation before it undoes a setup that finished in
+  the same window.
 - The shortcut that starts the program in Windows Terminal is made only when
   `wt.exe` exists, and not for an installation for all users, because the
   launcher is the alias of the account that runs the setup.

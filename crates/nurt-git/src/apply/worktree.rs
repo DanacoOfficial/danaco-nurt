@@ -457,7 +457,7 @@ pub(crate) fn stat_of(path: &Path) -> Result<Stat> {
 /// `git status`, `git diff` and `git add`. `git` stores size 0 for such an
 /// entry when it writes an index, which makes every later reader compare the
 /// content; this function does the same. Paths for which `skip` returns true
-/// are left out: the caller has just written them from the entry. An index
+/// are left out: the caller wrote them from the entry in the same call. An index
 /// that replaces no file (`read_at` of zero seconds) has no such entries.
 ///
 /// # Errors
