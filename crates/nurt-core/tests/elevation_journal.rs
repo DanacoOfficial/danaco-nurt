@@ -414,6 +414,68 @@ fn bare_undo_of_an_entry_of_the_account_is_not_refused() {
     );
 }
 
+/// Appends `line` to the file of the inverse programs, as the engine keeps
+/// them for a change outside the file system.
+fn keep_inverse(world: &World, line: &serde_json::Value) {
+    let path = world.file("state").join("inverse-operations.jsonl");
+    let mut text = std::fs::read_to_string(&path).unwrap_or_default();
+    text.push_str(&format!("{line}\n"));
+    std::fs::write(path, text).unwrap();
+}
+
+#[test]
+fn bare_undo_runs_the_kept_inverse_programs_of_the_entry_that_the_journal_chooses() {
+    let world = world();
+    let x = world.run("rm x", None).report.op.unwrap();
+    keep_inverse(
+        &world,
+        &json!({"op": x, "kind": "start", "programs": ["rm y"], "undone": false}),
+    );
+    let undone = world.bare("undo");
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(!world.file("y").exists(), "the inverse program ran");
+    assert!(!world.file("x").exists(), "the journal restored nothing");
+    let kept =
+        std::fs::read_to_string(world.file("state").join("inverse-operations.jsonl")).unwrap();
+    assert!(kept.contains("\"undone\":true"), "{kept}");
+}
+
+#[test]
+fn bare_undo_leaves_an_entry_that_inverse_programs_wrote_to_the_journal() {
+    let world = world();
+    let z = world.run("rm z", None).report.op.unwrap();
+    keep_inverse(
+        &world,
+        &json!({"op": z, "kind": "start", "programs": ["rm y"], "undone": false, "restores": 1}),
+    );
+    let undone = world.bare("undo");
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(world.file("z").exists(), "the journal restored the entry");
+    assert!(world.file("y").exists(), "the inverse program did not run");
+    let numbered = world.undo(z);
+    assert_eq!(numbered.report.status, ReportStatus::Ok, "{numbered:?}");
+    assert!(!world.file("y").exists(), "by its number the programs run");
+}
+
+#[test]
+fn bare_undo_of_an_elevated_entry_with_inverse_programs_is_refused() {
+    let world = world();
+    let y = world
+        .run("rm y", Some(Privilege::Elevated))
+        .report
+        .op
+        .unwrap();
+    keep_inverse(
+        &world,
+        &json!({"op": y, "kind": "start", "programs": ["rm x"], "undone": false, "elevated": true}),
+    );
+    let refused = world.bare("undo");
+    assert_eq!(refused.report.status, ReportStatus::Failed, "{refused:?}");
+    let error = refused.report.error.as_ref().unwrap();
+    assert_eq!(error.code(), nurt_contracts::error::ErrorCode::Privilege);
+    assert!(world.file("x").exists(), "the inverse program did not run");
+}
+
 #[test]
 fn bare_redo_of_the_undo_of_an_elevated_entry_is_refused() {
     let world = world();

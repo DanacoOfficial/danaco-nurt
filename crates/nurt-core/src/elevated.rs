@@ -6,7 +6,7 @@
 // Responsibility:   Routing of requests that ask for elevated rights.
 // Dependencies:     nurt_contracts, nurt_proc
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Routing of requests that ask for elevated rights.
@@ -483,23 +483,30 @@ impl Engine {
                 .as_deref()
                 .is_some_and(|action| action.starts_with("elevated"))
         };
-        let target = records.iter().find(|record| {
-            let available = matches!(
-                record.state,
-                nurt_contracts::record::OperationState::Available
-                    | nurt_contracts::record::OperationState::Partial
-            );
-            let undo = record.kind == "undo";
-            let mine =
-                session.is_none_or(|session| record.session.as_deref() == Some(session.as_str()));
-            available && mine && (undo == (name == "redo"))
-        })?;
+        let target = bare_choice(&records, name, session)?;
         let hit = elevated(&target.action)
             || target
                 .undo_of
                 .iter()
                 .any(|undone| by_id(*undone).is_some_and(|entry| elevated(&entry.action)));
         hit.then_some((name, target.id))
+    }
+
+    /// The entry that a bare `undo` (without a number or another selector)
+    /// restores, by the choice of the journal; `None` for every other
+    /// program.
+    pub(crate) fn bare_undo_target(
+        &self,
+        bound: &BoundDocument,
+        session: Option<&crate::session::SessionId>,
+    ) -> Option<u64> {
+        if bare_stage(bound) != Some("undo") {
+            return None;
+        }
+        let records = self
+            .history(&nurt_contracts::journal::HistoryQuery::default())
+            .ok()?;
+        bare_choice(&records, "undo", session).map(|record| record.id)
     }
 
     /// The request that carries the call parameters written on the stages of
@@ -626,6 +633,27 @@ fn refusal(request: &Request, prepared: &Prepared, error: Error) -> Response {
         &failed_report(input_kind(request), error),
         &prepared.options,
     )
+}
+
+/// The entry of `records`, newest first, that a bare `undo` or `redo` named
+/// `name` restores: for `undo` the newest available entry of the session that
+/// is not an undo, for `redo` the newest available undo entry of the session.
+fn bare_choice<'r>(
+    records: &'r [nurt_contracts::journal::OperationRecord],
+    name: &str,
+    session: Option<&crate::session::SessionId>,
+) -> Option<&'r nurt_contracts::journal::OperationRecord> {
+    records.iter().find(|record| {
+        let available = matches!(
+            record.state,
+            nurt_contracts::record::OperationState::Available
+                | nurt_contracts::record::OperationState::Partial
+        );
+        let undo = record.kind == "undo";
+        let mine =
+            session.is_none_or(|session| record.session.as_deref() == Some(session.as_str()));
+        available && mine && (undo == (name == "redo"))
+    })
 }
 
 /// `undo` or `redo` when the program has such a stage that names no entry and

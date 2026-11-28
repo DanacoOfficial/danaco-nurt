@@ -6,7 +6,7 @@
 // Responsibility:   Configuration of an engine, assembled from its seven levels.
 // Dependencies:     nurt_contracts, nurt_testkit, schemars, serde, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Configuration of an engine, assembled from its seven levels.
@@ -581,7 +581,7 @@ fn push_file(
     let Some(path) = path else {
         return Ok(());
     };
-    let text = match fs::read_to_string(path) {
+    let text = match read_text(path) {
         Ok(text) => text,
         Err(error) if error.kind() == io::ErrorKind::NotFound && !required => return Ok(()),
         Err(error) => {
@@ -597,6 +597,37 @@ fn push_file(
     })?;
     layers.push(ConfigLayer::new(level, origin, values));
     Ok(())
+}
+
+/// Text of a configuration file. A file saved by a Windows editor may start
+/// with a UTF-8 byte order mark, and a file written by Windows PowerShell 5.1
+/// with `>` or `Out-File` is UTF-16 with a byte order mark; both are read.
+fn read_text(path: &Path) -> io::Result<String> {
+    decode_text(&fs::read(path)?)
+}
+
+fn decode_text(bytes: &[u8]) -> io::Result<String> {
+    let invalid = |reason: &str| io::Error::new(io::ErrorKind::InvalidData, reason.to_owned());
+    let utf16 = |body: &[u8], unit: fn([u8; 2]) -> u16| {
+        if body.len() % 2 == 1 {
+            return Err(invalid("the UTF-16 text has an odd number of bytes"));
+        }
+        let units: Vec<u16> = body
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| unit(*pair))
+            .collect();
+        String::from_utf16(&units).map_err(|_| invalid("the text is not valid UTF-16"))
+    };
+    if let Some(body) = bytes.strip_prefix(&[0xFF, 0xFE]) {
+        return utf16(body, u16::from_le_bytes);
+    }
+    if let Some(body) = bytes.strip_prefix(&[0xFE, 0xFF]) {
+        return utf16(body, u16::from_be_bytes);
+    }
+    let body = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
+    String::from_utf8(body.to_vec()).map_err(|_| invalid("stream did not contain valid UTF-8"))
 }
 
 fn config_file_var(host: &dyn Host) -> Result<Option<PathBuf>, EngineError> {
@@ -685,6 +716,30 @@ mod tests {
         let error = toml_table("[journal\nmax_ops = 1", "/etc/nurt/nurt.toml").unwrap_err();
         assert_eq!(error.origin.as_deref(), Some("/etc/nurt/nurt.toml"));
         assert!(!error.message.contains('\n'));
+    }
+
+    #[test]
+    fn a_file_is_read_as_utf8_with_or_without_a_mark_or_as_utf16_with_a_mark() {
+        let text = "[run]\ntimeout = \"5m\"\n";
+        let mut utf8_with_mark = vec![0xEF, 0xBB, 0xBF];
+        utf8_with_mark.extend_from_slice(text.as_bytes());
+        let mut utf16_le = vec![0xFF, 0xFE];
+        let mut utf16_be = vec![0xFE, 0xFF];
+        for unit in text.encode_utf16() {
+            utf16_le.extend_from_slice(&unit.to_le_bytes());
+            utf16_be.extend_from_slice(&unit.to_be_bytes());
+        }
+        let encodings: [&[u8]; 4] = [
+            text.as_bytes(),
+            utf8_with_mark.as_slice(),
+            utf16_le.as_slice(),
+            utf16_be.as_slice(),
+        ];
+        for bytes in encodings {
+            assert_eq!(decode_text(bytes).unwrap(), text);
+        }
+        assert!(decode_text(&[0xFF, 0xFE, 0x41]).is_err());
+        assert!(decode_text(&[0xC3, 0x28]).is_err());
     }
 
     #[test]

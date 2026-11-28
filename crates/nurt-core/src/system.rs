@@ -6,7 +6,7 @@
 // Responsibility:   Clock and host of the running process, read from the operating system.
 // Dependencies:     nurt_contracts, nurt_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Clock and host of the running process, read from the operating system.
@@ -32,6 +32,41 @@ const UNKNOWN: &str = "unknown";
 #[must_use]
 pub fn console_output_is_utf8() -> bool {
     nurt_sys::console::output_is_utf8()
+}
+
+/// Turns on the processing of the escape sequences in the output of the
+/// console of this process and tells whether it is on. Without it a console of
+/// Windows prints the colours as text. On a system other than Windows, and on
+/// Windows when the output is not a console, the answer is `false`.
+#[must_use]
+pub fn enable_console_virtual_terminal() -> bool {
+    nurt_sys::console::enable_virtual_terminal()
+}
+
+/// Whether the console of this process processes the escape sequences of the
+/// output now. It changes nothing, and on a system other than Windows the
+/// answer is `false`.
+#[must_use]
+pub fn console_virtual_terminal_is_on() -> bool {
+    nurt_sys::console::virtual_terminal_is_on()
+}
+
+/// Whether this process is the only one attached to its console, so the
+/// window of the console closes when the process ends: a program started from
+/// a shortcut, by a double click or as the program of a tab of a terminal. On
+/// a system other than Windows, and on Windows when the process has no
+/// console, the answer is `false`.
+#[must_use]
+pub fn console_is_private() -> bool {
+    nurt_sys::console::is_private()
+}
+
+/// Tells Windows to return the critical errors of devices to this process
+/// instead of showing a dialog of the system, such as "There is no disk in the
+/// drive" for an empty card reader. The setting is inherited by the programs
+/// the process starts. On a system other than Windows nothing is done.
+pub fn return_device_errors() {
+    nurt_sys::error_mode::return_device_errors();
 }
 
 /// Clock of the running process.
@@ -141,7 +176,9 @@ impl SystemHost {
             } else {
                 PathStyle::Posix
             },
-            timezone: var("TZ").unwrap_or_else(|| "UTC".to_owned()),
+            timezone: var("TZ")
+                .or_else(system_zone)
+                .unwrap_or_else(|| "UTC".to_owned()),
             locale: var("LC_ALL").or_else(|| var("LANG")),
             cpus: std::thread::available_parallelism()
                 .ok()
@@ -164,6 +201,20 @@ impl Host for SystemHost {
     fn env_vars(&self) -> Vec<(OsString, OsString)> {
         std::env::vars_os().collect()
     }
+}
+
+/// Time zone of the system on Windows, where the variable `TZ` is not set by
+/// the system; elsewhere the variable alone names the zone.
+#[cfg(windows)]
+fn system_zone() -> Option<String> {
+    nurt_sys::host::system_time_zone()
+}
+
+/// Time zone of the system on Windows, where the variable `TZ` is not set by
+/// the system; elsewhere the variable alone names the zone.
+#[cfg(not(windows))]
+fn system_zone() -> Option<String> {
+    None
 }
 
 fn read_trimmed(path: &str) -> Option<String> {

@@ -6,7 +6,7 @@
 // Responsibility:   Kept remainders of shortened results and the parts that `next` reads.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Kept remainders of shortened results and the parts that `next` reads.
@@ -1088,8 +1088,6 @@ fn read_cut_lines(cut: &[CutLine]) -> Vec<Record> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use nurt_contracts::config::{DurationSetting, SizeSetting};
     use nurt_contracts::continuation::ResumedPart;
     use nurt_contracts::error::Result as StageResult;
@@ -1534,7 +1532,6 @@ mod tests {
             .read(&NextQuery::default(), None, Some(&journal), &config, at(0))
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::ContinuationExpired);
-        let _ = Duration::ZERO;
     }
 }
 

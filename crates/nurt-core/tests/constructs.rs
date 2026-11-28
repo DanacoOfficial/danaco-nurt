@@ -637,10 +637,18 @@ fn atomic_false_keeps_the_completed_iterations_and_names_the_failed_one() {
         0,
         "the kept iterations are in the one entry of the loop"
     );
+    // The journal of the volume is shared with other runs. An expired entry
+    // that records no account is listed for every account, so the entries
+    // that are not expired are counted.
+    let history = world.engine.history(&Default::default()).unwrap();
+    let written: Vec<_> = history
+        .iter()
+        .filter(|record| record.state != nurt_contracts::record::OperationState::Expired)
+        .collect();
     assert_eq!(
-        world.engine.history(&Default::default()).unwrap().len(),
+        written.len(),
         1,
-        "the whole loop is one journal entry"
+        "the whole loop is one journal entry: {written:?}"
     );
     assert_ok(&world.run("undo"));
     assert!(world.read("dst/a.log").is_none() && world.read("dst/b.log").is_none());
