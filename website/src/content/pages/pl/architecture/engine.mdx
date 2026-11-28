@@ -64,7 +64,7 @@ Anulowanie jest kooperacyjne. Jeden token jest wspólny dla wszystkich etapów w
 
 Przebieg, który trwa w tle po zakończeniu wiersza poleceń, jest nadzorowany przez proces, który go przeżywa. Oba wymieniają pliki w `<state>/jobs`: żądania startu w `inbox/` oraz plik zadania i katalog sterowania dla każdego zadania. Anulowanie dociera do przebiegu w postaci dopasowanej do jego postępu, a po starcie programu nadzorca kończy całe drzewo procesów naraz ([specyfikacja nadzorcy](/pl/docs/specification/supervisor/)). Usługa w tle z `nurt-service` to inny proces: obsługuje moduł harmonogramów z `nurt-sched` oraz moduł wolnego miejsca i odpowiada na gnieździe Unix, a w Windows na potoku nazwanym.
 
-Gdy polecenie jednej grupy potrzebuje innej grupy, wywołuje cechę usługi zarejestrowaną w rejestrze `Services` niesionym przez kontekst wykonania: `DocService`, `CodeService`, `ProcessHost`, `FileListService`, `GitQueryService`, `TextCodecService`, `FileHolderService` i `ReviewRuleProvider`. Usługę, której jej grupa nie dostarcza, zastępuje rozwiązanie z [specyfikacji usług](/pl/docs/specification/services/), a raport odnotowuje to rozwiązanie.
+Gdy polecenie jednej grupy potrzebuje innej grupy, wywołuje cechę usługi zarejestrowaną w rejestrze `Services` niesionym przez kontekst wykonania: `DocService`, `CodeService`, `ProcessHost`, `FileListService`, `GitQueryService`, `TextCodecService`, `FileHolderService` i `ReviewRuleProvider`. Usługę, której jej grupa nie dostarcza, zastępuje rozwiązanie ze [specyfikacji usług](/pl/docs/specification/services/), a raport odnotowuje to rozwiązanie.
 
 ## Dalej
 

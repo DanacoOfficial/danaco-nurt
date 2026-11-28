@@ -31,7 +31,7 @@ Operacje na wielu małych plikach, na przykład `replace` na tysiącach plików 
 
 - taka operacja jest kilkukrotnie szybsza, a jej wpis jest proporcjonalny do zmienionej zawartości;
 - w wywołaniu `preserve` z co najmniej 64 celami poprzednia zawartość plików do 4096 bajtów jest przechowywana w manifeście, a nowe pliki i katalogi są zapisywane na dysk jednym wywołaniem przed zatwierdzeniem, a nie jednym zapisem na plik;
-- manifesty operacji z co najmniej 256 celami używają formatu w wersji 2, a wpis cofnięcia tysięcy plików jest około siedem razy mniejszy.
+- manifesty operacji z co najmniej 256 celami używają formatu w wersji 2, a wpis cofnięcia tysięcy plików jest około siedmiu razy mniejszy.
 
 Cofnięcie jednego miliona usuniętych plików trwa 5,3 razy dłużej niż usunięcie (wersja 0.1.1). Test cofnięcia w pełnej skali `undo_mass_full_scale_within_six_times_the_operation` w `crates/nurt-journal/src/undo.rs` dopuszcza do sześciu czasów trwania operacji. Scenariusz T12 w `tools/release/scenarios.sh` uruchamia `replace` i `undo` na 3000 plików i wymaga, by każde zakończyło się w 60 sekund.
 

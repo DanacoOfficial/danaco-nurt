@@ -82,7 +82,7 @@ read "/srv/app/values.yaml" key: "image.tag"
 set "/srv/app/package.json" key: "scripts.test" value: "vitest"
 ```
 
-Zapis, który wprowadza nowy błąd składni do znanego formatu, jest cofany, chyba że `validate` stanowi inaczej. Zmiana pliku zmodyfikowanego po jego odczytaniu kończy się błędem `E_STALE`, więc raport wskazuje konflikt zamiast nadpisywać cudzą zmianę. Od 0.1.1 `sql` zapisuje też w dzienniku zmianę pliku SQLite wraz z plikami `-wal`, `-shm` i `-journal`, więc `undo` przywraca bazę danych.
+Zapis, który wprowadza nowy błąd składni do znanego formatu, jest cofany, chyba że `validate` stanowi inaczej. Zmiana pliku zmodyfikowanego po jego odczytaniu kończy się błędem `E_STALE`, więc raport wskazuje konflikt, zamiast nadpisywać cudzą zmianę. Od 0.1.1 `sql` zapisuje też w dzienniku zmianę pliku SQLite wraz z plikami `-wal`, `-shm` i `-journal`, więc `undo` przywraca bazę danych.
 
 ## Praca według harmonogramu
 

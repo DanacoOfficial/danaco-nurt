@@ -66,7 +66,7 @@ Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmiany progr
 
 | Rodzaj | Mechanizm | Granice wykonania |
 |---|---|---|
-| Komponent WebAssembly | hostowany przez `wasmtime`; świat `extension` pakietu `nurt:ext@1.0.0` z wywołaniami hosta `read-file`, `list-dir`, `write-file` i `log` oraz funkcją `stage.run` | paliwo wykonania 10 000 000 000 jednostek na wywołanie; pamięć liniowa 512 MiB; każde wywołanie działa w nowej instancji; pliki tylko w granicach `permissions.read` i `permissions.write`, sprawdzanych gdy rozszerzenie prosi o ścieżkę i ponownie przy zastosowaniu jego zapisów |
+| Komponent WebAssembly | hostowany przez `wasmtime`; świat `extension` pakietu `nurt:ext@1.0.0` z wywołaniami hosta `read-file`, `list-dir`, `write-file` i `log` oraz funkcją `stage.run` | paliwo wykonania 10 000 000 000 jednostek na wywołanie; pamięć liniowa 512 MiB; każde wywołanie działa w nowej instancji; pliki tylko w granicach `permissions.read` i `permissions.write`, sprawdzanych, gdy rozszerzenie prosi o ścieżkę i ponownie przy zastosowaniu jego zapisów |
 | Biblioteka natywna | eksportuje `nurt_ext_api`, `nurt_ext_run` i `nurt_ext_free`; ładowana przy `ext.native = true` i w kompilacji z cechą `native` | działa w procesie silnika |
 
 Zobacz [opis rozszerzeń](/pl/docs/reference/extensions/).

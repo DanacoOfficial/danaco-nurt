@@ -48,7 +48,7 @@ Host zakazuje polecenia, ogranicza katalogi lub adresy HTTP albo pyta użytkowni
 
 ## Wielu agentów i użycie zdalne
 
-Każdy odczyt zwraca `etag`, a zmiana jest stosowana tylko wtedy, gdy plik ma jeszcze odczytaną treść. Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian. `undo` cofa tylko operacje bieżącej sesji, chyba że podano `all_sessions: true`, a cofnięcie pliku zmienionego przez inną sesję zgłasza konflikt zamiast odrzucać cudzą zmianę ([praca wielu agentów](/pl/docs/guides/multi-agent/)).
+Każdy odczyt zwraca `etag`, a zmiana jest stosowana tylko wtedy, gdy plik ma jeszcze odczytaną treść. Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian. `undo` cofa tylko operacje bieżącej sesji, chyba że podano `all_sessions: true`, a cofnięcie pliku zmienionego przez inną sesję zgłasza konflikt, zamiast odrzucać cudzą zmianę ([praca wielu agentów](/pl/docs/guides/multi-agent/)).
 
 Silnik, który uruchamia programy na innej maszynie, analizuje i sprawdza program lokalnie, a drzewo składni wysyła do `nurt serve` tam działającego. Zdalna instancja nie poprawia drzewa ponownie, więc uruchamiany jest program, który sprawdziła polityka. Połączenie i uwierzytelnienie należą do hosta ([użycie zdalne i zdarzenia](/pl/docs/integrators/remote-and-events/)).
 
