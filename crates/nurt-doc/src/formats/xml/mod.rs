@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml
-// Responsibility:   XML documents.
+// Responsibility:   Reading and editing of XML documents through the byte ranges of every part of the markup.
 // Dependencies:     attr, cdata, element, handle, ns, nurt_contracts, style, tree
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! XML documents.

@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::toml
-// Responsibility:   TOML documents.
+// Responsibility:   Reading and editing of TOML documents by replacing byte ranges of the original text.
 // Dependencies:     format, nurt_contracts, toml_edit
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! TOML documents.

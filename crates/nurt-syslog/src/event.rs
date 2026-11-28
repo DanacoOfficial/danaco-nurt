@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syslog::event
-// Responsibility:   Log events.
+// Responsibility:   The log event that every log reader produces and its conversion to the record log_event.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Log events.

@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::package::installed
-// Responsibility:   Installed packages.
+// Responsibility:   Reading of the installed packages from the databases of the package managers without starting a program.
 // Dependencies:     nurt_contracts, nurt_programs
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Installed packages.

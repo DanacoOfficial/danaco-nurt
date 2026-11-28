@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::package
-// Responsibility:   Package managers.
+// Responsibility:   The package commands: listing and search in the manager databases, install, remove and upgrade through the manager program.
 // Dependencies:     detect, exec, index, installed, nurt_contracts, nurt_programs, root, version
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Package managers.

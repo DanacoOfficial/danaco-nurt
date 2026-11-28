@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           tools/release/build-release.sh
-# Responsibility:   Release build.
+# Responsibility:   Builds the archives of the executable and of nurt-lib for every target and writes their checksums.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.2, 2026-11-28

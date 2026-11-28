@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sched::stages::run
-// Responsibility:   `schedule.run`.
+// Responsibility:   The stage schedule.run: runs the action of a schedule at once, outside its run times and its run limit.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! `schedule.run`.
