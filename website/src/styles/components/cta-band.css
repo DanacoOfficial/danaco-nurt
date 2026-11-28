@@ -3,15 +3,12 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.components.cta-band
- * Responsibility:   The closing call-to-action band: a raised ground with the stream trace, the sentence and the actions.
+ * Responsibility:   The closing call to action: a framed panel on the ground of the page with the stream trace, the sentence and the actions.
  * Dependencies:     website.src.styles.tokens, website.src.styles.base
  */
 
 .cta-band {
-  margin-block: var(--space-9) 0;
-  padding-block: var(--space-8);
-  border-block: 1px solid var(--line);
-  background: var(--bg-raised);
+  margin-block: var(--space-8) 0;
 }
 
 .cta-band__inner {
@@ -20,6 +17,11 @@
   gap: var(--space-5);
   align-items: flex-start;
   justify-content: space-between;
+  padding: var(--space-7) var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--bg-raised);
+  overflow: hidden;
 }
 
 .cta-band__text {

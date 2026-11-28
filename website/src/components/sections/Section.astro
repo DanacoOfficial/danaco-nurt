@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.sections.Section
-// Responsibility:   A band of a page with its own heading: the eyebrow, the title, the lead and the content in the slot.
+// Responsibility:   A part of a page on the ground of the page with its own heading: the eyebrow, the title, the lead and the content in the slot.
 // Dependencies:     website.src.styles.layout
 
 interface Props {
@@ -12,15 +12,14 @@ interface Props {
   eyebrow?: string;
   title?: string;
   lead?: string;
-  tone?: 'plain' | 'raised';
   tight?: boolean;
   /** On a wide window the lead stands right of the title instead of under it. */
   split?: boolean;
 }
-const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = true } = Astro.props;
+const { id, eyebrow, title, lead, tight = false, split = true } = Astro.props;
 ---
 
-<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised']} aria-labelledby={title && id ? `${id}-title` : undefined}>
+<section id={id} class:list={['section', tight && 'section--tight']} aria-labelledby={title && id ? `${id}-title` : undefined}>
   <div class="container">
     {(eyebrow || title || lead) && (
       <div class:list={['section__head', split && lead && 'section__head--split']}>

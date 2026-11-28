@@ -9,8 +9,6 @@
 
 .hero {
   padding-block: var(--space-8) var(--space-9);
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--bg-sunken), var(--bg) 80%);
 }
 
 .hero__inner {

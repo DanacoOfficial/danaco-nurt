@@ -26,11 +26,6 @@
   padding-block: var(--space-7);
 }
 
-.section--raised {
-  background: var(--bg-raised);
-  border-block: 1px solid var(--line);
-}
-
 .stack {
   display: flex;
   flex-direction: column;

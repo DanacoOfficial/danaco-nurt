@@ -47,7 +47,7 @@ const content = locale === 'pl' ? homePl : homeEn;
 
   <Statement eyebrow={content.statement.eyebrow} quote={content.statement.quote} name={site.creator} role={content.statement.role} />
 
-  <Section id="how" tone="raised" split={false} eyebrow={content.how.eyebrow} title={content.how.title} lead={content.how.lead}>
+  <Section id="how" split={false} eyebrow={content.how.eyebrow} title={content.how.title} lead={content.how.lead}>
     <div class="how__program">
       <Terminal title={content.how.programTitle}>
         <pre><code class="language-nurt">{content.how.program}</code></pre>
@@ -97,7 +97,7 @@ const content = locale === 'pl' ? homePl : homeEn;
     </div>
   </Section>
 
-  <Section id="numbers" tone="raised" eyebrow={content.numbers.eyebrow} title={content.numbers.title} lead={content.numbers.lead}>
+  <Section id="numbers" eyebrow={content.numbers.eyebrow} title={content.numbers.title} lead={content.numbers.lead}>
     <Stats>
       <Fact id="commands" />
       <Fact id="platforms" />

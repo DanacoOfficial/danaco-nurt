@@ -3,15 +3,12 @@
 /* https://github.com/DanacoOfficial | support@danaco-group.pl */
 /*
  * Module:           website.src.styles.components.statement
- * Responsibility:   The statement of the creator: a graphite band in the dark theme of the identity, the mark beside a large quotation with a gold rule, and the name and the role of the author.
+ * Responsibility:   The statement of the creator on the ground of the page: the mark beside a large quotation with a gold rule, and the name and the role of the author.
  * Dependencies:     website.src.styles.tokens, website.src.styles.base
  */
 
 .statement {
-  padding-block: var(--space-9);
-  border-block: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--text);
+  padding-block: var(--space-8);
 }
 
 .statement__inner {

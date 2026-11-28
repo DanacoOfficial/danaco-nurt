@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.sections.Statement
-// Responsibility:   The statement of the creator of the product: a quotation set large on a graphite band with the mark, followed by the name and the role of its author.
+// Responsibility:   The statement of the creator of the product: a quotation set large on the ground of the page with the mark, followed by the name and the role of its author.
 // Dependencies:     website.src.components.brand.Mark, website.src.styles.components.statement
 
 import '../../styles/components/statement.css';
@@ -20,7 +20,7 @@ interface Props {
 const { eyebrow, quote, name, role } = Astro.props;
 ---
 
-<section class="statement stream-trace theme-dark">
+<section class="statement stream-trace stream-trace--fade" style="--trace-top: 35%;">
   <div class="container statement__inner">
     <Mark class="statement__mark" size={56} />
     <figure class="statement__figure">
