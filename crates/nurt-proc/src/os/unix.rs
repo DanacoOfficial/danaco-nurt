@@ -120,8 +120,12 @@ impl ChildSetup {
             let hard = soft.saturating_add(ceil_seconds(limits.kill_grace).max(1));
             (to_rlim(soft), to_rlim(hard))
         });
+        // macOS rejects `RLIMIT_AS` with `EINVAL`, so the bound exists only on
+        // Linux; elsewhere the supervisor measures the resident memory.
         let address_space = match (limits.max_memory, membership.enforces_memory()) {
-            (Some(bytes), false) => Some(to_rlim(bytes.saturating_mul(ADDRESS_SPACE_FACTOR))),
+            (Some(bytes), false) if cfg!(target_os = "linux") => {
+                Some(to_rlim(bytes.saturating_mul(ADDRESS_SPACE_FACTOR)))
+            }
             _ => None,
         };
         Self {
@@ -629,7 +633,7 @@ mod tests {
         };
         let membership = Membership::prepare(&limits);
         let setup = ChildSetup::new(&limits, &membership);
-        if membership.enforces_memory() {
+        if membership.enforces_memory() || !cfg!(target_os = "linux") {
             assert_eq!(setup.address_space, None);
         } else {
             assert_eq!(setup.address_space, Some(to_rlim(u64::MAX)));
