@@ -11,6 +11,7 @@
 
 use super::*;
 use crate::testutil::{RepoBuilder, TestHost, test_ctx, test_ctx_with};
+use nurt_contracts::env::Os;
 use nurt_contracts::error::ErrorCode;
 
 #[test]
@@ -259,7 +260,13 @@ fn ceiling_directories_stop_discovery() {
         .file("sub/a.txt", "1\n")
         .commit("one")
         .build();
+    let os = if cfg!(windows) {
+        Os::Windows
+    } else {
+        Os::Linux
+    };
     let host = TestHost::new("/nonexistent-home")
+        .with_os(os)
         .with_var("GIT_CEILING_DIRECTORIES", fixture.path().as_os_str());
     let error = GitRepo::discover(&fixture.path().join("sub"), &test_ctx_with(host)).unwrap_err();
     assert_eq!(error.code, ErrorCode::GitNotRepository);

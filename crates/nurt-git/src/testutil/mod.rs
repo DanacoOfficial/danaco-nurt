@@ -197,6 +197,19 @@ impl TestHost {
         self.vars.push((name.into(), value.into()));
         self
     }
+
+    /// The same host reporting the operating system `os` and its path
+    /// notation, so that lists of paths in variables split as on that system.
+    #[must_use]
+    pub fn with_os(mut self, os: Os) -> Self {
+        self.info.os = os;
+        self.info.path_style = if os == Os::Windows {
+            PathStyle::Windows
+        } else {
+            PathStyle::Posix
+        };
+        self
+    }
 }
 
 impl Host for TestHost {
