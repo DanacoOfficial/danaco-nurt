@@ -145,6 +145,35 @@ function inspect() {
     await page.goto(`${base}/`, { waitUntil: 'load' });
     if (!(await menuStaysOpen())) report.push(`${narrow} /: the menu does not stay open`);
   }
+  // The parts of a page that answer a click must answer it: the navigation of the documentation on a narrow window, the colour theme, the install tabs, the feature tour and the search.
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 500));
+  await page.goto(`${base}/pl/docs/guide/`, { waitUntil: 'load' });
+  await page.click('[data-docs-menu]');
+  await pause();
+  if (!(await page.evaluate(() => document.getElementById('docs-menu').hasAttribute('data-open') && document.getElementById('docs-menu').getBoundingClientRect().height > 100))) report.push('768 /pl/docs/guide/: the navigation of the documentation does not open');
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto(`${base}/`, { waitUntil: 'load' });
+  const themeBefore = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  await page.click('[data-theme-toggle]');
+  await pause();
+  if ((await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) === themeBefore) report.push('1440 /: the theme toggle does not change the theme');
+  await page.click('.install-tabs__labels label:nth-of-type(2)');
+  await pause();
+  if (!(await page.evaluate(() => getComputedStyle(document.querySelector('.install-tabs__panel--windows')).display !== 'none' && getComputedStyle(document.querySelector('.install-tabs__panel--unix')).display === 'none'))) report.push('1440 /: the install tabs do not switch');
+  await (await page.$$('[data-tour-tab]'))[2].click();
+  const tourChanged = await page
+    .waitForFunction(() => document.querySelectorAll('[data-tour-panel]')[2].hasAttribute('data-active') && document.querySelectorAll('[data-tour-tab]')[2].getAttribute('aria-selected') === 'true', { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!tourChanged) report.push('1440 /: the feature tour does not show the chosen panel');
+  for (const [address, query] of [['/search/', 'replace'], ['/pl/search/', 'dziennik']]) {
+    await page.goto(base + address, { waitUntil: 'load' });
+    await page.waitForSelector('.search__input:not([disabled])', { timeout: 5000 }).catch(() => undefined);
+    await page.type('.search__input', query).catch(() => undefined);
+    await page.waitForSelector('.search__result', { timeout: 6000 }).catch(() => undefined);
+    const found = await page.evaluate(() => document.querySelectorAll('.search__result').length);
+    if (found === 0) report.push(`1440 ${address}: the search finds nothing for ${query}`);
+  }
   // A browser set to Polish that opens the English home page for the first time must land on the Polish home page, and must stay on the English page when it returns to it.
   const context = await browser.createBrowserContext();
   const visitor = await context.newPage();
