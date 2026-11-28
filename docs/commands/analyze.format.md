@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents analyze.format. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # analyze.format
@@ -85,7 +85,7 @@ analyze.format "src" "tests"
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_SPAWN` | A formatter ended with a failure. | Run `analyze.check checks: ["format"]` and fix the reported syntax errors. |
+| `E_SPAWN` | A formatter ended with a failure. | Run `analyze.check checks: [format]` and fix the reported syntax errors. |
 | `E_PROGRAM_NOT_FOUND` | A formatter program could not be started. | Install the formatter or fix its path. |
 
 ## Related

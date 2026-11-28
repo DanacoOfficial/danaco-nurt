@@ -10,7 +10,7 @@ title: Source code
 <!-- Responsibility:   Documents Source code. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Source code
 
@@ -131,7 +131,7 @@ go
 Show the manifests, entry points and languages of a repository.
 
 ```nurt example
-code.profile "/home/user/app" sections: ["manifests", "languages"]
+code.profile "/home/user/app" sections: [manifests, languages]
 ```
 
 ```text expected
@@ -251,7 +251,7 @@ severity
 Show how a project is built, tested and started.
 
 ```nurt example
-code.profile "/home/user/app" sections: ["commands", "entry_points"]
+code.profile "/home/user/app" sections: [commands, entry_points]
 ```
 
 ```text expected

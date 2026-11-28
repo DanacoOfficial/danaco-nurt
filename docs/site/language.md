@@ -10,7 +10,7 @@ order: 4
 <!-- Responsibility:   Documents Language. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Language
 
@@ -92,7 +92,7 @@ steps {
 
 ```nurt example
 define rotate_logs(dir: path, keep: int = 7) {
-    find @dir glob: "*.log.*" |> sort modified desc |> skip @keep |> remove
+    find @dir glob: "*.log.*" |> sort modified order: desc |> skip @keep |> remove
 }
 rotate_logs("/var/log/app1")
 rotate_logs("/var/log/app2", keep: 14)

@@ -49,7 +49,7 @@ Irreversible are `restart`, `stop` of a process, and `run`: files changed by a p
 `services` lists services with their state and start type. `state` narrows the list and `scope` selects system or user services. `start`, `restart`, `enable` and `disable` take services from the input, and `stop` ends services, processes and jobs.
 
 ```nurt
-services state: running
+services state: "running"
 services name: "nginx" |> restart
 ```
 

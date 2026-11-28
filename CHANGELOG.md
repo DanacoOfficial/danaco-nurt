@@ -45,6 +45,34 @@ their own version numbers, described in the specification.
   answers `EPERM` instead of `ESRCH` for such a group.
 - Windows targets can be built with a clang outside `/usr/bin`:
   `NURT_MSVC_CLANG` names the clang of the MSVC wrappers of the release build.
+- Variant C: a program with a sub-pipeline in the condition of `when` or
+  `while`, in the source of `each` or in the options of a loop is printed with
+  the names of its arguments; before, printing failed with "variant C has no
+  positional arguments".
+- Variant C: a `bool` parameter written as a bare word (`sysctl.set "key" "1"
+  persistent`, `remove preview`) is printed as `persistent=true`; before, the
+  word was counted as a positional argument and printing failed. This applies
+  to the format request of the engine and to the examples of the help.
+- The guide "Administration" showed a `steps` example that the language
+  rejects (`assert` at the start of a pipeline); the example now pipes `run`
+  into `assert exit_code: 0`.
+- `nurt check` (and the `check` request of the engine) no longer rejects a
+  valid program whose argument is a duration, a size, a regular expression, an
+  instant with a zone or a map of literals, for example `sleep 500ms`,
+  `parse /(?<key>\w+)/` or `journal.limits age: 5m`. The static check passed
+  such literals to the command as expressions, so the command reported a
+  missing or mistyped value that the run accepted.
+- `nurt check` no longer rejects a command whose argument is computed before
+  the stage runs: a parameter of a function (`define rotate(keep: int) { find
+  "/var/log" |> skip @keep }`), a named result or a call such as
+  `undo file: "/home/user/a.go" since: ago(1h)`. The static check of such a
+  stage leaves the verdict on its arguments to the run.
+- Documentation: 24 examples that the language rejects are corrected, among
+  them `git.log` (`since: ago(30d)`), `test.failed` and `test.show` (the run
+  identifier is a text), the enum lists of `analyze.check`, `git.review`,
+  `code.profile` and `find` (values without quotes), `run` without `cwd`,
+  `write` without `mode`, `undo paths:` without the operation, and `sort` with
+  `order: desc`.
 
 ### Known issues
 

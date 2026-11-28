@@ -10,7 +10,7 @@ title: Archives and network
 <!-- Responsibility:   Documents Archives and network. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Archives and network
 
@@ -151,7 +151,7 @@ example
 Download a file and verify its SHA-256 hash.
 
 ```nurt example
-http.download "https://example.com/a.tar.gz" "/home/user/dl/a.tar.gz" hash: "sha256:9d3c"
+http.download "https://example.com/a.tar.gz" "/home/user/dl/a.tar.gz" hash: "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 ```
 
 ```text expected

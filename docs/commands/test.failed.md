@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents test.failed. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # test.failed
@@ -82,7 +82,7 @@ test.failed
 Run again the failures of a named run and show the failed results.
 
 ```nurt example
-test.failed run-3 |> filter status == "failed"
+test.failed "run-3" |> filter status == "failed"
 ```
 
 Run again the failures of the run of another project directory.

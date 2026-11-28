@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents test.show. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # test.show
@@ -73,7 +73,7 @@ test.show status: failed message_lines: 3
 Show the results of one run whose identifier contains a name.
 
 ```nurt example
-test.show run-2 test: "parse"
+test.show "run-2" test: "parse"
 ```
 
 Show only the passed tests of the latest run.

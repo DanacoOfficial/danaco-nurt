@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.log. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.log
@@ -133,7 +133,7 @@ git.log "/home/user/repo" path: "/home/user/repo/src/io.rs" follow: true pickaxe
 Count the commits of the last 30 days per Conventional Commits type.
 
 ```nurt example
-git.log "/home/user/repo" since: now - 30d count: 1000 group_by: type
+git.log "/home/user/repo" since: ago(30d) count: 1000 group_by: type
 ```
 
 List the history of one function.

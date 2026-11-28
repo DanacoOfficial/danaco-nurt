@@ -10,7 +10,7 @@ title: Files and directories
 <!-- Responsibility:   Documents Files and directories. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Files and directories
 
@@ -191,7 +191,7 @@ du -h --max-depth=2 /home/user/app
 Compute the hash of every file of a directory and keep the groups that share a hash.
 
 ```nurt example
-find "/home/user/photos" |> hash |> group by: sha256
+find "/home/user/photos" |> hash |> group by: hash
 ```
 
 ```text expected
@@ -291,7 +291,7 @@ find /home/user/app/src -type f -mtime -1
 Find the files whose path resembles a name.
 
 ```nurt example
-find "/home/user/app" fuzzy: "readme" exclude_preset: ["vcs", "deps"]
+find "/home/user/app" fuzzy: "readme" exclude_preset: [vcs, deps]
 ```
 
 ```text expected

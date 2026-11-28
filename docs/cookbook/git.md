@@ -10,7 +10,7 @@ title: Git
 <!-- Responsibility:   Documents Git. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Git
 
@@ -159,7 +159,7 @@ stash
 Check the working tree for conflict markers, large files and secrets.
 
 ```nurt example
-git.review "/home/user/app" scope: working checks: ["conflict_markers", "secrets"]
+git.review "/home/user/app" scope: working checks: [conflict_markers, secrets]
 ```
 
 ```text expected

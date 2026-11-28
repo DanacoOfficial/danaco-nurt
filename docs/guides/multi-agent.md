@@ -11,7 +11,7 @@ commands: [read, info, write, replace, edit, set, history, undo]
 <!-- Responsibility:   Documents multi-agent. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # multi-agent
@@ -29,7 +29,7 @@ info "/srv/app/config.toml"
 The parameter `if_match` makes the check explicit: the change is applied only when the file has the given `etag`. `write`, `replace`, `insert`, `edit`, `set` and `patch` accept it. Without `if_match` the check uses the state that the same call read.
 
 ```nurt
-write "/srv/app/config.toml" "mode = 1\n" if_match: "a41f9c"
+write "/srv/app/config.toml" "mode = 1\n" mode: overwrite if_match: "a41f9c"
 ```
 
 ## Stale content
