@@ -6,7 +6,7 @@
 // Responsibility:   Handlers of the subcommands and of the program shortcut.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Handlers of the subcommands and of the program shortcut.
@@ -142,8 +142,9 @@ fn read_text(path: &str, io: &mut Io<'_>) -> Result<String, CliError> {
             .map_err(|error| CliError::Failure(format!("cannot read the input: {error}")))?;
         return Ok(text);
     }
-    std::fs::read_to_string(path)
-        .map_err(|error| CliError::Failure(format!("cannot read `{path}`: {error}")))
+    let unreadable = |reason: String| CliError::Failure(format!("cannot read `{path}`: {reason}"));
+    let bytes = std::fs::read(path).map_err(|error| unreadable(error.to_string()))?;
+    text::decode_file(&bytes).map_err(unreadable)
 }
 
 /// Replaces a leading `#!` line with an empty line, so that the positions of
@@ -377,6 +378,11 @@ fn convert_tree(
             writeln!(io.out, "{json}")?;
         }
         Notation::Cbor => {
+            if io.terminal.stdout {
+                return Err(CliError::Usage(
+                    "the CBOR output is binary; redirect it to a file or a pipe".to_owned(),
+                ));
+            }
             let mut bytes = Vec::new();
             ciborium::into_writer(&tree, &mut bytes)
                 .map_err(|error| CliError::Failure(format!("cannot encode the tree: {error}")))?;

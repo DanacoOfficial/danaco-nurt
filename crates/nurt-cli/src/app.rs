@@ -4,9 +4,9 @@
 //
 // Module:           nurt-cli::app
 // Responsibility:   Entry of the command line: input and output streams, engine source and the dispatcher of invocations.
-// Dependencies:     nurt_contracts, nurt_core
+// Dependencies:     crossterm, nurt_contracts, nurt_core
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Entry of the command line: input and output streams, engine source and
@@ -225,7 +225,59 @@ pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) 
             Err(error) => ExitCode::from(report(&error, io)),
         };
     }
+    if args.is_empty() {
+        return ExitCode::from(session(io, source));
+    }
     ExitCode::from(run(args, io, source))
+}
+
+/// Runs the invocation without arguments, the interactive session that a
+/// shortcut starts, and returns its exit code.
+///
+/// When the session ends with an error or with a panic and this process is
+/// the only one attached to its console, the window of the console would
+/// close together with the message. The process then waits for a line of the
+/// input, so the message can be read.
+fn session(io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
+    let on_a_terminal = io.terminal.stdin && io.terminal.stderr;
+    let window_is_ours = on_a_terminal && nurt_core::system::console_is_private();
+    if window_is_ours {
+        keep_window_after_panic();
+    }
+    match dispatch(&[], io, source) {
+        Ok(code) => code,
+        Err(error) => {
+            let code = report(&error, io);
+            if window_is_ours {
+                let _ = writeln!(io.err, "{CLOSE_NOTICE}");
+                let _ = io.input.read_line(&mut String::new());
+            }
+            code
+        }
+    }
+}
+
+/// Line written before the process waits so that its window stays open.
+const CLOSE_NOTICE: &str = "Press Enter to close this window.";
+
+/// Name that the standard library gives to the first thread of a process.
+const MAIN_THREAD: &str = "main";
+
+/// Makes a panic of the main thread wait for a line of the input after its
+/// message is written. The line editor may have left the console in raw
+/// mode, in which the Enter key does not end a line, so that mode is turned
+/// off first. A panic of another thread does not end the process and is
+/// reported as before.
+fn keep_window_after_panic() {
+    let write_message = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        write_message(info);
+        if std::thread::current().name() == Some(MAIN_THREAD) {
+            let _ = crossterm::terminal::disable_raw_mode();
+            let _ = writeln!(io::stderr(), "{CLOSE_NOTICE}");
+            let _ = io::stdin().read_line(&mut String::new());
+        }
+    }));
 }
 
 fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {

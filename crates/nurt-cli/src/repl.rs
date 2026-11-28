@@ -6,7 +6,7 @@
 // Responsibility:   The interactive session (`nurt repl`).
 // Dependencies:     crossterm, nurt_contracts, nurt_core, reedline, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The interactive session (`nurt repl`).
@@ -57,6 +57,9 @@ const INTERRUPT_POLL: Duration = Duration::from_millis(50);
 const MENU_NAME: &str = "completion_menu";
 /// Prompt of the session.
 const PROMPT: &str = "nurt";
+/// Notice written when the session goes on without the line editor.
+const PLAIN_INPUT_NOTICE: &str = "nurt: the session continues without the line editor; \
+     type a program and press Enter, `exit` ends the session";
 
 /// One line read from the user.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +76,12 @@ pub enum Input {
 pub trait LineSource {
     /// Reads the next line.
     fn read_line(&mut self) -> Input;
+
+    /// The message of the failure that ended the input, or `None` when the
+    /// input ended in the regular way.
+    fn failure(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Lines read from a stream without editing.
@@ -180,6 +189,7 @@ impl Highlighter for Coloured {
 pub struct EditorLines {
     editor: Reedline,
     prompt: BrandPrompt,
+    failure: Option<String>,
 }
 
 impl EditorLines {
@@ -209,6 +219,7 @@ impl EditorLines {
         Self {
             editor: self.editor.with_ansi_colors(enabled),
             prompt: self.prompt,
+            failure: self.failure,
         }
     }
 
@@ -248,6 +259,7 @@ impl EditorLines {
                 ),
                 theme,
             },
+            failure: None,
         }
     }
 }
@@ -257,8 +269,16 @@ impl LineSource for EditorLines {
         match self.editor.read_line(&self.prompt) {
             Ok(Signal::Success(line)) => Input::Line(line),
             Ok(Signal::CtrlC(_)) => Input::Interrupted,
-            _ => Input::End,
+            Ok(_) => Input::End,
+            Err(error) => {
+                self.failure = Some(error.to_string());
+                Input::End
+            }
         }
+    }
+
+    fn failure(&self) -> Option<String> {
+        self.failure.clone()
     }
 }
 
@@ -352,11 +372,50 @@ impl<'a> Session<'a> {
         out: &mut dyn Write,
         err: &mut dyn Write,
     ) -> io::Result<()> {
+        self.read_lines(lines, out, err)?;
+        self.cancel_all();
+        Ok(())
+    }
+
+    /// Reads and runs the lines of `editor` and, when the editor stops with a
+    /// failure, the lines of `plain`: a terminal that the line editor cannot
+    /// use still gets a session, without editing, completion and history.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of writing to the output.
+    pub fn run_with_plain_input(
+        &mut self,
+        editor: &mut dyn LineSource,
+        plain: &mut dyn LineSource,
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> io::Result<()> {
+        self.read_lines(editor, out, err)?;
+        if editor.failure().is_some() {
+            writeln!(err, "{PLAIN_INPUT_NOTICE}")?;
+            self.read_lines(plain, out, err)?;
+        }
+        self.cancel_all();
+        Ok(())
+    }
+
+    fn read_lines(
+        &mut self,
+        lines: &mut dyn LineSource,
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> io::Result<()> {
         loop {
             let line = match lines.read_line() {
                 Input::Line(line) => line,
                 Input::Interrupted => continue,
-                Input::End => break,
+                Input::End => {
+                    if let Some(message) = lines.failure() {
+                        writeln!(err, "nurt: the line editor stopped: {message}")?;
+                    }
+                    break;
+                }
             };
             let line = line.trim();
             if line.is_empty() {
@@ -366,7 +425,6 @@ impl<'a> Session<'a> {
                 break;
             }
         }
-        self.cancel_all();
         Ok(())
     }
 
@@ -538,6 +596,27 @@ impl Prompt for BrandPrompt {
     }
 }
 
+/// Number of causes of a journal problem written below the banner.
+const SHOWN_CAUSES: usize = 5;
+
+/// Causes that the journal recorded for the entries it could not recover,
+/// the first [`SHOWN_CAUSES`] of them without repetitions.
+pub(crate) fn recovery_causes(problem: &nurt_contracts::error::Error) -> Vec<String> {
+    let mut causes: Vec<String> = problem
+        .data()
+        .details
+        .get("causes")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .collect();
+    causes.dedup();
+    causes.truncate(SHOWN_CAUSES);
+    causes
+}
+
 /// The banner of the session; scripts, pipes and protocol servers receive
 /// none, because the banner exists only on an interactive terminal.
 #[must_use]
@@ -579,6 +658,21 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
         if let Err(problem) = interrupt.install_handler() {
             let _ = writeln!(err, "nurt: Ctrl-C does not cancel programs: {problem}");
         }
+        if let Some(problem) = context.engine.journal_problem() {
+            // The session runs, but nothing a change replaces is kept until
+            // the journal starts again, so the person is told at once.
+            let _ = writeln!(
+                err,
+                "nurt: the journal did not start, so changes cannot be undone: {problem}"
+            );
+            for cause in recovery_causes(problem) {
+                let _ = writeln!(err, "nurt: cause: {cause}");
+            }
+            let _ = writeln!(
+                err,
+                "nurt: `nurt journal salvage <volume>` lists the entries that need repair"
+            );
+        }
         let vocabulary = Vocabulary::from_engine(&context.engine);
         let editor = match context.engine.state_dir() {
             Some(state) => EditorLines::new(&vocabulary, state.root().join(HISTORY_FILE))
@@ -590,7 +684,7 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
             None => EditorLines::without_history(&vocabulary),
         };
         let mut editor = editor.with_colour(context.out_style.is_enabled());
-        session.run(&mut editor, *out, *err)?;
+        session.run_with_plain_input(&mut editor, &mut PlainLines::new(*input), *out, *err)?;
     } else {
         session.run(&mut PlainLines::new(*input), *out, *err)?;
     }
@@ -627,6 +721,16 @@ mod tests {
         let interrupt = Interrupt::new();
         interrupt.clone().raise();
         assert!(interrupt.take());
+    }
+
+    #[test]
+    fn causes_of_a_journal_problem_are_listed_once_and_bounded() {
+        use nurt_contracts::error::{Error, ErrorCode};
+        let problem = Error::new(ErrorCode::Io, "entries could not be recovered")
+            .with_detail("causes", json!(["a", "a", "b", "c", "d", "e", "f"]));
+        assert_eq!(recovery_causes(&problem), ["a", "b", "c", "d", "e"]);
+        let plain = Error::new(ErrorCode::Io, "the journal directory cannot be read");
+        assert!(recovery_causes(&plain).is_empty());
     }
 
     #[test]

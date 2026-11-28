@@ -6,7 +6,7 @@
 // Responsibility:   The start banner of an interactive session.
 // Dependencies:     nurt_contracts, nurt_core
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The start banner of an interactive session.
@@ -25,6 +25,13 @@ use crate::theme::Theme;
 /// Width in columns assumed for a terminal whose size cannot be read.
 const DEFAULT_WIDTH: usize = 80;
 
+/// Empty columns left of the banner of a session, as in the terminal of the brand book: the
+/// drawing does not touch the edge of the window.
+pub const MARGIN_COLUMNS: usize = 3;
+
+/// Empty lines above and below the banner of a session.
+pub const MARGIN_ROWS: usize = 1;
+
 /// Escape sequence that ends every colour and weight.
 const RESET: &str = "\x1b[0m";
 
@@ -33,21 +40,29 @@ const BOLD: &str = "\x1b[1m";
 
 /// Whether the terminal described by `variable` shows UTF-8.
 ///
-/// On Windows that is Windows Terminal (`WT_SESSION`) or a console whose
-/// output code page is UTF-8; elsewhere it is the locale.
+/// On Windows that is Windows Terminal (`WT_SESSION`), a console whose output
+/// code page is UTF-8, or a console that processes the escape sequences (the
+/// process turns that on at the start); elsewhere it is the locale.
 #[must_use]
 pub fn utf8_terminal(variable: &impl Fn(&str) -> Option<String>) -> bool {
     if cfg!(windows) {
-        windows_utf8(variable, nurt_core::system::console_output_is_utf8())
+        windows_utf8(
+            variable,
+            nurt_core::system::console_output_is_utf8()
+                || nurt_core::system::console_virtual_terminal_is_on(),
+        )
     } else {
         locale_is_utf8(variable)
     }
 }
 
 /// Whether the Windows terminal shows UTF-8: Windows Terminal, or a console
-/// whose output code page (`code_page_is_utf8`) is 65001.
-fn windows_utf8(variable: &impl Fn(&str) -> Option<String>, code_page_is_utf8: bool) -> bool {
-    variable("WT_SESSION").is_some() || code_page_is_utf8
+/// that shows it (`console_is_utf8`). The standard library writes the text of a
+/// console as UTF-16, so a console of the current Windows shows UTF-8 text
+/// whatever its code page is; a console that does not process the escape
+/// sequences is an old one and gets the ASCII drawing.
+fn windows_utf8(variable: &impl Fn(&str) -> Option<String>, console_is_utf8: bool) -> bool {
+    variable("WT_SESSION").is_some() || console_is_utf8
 }
 
 /// Whether the character set of the locale is UTF-8. The first of `LC_ALL`,
@@ -133,9 +148,29 @@ pub fn render(version: &str, drawing: BannerDrawing, width: usize, theme: Option
         .join("\n")
 }
 
+/// The banner `text` moved [`MARGIN_COLUMNS`] columns right, with [`MARGIN_ROWS`] empty lines
+/// above and below it; empty lines stay empty.
+#[must_use]
+pub fn with_margin(text: &str) -> String {
+    let pad = " ".repeat(MARGIN_COLUMNS);
+    let body = text
+        .lines()
+        .map(|line| {
+            if line.is_empty() {
+                String::new()
+            } else {
+                format!("{pad}{line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let rows = "\n".repeat(MARGIN_ROWS);
+    format!("{rows}{body}{rows}")
+}
+
 /// The banner for the terminal of this process: the drawing follows the
 /// character set, the colours follow `theme` when `colour` is true, and the
-/// layout follows the width of the terminal.
+/// layout follows the width of the terminal less the margin.
 #[must_use]
 pub fn session_banner(
     version: &str,
@@ -143,12 +178,13 @@ pub fn session_banner(
     colour: bool,
     theme: Theme,
 ) -> String {
-    render(
+    let width = terminal_width();
+    with_margin(&render(
         version,
         drawing_for(utf8_terminal(variable)),
-        terminal_width(),
+        width.saturating_sub(MARGIN_COLUMNS),
         colour.then_some(theme),
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -289,6 +325,27 @@ mod tests {
             render(VERSION, BannerDrawing::HalfBlocks, 200, None),
             product::banner(VERSION)
         );
+    }
+
+    #[test]
+    fn the_session_banner_keeps_a_margin_from_the_edge() {
+        let plain = render(VERSION, BannerDrawing::HalfBlocks, 200, None);
+        let framed = with_margin(&plain);
+        let lines: Vec<&str> = framed.split('\n').collect();
+        assert_eq!(lines.len(), plain.lines().count() + 2 * MARGIN_ROWS);
+        assert_eq!(lines[0], "");
+        assert_eq!(*lines.last().unwrap(), "");
+        let pad = " ".repeat(MARGIN_COLUMNS);
+        for (line, original) in lines[MARGIN_ROWS..lines.len() - MARGIN_ROWS]
+            .iter()
+            .zip(plain.lines())
+        {
+            if original.is_empty() {
+                assert_eq!(*line, "");
+            } else {
+                assert_eq!(*line, format!("{pad}{original}"));
+            }
+        }
     }
 
     #[test]
