@@ -10,29 +10,37 @@ order: 2
 <!-- Responsibility:   Documents Installation. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Installation
 
-Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The executable has no runtime dependencies.
+Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The musl build for Linux and the Windows build have no runtime dependencies. The glibc build for Linux links the system libraries `libc.so.6`, `libm.so.6` and `libgcc_s.so.1` dynamically.
 
-## Supported systems
+## Systems and archives
 
-| System | Architectures |
+The code is built and tested on the systems of the first table. The second table lists the release archives of release 0.1.2.
+
+| System | Architectures of the code | Release archive | Tests |
+|---|---|---|---|
+| Linux | x86_64, aarch64 | glibc and musl, each x86_64 and aarch64 | continuous integration |
+| Windows | x86_64, aarch64 | MSVC, x86_64 and aarch64 | continuous integration |
+| macOS | x86_64, aarch64 | none; build from source | continuous integration on macOS runners; some tests fail intermittently, see "Known issues" of release 0.1.2 in `CHANGELOG.md` |
+
+| Target of the archive | System |
 |---|---|
-| Linux | x86_64, aarch64 |
-| macOS | x86_64, aarch64 |
-| Windows | x86_64, aarch64 |
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | Linux with glibc |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | Linux, static executable |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Windows |
 
 ## Release artifacts
 
-| Channel | Identifier |
-|---|---|
-| GitHub release | `github.com/DanacoOfficial/danaco-nurt` |
-| Container image | `ghcr.io/danacoofficial/nurt` |
-| winget | `Danaco.Nurt` |
-| NuGet (library binding) | `Danaco.Nurt` |
-| Maven (library binding) | `pl.danaco-group:nurt` |
+| Channel | Identifier | State |
+|---|---|---|
+| GitHub release | `github.com/DanacoOfficial/danaco-nurt` | archives and `checksums.txt` |
+| Container image | `ghcr.io/danacoofficial/nurt` | published by the workflow `integrations-containers.yml` |
+| winget | `Danaco.Nurt` | submitted by the workflow `release.yml` |
+| NuGet (library binding) | `Danaco.Nurt` | planned; the repository has no publishing step |
+| Maven (library binding) | `pl.danaco-group:nurt` | planned; the repository has no publishing step |
 
 Every release publishes SHA-256 sums of its artifacts. The installers `install.sh` and `install.ps1` verify the sum before they place the executable.
 
@@ -85,7 +93,7 @@ The build needs a Rust toolchain installed with rustup and a C compiler. The too
 
 ```text
 git clone https://github.com/DanacoOfficial/danaco-nurt.git
-cd nurt
+cd danaco-nurt
 cargo build --release --locked
 ```
 
