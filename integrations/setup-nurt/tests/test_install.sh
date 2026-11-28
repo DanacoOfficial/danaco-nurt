@@ -7,7 +7,7 @@
 # Responsibility:   End-to-end tests of setup-nurt.sh against a release tree in a temporary directory, addressed through file:// URLs.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # End-to-end tests of setup-nurt.sh against a release tree in a temporary
@@ -49,7 +49,7 @@ run_setup() {
   : >"$work/github_path"
   env RUNNER_OS=Linux RUNNER_ARCH=X64 RUNNER_TOOL_CACHE="$3" \
     GITHUB_OUTPUT="$work/github_output" GITHUB_PATH="$work/github_path" \
-    NURT_DOWNLOAD_BASE="file://$release" NURT_RELEASES_URL="file://$work/releases.json" \
+    NURT_DOWNLOAD_BASE="$(file_url "$release")" NURT_RELEASES_URL="$(file_url "$work/releases.json")" \
     INPUT_VERSION="$1" INPUT_VERIFY="$2" \
     bash "$setup" >"$work/stdout" 2>"$work/stderr"
 }

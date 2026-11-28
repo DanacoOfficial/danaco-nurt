@@ -7,7 +7,7 @@
 # Responsibility:   Tests for SemVer comparison, range matching and version resolution.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # Tests for SemVer comparison, range matching and version resolution.
@@ -117,7 +117,7 @@ assert_eq 'select partial version' 1.10.0 "$(select_version "$work/versions.txt"
 assert_eq 'select bounded range' 1.9.4 "$(select_version "$work/versions.txt" '>=1.3.0 <1.10.0')"
 assert_fails 'select fails without a match' select_version "$work/versions.txt" '>=3.0.0'
 
-NURT_RELEASES_URL="file://$work/releases.json"
+NURT_RELEASES_URL=$(file_url "$work/releases.json")
 export NURT_RELEASES_URL
 assert_eq 'resolve latest from listing' 2.0.0 "$(resolve_version latest)"
 assert_eq 'resolve range from listing' 1.10.0 "$(resolve_version '1.x')"
