@@ -12,6 +12,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["packaging/windows-installer"]
 
 [workspace.package]
 version = "0.1.2"
