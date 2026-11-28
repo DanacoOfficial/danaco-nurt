@@ -21,6 +21,8 @@ const fact = facts[id];
 if (!fact) {
   throw new Error(`unknown fact: ${id}`);
 }
+// Polish separates thousands with a no-break space, English with a comma.
+const value = locale === 'pl' ? fact.value.replace(/(\d),(?=\d{3})/g, '$1\u00a0') : fact.value;
 ---
 
-<Stat value={fact.value} label={fact.label[locale]} source={fact.source[locale]} href={fact.href ? href(fact.href, locale) : undefined} />
+<Stat value={value} label={fact.label[locale]} source={fact.source[locale]} href={fact.href ? href(fact.href, locale) : undefined} />

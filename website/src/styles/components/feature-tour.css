@@ -1,0 +1,237 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.feature-tour
+ * Responsibility:   The feature tour of the home page: the list of tabs with a progress line on the active one, and the panel of the chosen point with its text and its program. Without the script every panel is shown one under another.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.tour {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tour__tabs {
+  display: none;
+}
+
+.tour__panels {
+  display: grid;
+  gap: var(--space-7);
+  min-width: 0;
+}
+
+.tour__panel {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  align-content: start;
+  min-width: 0;
+}
+
+.tour__text h3 {
+  font-size: var(--text-2xl, 1.75rem);
+  line-height: var(--leading-snug);
+}
+
+.tour__text p {
+  margin-top: var(--space-4);
+  max-width: 34rem;
+  font-size: var(--text-lg);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.tour__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tour__link svg {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.tour__link:hover svg {
+  transform: translateX(4px);
+}
+
+.tour__terminal {
+  min-width: 0;
+}
+
+.tour__terminal pre {
+  font-size: clamp(0.8125rem, 0.7rem + 0.3vw, 1rem);
+  line-height: 1.75;
+}
+
+/* With the script the list of tabs appears and only the chosen panel is shown. */
+/* On a narrow screen the tabs are six equal buttons with the number and the icon; the name of the chosen point is the heading of its panel. */
+.tour[data-tour-ready] .tour__tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 1px solid var(--line-strong);
+}
+
+@media (max-width: 63.99rem) {
+  .tour__tab {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+  }
+
+  .tour__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* All panels share one cell, so the tour keeps the height of its tallest panel and the page below never moves when the panel changes. */
+.tour[data-tour-ready] .tour__panels {
+  gap: 0;
+}
+
+.tour[data-tour-ready] .tour__panel {
+  grid-area: 1 / 1;
+}
+
+.tour[data-tour-ready] .tour__panel:not([data-active]) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tour[data-tour-ready] .tour__panel[data-active] {
+  animation: tour-in var(--duration-slow) var(--ease-out);
+}
+
+@keyframes tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tour__tab {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
+}
+
+.tour__tab:hover {
+  color: var(--text);
+}
+
+.tour__tab svg {
+  flex: none;
+  color: var(--accent-strong);
+}
+
+.tour__number {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+.tour__tab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+
+.tour__progress {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.tour__tab[aria-selected='true'] .tour__progress {
+  transform: scaleX(1);
+}
+
+.tour__tab.is-running .tour__progress {
+  animation: tour-progress var(--tour-interval, 7000ms) linear;
+}
+
+@keyframes tour-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (min-width: 64rem) {
+  .tour[data-tour-ready] {
+    grid-template-columns: minmax(16rem, 0.36fr) minmax(0, 1fr);
+    gap: var(--space-8);
+    align-items: stretch;
+  }
+
+  .tour[data-tour-ready] .tour__tabs {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tour[data-tour-ready] .tour__tab {
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-3);
+    font-size: var(--text-md);
+  }
+
+  .tour__panel {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-7);
+    align-content: center;
+  }
+
+  .tour[data-tour-ready] .tour__panels {
+    align-content: center;
+    padding: var(--space-6) 0;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour[data-tour-ready] .tour__panel[data-active],
+  .tour__tab.is-running .tour__progress {
+    animation: none;
+  }
+}

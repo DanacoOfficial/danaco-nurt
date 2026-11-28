@@ -1,0 +1,72 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.FeatureTour
+// Responsibility:   The feature tour of the home page: a list of the points on the left that works as tabs, and on the right the panel of the chosen point with its text, a program from the documentation and a link to its page. The tabs advance on their own while the tour is in view; without scripts every panel is shown.
+// Dependencies:     website.src.components.base.Icon, website.src.components.content.Terminal, website.src.data.home-page.types, website.src.lib.urls
+
+import '../../styles/components/feature-tour.css';
+import Icon from '../base/Icon.astro';
+import Terminal from '../content/Terminal.astro';
+import type { Locale } from '../../../config/i18n';
+import type { HomeCard } from '../../data/home-page/types';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  id: string;
+  label: string;
+  items: readonly HomeCard[];
+}
+
+const { locale, id, label, items } = Astro.props;
+const ui = useUi(locale);
+---
+
+<div class="tour" data-tour>
+  <div class="tour__tabs" role="tablist" aria-label={label} aria-orientation="vertical">
+    {items.map((item, index) => (
+      <button
+        class="tour__tab"
+        type="button"
+        role="tab"
+        id={`${id}-tab-${index}`}
+        aria-controls={`${id}-panel-${index}`}
+        aria-selected={index === 0 ? 'true' : 'false'}
+        tabindex={index === 0 ? 0 : -1}
+        data-tour-tab
+      >
+        <span class="tour__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        <Icon name={item.icon} size={20} />
+        <span class="tour__name">{item.title}</span>
+        <span class="tour__progress" aria-hidden="true"></span>
+      </button>
+    ))}
+  </div>
+  <div class="tour__panels">
+    {items.map((item, index) => (
+      <section class="tour__panel" role="tabpanel" id={`${id}-panel-${index}`} aria-labelledby={`${id}-tab-${index}`} data-tour-panel data-active={index === 0 ? '' : undefined}>
+        <div class="tour__text">
+          <h3>{item.title}</h3>
+          <p>{item.text}</p>
+          <a class="tour__link" href={href(item.path, locale)}>
+            <span>{ui.common.readMore}</span>
+            <Icon name="arrow-right" size={16} />
+          </a>
+        </div>
+        {item.program && (
+          <Terminal title={item.shell ? 'shell' : 'nurt'} class="tour__terminal">
+            <pre><code>{item.program}</code></pre>
+          </Terminal>
+        )}
+      </section>
+    ))}
+  </div>
+</div>
+
+<script>
+  import '../../scripts/feature-tour';
+</script>

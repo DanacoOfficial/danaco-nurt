@@ -11,6 +11,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Hero from '../sections/Hero.astro';
 import Section from '../sections/Section.astro';
 import Statement from '../sections/Statement.astro';
+import FeatureTour from '../sections/FeatureTour.astro';
+import Directory from '../sections/Directory.astro';
 import CtaBand from '../sections/CtaBand.astro';
 import Card from '../content/Card.astro';
 import CardGrid from '../content/CardGrid.astro';
@@ -41,14 +43,17 @@ const content = locale === 'pl' ? homePl : homeEn;
   <Hero locale={locale} content={content.hero} />
 
   <Section id="why" eyebrow={content.pillars.eyebrow} title={content.pillars.title} lead={content.pillars.lead}>
-    <CardGrid columns={3}>
-      {content.pillars.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+    <FeatureTour locale={locale} id="why" label={content.pillars.title} items={content.pillars.cards} />
   </Section>
 
   <Statement eyebrow={content.statement.eyebrow} quote={content.statement.quote} name={site.creator} role={content.statement.role} />
 
   <Section id="how" tone="raised" eyebrow={content.how.eyebrow} title={content.how.title} lead={content.how.lead}>
+    <div class="how__program">
+      <Terminal title={content.how.programTitle}>
+        <pre><code class="language-nurt">{content.how.program}</code></pre>
+      </Terminal>
+    </div>
     <div class="how">
       <ol class="how__points" role="list">
         {content.how.points.map((point, index) => (
@@ -63,9 +68,6 @@ const content = locale === 'pl' ? homePl : homeEn;
       </ol>
       <div class="how__terminals">
         <TerminalSession title={content.how.sessionTitle} replayLabel={content.how.sessionReplay} caption={content.how.sessionCaption} />
-        <Terminal title={content.how.programTitle}>
-          <pre><code class="language-nurt">{content.how.program}</code></pre>
-        </Terminal>
       </div>
     </div>
   </Section>
@@ -96,22 +98,15 @@ const content = locale === 'pl' ? homePl : homeEn;
     </Stats>
   </Section>
 
-  <Section id="quality" eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
-    <CardGrid columns={4}>
-      {content.quality.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
-  </Section>
-
-  <Section id="design" tone="raised" eyebrow={content.design.eyebrow} title={content.design.title} lead={content.design.lead}>
-    <CardGrid columns={2}>
-      {content.design.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
-  </Section>
-
-  <Section id="docs" eyebrow={content.docs.eyebrow} title={content.docs.title} lead={content.docs.lead}>
-    <CardGrid columns={4}>
-      {content.docs.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+  <Section id="explore">
+    <Directory
+      locale={locale}
+      columns={[
+        { id: 'quality', path: '/quality/', ...content.quality },
+        { id: 'design', path: '/design/', ...content.design },
+        { id: 'docs', path: '/docs/', ...content.docs },
+      ]}
+    />
   </Section>
 
   <CtaBand title={content.cta.title} text={content.cta.text}>

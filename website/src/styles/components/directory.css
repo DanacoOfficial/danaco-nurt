@@ -1,0 +1,167 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.directory
+ * Responsibility:   The directory of the site: columns with a heading, a lead and a list of linked rows; a row shows an icon, a title, a short text and an arrow that moves on hover.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.directory {
+  display: grid;
+  gap: var(--space-8) var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* In three columns the headings, the leads and the lists share their rows, so the lists start on one line whatever the length of a lead. */
+@media (min-width: 64rem) {
+  .directory {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto;
+    row-gap: 0;
+  }
+
+  .directory__column {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+  }
+}
+
+.directory__column {
+  min-width: 0;
+}
+
+.directory__title {
+  margin-top: var(--space-3);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+}
+
+.directory__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.directory__title a:hover {
+  color: var(--accent-strong);
+}
+
+.directory__lead {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+}
+
+.directory__list {
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line-strong);
+}
+
+.directory__link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4) var(--space-2) var(--space-4) 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--duration-base) var(--ease-out), padding-left var(--duration-base) var(--ease-out);
+}
+
+.directory__link > svg:first-child {
+  margin-top: 0.15rem;
+  color: var(--accent-strong);
+}
+
+.directory__link:hover {
+  padding-left: var(--space-3);
+  background: var(--accent-soft);
+}
+
+.directory__text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.directory__name {
+  font-weight: 600;
+}
+
+.directory__note {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.directory__arrow {
+  margin-top: 0.25rem;
+  color: var(--text-faint);
+  transition: transform var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+}
+
+.directory__link:hover .directory__arrow {
+  color: var(--accent-strong);
+  transform: translateX(4px);
+}
+
+/* The index of a section: the first page of the section stands in a column that stays in view, and the other pages follow as numbered linked rows in two columns. */
+.section-index {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: var(--space-7) var(--space-9);
+}
+
+.section-index__lead h2 {
+  margin-top: var(--space-3);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+}
+
+.section-index__lead p:not(.eyebrow) {
+  margin-block: var(--space-4) var(--space-5);
+  font-size: var(--text-lg);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.section-index__list {
+  display: grid;
+  gap: 0 var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line-strong);
+}
+
+.section-index__number {
+  margin-top: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-strong);
+}
+
+@media (min-width: 64rem) {
+  .section-index {
+    grid-template-columns: minmax(18rem, 0.42fr) minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .section-index__lead {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-6));
+    align-self: start;
+  }
+}
+
+@media (min-width: 90rem) {
+  .section-index__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

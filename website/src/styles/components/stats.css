@@ -9,18 +9,28 @@
 
 .stats {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-6) var(--space-5);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   margin-block: var(--space-6);
 }
 
+/* A figure stands under a rule with a short gold mark, without a box around it. */
 .stat {
+  position: relative;
   container-type: inline-size;
   min-width: 0;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
-  background: var(--bg-raised);
+  padding: var(--space-4) var(--space-4) 0 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+.stat::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background: var(--accent);
 }
 
 /* The value scales with the width of its card, so that long values such as a licence name stay on one line. */

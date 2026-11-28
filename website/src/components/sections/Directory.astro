@@ -1,0 +1,55 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.Directory
+// Responsibility:   A directory of the site in columns: each column names one area with its heading and lead and lists the pages of the area as linked rows with an icon, a title and a short text.
+// Dependencies:     website.src.components.base.Icon, website.src.data.home-page.types, website.src.lib.urls
+
+import '../../styles/components/directory.css';
+import Icon from '../base/Icon.astro';
+import type { Locale } from '../../../config/i18n';
+import type { HomeCard } from '../../data/home-page/types';
+import { href } from '../../lib/urls';
+
+interface Column {
+  readonly id: string;
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly lead: string;
+  readonly path: string;
+  readonly cards: readonly HomeCard[];
+}
+
+interface Props {
+  locale: Locale;
+  columns: readonly Column[];
+}
+
+const { locale, columns } = Astro.props;
+---
+
+<div class="directory">
+  {columns.map((column) => (
+    <section class="directory__column" aria-labelledby={`${column.id}-title`}>
+      <p class="eyebrow">{column.eyebrow}</p>
+      <h2 class="directory__title" id={`${column.id}-title`}><a href={href(column.path, locale)}>{column.title}</a></h2>
+      <p class="directory__lead">{column.lead}</p>
+      <ul class="directory__list" role="list">
+        {column.cards.map((card) => (
+          <li>
+            <a class="directory__link" href={href(card.path, locale)}>
+              <Icon name={card.icon} size={20} />
+              <span class="directory__text">
+                <span class="directory__name">{card.title}</span>
+                <span class="directory__note">{card.text}</span>
+              </span>
+              <Icon name="arrow-right" size={16} class="directory__arrow" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</div>

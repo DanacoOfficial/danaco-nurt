@@ -18,6 +18,10 @@ export interface HomeCard {
   readonly title: string;
   readonly text: string;
   readonly path: string;
+  /** Program from the documentation that shows the point of the card; shown by the feature tour of the home page. */
+  readonly program?: string;
+  /** True when the program is a line of the system shell and not a program of the language. */
+  readonly shell?: boolean;
 }
 
 export interface HomeContent {

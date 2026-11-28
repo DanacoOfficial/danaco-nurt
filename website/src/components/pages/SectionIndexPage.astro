@@ -9,13 +9,14 @@
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHeader from '../sections/PageHeader.astro';
-import Card from '../content/Card.astro';
-import CardGrid from '../content/CardGrid.astro';
+import Button from '../base/Button.astro';
+import Icon from '../base/Icon.astro';
 import type { Locale } from '../../../config/i18n';
 import type { SectionKey } from '../../../config/sections';
 import { getSectionPages, pagePath } from '../../lib/pages';
-import { localisedPath } from '../../lib/urls';
-import { useUi } from '../../i18n';
+import { href } from '../../lib/urls';
+import '../../styles/components/directory.css';
+import { pageCountLabel, useUi } from '../../i18n';
 
 interface Props {
   locale: Locale;
@@ -27,17 +28,37 @@ const ui = useUi(locale);
 const entries = await getSectionPages(locale, section);
 const title = ui.section[section].title;
 const path = `/${section}/`;
+const [first, ...rest] = entries;
+const count = entries.length;
+const countLabel = pageCountLabel(count, locale);
 ---
 
 <BaseLayout title={title} description={ui.section[section].lead} locale={locale} path={path} breadcrumbs={[{ label: title, path }]}>
   <PageHeader locale={locale} title={title} lead={ui.section[section].lead} eyebrow="Danaco Nurt" crumbs={[{ label: title }]} />
   <div class="container">
-    <div class="page-shell">
-      <CardGrid columns={3}>
-        {entries.map((entry) => (
-          <Card title={entry.data.title} href={localisedPath(pagePath(entry), locale)}>{entry.data.description}</Card>
+    <div class="section-index">
+      {first && (
+        <aside class="section-index__lead">
+          <p class="eyebrow">{count} {countLabel}</p>
+          <h2>{first.data.title}</h2>
+          <p>{first.data.description}</p>
+          <Button href={href(pagePath(first), locale)} variant="primary" iconAfter="arrow-right">{ui.common.readMore}</Button>
+        </aside>
+      )}
+      <ol class="section-index__list" role="list">
+        {rest.map((entry, index) => (
+          <li>
+            <a class="directory__link" href={href(pagePath(entry), locale)}>
+              <span class="section-index__number" aria-hidden="true">{String(index + 2).padStart(2, '0')}</span>
+              <span class="directory__text">
+                <span class="directory__name">{entry.data.title}</span>
+                <span class="directory__note">{entry.data.description}</span>
+              </span>
+              <Icon name="arrow-right" size={16} class="directory__arrow" />
+            </a>
+          </li>
         ))}
-      </CardGrid>
+      </ol>
     </div>
   </div>
 </BaseLayout>
