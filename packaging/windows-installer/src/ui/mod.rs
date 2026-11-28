@@ -865,9 +865,10 @@ impl App {
 
 fn launch_terminal(exe: &std::path::Path, profile: bool) {
     use std::os::windows::process::CommandExt;
+    let user = crate::model::UserPaths::current();
     let mut command =
-        if profile && crate::paths::terminal_installed(&crate::model::UserPaths::current()) {
-            let mut command = std::process::Command::new("wt.exe");
+        if profile && crate::paths::terminal_installed(&user) {
+            let mut command = std::process::Command::new(crate::paths::terminal_executable(&user));
             command.args(["-p", crate::textedit::PROFILE_NAME]);
             command
         } else {
