@@ -207,7 +207,6 @@ export const en = {
   language: {
     switchTo: 'Switch to',
     available: 'This page is also available in',
-    missing: 'This page is available in English.',
   },
   home: {
     heroActions: { start: 'Get started', docs: 'Read the documentation', github: 'Source on GitHub' },

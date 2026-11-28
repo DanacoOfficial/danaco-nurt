@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.layout.LanguageSwitch
-// Responsibility:   The language switch: a link to the same page in every language that has it.
+// Responsibility:   The language switch: a link to the same page in every language that has it, and to the home page of a language that does not.
 // Dependencies:     website.config.i18n, website.src.lib.urls, website.src.i18n, website.src.styles.components.language-switch
 
 import '../../styles/components/language-switch.css';
@@ -34,19 +34,15 @@ const ui = useUi(locale);
               <span lang={localeSettings[candidate].htmlLang} aria-current="true" title={localeSettings[candidate].label}>
                 {localeSettings[candidate].shortLabel}
               </span>
-            ) : exists ? (
+            ) : (
               <a
-                href={href(path, candidate)}
+                href={href(exists ? path : '/', candidate)}
                 hreflang={localeSettings[candidate].htmlLang}
                 lang={localeSettings[candidate].htmlLang}
                 title={localeSettings[candidate].label}
               >
                 {localeSettings[candidate].shortLabel}
               </a>
-            ) : (
-              <span aria-disabled="true" title={ui.language.missing}>
-                {localeSettings[candidate].shortLabel}
-              </span>
             )}
           </li>
         );

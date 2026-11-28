@@ -209,7 +209,6 @@ export const pl: UiStrings = {
   language: {
     switchTo: 'Przełącz na',
     available: 'Ta strona jest dostępna także w języku',
-    missing: 'Ta strona jest dostępna po angielsku.',
   },
   home: {
     heroActions: { start: 'Zacznij', docs: 'Czytaj dokumentację', github: 'Kod na GitHubie' },
