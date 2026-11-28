@@ -194,10 +194,13 @@ h4 {
   overflow-wrap: anywhere;
 }
 
-/* On a wide window a word, an identifier or a path in a cell is not cut in the middle while the table has room: the column takes the width of its longest word, and a word breaks only when it is longer than the column can be. */
-@media (min-width: 80rem) {
-  .prose td,
-  .prose td > code {
+/* Wherever a table stands as a table, the script of the tables marks it by how much room it has. In a table with room for whole words no word, identifier or path is cut in the middle; in a table with less room the text keeps its words whole and only code may break inside a name; a table without either mark breaks anywhere, so it never exceeds the text. */
+@media (min-width: 46.0625rem) {
+  .prose .table--whole-words th,
+  .prose .table--whole-words td,
+  .prose .table--whole-words td code,
+  .prose .table--whole-text th,
+  .prose .table--whole-text td {
     overflow-wrap: break-word;
   }
 }

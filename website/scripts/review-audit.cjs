@@ -64,6 +64,28 @@ function inspect() {
   const labels = [document.title, ...Array.from(document.querySelectorAll('h1, h2, h3, h4, nav a')).map((element) => element.textContent)];
   const marker = labels.find((label) => /\{#[^}]*\}/.test(label));
   if (marker) issues.push(`anchor marker in a label: ${marker.trim().slice(0, 60)}`);
+  if (width > 740) {
+    const range = document.createRange();
+    let cut = '';
+    for (const cell of document.querySelectorAll('.prose .table--whole-words :is(th, td), .prose .table--whole-text :is(th, td)')) {
+      const codeMayBreak = Boolean(cell.closest('.table--whole-text'));
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node && !cut; node = walker.nextNode()) {
+        if (codeMayBreak && node.parentElement.closest('code')) continue;
+        for (const word of node.data.matchAll(/[\p{L}\p{N}_.]{2,24}/gu)) {
+          range.setStart(node, word.index);
+          range.setEnd(node, word.index + word[0].length);
+          const tops = new Set(Array.from(range.getClientRects()).map((box) => Math.round(box.top)));
+          if (tops.size > 1) {
+            cut = word[0];
+            break;
+          }
+        }
+      }
+      if (cut) break;
+    }
+    if (cut) issues.push(`word cut in a table cell: ${cut}`);
+  }
   if (root.lang.startsWith('pl') && location.pathname.includes('/docs/')) {
     const text = Array.from(document.querySelectorAll('.prose h2, .prose h3')).map((heading) => heading.textContent.trim());
     if (text.some((label) => /^(Synopsis|Description|Parameters|Examples|Errors|Related|Effect|Input and output)$/.test(label))) issues.push('English documentation headings on a Polish page');

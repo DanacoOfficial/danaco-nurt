@@ -82,9 +82,10 @@ const polishHref = locale === 'en' && available.includes('pl') ? href(path, 'pl'
     <Footer locale={locale} />
     <script>
       import { startMotion } from '../scripts/motion';
-      import { labelTableCells, protectCode } from '../scripts/page-content';
+      import { fitTables, labelTableCells, protectCode } from '../scripts/page-content';
       protectCode();
       labelTableCells();
+      fitTables();
       startMotion();
     </script>
   </body>
