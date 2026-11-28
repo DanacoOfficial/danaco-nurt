@@ -270,13 +270,18 @@ const project = content.project;
         </div>
       </Section>
 
-      <Section id="type" eyebrow={design.type.eyebrow} title={design.type.title} lead={design.type.lead}>
-        <div class="landing-specimen">
-          <p class="landing-specimen__name" aria-label="Danaco Nurt">
-            <span>Danaco</span> <strong>Nurt</strong>
-          </p>
-          <p class="landing-specimen__mono">{design.type.mono}</p>
-          <p class="landing-specimen__note">{design.type.note}</p>
+      <Section id="type" split={false} eyebrow={design.type.eyebrow} title={design.type.title}>
+        <div class="landing-split">
+          <div class="landing-copy">
+            <p>{design.type.lead}</p>
+          </div>
+          <div class="landing-specimen">
+            <p class="landing-specimen__name" aria-label="Danaco Nurt">
+              <span>Danaco</span> <strong>Nurt</strong>
+            </p>
+            <p class="landing-specimen__mono">{design.type.mono}</p>
+            <p class="landing-specimen__note">{design.type.note}</p>
+          </div>
         </div>
       </Section>
 
