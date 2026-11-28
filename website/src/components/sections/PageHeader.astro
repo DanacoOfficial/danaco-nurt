@@ -25,7 +25,7 @@ const { locale, title, lead, eyebrow, crumbs = [], updated } = Astro.props;
 const ui = useUi(locale);
 ---
 
-<header class="page-header stream-trace">
+<header class="page-header stream-trace stream-trace--fade">
   <div class="container container--narrow-header">
     {crumbs.length > 0 && <Breadcrumbs locale={locale} items={crumbs} />}
     {eyebrow && <p class="eyebrow page-header__eyebrow">{eyebrow}</p>}

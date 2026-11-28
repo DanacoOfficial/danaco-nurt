@@ -9,7 +9,6 @@
 
 .page-header {
   padding-block: var(--space-7) var(--space-7);
-  border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, var(--bg-sunken), var(--bg));
 }
 
