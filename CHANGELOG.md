@@ -106,6 +106,11 @@ their own version numbers, described in the specification.
   of the start leaves such an entry to its holder or to the next pass.
   `journal.purge`, `journal.limits` and the reclaim for space still report
   `E_IN_USE`.
+- macOS: the change tracking of `nurt-proc` waits for the delivery of the
+  events of FSEvents before it reads them. The wait ended after 50 ms of
+  silence even when no event had arrived, so under load the changes below
+  `.git/` and new files were not reported although the result was marked as
+  tracked by events; the wait now confirms the delivery with a barrier file.
 
 ### Changed
 
@@ -180,14 +185,11 @@ their own version numbers, described in the specification.
 
 ### Known issues
 
-- macOS: tests of the change tracking of `nurt-proc` (`track::tests`, for
-  example `events::changes_below_ignored_names_are_counted` and
-  `bounds::a_scope_within_the_cap_is_tracked_and_the_note_names_the_directories`)
-  and the protocol test `client_compat_d2_journal_inactive_rules` of
-  `nurt-service` fail intermittently on the macOS runners of the continuous
-  integration: FSEvents reports fewer changes than were made, and the service
-  test exceeds its time limit. The cause is not yet established. No macOS
-  archive is published for this release.
+- macOS: the protocol test `client_compat_d2_journal_inactive_rules` of
+  `nurt-service` exceeded its time limit intermittently on the macOS runners of
+  the continuous integration. The cause is not established; the test now reports
+  the verdict of the reference client and the steps of its last ping when it
+  times out. No macOS archive is published for this release.
 
 ## [0.1.1] - 2026-11-27
 
