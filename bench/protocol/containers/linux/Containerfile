@@ -1,3 +1,14 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bench/protocol/containers/linux/Containerfile
+# Responsibility:   Container image of the Linux tasks of nurt-bench.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.2, 2026-11-28
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Image of the Linux tasks of nurt-bench: bash with the usual command line
 # programs, Python for the oracle, Git, and the executables under test.
 # Build context: a directory holding the release executables `nurt` and
@@ -26,3 +37,7 @@ USER user
 WORKDIR /opt/nurt-bench
 
 ENTRYPOINT ["/usr/local/bin/nurt-bench"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl
