@@ -330,7 +330,12 @@ fn metadata_of_a_file_without_read_permission_is_changed_by_path() {
     assert_eq!(meta.basic.modified_ns, MODIFIED_NS);
     fs.set_meta(&scope(), &file, &seal).unwrap();
     let report = fs.restore_meta(&scope(), &file, &meta).unwrap();
-    assert!(report.not_transferred.is_empty(), "{report:?}");
+    // Without an open file the creation time has no call by path, so it is
+    // the one element reported as not transferred.
+    assert!(
+        report.not_transferred.iter().all(|name| name == "created"),
+        "{report:?}"
+    );
     assert_eq!(
         fs.extended_metadata(&file, Follow::NoFollow)
             .unwrap()
