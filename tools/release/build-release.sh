@@ -20,10 +20,11 @@
 # completions and the documentation site, assembles the program archive and the
 # archive of nurt-lib of every target with packaging/release/pack.py (the
 # library of a musl target is the static library libnurt.a without the debug
-# information and the embedded bitcode), writes
-# checksums.txt, optionally signs it, and, for the target of the host only, runs
-# the executable of its archive and builds and runs examples/c/hello.c against
-# the library archive.
+# information and the embedded bitcode), builds the Windows setup wizard of every
+# Windows target around the program archive of that target
+# (nurt-<version>-<target>-setup.exe), writes checksums.txt, optionally signs it,
+# and, for the target of the host only, runs the executable of its archive and
+# builds and runs examples/c/hello.c against the library archive.
 #
 # The Linux targets that are not built with the C compiler of the host are built
 # with zig cc: the scripts packaging/release/zig-cc-*.sh and zig-ar.sh set the
@@ -32,14 +33,27 @@
 # -fno-sanitize=undefined and, for aarch64, CARGO_TARGET_<TARGET>_LINKER, unless
 # the caller has set them.
 #
+# The setup wizard (packaging/windows-installer, its own Cargo.lock, outside the
+# workspace) embeds the program archive of its target. The script passes the
+# archive in NURT_SETUP_PAYLOAD and the sum that sha256sum reports for it in
+# NURT_SETUP_PAYLOAD_SHA256, so that the archive in checksums.txt and the
+# archive in the wizard are the same file. The version of the package nurt-setup
+# must equal <version>; the script stops when it does not.
+#
 # Usage:
 #
 #   tools/release/build-release.sh <version> <output-dir>
-#       [--sign <gnupg-home> <key-id>] [--no-windows]
+#       [--sign <gnupg-home> <key-id>] [--codesign <p12-file> <password-file>]
+#       [--no-windows] [--no-setup]
 #
 #   --sign         sign checksums.txt with the key <key-id> of the GnuPG home
 #                  <gnupg-home> (checksums.txt.asc) and verify the signature
-#   --no-windows   skip the Windows target
+#   --codesign     sign nurt.exe before it is packed and every setup wizard
+#                  after it is built with Authenticode (osslsigncode), using
+#                  the PKCS#12 file <p12-file> and the password that the file
+#                  <password-file> holds
+#   --no-windows   skip the Windows targets (and so the setup wizards)
+#   --no-setup     build the Windows archives but not the setup wizards
 #
 # Environment (all optional):
 #
@@ -51,14 +65,24 @@
 #   ZIG                 the zig executable of the zig cc wrappers; zig when unset
 #   NURT_MSVC_CLANG     the clang executable of the MSVC wrappers of
 #                       packaging/release/msvc-clang; /usr/bin/clang when unset
+#   NURT_RC             the resource compiler of the setup wizard; when unset
+#                       and neither llvm-rc nor rc is in PATH, the llvm-rc next
+#                       to the clang of NURT_MSVC_CLANG
+#   NURT_OSSLSIGNCODE   the osslsigncode executable of --codesign;
+#                       osslsigncode when unset
 #   SOURCE_DATE_EPOCH   time of the archive entries; the commit time of HEAD
 #                       when unset
 #   CARGO_TARGET_DIR    build directory; the target directory of the workspace
 #                       when unset
 #
-# The output directory receives the archives, checksums.txt and, with --sign,
-# checksums.txt.asc. The directory must not exist or must be empty. Exit code
-# 0 means that every step succeeded.
+# The output directory receives the archives, the setup wizards, checksums.txt
+# and, with --sign, checksums.txt.asc. The directory must not exist or must be
+# empty. Exit code 0 means that every step succeeded.
+#
+# The password file of --codesign is read by osslsigncode only; its content is
+# neither printed nor passed in an argument. The time stamp of a signature comes
+# from the first of three servers that answers (RFC 3161); when none answers,
+# the files are signed without a time stamp and the script says so.
 
 set -euo pipefail
 
@@ -85,6 +109,10 @@ sign=0
 gnupg_home=""
 key_id=""
 windows=1
+setup=1
+codesign=0
+codesign_p12=""
+codesign_pass=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -95,7 +123,15 @@ while [ $# -gt 0 ]; do
       key_id="$3"
       shift 3
       ;;
+    --codesign)
+      [ $# -ge 3 ] || usage
+      codesign=1
+      codesign_p12="$2"
+      codesign_pass="$3"
+      shift 3
+      ;;
     --no-windows) windows=0; shift ;;
+    --no-setup) setup=0; shift ;;
     -h | --help) usage ;;
     -*) usage ;;
     *)
@@ -114,6 +150,23 @@ printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
 if [ -e "$output" ] && [ -n "$(ls -A "$output")" ]; then
   die "output directory is not empty: $output"
 fi
+
+osslsigncode="${NURT_OSSLSIGNCODE:-osslsigncode}"
+if [ "$codesign" -eq 1 ]; then
+  [ -f "$codesign_p12" ] || die "the PKCS#12 file of --codesign does not exist: $codesign_p12"
+  [ -f "$codesign_pass" ] || die "the password file of --codesign does not exist: $codesign_pass"
+  command -v "$osslsigncode" >/dev/null 2>&1 || die "--codesign needs osslsigncode (set NURT_OSSLSIGNCODE)"
+fi
+
+# The version of the package of the setup wizard.
+setup_manifest="$root/packaging/windows-installer/Cargo.toml"
+if [ "$windows" -eq 1 ] && [ "$setup" -eq 1 ]; then
+  setup_version="$(sed -n '/^\[package\]/,/^\[/{s/^version *= *"\([^"]*\)".*/\1/p}' "$setup_manifest" | head -n 1)"
+  [ -n "$setup_version" ] || die "no version in $setup_manifest"
+  [ "$setup_version" = "$version" ] \
+    || die "the version of the package nurt-setup is $setup_version, not $version (packaging/windows-installer/Cargo.toml)"
+fi
+
 mkdir -p "$output"
 output="$(cd "$output" && pwd)"
 work="$output/.work"
@@ -236,6 +289,103 @@ shrink_static_library() {
   log "static library: $(stat -c %s "$source") bytes, shrunk to $(stat -c %s "$copy") bytes"
 }
 
+# RFC 3161 servers of the time stamp of an Authenticode signature, in the order
+# of preference.
+timestamp_servers=(http://timestamp.digicert.com http://time.certum.pl http://timestamp.sectigo.com)
+timestamp_server=""
+codesign_ready=0
+
+# Picks the first time stamp server that accepts a connection; sets
+# timestamp_server, which stays empty when none does.
+pick_timestamp_server() {
+  local url
+  if command -v curl >/dev/null 2>&1; then
+    for url in "${timestamp_servers[@]}"; do
+      if curl -sS -m 8 -o /dev/null "$url" 2>/dev/null; then
+        timestamp_server="$url"
+        log "time stamp server: $url"
+        return 0
+      fi
+    done
+  fi
+  log "warning: no time stamp server answers; the files are signed without a time stamp"
+}
+
+# Checks the Authenticode signature of a file against the public certificate of
+# the repository. A missing signature stops the script; a signature whose chain
+# is not trusted (a self-signed certificate) is reported as a warning.
+# Argument: file.
+verify_signature() {
+  local file="$1" report="$work/verify.log" ca=()
+  if [ -f "$root/packaging/release/danaco-nurt-codesign.pem" ]; then
+    ca=(-CAfile "$root/packaging/release/danaco-nurt-codesign.pem")
+  fi
+  if "$osslsigncode" verify ${ca[@]+"${ca[@]}"} -in "$file" >"$report" 2>&1; then
+    log "signature verified: $(basename "$file")"
+    return 0
+  fi
+  if grep -qiE 'no signature found|not signed' "$report" || ! grep -qi 'signature' "$report"; then
+    cat "$report" >&2
+    die "the file has no Authenticode signature: $file"
+  fi
+  log "warning: the signature of $(basename "$file") is present but its chain is not trusted"
+}
+
+# Signs a file with Authenticode in place and verifies the signature. The
+# password is read by osslsigncode from the password file; it is not an
+# argument and no command line is logged. Argument: file.
+sign_file() {
+  local file="$1" signed="$1.signed" log_file="$work/osslsigncode.log"
+  local arguments=(sign -pkcs12 "$codesign_p12" -readpass "$codesign_pass" -h sha256
+    -n "Danaco Nurt" -i https://github.com/DanacoOfficial/danaco-nurt)
+  if [ "$codesign_ready" -eq 0 ]; then
+    pick_timestamp_server
+    codesign_ready=1
+  fi
+  if [ -n "$timestamp_server" ]; then arguments+=(-ts "$timestamp_server"); fi
+  log "sign $(basename "$file")"
+  if ! "$osslsigncode" "${arguments[@]}" -in "$file" -out "$signed" >"$log_file" 2>&1; then
+    cat "$log_file" >&2
+    rm -f "$signed"
+    die "osslsigncode failed to sign $(basename "$file")"
+  fi
+  mv -f "$signed" "$file"
+  verify_signature "$file"
+}
+
+# Makes a resource compiler available to the build script of the setup wizard:
+# NURT_RC, or llvm-rc or rc in PATH, or the llvm-rc next to the clang of the MSVC
+# wrappers.
+resource_compiler_environment() {
+  local clang_dir
+  if [ -n "${NURT_RC:-}" ] || command -v llvm-rc >/dev/null 2>&1 || command -v rc >/dev/null 2>&1; then
+    return 0
+  fi
+  clang_dir="$(dirname "${NURT_MSVC_CLANG:-/usr/bin/clang}")"
+  if [ -x "$clang_dir/llvm-rc" ]; then
+    export NURT_RC="$clang_dir/llvm-rc"
+  fi
+}
+
+# Builds the setup wizard of a Windows target around the program archive of the
+# target and copies it to the output directory. Argument: target.
+build_setup() {
+  local target="$1" archive="$output/nurt-$version-$1.zip" sum built
+  [ -f "$archive" ] || die "missing $archive"
+  sum="$(sha256sum "$archive" | cut -d ' ' -f 1)"
+  resource_compiler_environment
+  log "build the setup wizard of $target"
+  # The wizard has its own Cargo.lock and is not a member of the workspace, so
+  # the build directory is named here.
+  CARGO_TARGET_DIR="$target_dir" PATH="$root/packaging/release/msvc-clang:$PATH" \
+    NURT_SETUP_PAYLOAD="$archive" NURT_SETUP_PAYLOAD_SHA256="$sum" \
+    cargo xwin build --release --locked --manifest-path "$setup_manifest" --target "$target"
+  built="$target_dir/$target/release/nurt-setup.exe"
+  [ -f "$built" ] || die "missing $built"
+  cp "$built" "$output/nurt-$version-$target-setup.exe"
+  if [ "$codesign" -eq 1 ]; then sign_file "$output/nurt-$version-$target-setup.exe"; fi
+}
+
 log "documentation tools"
 cargo build --release --locked -p nurt-docgen
 docgen="$target_dir/release/nurt-docgen"
@@ -250,6 +400,17 @@ for target in "${targets[@]}"; do
   binary="$target_dir/$target/release/nurt"
   case "$target" in *-windows-*) binary="$binary.exe" ;; esac
   [ -f "$binary" ] || die "missing $binary"
+  case "$target" in
+    *-windows-*)
+      if [ "$codesign" -eq 1 ]; then
+        # The archive is packed from a signed copy, so that no file of the
+        # output directory changes after its sum is computed.
+        mkdir -p "$work/signed/$target"
+        cp "$binary" "$work/signed/$target/nurt.exe"
+        sign_file "$work/signed/$target/nurt.exe"
+        binary="$work/signed/$target/nurt.exe"
+      fi ;;
+  esac
   library="$(library_file "$target")"
   [ -f "$library" ] || die "missing $library"
   case "$target" in
@@ -266,13 +427,16 @@ for target in "${targets[@]}"; do
   python3 -I "$root/packaging/release/pack.py" --root "$root" --version "$version" \
     --target "$target" --binary "$binary" "${library_args[@]}" "${man_args[@]}" \
     --completions "$work/completions" --site "$work/site" --output "$output"
+  case "$target" in
+    *-windows-*) if [ "$setup" -eq 1 ]; then build_setup "$target"; fi ;;
+  esac
 done
 
 log "checksums"
 (
   cd "$output"
   files=()
-  for file in nurt-*.tar.gz nurt-*.zip; do
+  for file in nurt-*.tar.gz nurt-*.zip nurt-*-setup.exe; do
     if [ -e "$file" ]; then files+=("$file"); fi
   done
   [ "${#files[@]}" -gt 0 ] || die "no archives were written"

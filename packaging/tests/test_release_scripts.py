@@ -6,7 +6,7 @@
 # Responsibility:   Script test_release_scripts.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Tests of tools/release: the result table of the scenarios and the arguments of the scripts."""
@@ -131,6 +131,17 @@ class ScriptArgumentsTest(unittest.TestCase):
             done = self.run_script("build-release.sh", "1.2.3", directory)
             self.assertEqual(done.returncode, 1)
             self.assertIn("not empty", done.stderr)
+
+    def test_the_usage_lists_the_options_of_build_release(self):
+        done = self.run_script("build-release.sh")
+        self.assertEqual(done.returncode, 2)
+        for option in ("--sign", "--codesign", "--no-windows", "--no-setup"):
+            with self.subTest(option=option):
+                self.assertIn(option, done.stderr)
+
+    def test_codesign_requires_two_values(self):
+        done = self.run_script("build-release.sh", "1.2.3", "/nonexistent/out", "--codesign", "key.p12")
+        self.assertEqual(done.returncode, 2)
 
     def test_sign_requires_two_values(self):
         done = self.run_script("build-release.sh", "1.2.3", "/nonexistent/out", "--sign", "home")
