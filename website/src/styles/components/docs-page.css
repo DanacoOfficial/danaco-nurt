@@ -85,6 +85,12 @@
   max-width: min(100%, 64rem);
 }
 
+/* The source line and the pager end where the text ends, so the column has one right edge. */
+.docs-page:not(.docs-page--index) .docs-page__main > .docs-page__source,
+.docs-page:not(.docs-page--index) .docs-page__main > .pager {
+  max-width: min(100%, 64rem);
+}
+
 /* A page without headings is an index of other pages: it has no table of contents, and its lists take the whole column. */
 @media (min-width: 84rem) {
   .docs-page.docs-page--index {

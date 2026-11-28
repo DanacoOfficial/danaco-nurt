@@ -22,7 +22,9 @@
 }
 
 /* The text of a page fills its column, so a wide window leaves no empty band between the text and the table of contents. */
-.page-shell__main .prose {
+.page-shell__main .prose,
+.page-shell__main > .page-shell__related,
+.page-shell__main > .pager {
   max-width: min(100%, 64rem);
 }
 
