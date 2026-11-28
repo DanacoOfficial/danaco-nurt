@@ -130,6 +130,62 @@ fn code(response: &Response) -> Option<ErrorCode> {
     response.report.error.as_ref().map(|error| error.code)
 }
 
+/// Volume, mount point and write access of a directory and of each of its
+/// ancestors, for the message of a failed precondition.
+fn volume_chain(root: &nurt_contracts::fs::AbsPath) -> String {
+    let fs = nurt_fs::system_fs();
+    let mut lines = String::new();
+    let mut current = Some(root.clone());
+    while let Some(dir) = current {
+        let volume = fs.volume(&dir).map(|volume| {
+            format!(
+                "mount {} dev {} kind {:?} fs {} read_only {}",
+                volume.mount, volume.id.dev, volume.kind, volume.fs_type, volume.read_only
+            )
+        });
+        lines.push_str(&format!(
+            "\n  {dir}: {volume:?}, writable {:?}",
+            fs.can_write_dir(&dir)
+        ));
+        current = dir.parent();
+    }
+    lines
+}
+
+#[test]
+fn the_directory_of_the_tests_is_on_a_volume_that_keeps_a_journal() {
+    let world = world();
+    let root = nurt_contracts::fs::AbsPath::new(&world.root).unwrap();
+    let written = world.run(&format!(
+        "write \"{a}\" \"1\" mode: overwrite\n",
+        a = world.at("a")
+    ));
+    assert_ok(&written);
+    let volumes = world.engine.space(Some(&root)).unwrap_or_else(|error| {
+        panic!(
+            "{:?}\nirreversible: {:?}\nnotable: {:?}\nvolumes:{}",
+            error.data().message,
+            written.report.irreversible,
+            written.report.notable,
+            volume_chain(&root)
+        )
+    });
+    assert!(!volumes.is_empty(), "no volume is reported for {root}");
+    for volume in &volumes {
+        assert_eq!(
+            volume.inactive,
+            None,
+            "the journal of {} ({}, free {}, total {}, reserve {}) is inactive\nvolumes:{}",
+            volume.mount,
+            volume.filesystem,
+            volume.free,
+            volume.total,
+            volume.reserve,
+            volume_chain(&root)
+        );
+    }
+}
+
 fn assert_ok(response: &Response) {
     assert_eq!(
         response.report.status,
