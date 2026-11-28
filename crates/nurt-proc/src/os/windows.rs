@@ -6,7 +6,7 @@
 // Responsibility:   Process trees of Windows: one job object per run.
 // Dependencies:     nurt_contracts, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Process trees of Windows: one job object per run.
@@ -548,9 +548,11 @@ impl Target {
         }
         let error = io::Error::last_os_error();
         let pid = u64::from(self.pid);
+        // The system answers the request for a process that has ended with
+        // the code of a refused access, so the end is checked first.
         Err(match error.raw_os_error() {
-            Some(ERROR_ACCESS_DENIED_CODE) => process_denied(pid),
             _ if self.has_ended() => process_gone(pid),
+            Some(ERROR_ACCESS_DENIED_CODE) => process_denied(pid),
             _ => io_error("end the process", &error),
         })
     }
@@ -907,11 +909,14 @@ fn create_suspended(
             &raw mut info,
         )
     };
+    // The error is read before the attribute list is released, so that the
+    // release cannot replace the error code of the calling thread.
+    let failure = (created == 0).then(io::Error::last_os_error);
     drop(attributes);
-    if created == 0 {
-        return Err(io::Error::last_os_error());
+    match failure {
+        Some(error) => Err(error),
+        None => Ok(info),
     }
-    Ok(info)
 }
 
 /// Thread attribute list with the handles the program inherits.
