@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const base = process.argv[2] || 'http://127.0.0.1:4400';
-const widths = (process.argv[3] || '1440,390').split(',').map(Number);
+const widths = (process.argv[3] || '1440,390,360,320').split(',').map(Number);
 const only = process.argv[4] ? new RegExp(process.argv[4]) : null;
 const dist = path.join(__dirname, '..', 'dist');
 
