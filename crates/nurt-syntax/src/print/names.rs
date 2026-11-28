@@ -6,7 +6,7 @@
 // Responsibility:   Naming of positional arguments, the prerequisite of printing in variant C.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Naming of positional arguments, the prerequisite of printing in variant C.
@@ -92,13 +92,23 @@ pub trait PositionalNames {
     fn forms(&self, _command: &str) -> Vec<PositionalForm> {
         Vec::new()
     }
+
+    /// Returns whether `word`, written alone among the arguments of
+    /// `command`, stands for the parameter `word: true`: the word names a
+    /// `bool` parameter of the command (or is `preview` on a command without
+    /// a parameter of that name) and is no value of an enumeration parameter
+    /// of the command. The default returns `false` for every word.
+    fn flag(&self, _command: &str, _word: &str) -> bool {
+        false
+    }
 }
 
 /// Returns a copy of `document` in which every positional argument carries
 /// the name of its parameter.
 ///
-/// Positional arguments of a stage are counted from zero in source order,
-/// skipping named arguments. When `names.forms` returns no form for the
+/// A bare word that `names.flag` accepts becomes the argument `word: true`
+/// first. Positional arguments of a stage are counted from zero in source
+/// order, skipping named arguments. When `names.forms` returns no form for the
 /// command, the `k`-th one receives `names.name(command, k)`.
 ///
 /// Otherwise one form is selected among those that apply at the place of the
@@ -111,8 +121,10 @@ pub trait PositionalNames {
 /// last arguments, and the arguments from its position up to them become one
 /// list argument, placed where the first of them stands and spanning them.
 ///
-/// Stages inside sub-pipelines are named as well. Spans and metadata are
-/// kept. The result prints in variant C.
+/// Stages inside sub-pipelines are named as well, including the
+/// sub-pipelines in the condition of `when` and `while`, in the source of
+/// `each` and in the options of a loop. Spans and metadata are kept. The
+/// result prints in variant C.
 ///
 /// # Errors
 ///
@@ -168,21 +180,41 @@ fn name_statements(namer: &mut Namer<'_>, statements: &mut [Statement]) -> Resul
             Statement::Pipeline(pipeline) => namer.pipeline(pipeline, 1)?,
             Statement::When(construct) => {
                 for branch in &mut construct.branches {
+                    namer.expr(&mut branch.cond, 1)?;
                     name_statements(namer, &mut branch.body)?;
                 }
                 if let Some(body) = &mut construct.otherwise {
                     name_statements(namer, body)?;
                 }
             }
-            Statement::Each(construct) => name_statements(namer, &mut construct.body)?,
-            Statement::Repeat(construct) => name_statements(namer, &mut construct.body)?,
-            Statement::While(construct) => name_statements(namer, &mut construct.body)?,
+            Statement::Each(construct) => {
+                namer.expr(&mut construct.source, 1)?;
+                name_options(namer, &mut construct.options)?;
+                name_statements(namer, &mut construct.body)?;
+            }
+            Statement::Repeat(construct) => {
+                name_options(namer, &mut construct.options)?;
+                name_statements(namer, &mut construct.body)?;
+            }
+            Statement::While(construct) => {
+                namer.expr(&mut construct.cond, 1)?;
+                name_options(namer, &mut construct.options)?;
+                name_statements(namer, &mut construct.body)?;
+            }
             Statement::Steps(construct) => name_statements(namer, &mut construct.body)?,
             Statement::Define(construct) => name_statements(namer, &mut construct.body)?,
             _ => {}
         }
     }
     Ok(())
+}
+
+/// Names the stages of the sub-pipelines in the options of a construct
+/// (`repeat until: (…)`).
+fn name_options(namer: &mut Namer<'_>, options: &mut [Arg]) -> Result<(), PrintError> {
+    options
+        .iter_mut()
+        .try_for_each(|option| namer.expr(&mut option.value, 1))
 }
 
 /// Selects the form for a stage with `count` positional arguments; `None`
@@ -270,7 +302,30 @@ impl Namer<'_> {
         Ok(())
     }
 
+    /// Writes a `bool` parameter given as a bare word as `name: true`, unless
+    /// the stage names that parameter otherwise.
+    fn name_flags(&self, stage: &mut Stage) {
+        let mut named: Vec<String> = stage
+            .args
+            .iter()
+            .filter_map(|arg| arg.name.clone())
+            .collect();
+        for arg in &mut stage.args {
+            let (None, Expr::Ident { v, span }) = (&arg.name, &arg.value) else {
+                continue;
+            };
+            let (word, span) = (v.clone(), *span);
+            if named.contains(&word) || !self.names.flag(&stage.name, &word) {
+                continue;
+            }
+            named.push(word.clone());
+            arg.name = Some(word);
+            arg.value = Expr::Bool { v: true, span };
+        }
+    }
+
     fn stage(&mut self, stage: &mut Stage, head: bool, depth: usize) -> Result<(), PrintError> {
+        self.name_flags(stage);
         let count = stage.args.iter().filter(|arg| arg.name.is_none()).count();
         if count > 0 {
             let forms = self.names.forms(&stage.name);

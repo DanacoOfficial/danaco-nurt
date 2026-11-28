@@ -11,7 +11,7 @@ commands: [services, logs, processes, ports, disks, host, environment, accounts,
 <!-- Responsibility:   Documents administration. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # administration
@@ -130,8 +130,7 @@ A change of a system rarely is one command. `steps` runs several changing pipeli
 steps {
     sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
     firewall.allow port: 8443 protocol: tcp privilege: elevated
-    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
-    assert r.exit_code == 0
+    run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated |> assert exit_code: 0
 }
 ```
 

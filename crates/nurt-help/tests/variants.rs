@@ -6,7 +6,7 @@
 // Responsibility:   Examples of the help and the description layers in the syntax variants.
 // Dependencies:     nurt_contracts, nurt_syntax
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Examples of the help and the description layers in the syntax variants.
@@ -54,27 +54,13 @@ fn block_after(text: &str, start: &str) -> String {
         .join("\n")
 }
 
-/// Whether a line opens a construct (`steps {`, `when … {`, `params {`): the
-/// conversion of variants covers pipelines, and the constructs have their own
-/// tests of the language.
-fn opens_construct(line: &str) -> bool {
-    let first = line.split_whitespace().next().unwrap_or_default();
-    line.trim_end().ends_with('{')
-        && matches!(
-            first,
-            "steps" | "when" | "each" | "while" | "repeat" | "define" | "params"
-        )
-}
-
 fn guide_programs(text: &str) -> Vec<String> {
     let mut programs = Vec::new();
     let mut current: Option<Vec<&str>> = None;
     for line in text.lines() {
         match current.take() {
             Some(program) if line.starts_with("```") => {
-                if !program.iter().any(|line| opens_construct(line)) {
-                    programs.push(program.join("\n"));
-                }
+                programs.push(program.join("\n"));
             }
             Some(mut program) => {
                 program.push(line);
@@ -85,6 +71,23 @@ fn guide_programs(text: &str) -> Vec<String> {
         }
     }
     programs
+}
+
+#[test]
+fn a_bare_boolean_parameter_inside_a_construct_is_named_in_variant_c() {
+    let catalog = common::catalog();
+    let program = concat!(
+        "steps {\n",
+        "    sysctl.set \"net.ipv4.ip_forward\" \"1\" persistent privilege: elevated\n",
+        "}",
+    );
+    let converted = convert_program(&catalog, program, Variant::C).unwrap();
+    assert!(converted.contains("persistent=true"), "{converted}");
+    assert!(
+        converted.contains("key=\"net.ipv4.ip_forward\" value=\"1\""),
+        "{converted}"
+    );
+    assert_same_program(program, &converted, Variant::C);
 }
 
 #[test]

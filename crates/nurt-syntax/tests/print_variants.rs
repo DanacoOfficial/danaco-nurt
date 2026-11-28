@@ -6,7 +6,7 @@
 // Responsibility:   Printing of the reference tasks in variants B and C and naming of positional arguments.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Printing of the reference tasks in variants B and C and naming of
@@ -469,6 +469,32 @@ fn naming_reaches_let_values_and_nested_expressions() {
     let named = print::name_positional(&nested_positions(false), &TaskCatalog)
         .expect("every argument is named");
     assert_eq!(named, nested_positions(true));
+}
+
+#[test]
+fn naming_reaches_the_conditions_and_sources_of_constructs() {
+    let text = concat!(
+        "when (find \"/srv\" |> first 1).count > 0 {\n",
+        "    find \"/srv/a\" |> first 2\n",
+        "}\n",
+        "while (find \"/srv\" |> first 3).count > 0 {\n",
+        "    find \"/srv/b\" |> first 4\n",
+        "}\n",
+        "each (find \"/srv\" |> first 5) as item {\n",
+        "    find \"/srv/c\" |> first 6\n",
+        "}\n",
+    );
+    let document =
+        parse::parse(text, Variant::A, &ParseOptions::default()).expect("variant A text parses");
+    let named = print::name_positional(&document, &TaskCatalog).expect("every argument is named");
+    let printed = print::try_print(&named, Variant::C).expect("the named tree prints");
+    for count in 1..=6 {
+        assert!(
+            printed.contains(&format!("first count={count}")),
+            "{count}: {printed}"
+        );
+    }
+    assert_eq!(printed.matches("find path=").count(), 6, "{printed}");
 }
 
 #[test]
