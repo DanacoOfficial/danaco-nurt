@@ -93,12 +93,6 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
       </div>
     )}
   </div>
-  <noscript>
-    <style is:inline>
-      .docs-page__sidebar { display: block !important; }
-      .docs-page__menu-button { display: none !important; }
-    </style>
-  </noscript>
   <script>
     const button = document.querySelector<HTMLButtonElement>('[data-docs-menu]');
     const menu = document.getElementById('docs-menu');

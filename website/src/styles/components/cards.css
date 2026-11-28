@@ -90,6 +90,7 @@
 .card__title {
   font-size: var(--text-lg);
   line-height: var(--leading-snug);
+  letter-spacing: -0.012em;
 }
 
 .card__body {

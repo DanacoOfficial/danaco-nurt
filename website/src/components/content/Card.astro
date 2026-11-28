@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.content.Card
-// Responsibility:   A card with an icon, a title, a text and an optional link; the cut corners of the identity mark the card as a unit.
+// Responsibility:   A card with an icon, a title, a text and an optional link; the cut corners of the identity mark the card as a unit. The title is a heading of the third level, or of the second where the cards stand directly under the title of the page.
 // Dependencies:     website.src.components.base.Icon, website.src.styles.components.cards
 
 import '../../styles/components/cards.css';
@@ -16,8 +16,10 @@ interface Props {
   href?: string;
   icon?: IconName;
   eyebrow?: string;
+  level?: 2 | 3;
 }
-const { title, href, icon, eyebrow } = Astro.props;
+const { title, href, icon, eyebrow, level = 3 } = Astro.props;
+const Title = `h${level}` as const;
 const link = href && href.startsWith('/') ? withBase(href) : href;
 const Tag = link ? 'a' : 'div';
 ---
@@ -25,7 +27,7 @@ const Tag = link ? 'a' : 'div';
 <Tag class:list={['card', 'cut', link && 'card--link']} href={link}>
   {icon && <Icon name={icon} size={22} class="card__icon" />}
   {eyebrow && <p class="card__eyebrow">{eyebrow}</p>}
-  <h3 class="card__title">{title}</h3>
+  <Title class="card__title">{title}</Title>
   <div class="card__body"><slot /></div>
   {link && <Icon name="arrow-right" size={20} class="card__arrow" />}
 </Tag>

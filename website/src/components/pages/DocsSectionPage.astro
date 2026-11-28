@@ -43,7 +43,7 @@ const commandGroups = section === 'commands';
     <CommandCatalog locale={locale} />
   ) : (
     <CardGrid columns={2}>
-      {group.entries.map((entry) => <Card title={localized.title(entry)} href={href(entryUrl(entry), locale)}>{localized.description(entry)}</Card>)}
+      {group.entries.map((entry) => <Card level={2} title={localized.title(entry)} href={href(entryUrl(entry), locale)}>{localized.description(entry)}</Card>)}
     </CardGrid>
   )}
 </DocsLayout>
