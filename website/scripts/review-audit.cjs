@@ -153,6 +153,12 @@ function inspect() {
     if (!state.lang.startsWith('pl') || state.address !== missing || !state.header.startsWith('/pl/')) report.push(`768 ${missing}: the page for a missing Polish address: ${JSON.stringify(state)}`);
     if (!(await menuStaysOpen())) report.push(`768 ${missing}: the menu does not stay open`);
   }
+  // On the pages for a missing address the language switch must lead to the home page of the other language.
+  for (const [address, home] of [['/404.html', '/pl/'], ['/pl/404/', '/']]) {
+    await page.goto(base + address, { waitUntil: 'load' });
+    const other = await page.evaluate(() => document.querySelector('.language-switch a')?.getAttribute('href') ?? null);
+    if (other !== home) report.push(`768 ${address}: the language switch leads to ${other} instead of ${home}`);
+  }
   // The parts of a page that answer a click must answer it: the navigation of the documentation on a narrow window, the colour theme, the install tabs, the feature tour and the search.
   const pause = () => new Promise((resolve) => setTimeout(resolve, 500));
   await page.goto(`${base}/pl/docs/guide/`, { waitUntil: 'load' });
