@@ -20,7 +20,7 @@ Danaco Nurt is a command shell and a language where every change can be undone, 
 
 The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers; a change between 0.x versions is recorded in the [changelog](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md) and on the [releases](/project/releases/) page. The rules of versioning are on the [versioning](/project/versioning/) page.
 
-Version 0.1.2 brings regular-expression search and replace that run in time proportional to the matches, and a journal that is active on the data volume of macOS.
+Version 0.1.2 brings a setup wizard for Windows, regular-expression search and replace that run in time proportional to the matches, a static check that accepts every valid literal, and a journal that is active on the data volume of macOS.
 
 ## Figures
 
@@ -37,11 +37,11 @@ The test numbers belong to version 0.1.1; the [testing](/quality/testing/) page 
 
 Danaco Nurt is one executable for each operating system: `nurt` on Linux and macOS, `nurt.exe` on Windows. The executable has no runtime dependencies beyond the system itself.
 
-| System | Architectures | Archives |
+| System | Architectures | Archives of release 0.1.2 |
 |---|---|---|
 | Linux | x86-64, aarch64 | glibc and static musl |
-| Windows | x86-64, aarch64 | MSVC |
-| macOS | x86-64, aarch64 | `x86_64-apple-darwin`, `aarch64-apple-darwin` |
+| Windows | x86-64, aarch64 | MSVC, as an archive and as a setup wizard |
+| macOS | x86-64, aarch64 | none; build from source |
 
 On Linux the executable links liblzma statically and runs on a system without `liblzma.so.5`. The musl build is linked statically. The [installation](/docs/guide/installation/) page describes the installers, the packages and the build from source; the [platforms](/product/platforms/) page describes the behaviour on each system.
 

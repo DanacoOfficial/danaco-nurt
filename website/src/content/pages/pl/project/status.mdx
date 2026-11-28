@@ -20,7 +20,7 @@ Danaco Nurt to powłoka poleceń i język, w których każdą zmianę można cof
 
 Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji; zmianę między wersjami 0.x zapisuje [dziennik zmian](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md) oraz strona [wydania](/pl/project/releases/). Zasady wersjonowania opisuje strona [wersjonowanie](/pl/project/versioning/).
 
-Wersja 0.1.2 przynosi wyszukiwanie i zamianę wyrażeniem regularnym działające w czasie proporcjonalnym do liczby dopasowań oraz dziennik działający na woluminie danych macOS.
+Wersja 0.1.2 przynosi kreator instalacji dla Windows, wyszukiwanie i zamianę wyrażeniem regularnym działające w czasie proporcjonalnym do liczby dopasowań, kontrolę statyczną przyjmującą każdy poprawny literał oraz dziennik działający na woluminie danych macOS.
 
 ## Liczby
 
@@ -37,13 +37,13 @@ Liczby testów dotyczą wersji 0.1.1; zakres testów opisuje strona [testowanie]
 
 Danaco Nurt to jeden plik wykonywalny dla każdego systemu operacyjnego: `nurt` w Linuksie i macOS, `nurt.exe` w Windows. Plik wykonywalny nie ma zależności uruchomieniowych poza samym systemem.
 
-| System | Architektury | Archiwa |
+| System | Architektury | Archiwa wydania 0.1.2 |
 |---|---|---|
 | Linux | x86-64, aarch64 | glibc i statyczne musl |
-| Windows | x86-64, aarch64 | MSVC |
-| macOS | x86-64, aarch64 | `x86_64-apple-darwin`, `aarch64-apple-darwin` |
+| Windows | x86-64, aarch64 | MSVC, jako archiwum i jako kreator instalacji |
+| macOS | x86-64, aarch64 | brak; budowa ze źródeł |
 
-W Linuksie plik wykonywalny łączy liblzma statycznie i działa w systemie bez `liblzma.so.5`. Wersja musl jest połączona statycznie. Strona [instalacja](/docs/guide/installation/) opisuje instalatory, pakiety i budowę ze źródeł; strona [platformy](/pl/product/platforms/) opisuje zachowanie w każdym systemie.
+W Linuksie plik wykonywalny łączy liblzma statycznie i działa w systemie bez `liblzma.so.5`. Wersja musl jest połączona statycznie. Strona [instalacja](/pl/docs/guide/installation/) opisuje instalatory, pakiety i budowę ze źródeł; strona [platformy](/pl/product/platforms/) opisuje zachowanie w każdym systemie.
 
 ## Interfejsy i wersje
 
@@ -63,17 +63,17 @@ Program wiersza poleceń ma podpolecenia `exec`, `script`, `check`, `fmt`, `ast`
 
 Katalog jest zorganizowany w 34 polecenia rdzenia i 14 opcjonalnych grup. Każde polecenie ma jedną stronę ze składnią, parametrami, wejściem i wyjściem, skutkiem, opisem, przykładami, błędami i poleceniami powiązanymi. Nazwy, typy, wartości domyślne i wartości wyliczeń polecenia pochodzą z katalogu, a budowa dokumentacji uruchamia każdy przykład z każdej strony polecenia.
 
-Pełna lista jest w [opisie poleceń](/docs/commands/) i na stronie [polecenia](/pl/product/commands/). Katalog obejmuje pliki, tekst, archiwa, notatniki, dokumenty strukturalne, analizę kodu źródłowego, procesy, testy i analizę, kontrolę wersji, system, sieć, harmonogramy, usługi i programy oraz administrację zaporą sieciową, siecią, zegarem, kontami, grupami, montowaniami, jądrem, zasilaniem i dyskami. Polecenia rejestru i `windows.cim` działają w Windows; `create` potoku nazwanego lub pliku urządzenia działa w Linuksie i macOS.
+Pełna lista jest w [opisie poleceń](/pl/docs/commands/) i na stronie [polecenia](/pl/product/commands/). Katalog obejmuje pliki, tekst, archiwa, notatniki, dokumenty strukturalne, analizę kodu źródłowego, procesy, testy i analizę, kontrolę wersji, system, sieć, harmonogramy, usługi i programy oraz administrację zaporą sieciową, siecią, zegarem, kontami, grupami, montowaniami, jądrem, zasilaniem i dyskami. Polecenia rejestru i `windows.cim` działają w Windows; `create` potoku nazwanego lub pliku urządzenia działa w Linuksie i macOS.
 
 ## Gdzie każda część jest opisana
 
 | Część | Dokumentacja |
 |---|---|
-| Przewodnik, instalacja, wiersz poleceń | [Przewodnik](/docs/guide/) |
-| Polecenia | [Opis poleceń](/docs/commands/) |
-| Język, drzewo składni, katalog, raport | [Specyfikacja](/docs/specification/) |
-| Interfejs C | [Opis interfejsu C](/docs/reference/c-abi/) i strona [interfejs C](/pl/architecture/c-interface/) |
+| Przewodnik, instalacja, wiersz poleceń | [Przewodnik](/pl/docs/guide/) |
+| Polecenia | [Opis poleceń](/pl/docs/commands/) |
+| Język, drzewo składni, katalog, raport | [Specyfikacja](/pl/docs/specification/) |
+| Interfejs C | [Opis interfejsu C](/pl/docs/reference/c-abi/) i strona [interfejs C](/pl/architecture/c-interface/) |
 | Protokoły | [Protokoły](/pl/architecture/protocols/) |
-| Wersje i zgodność | [Wersje i zgodność](/docs/integrators/versioning/) |
+| Wersje i zgodność | [Wersje i zgodność](/pl/docs/integrators/versioning/) |
 | Testy i zgodność | [Testowanie](/pl/quality/testing/) i [Zgodność](/pl/quality/conformance/) |
 | Pytania | [Wsparcie](/pl/project/support/) |

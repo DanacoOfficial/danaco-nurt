@@ -26,7 +26,7 @@ The directory `bindings/` holds clients for five languages. Each one offers the 
 | Java | `pl.danaco-group:nurt`, and `nurt-ffm` for the library backend | `PROCESS` on Java 17 or later; `LIBRARY` through the Foreign Function and Memory API on Java 22 or later |
 | .NET | `dotnet add package Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 and .NET Standard 2.0 |
 
-The Python wheels, the Node platform packages and the Java and .NET packages carry the `nurt` executable and `libnurt` for Linux, macOS and Windows on x86-64 and ARM64. The Go module locates the executable through `ClientOptions.Executable`, `NURT_EXECUTABLE` or `PATH`. Each binding has tests that run against the engine when `NURT_TEST_EXECUTABLE` names it.
+The Python wheels, the Node platform packages and the Java and .NET packages carry the `nurt` executable and `libnurt` for Linux, macOS and Windows on x86-64 and ARM64. The Go module locates the executable through `ClientOptions.Executable`, `NURT_EXECUTABLE` or `PATH`. Each binding has tests that run against the engine when `NURT_TEST_EXECUTABLE` names it. In release 0.1.2 the NuGet package `Danaco.Nurt` and the Maven artifact `pl.danaco-group:nurt` are planned channels: the repository has no publishing step for them ([installation](/docs/guide/installation/)).
 
 Against the program of the Linux glibc archive the bindings pass these checks: Go (`go vet`, `go test -race`), Node (120 of 120 tests), .NET (105 tests passed) and Java 21 (101 of 101 tests), all in version 0.1.1, Linux, 27 November 2026. A short example from the Python README:
 

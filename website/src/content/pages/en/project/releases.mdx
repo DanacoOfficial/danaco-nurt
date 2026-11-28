@@ -21,7 +21,7 @@ keywords: [releases, changelog, archives, checksums, signature]
     {
       label: '2026-11-28',
       title: 'Version 0.1.2',
-      text: 'Search and replace with a regular expression run in time proportional to the matches, the journal is active on the data volume of macOS, and memory limits, group lists and process control are corrected on macOS.',
+      text: 'A setup wizard for Windows, search and replace with a regular expression in time proportional to the matches, a static check that accepts every valid literal, a journal that is active on the data volume of macOS, and a library archive for musl about four times smaller. The release has archives for Linux and Windows; macOS is built from source.',
       href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
       current: true,
     },
@@ -44,14 +44,36 @@ The [changelog](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2
 
 ## Version 0.1.2
 
-Fixed:
+**Added.**
+
+- A setup wizard for Windows: the release publishes `nurt-<version>-<target>-setup.exe` for `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`, one file that carries the program archive. The wizard guides through the requirements, the license, the scope (current user or all users) and the integration: `PATH`, shortcuts, a Windows Terminal profile, PowerShell completion and a first `nurt.toml`. Every change is written to the journal `setup-journal.jsonl`; Repair, Update and Undo reverse it, and `/S` installs without a window ([installation](/docs/guide/installation/)).
+- `tools/release/build-release.sh` builds the setup wizard of each Windows target and lists it in `checksums.txt`; the option `--codesign` signs `nurt.exe` and the setup files with Authenticode.
+
+**Fixed.**
 
 - Search and replace with a regular expression derive the bounds of the line of a match from the match. 20,000 matches on a line of 60,000 bytes are replaced in about 0.1 s instead of 2.5 s.
+- `nurt check` accepts a valid program whose argument is a duration, a size, a regular expression, an instant with a zone or a map of literals (`sleep 500ms`, `journal.limits age: 5m`), and a command whose argument is computed before the stage runs: a parameter of a function, a named result or a call such as `since: ago(1h)`.
+- Variant C prints a program with a sub-pipeline in the condition of `when` or `while`, in the source of `each` or in the options of a loop, and prints a `bool` parameter written as a bare word as `persistent=true`.
+- The record kinds `program_card`, `program_location` and `program_category` declare the fields that `program.find`, `program.describe`, `program.search` and `program.catalog` add to their records, so `select`, `filter`, `sort` and `evaluate` accept them; the same holds for fields of `test_run`, `change` and `effect`.
+- A start of `nurt` completes while another process keeps the lock of a journal entry that is due to expire; the expiry pass leaves such an entry to its holder.
 - macOS: the journal is active for the paths of the data volume. The volume reports the mount point that holds its paths, so the directories of the volume serve as journal anchors.
 - macOS: `max_memory` applies to every start of a program. The address-space limit (`RLIMIT_AS`) is applied on Linux; on macOS the resident memory is measured.
 - macOS: the member list of a group is read without assuming the alignment of `gr_mem`.
 - macOS: suspending, resuming and stopping a program whose process group has ended complete without `EPERM`.
+- macOS: the change tracking of `nurt-proc` waits for the delivery of the events of FSEvents before it reads them, and the service accepts a connection whose peer has already closed.
 - Windows targets are built with a clang outside `/usr/bin`; `NURT_MSVC_CLANG` names it.
+- Documentation: 24 examples that the language rejects are corrected, among them examples of `git.log`, `test.failed`, `find` and `sort`, and the `steps` example of the administration guide.
+
+**Changed.**
+
+- The archive `nurt-lib` of the musl targets is about four times smaller: the static library `libnurt.a` holds neither debug information nor LLVM bitcode. The archive of `x86_64-unknown-linux-musl` shrinks from 235 MB to 63 MB; the exported functions are unchanged.
+- Unix: an elevated process that writes the journal of an account names every entry relative to the descriptor of its checked directory (`openat` with `O_NOFOLLOW`, `renameat`, `unlinkat`). This closes the window in which the account could swap a directory of its own journal for a link.
+- Catalog: `package.install`, `package.remove`, `package.upgrade`, `start`, `enable` and `disable` are classified as `reversible_if_preserved`, with a note that states the condition; `undo` has restored them by the inverse operation since 0.1.1. `restart` stays `irreversible`.
+- `nurt serve --socket <path>` is documented as reserved: no build contains a socket transport, the option ends with exit code 3, and a host connects with `nurt serve --stdio`.
+- Conformance: the binding cases agree with the specification and with `nurt serve`. All 23 cases pass in Python and Node and 22 in Go, and the suite `conformance/tools/test_suite.py` passes.
+- Documentation: the installation page separates the systems on which the code is built from the release archives and marks the NuGet and Maven channels as planned; 35 examples use absolute paths, because the language rejects a relative path.
+
+**Known issues.** No macOS archive is published for this release; macOS is built from source. The code for macOS passes `cargo check` and the tests of the continuous integration on the macOS runner.
 
 ## Version 0.1.1
 

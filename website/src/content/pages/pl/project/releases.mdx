@@ -21,7 +21,7 @@ keywords: [wydania, dziennik zmian, archiwa, sumy kontrolne, podpis]
     {
       label: '2026-11-28',
       title: 'Wersja 0.1.2',
-      text: 'Wyszukiwanie i zamiana wyrażeniem regularnym działają w czasie proporcjonalnym do liczby dopasowań, dziennik działa na woluminie danych macOS, a limity pamięci, listy grup i sterowanie procesami są poprawione w macOS.',
+      text: 'Kreator instalacji dla Windows, wyszukiwanie i zamiana wyrażeniem regularnym w czasie proporcjonalnym do liczby dopasowań, kontrola statyczna przyjmująca każdy poprawny literał, dziennik działający na woluminie danych macOS oraz około czterokrotnie mniejsze archiwum biblioteki dla musl. Wydanie ma archiwa dla Linuksa i Windows; dla macOS program buduje się ze źródeł.',
       href: 'https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CHANGELOG.md',
       current: true,
     },
@@ -44,25 +44,47 @@ keywords: [wydania, dziennik zmian, archiwa, sumy kontrolne, podpis]
 
 ## Wersja 0.1.2
 
-Poprawiono:
+**Dodano.**
+
+- Kreator instalacji dla Windows: wydanie publikuje `nurt-<version>-<target>-setup.exe` dla `x86_64-pc-windows-msvc` i `aarch64-pc-windows-msvc`, jeden plik zawierający archiwum programu. Kreator prowadzi przez wymagania, licencję, zakres (bieżący użytkownik albo wszyscy użytkownicy) i integrację: `PATH`, skróty, profil Windows Terminal, uzupełnianie w PowerShellu i pierwszy `nurt.toml`. Każda zmiana trafia do dziennika `setup-journal.jsonl`; naprawa, aktualizacja i cofnięcie ją odwracają, a `/S` instaluje bez okna ([instalacja](/pl/docs/guide/installation/)).
+- `tools/release/build-release.sh` buduje kreator instalacji każdego celu Windows i wpisuje go do `checksums.txt`; opcja `--codesign` podpisuje `nurt.exe` i pliki kreatora podpisem Authenticode.
+
+**Poprawiono.**
 
 - Wyszukiwanie i zamiana wyrażeniem regularnym wyznaczają granice wiersza dopasowania na podstawie samego dopasowania. 20 000 dopasowań w wierszu o długości 60 000 bajtów jest zamieniane w około 0,1 s zamiast 2,5 s.
+- `nurt check` przyjmuje poprawny program, którego argumentem jest czas trwania, rozmiar, wyrażenie regularne, chwila ze strefą albo mapa literałów (`sleep 500ms`, `journal.limits age: 5m`), oraz polecenie, którego argument jest obliczany przed uruchomieniem etapu: parametr funkcji, nazwany wynik albo wywołanie takie jak `since: ago(1h)`.
+- Wariant C wypisuje program z podpotokiem w warunku `when` albo `while`, w źródle `each` albo w opcjach pętli, a parametr `bool` zapisany samym słowem wypisuje jako `persistent=true`.
+- Rodzaje rekordów `program_card`, `program_location` i `program_category` deklarują pola, które `program.find`, `program.describe`, `program.search` i `program.catalog` dodają do swoich rekordów, więc `select`, `filter`, `sort` i `evaluate` je przyjmują; to samo dotyczy pól rekordów `test_run`, `change` i `effect`.
+- Uruchomienie `nurt` kończy się poprawnie, gdy inny proces trzyma blokadę wpisu dziennika, który ma wygasnąć; przebieg wygaszania zostawia taki wpis jego posiadaczowi.
 - macOS: dziennik działa dla ścieżek woluminu danych. Wolumin zgłasza punkt montowania, który zawiera jego ścieżki, więc katalogi woluminu służą jako kotwice dziennika.
 - macOS: `max_memory` obowiązuje przy każdym uruchomieniu programu. Limit przestrzeni adresowej (`RLIMIT_AS`) jest stosowany w Linuksie; w macOS mierzona jest pamięć rezydentna.
 - macOS: lista członków grupy jest czytana bez zakładania wyrównania `gr_mem`.
 - macOS: wstrzymanie, wznowienie i zatrzymanie programu, którego grupa procesów się zakończyła, kończą się bez `EPERM`.
+- macOS: śledzenie zmian w `nurt-proc` czeka na dostarczenie zdarzeń FSEvents, zanim je odczyta, a usługa przyjmuje połączenie, którego druga strona już się rozłączyła.
 - Cele Windows są budowane z clangiem spoza `/usr/bin`; wskazuje go `NURT_MSVC_CLANG`.
+- Dokumentacja: poprawiono 24 przykłady, które język odrzuca, między innymi przykłady `git.log`, `test.failed`, `find` i `sort`, oraz przykład `steps` w przewodniku administracji.
+
+**Zmieniono.**
+
+- Archiwum `nurt-lib` celów musl jest około czterokrotnie mniejsze: biblioteka statyczna `libnurt.a` nie zawiera informacji debugowych ani kodu bitowego LLVM. Archiwum `x86_64-unknown-linux-musl` maleje z 235 MB do 63 MB; eksportowane funkcje pozostają bez zmian.
+- Unix: proces z podniesionymi uprawnieniami, który zapisuje dziennik konta, wskazuje każdy wpis względem deskryptora sprawdzonego katalogu (`openat` z `O_NOFOLLOW`, `renameat`, `unlinkat`). Zamyka to okno, w którym konto mogło podmienić katalog własnego dziennika na dowiązanie.
+- Katalog: `package.install`, `package.remove`, `package.upgrade`, `start`, `enable` i `disable` mają klasyfikację `reversible_if_preserved` z uwagą podającą warunek; `undo` przywraca je operacją odwrotną od wersji 0.1.1. `restart` pozostaje `irreversible`.
+- `nurt serve --socket <path>` jest opisane jako zarezerwowane: żadna kompilacja nie zawiera transportu przez gniazdo, opcja kończy się kodem wyjścia 3, a host łączy się przez `nurt serve --stdio`.
+- Zgodność: przypadki wiązań są zgodne ze specyfikacją i z `nurt serve`. Wszystkie 23 przypadki przechodzą w Pythonie i Node, a 22 w Go; zestaw `conformance/tools/test_suite.py` przechodzi.
+- Dokumentacja: strona instalacji oddziela systemy, na których kod jest budowany, od archiwów wydania i oznacza kanały NuGet i Maven jako planowane; 35 przykładów używa ścieżek bezwzględnych, bo język odrzuca ścieżkę względną.
+
+**Znane problemy.** To wydanie nie publikuje archiwum dla macOS; dla macOS program buduje się ze źródeł. Kod dla macOS przechodzi `cargo check` i testy ciągłej integracji na maszynie macOS.
 
 ## Wersja 0.1.1
 
 **Dodano.**
 
 - Potoki nazwane i pliki urządzeń w poleceniu `create` w Linuksie i macOS; `undo` je usuwa.
-- Polecenia administracyjne dla zapory sieciowej, sieci, zegara, kont, grup, montowań, jądra, zasilania i dysków, każde z raportem stanu przed i po oraz z odwrotnością dla `undo`, gdy zmiana jest odwracalna ([przewodnik administracji](/docs/guides/administration/)).
+- Polecenia administracyjne dla zapory sieciowej, sieci, zegara, kont, grup, montowań, jądra, zasilania i dysków, każde z raportem stanu przed i po oraz z odwrotnością dla `undo`, gdy zmiana jest odwracalna ([przewodnik administracji](/pl/docs/guides/administration/)).
 - Wywołania metod `windows.cim`.
 - Podniesienie uprawnień z parametrami `privilege` i `as_user` oraz z backendami `self`, `sudo`, `doas` i `run0`; wpisy z podniesionymi uprawnieniami w dzienniku konta.
-- Polecenie [`next`](/docs/commands/next/) i pole `continuation` do czytania reszty skróconej odpowiedzi.
-- Tłumaczenie warunków, pętli, funkcji i parametrów skryptów bash na konstrukcje języka ([przewodnik migracji](/docs/guides/bash-migration/)).
+- Polecenie [`next`](/pl/docs/commands/next/) i pole `continuation` do czytania reszty skróconej odpowiedzi.
+- Tłumaczenie warunków, pętli, funkcji i parametrów skryptów bash na konstrukcje języka ([przewodnik migracji](/pl/docs/guides/bash-migration/)).
 
 **Zmieniono.**
 
@@ -101,7 +123,7 @@ Definicje pakowania w [packaging/](https://github.com/DanacoOfficial/danaco-nurt
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | MSVC |
 | `x86_64-apple-darwin`, `aarch64-apple-darwin` | macOS |
 
-Archiwum programu dla Linuksa zawiera `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, strony podręcznika, skrypty uzupełniania i witrynę dokumentacji. Archiwum Windows zawiera `nurt.exe` i te same teksty na najwyższym poziomie. Strona instalacji opisuje menedżery pakietów i skrypty: [Instalacja](/docs/guide/installation/).
+Archiwum programu dla Linuksa zawiera `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, strony podręcznika, skrypty uzupełniania i witrynę dokumentacji. Archiwum Windows zawiera `nurt.exe` i te same teksty na najwyższym poziomie. Strona instalacji opisuje menedżery pakietów i skrypty: [Instalacja](/pl/docs/guide/installation/).
 
 ## Weryfikacja pobranego pliku
 

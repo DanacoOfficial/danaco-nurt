@@ -27,17 +27,19 @@ Danaco Nurt to jeden plik wykonywalny dla każdego systemu operacyjnego: `nurt` 
 | glibc | łączy dynamicznie `libc.so.6`, `libm.so.6` i `libgcc_s.so.1`; pakiety `.deb` i `.rpm` je deklarują |
 | musl | łączona statycznie, jako plik static-pie bez wpisów `NEEDED` |
 
-Kompilacja glibc łączy liblzma statycznie od 0.1.1, więc działa w systemie bez `liblzma.so.5`. Skrypt `tools/ci/check-dependencies.sh` odczytuje sekcję dynamiczną pliku ELF i przepuszcza go, gdy wymienia on wyłącznie `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` i dynamiczny ładowacz; workflow wydania uruchamia go na `nurt` i `libnurt.so.1` z obu archiwów glibc przed podpisaniem sum kontrolnych. Osobne archiwum zawiera bibliotekę C (`libnurt.so.1` lub `nurt.dll`, wraz z `nurt.h`); dla celów musl zawiera ono statyczną `libnurt.a` z `nurt.pc`, więc `pkg-config --static --libs nurt` linkuje program w C. Szczegóły: [instalacja](/docs/guide/installation/).
+Kompilacja glibc łączy liblzma statycznie od 0.1.1, więc działa w systemie bez `liblzma.so.5`. Skrypt `tools/ci/check-dependencies.sh` odczytuje sekcję dynamiczną pliku ELF i przepuszcza go, gdy wymienia on wyłącznie `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` i dynamiczny ładowacz; workflow wydania uruchamia go na `nurt` i `libnurt.so.1` z obu archiwów glibc przed podpisaniem sum kontrolnych. Osobne archiwum zawiera bibliotekę C (`libnurt.so.1` lub `nurt.dll`, wraz z `nurt.h`); dla celów musl zawiera ono statyczną `libnurt.a` z `nurt.pc`, więc `pkg-config --static --libs nurt` linkuje program w C. Szczegóły: [instalacja](/pl/docs/guide/installation/).
 
 ## Obsługiwane systemy i archiwa
 
-Obsługiwane są systemy Linux, macOS i Windows, każdy na architekturach x86_64 i aarch64 ([wersjonowanie i wsparcie](/docs/guide/versioning/)). Ciągła integracja buduje, sprawdza lintem i testuje przestrzeń roboczą na `ubuntu-latest`, `macos-latest` i `windows-latest`. Skrypt `tools/release/build-release.sh` buduje archiwa `nurt-<version>-<target>` i `nurt-lib-<version>-<target>` dla tych celów, przy czym `zig cc` buduje cele linuksowe, których nie buduje kompilator hosta, a `cargo-xwin` buduje cele Windows:
+Obsługiwane są systemy Linux, macOS i Windows, każdy na architekturach x86_64 i aarch64 ([wersjonowanie i wsparcie](/pl/docs/guide/versioning/)). Ciągła integracja buduje, sprawdza lintem i testuje przestrzeń roboczą na `ubuntu-latest`, `macos-latest` i `windows-latest`. Skrypt `tools/release/build-release.sh` buduje archiwa `nurt-<version>-<target>` i `nurt-lib-<version>-<target>` dla tych celów, przy czym `zig cc` buduje cele linuksowe, których nie buduje kompilator hosta, a `cargo-xwin` buduje cele Windows:
 
 | Cel | Archiwum |
 |---|---|
 | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `.tar.gz` |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `.tar.gz` |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip` oraz kreator instalacji `nurt-<version>-<target>-setup.exe` |
+
+Wydanie 0.1.2 publikuje archiwa dla Linuksa i Windows. Nie ma archiwum dla macOS: w macOS program buduje się ze źródeł ([instalacja](/pl/docs/guide/installation/)).
 
 Każde wydanie zawiera `checksums.txt` z sumami SHA-256 i podpis odłączony `checksums.txt.asc`. Archiwum programu dla Linuksa zawiera `nurt`, teksty licencji, strony podręcznika, skrypty uzupełniania dla Basha, Zsh, Fish, PowerShella i Elvisha oraz dokumentację jako witrynę działającą bez sieci; archiwum dla Windows zawiera `nurt.exe`, teksty licencji, skrypty uzupełniania i dokumentację.
 
@@ -54,6 +56,8 @@ Kandydat na wydanie 0.1.1 dał 12 archiwów dla sześciu celów; 12 z 12 sum si�
 | Weryfikacja | SHA-256 archiwum względem `checksums.txt` | SHA-256 archiwum względem `checksums.txt` |
 
 `install.sh` w systemie Linux bierze statyczne archiwum musl, gdy wydanie je zawiera, a w przeciwnym razie archiwum glibc; maszyna z musl bierze archiwum musl. Z `--public-key` i `gpg` weryfikuje `checksums.txt.asc`. Oba skrypty czytają `NURT_VERSION` i `NURT_INSTALL_DIR`, a także `NURT_RELEASES_URL` dla innej lokalizacji wydań ([README pakietów](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/packaging/README.md)). `nurt.exe` nie żąda podniesienia uprawnień: jego manifest deklaruje poziom `asInvoker`, obsługę długich ścieżek i UTF-8 jako stronę kodową procesu. Polecenie `nurt version` wypisuje zainstalowaną wersję, a `nurt doctor` zgłasza właściwości systemu plików, uprawnienia, usługę i serwery języka.
+
+Od wersji 0.1.2 Windows ma też kreator instalacji, jeden plik zawierający archiwum programu. Kreator prowadzi przez wymagania, licencję, zakres (bieżący użytkownik albo wszyscy użytkownicy) i integrację: `PATH`, skróty, profil Windows Terminal, uzupełnianie w PowerShellu i pierwszy `nurt.toml`. Każda zmiana trafia do dziennika `setup-journal.jsonl` w folderze instalacji; naprawa, aktualizacja i cofnięcie ją odwracają, a `/S` instaluje bez okna. Wydanie podpisuje `nurt.exe` i pliki kreatora podpisem Authenticode; certyfikat jest samopodpisany, więc Windows zgłasza nieznanego wydawcę, dopóki certyfikat nie zostanie uznany za zaufany.
 
 ## Pakiety
 
@@ -78,10 +82,10 @@ W `integrations/containers` zdefiniowano trzy obrazy: `ghcr.io/danacoofficial/nu
 
 | Platforma | Zachowanie | Źródło |
 |---|---|---|
-| Linux, macOS | usługi to jednostki systemd i zadania launchd; `package.install` używa `apt`, `dnf`, `pacman`, `zypper` lub `brew`; `create` tworzy potoki nazwane (`type: fifo`) i węzły urządzeń (`type: device`) | [przewodnik dla Uniksa](/docs/guides/unix/), CHANGELOG 0.1.1 |
+| Linux, macOS | usługi to jednostki systemd i zadania launchd; `package.install` używa `apt`, `dnf`, `pacman`, `zypper` lub `brew`; `create` tworzy potoki nazwane (`type: fifo`) i węzły urządzeń (`type: device`) | [przewodnik dla Uniksa](/pl/docs/guides/unix/), CHANGELOG 0.1.1 |
 | Linux | `max_memory` ogranicza przestrzeń adresową (`RLIMIT_AS`) | CHANGELOG 0.1.2 |
 | macOS | `max_memory` mierzy pamięć rezydentną; dziennik obejmuje ścieżki woluminu danych `/System/Volumes/Data`; zaporą jest `pf` | CHANGELOG 0.1.1 i 0.1.2 |
-| Windows | rejestr jest ścieżką z przedrostkiem `registry:`; `windows.cim` odpytuje klasy CIM i wywołuje ich metody; zaporą jest Windows Defender Firewall; pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` | [przewodnik dla Windows](/docs/guides/windows/), CHANGELOG 0.1.1 |
+| Windows | rejestr jest ścieżką z przedrostkiem `registry:`; `windows.cim` odpytuje klasy CIM i wywołuje ich metody; zaporą jest Windows Defender Firewall; pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` | [przewodnik dla Windows](/pl/docs/guides/windows/), CHANGELOG 0.1.1 |
 | Linux | polecenia zapory działają na nftables, firewalld i ufw | CHANGELOG 0.1.1 |
 
-Dokumentację ścieżek i usług w każdym systemie opisują przewodniki dla systemów [Unix](/docs/guides/unix/) i [Windows](/docs/guides/windows/).
+Dokumentację ścieżek i usług w każdym systemie opisują przewodniki dla systemów [Unix](/pl/docs/guides/unix/) i [Windows](/pl/docs/guides/windows/).
