@@ -67,7 +67,7 @@ function inspect() {
   if (width > 740) {
     const range = document.createRange();
     let cut = '';
-    for (const cell of document.querySelectorAll('.prose .table--whole-words :is(th, td), .prose .table--whole-text :is(th, td)')) {
+    for (const cell of document.querySelectorAll('.prose :is(.table--whole-code, .table--whole-words, .table--whole-text) :is(th, td)')) {
       const codeMayBreak = Boolean(cell.closest('.table--whole-text'));
       const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node && !cut; node = walker.nextNode()) {

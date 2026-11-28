@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.scripts.pageContent
-// Responsibility:   Keeps programs, command names, terminals and code out of the automatic translation of the browser, so a translated page still shows commands that run; gives every table cell the heading of its column, which the narrow layout of tables shows above the cell. It also chooses for each table how its cells may break: between words only while the table fits its column, inside code when it would not fit otherwise, and anywhere as the last step.
+// Responsibility:   Keeps programs, command names, terminals and code out of the automatic translation of the browser, so a translated page still shows commands that run; gives every table cell the heading of its column, which the narrow layout of tables shows above the cell. It also chooses for each table how its cells may break: code on one line and whole words while the table fits its column, then whole words with code that wraps, then breaks inside code, and anywhere as the last step.
 // Dependencies:     none
 
 const selector = 'pre, code, kbd, samp, .terminal, .session, .install-tabs, .command-catalog code';
@@ -30,24 +30,22 @@ export function labelTableCells(root: ParentNode = document): void {
   });
 }
 
-const wholeWords = 'table--whole-words';
-const wholeText = 'table--whole-text';
+/** The marks of a table from the strictest breaking to the loosest: code on one line, whole words, whole words in text only. A table with no mark breaks anywhere. */
+const tableMarks = ['table--whole-code', 'table--whole-words', 'table--whole-text'] as const;
 
-/** Sets the breaking of one table: the strictest of the three steps with which the table still fits its container. */
+/** Sets the breaking of one table: the strictest step with which the table still fits its container. */
 function fitTable(table: HTMLTableElement): void {
   const container = table.parentElement;
   if (!container) {
     return;
   }
-  const fits = (): boolean => table.getBoundingClientRect().width <= container.clientWidth + 1;
-  table.classList.remove(wholeText);
-  table.classList.add(wholeWords);
-  if (fits()) {
-    return;
-  }
-  table.classList.replace(wholeWords, wholeText);
-  if (!fits()) {
-    table.classList.remove(wholeText);
+  table.classList.remove(...tableMarks);
+  for (const mark of tableMarks) {
+    table.classList.add(mark);
+    if (table.getBoundingClientRect().width <= container.clientWidth + 1) {
+      return;
+    }
+    table.classList.remove(mark);
   }
 }
 
