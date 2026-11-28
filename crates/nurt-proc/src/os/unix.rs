@@ -469,6 +469,12 @@ impl Tree {
         if error.raw_os_error() == Some(libc::ESRCH) {
             return Ok(());
         }
+        // macOS answers `EPERM` instead of `ESRCH` for a group whose members
+        // have ended and wait to be collected; the group belongs to the account
+        // that created it, so the answer means that nothing is left to signal.
+        if cfg!(target_os = "macos") && error.raw_os_error() == Some(libc::EPERM) {
+            return Ok(());
+        }
         Err(io_error("signal the program", &error))
     }
 }
