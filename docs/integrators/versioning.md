@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Versions and compatibility. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Versions and compatibility
@@ -34,15 +34,15 @@ The first request of a session is `initialize`; the result lists the protocol, t
 ```json
 {
   "protocol": "nurt-rpc/1",
-  "version": "1.0.0",
+  "version": "0.1.2",
   "abi": 65536,
-  "language": "1.0",
-  "ast": "1.0",
+  "language": null,
+  "ast": "1.1",
   "report": "1.0",
-  "catalog_rev": "1.0",
+  "catalog_rev": null,
   "features": ["events", "preview"],
   "groups": ["core"],
-  "limits": {"max_inflight": 4, "max_message_bytes": 16777216}
+  "limits": {"max_inflight": 16, "max_message_bytes": 16777216}
 }
 ```
 
