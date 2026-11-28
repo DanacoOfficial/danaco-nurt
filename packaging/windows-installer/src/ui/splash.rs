@@ -17,9 +17,7 @@
 //! moves into the lockup with the name, and the wizard opens. The times and the coordinates are
 //! those of the table of the design (960 x 600 points).
 
-use eframe::egui::{
-    Align2, Color32, Mesh, Painter, Pos2, Rect, Shape, Vec2, epaint::Vertex, pos2, vec2,
-};
+use eframe::egui::{Color32, Mesh, Painter, Pos2, Rect, Shape, Vec2, epaint::Vertex, pos2, vec2};
 
 use super::draw::{Canvas, Run};
 use super::mark::{Art, Image, MARK_CENTER};
@@ -389,7 +387,6 @@ pub(crate) fn draw(c: &mut Canvas<'_>, art: &Art, t: f32, version: &str) {
     );
 
     draw_terminal(c, t, version);
-    let _ = Align2::CENTER_CENTER;
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.

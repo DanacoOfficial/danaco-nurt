@@ -185,10 +185,11 @@ impl App {
                         pal.text_strong,
                     ),
                     Run::sans(
-                        if machine {
-                            " and its documentation are copied to this PC."
-                        } else {
-                            " and its documentation are copied to your account."
+                        match (self.options.docs, machine) {
+                            (true, true) => " and its documentation are copied to this PC.",
+                            (true, false) => " and its documentation are copied to your account.",
+                            (false, true) => " is copied to this PC.",
+                            (false, false) => " is copied to your account.",
                         },
                         15.0,
                         400.0,
@@ -516,16 +517,10 @@ impl App {
                     )
                 });
                 if down || up {
-                    chosen = Some(
-                        scopes[(index + usize::from(down) + scopes.len() - usize::from(up))
-                            % scopes.len()]
-                        .0,
-                    );
-                    let target = scopes[(index + usize::from(down) + scopes.len()
-                        - usize::from(up))
-                        % scopes.len()]
-                    .3;
-                    let id = c.ui.scope_id().with(format!("scope-{target}"));
+                    let next =
+                        (index + usize::from(down) + scopes.len() - usize::from(up)) % scopes.len();
+                    chosen = Some(scopes[next].0);
+                    let id = c.ui.scope_id().with(format!("scope-{}", scopes[next].3));
                     c.ui.ctx().memory_mut(|memory| memory.request_focus(id));
                 }
             }
@@ -538,7 +533,7 @@ impl App {
             self.options.dir = String::new();
             self.refresh_location(true);
         }
-        y += 18.0 - 0.0;
+        y += 18.0;
         c.text(
             X,
             y,
@@ -634,9 +629,9 @@ impl App {
             Row { id: "path", title: "Add nurt to PATH", new: false, text: "Any new terminal can start nurt.".into(), enabled: true },
             Row {
                 id: "docs",
-                title: "Install the documentation",
+                title: "Install the offline documentation",
                 new: false,
-                text: if docs_possible { "Copied to the doc folder next to bin.".into() } else { "Available when the folder of nurt.exe is named bin.".into() },
+                text: if docs_possible { "About 200 HTML pages in the doc folder next to bin. The program does not need them.".into() } else { "Available when the folder of nurt.exe is named bin.".into() },
                 enabled: docs_possible,
             },
             Row {
@@ -752,11 +747,11 @@ impl App {
             false,
         );
         row_y += height;
-        let mut bottom = row_y + 8.0 + 1.0;
+        let bottom = row_y + 8.0 + 1.0;
 
         // The first configuration of the program.
         let config_top = bottom + 14.0;
-        let config_rows = 3.0 * 40.0;
+        let config_rows = 3.0 * 62.0;
         let config_height = 2.0
             + 16.0
             + 62.0
@@ -770,7 +765,7 @@ impl App {
             c,
             "option-config",
             X + 21.0,
-            config_top + 1.0 + 8.0 - 8.0,
+            config_top + 1.0,
             W - 42.0,
             "Write the first configuration",
             false,
@@ -783,21 +778,63 @@ impl App {
         }
         if self.options.write_config {
             let mut line_y = config_top + 1.0 + 62.0 + 8.0;
-            let groups: [(&str, &str, [(&str, &str); 3]); 3] = [
+            // Every choice: the value written to nurt.toml, the text of its button and the line
+            // that explains it below the buttons while it is selected.
+            let groups: [(&str, &str, [(&str, &str, &str); 3]); 3] = [
                 (
                     "Language of the messages",
                     "language",
-                    [("en", "en"), ("pl", "pl"), ("", "")],
+                    [
+                        (
+                            "en",
+                            "English",
+                            "Messages, errors and help of nurt in English.",
+                        ),
+                        (
+                            "pl",
+                            "Polski",
+                            "Messages, errors and help of nurt in Polish.",
+                        ),
+                        ("", "", ""),
+                    ],
                 ),
                 (
                     "Colours of the output",
                     "color",
-                    [("auto", "auto"), ("always", "always"), ("never", "never")],
+                    [
+                        (
+                            "auto",
+                            "auto",
+                            "Colours in a terminal only; files and pipes get plain text.",
+                        ),
+                        (
+                            "always",
+                            "always",
+                            "Colours everywhere, also in files and pipes.",
+                        ),
+                        ("never", "never", "Plain text everywhere."),
+                    ],
                 ),
                 (
-                    "Variant of the syntax",
+                    "How programs are written",
                     "syntax",
-                    [("a", "a"), ("b", "b"), ("c", "c")],
+                    [
+                        (
+                            "a",
+                            "words",
+                            "find \"C:\\logs\" glob: \"*.log\"  - arguments follow the command (default)",
+                        ),
+                        (
+                            "b",
+                            "calls",
+                            "find(\"C:\\logs\", glob: \"*.log\")  - arguments in parentheses",
+                        ),
+                        (
+                            "c",
+                            "names",
+                            "find path=\"C:\\logs\" glob=\"*.log\"  - every argument by name",
+                        ),
+                    ],
                 ),
             ];
             for (label, key, choices) in groups {
@@ -809,7 +846,7 @@ impl App {
                     22.0,
                 );
                 let mut x = X + 21.0 + 240.0;
-                for (value, text) in choices.iter().filter(|(value, _)| !value.is_empty()) {
+                for (value, text, _) in choices.iter().filter(|(value, _, _)| !value.is_empty()) {
                     let current = match key {
                         "language" => &self.options.config.language,
                         "color" => &self.options.config.color,
@@ -833,11 +870,24 @@ impl App {
                     }
                     x += width + 8.0;
                 }
-                line_y += 40.0;
+                let current = match key {
+                    "language" => &self.options.config.language,
+                    "color" => &self.options.config.color,
+                    _ => &self.options.config.syntax,
+                };
+                if let Some((_, _, hint)) = choices.iter().find(|(value, _, _)| current == value) {
+                    c.text(
+                        X + 21.0,
+                        line_y + 40.0,
+                        W - 42.0,
+                        &[Run::sans(*hint, 12.0, 400.0, pal.text_soft)],
+                        18.0,
+                    );
+                }
+                line_y += 62.0;
             }
         }
-        bottom = config_top + config_height;
-        bottom
+        config_top + config_height
     }
 
     // -------------------------------------------------------------------------- review
@@ -1085,7 +1135,11 @@ impl App {
             X + 21.0,
             y + 1.0 + 6.0 + 43.0,
             W - 42.0,
-            "Show the documentation",
+            if docs {
+                "Show the documentation"
+            } else {
+                "Documentation not installed"
+            },
             false,
             "",
             self.finish_checks[1] && docs,
@@ -1105,10 +1159,14 @@ impl App {
         let Some(failure) = failure else { return TOP };
         let (title, safe) = error_texts(&failure.code);
         let nothing = failure.undone == 0;
+        // A failed read of the journal (stage `read`) stops the undo before it changes anything.
+        let incomplete = !failure.rolled_back && failure.stage != "read";
         let lead = [
             Run::sans(safe, 15.0, 400.0, pal.text_soft),
             Run::sans(
-                if nothing {
+                if incomplete {
+                    " Some changes could not be undone."
+                } else if nothing {
                     " Nothing on this PC was changed."
                 } else {
                     " The changes made so far were undone."
@@ -1129,8 +1187,10 @@ impl App {
             Tone::Alert,
         ));
         lines.push(LogLine::answer(
-            if !failure.rolled_back {
+            if incomplete {
                 "the rollback was incomplete; see the log file of the setup".to_string()
+            } else if !failure.rolled_back {
+                "the journal could not be read; nothing was removed".to_string()
             } else if nothing {
                 "the setup journal is empty".to_string()
             } else {

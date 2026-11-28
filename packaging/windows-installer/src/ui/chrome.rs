@@ -372,8 +372,6 @@ impl App {
             c.col(pal.graphite_soft),
             1.0,
         );
-        let mut heading = 0.0;
-        let _ = &mut heading;
         c.text(
             x + 28.0,
             y + 26.0,
@@ -445,6 +443,12 @@ pub(crate) fn dialog_texts(
             "Nothing has been changed on this PC.",
             "Stay",
             "Close",
+        ),
+        DialogKind::ConfirmUndo => (
+            "Undo this setup?",
+            "The program, the shortcuts and the other changes that this setup made are removed.",
+            "Keep Danaco Nurt",
+            "Undo setup",
         ),
     }
 }

@@ -197,6 +197,15 @@ fn install_with(
     user: &UserPaths,
     cancel: &dyn Fn(&ProgressEvent) -> bool,
 ) -> Outcome {
+    install_with_policy(options, user, cancel, &|_| true)
+}
+
+fn install_with_policy(
+    options: &Options,
+    user: &UserPaths,
+    cancel: &dyn Fn(&ProgressEvent) -> bool,
+    profile_runs: &dyn Fn(&Path) -> bool,
+) -> Outcome {
     let events: RefCell<Vec<ProgressEvent>> = RefCell::new(Vec::new());
     let stop = Cell::new(false);
     let emit = |event: ProgressEvent| {
@@ -213,6 +222,7 @@ fn install_with(
         emit: &emit,
         cancel: &cancelled,
         pace: false,
+        profile_runs,
     };
     let result = install(&env);
     Outcome {
@@ -426,6 +436,51 @@ fn undo_removes_the_configuration_on_request() {
     undo_run(&fixture.root(), &fixture.user, true).unwrap();
     assert!(!fixture.user.appdata.join("Nurt").exists());
     assert!(!fixture.root().exists());
+}
+
+#[test]
+fn a_profile_that_powershell_does_not_run_gets_no_completion() {
+    let _guard = serial();
+    let fixture = Fixture::new();
+    let options = Options {
+        completions: true,
+        ..fixture.basic()
+    };
+    let runs = |profile: &Path| !profile.to_string_lossy().contains("WindowsPowerShell");
+    let summary = success(install_with_policy(
+        &options,
+        &fixture.user,
+        &|_| false,
+        &runs,
+    ));
+    assert!(
+        fixture
+            .user
+            .documents
+            .join("PowerShell\\profile.ps1")
+            .is_file()
+    );
+    assert!(
+        !fixture
+            .user
+            .documents
+            .join("WindowsPowerShell\\profile.ps1")
+            .exists()
+    );
+    assert!(
+        summary
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("execution policy"))
+    );
+    undo_run(&fixture.root(), &fixture.user, false).unwrap();
+    assert!(
+        !fixture
+            .user
+            .documents
+            .join("PowerShell\\profile.ps1")
+            .exists()
+    );
 }
 
 #[test]

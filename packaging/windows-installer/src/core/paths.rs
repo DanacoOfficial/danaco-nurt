@@ -153,9 +153,16 @@ pub(crate) fn terminal_executable(user: &UserPaths) -> PathBuf {
     user.local_appdata.join(r"Microsoft\WindowsApps\wt.exe")
 }
 
+/// The launcher `wt.exe` of the user exists. The launcher is an alias of an
+/// application, which the system does not open through a link, so the entry is
+/// looked up without following it.
+pub(crate) fn terminal_launcher_present(user: &UserPaths) -> bool {
+    std::fs::symlink_metadata(terminal_executable(user)).is_ok()
+}
+
 /// Windows Terminal is installed for the user.
 pub(crate) fn terminal_installed(user: &UserPaths) -> bool {
-    terminal_executable(user).exists()
+    terminal_launcher_present(user)
         || user
             .local_appdata
             .join(r"Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe")

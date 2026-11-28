@@ -269,17 +269,25 @@ pub(crate) fn read_path(scope: Scope) -> io::Result<Option<String>> {
     }
 }
 
-/// Writes the unexpanded `Path` of a scope as `REG_EXPAND_SZ` and announces the change.
+/// Writes the unexpanded `Path` of a scope and announces the change. A value that exists as
+/// `REG_SZ` keeps that type, so that a `%` in it stays a literal character; every other value is
+/// written as `REG_EXPAND_SZ`, the type that Windows gives to `Path`.
 pub(crate) fn write_path(scope: Scope, text: Option<&str>) -> io::Result<()> {
     let key = environment_key(scope)?;
     match text {
-        Some(text) => key.set_raw_value(
-            "Path",
-            &RegValue {
-                bytes: Cow::Owned(encode(text)),
-                vtype: REG_EXPAND_SZ,
-            },
-        )?,
+        Some(text) => {
+            let vtype = match key.get_raw_value("Path") {
+                Ok(current) if matches!(current.vtype, RegType::REG_SZ) => REG_SZ,
+                _ => REG_EXPAND_SZ,
+            };
+            key.set_raw_value(
+                "Path",
+                &RegValue {
+                    bytes: Cow::Owned(encode(text)),
+                    vtype,
+                },
+            )?;
+        }
         None => match key.delete_value("Path") {
             Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(error),
             _ => {}

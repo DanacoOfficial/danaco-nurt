@@ -100,7 +100,10 @@ fn install(startup: &Startup, arguments: &[String], output: &mut Output) -> i32 
         }
     }
     let options = crate::cli::options_of(&startup.cli, base);
-    let rows = requirements::check(&paths::default_bin(options.scope, &startup.user));
+    let rows = requirements::check(
+        &paths::default_bin(options.scope, &startup.user),
+        options.docs,
+    );
     for row in &rows {
         output.say(&format!(
             "requirement {}: {} (found {}, required {})",
@@ -118,7 +121,7 @@ fn install(startup: &Startup, arguments: &[String], output: &mut Output) -> i32 
         &options,
         &startup.user,
         startup.elevated,
-        requirements::required_space(),
+        requirements::required_space_for(options.docs),
     );
     if let Some(issue) = report.issue {
         output.say(&format!("invalid folder {}: {issue:?}", report.dir));
@@ -136,6 +139,7 @@ fn install(startup: &Startup, arguments: &[String], output: &mut Output) -> i32 
         emit: &emit,
         cancel: &|| false,
         pace: false,
+        profile_runs: &crate::terminal::profile_runs,
     };
     let result = engine::install(&env);
     for line in lines.borrow().iter() {

@@ -120,10 +120,26 @@ pub(crate) fn list() -> SetupResult<Vec<Item>> {
     Ok(items)
 }
 
-/// Total size of the unpacked files.
-pub(crate) fn unpacked_size() -> u64 {
+/// Whether the archive file is installed also without the documentation: the
+/// program, the licence files and the completions of PowerShell.
+fn is_program_file(name: &str) -> bool {
+    name.eq_ignore_ascii_case("nurt.exe")
+        || name == "LICENSE"
+        || name == "NOTICE"
+        || name == "completions/_nurt.ps1"
+}
+
+/// Size of the files that an installation puts on the disk, in bytes: every
+/// file of the archive with the documentation, the program files without it.
+pub(crate) fn installed_size(docs: bool) -> u64 {
     list()
-        .map(|items| items.iter().map(|item| item.size).sum())
+        .map(|items| {
+            items
+                .iter()
+                .filter(|item| docs || is_program_file(&item.name))
+                .map(|item| item.size)
+                .sum()
+        })
         .unwrap_or(0)
 }
 
@@ -194,13 +210,18 @@ pub(crate) fn read_text(name: &str) -> SetupResult<String> {
 
 /// Extracts the files below `staging`, keeping the paths of the archive.
 ///
+/// Only the files for which `wanted` holds are extracted; the others stay in the archive.
 /// `progress` receives the bytes done, the total and the file being written.
 pub(crate) fn extract(
     staging: &Path,
+    wanted: &dyn Fn(&str) -> bool,
     cancel: &dyn Fn() -> bool,
     progress: &mut dyn FnMut(u64, u64, &str),
 ) -> SetupResult<Vec<Extracted>> {
-    let items = list()?;
+    let items: Vec<Item> = list()?
+        .into_iter()
+        .filter(|item| wanted(&item.name))
+        .collect();
     let total: u64 = items.iter().map(|item| item.size).sum();
     let mut archive = open()?;
     let mut done = 0u64;

@@ -17,11 +17,14 @@
 
 use std::fs;
 use std::io;
+use std::os::windows::process::CommandExt;
 use std::path::Path;
+use std::process::Command;
 
 use crate::journal::{ProfileRecord, SettingsRecord};
 use crate::model::UserPaths;
 use crate::paths;
+use crate::shortcuts::CREATE_NO_WINDOW;
 use crate::textedit::{
     POWERSHELL_GUID, PROFILE_GUID, default_profile, profile_with_block, profile_without_block,
     remove_default_profile, set_default_profile, terminal_fragment,
@@ -195,16 +198,19 @@ fn add_completion_in(path: &Path, script: &str) -> io::Result<Option<ProfileReco
     }))
 }
 
-/// Adds the block that loads the completion to the profiles of PowerShell.
+/// Adds the block that loads the completion to the given profiles of PowerShell.
 ///
 /// A profile that cannot be edited does not stop the others; its error is returned only when no
 /// profile changed.
-pub(crate) fn add_completion(user: &UserPaths, script: &Path) -> io::Result<Vec<ProfileRecord>> {
+pub(crate) fn add_completion_to(
+    profiles: &[std::path::PathBuf],
+    script: &Path,
+) -> io::Result<Vec<ProfileRecord>> {
     let script = script.display().to_string();
     let mut changed = Vec::new();
     let mut failure = None;
-    for path in paths::powershell_profiles(user) {
-        match add_completion_in(&path, &script) {
+    for path in profiles {
+        match add_completion_in(path, &script) {
             Ok(Some(record)) => changed.push(record),
             Ok(None) => {}
             Err(error) => {
@@ -213,6 +219,52 @@ pub(crate) fn add_completion(user: &UserPaths, script: &Path) -> io::Result<Vec<
         }
     }
     settle(changed, failure)
+}
+
+/// The execution policy lets PowerShell run an unsigned profile of the user.
+fn policy_runs_profiles(policy: &str) -> bool {
+    matches!(
+        policy.trim().to_ascii_lowercase().as_str(),
+        "remotesigned" | "unrestricted" | "bypass"
+    )
+}
+
+/// Tells whether PowerShell runs the profile `profile` of the user. The host of
+/// `Documents\WindowsPowerShell` is Windows PowerShell, the host of `Documents\PowerShell` is
+/// PowerShell 7; the effective execution policy of the host must allow an unsigned script. Windows
+/// sets Restricted by default, and then every start of PowerShell reports that the profile cannot be
+/// loaded. A PowerShell 7 that is not installed never reads its profile, so the block is harmless
+/// there.
+pub(crate) fn profile_runs(profile: &Path) -> bool {
+    let windows_powershell = profile
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|name| name.eq_ignore_ascii_case("WindowsPowerShell"));
+    let host = if windows_powershell {
+        crate::shortcuts::powershell()
+    } else {
+        std::path::PathBuf::from("pwsh.exe")
+    };
+    let output = Command::new(host)
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-ExecutionPolicy).ToString()",
+        ])
+        // The policy of a process scope comes from this variable of the parent; a PowerShell that
+        // the user opens has none, so the probe asks without it.
+        .env_remove("PSExecutionPolicyPreference")
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    match output {
+        Ok(output) if output.status.success() => {
+            policy_runs_profiles(&String::from_utf8_lossy(&output.stdout))
+        }
+        Ok(_) => false,
+        Err(_) => !windows_powershell,
+    }
 }
 
 /// Removes the block from one profile; a profile that the setup created and that holds nothing
@@ -394,6 +446,16 @@ mod tests {
     }
 
     #[test]
+    fn only_policies_that_run_an_unsigned_profile_allow_the_completion() {
+        for policy in ["RemoteSigned", "Unrestricted\r\n", "Bypass"] {
+            assert!(policy_runs_profiles(policy), "{policy}");
+        }
+        for policy in ["Restricted", "AllSigned", "Undefined", ""] {
+            assert!(!policy_runs_profiles(policy), "{policy}");
+        }
+    }
+
+    #[test]
     fn completion_is_added_to_both_profiles_and_removed_byte_for_byte() {
         let scratch = Scratch::new("completion");
         let user = scratch.user();
@@ -405,7 +467,7 @@ mod tests {
         write(&profiles[0], &utf8_bom);
         write(&profiles[1], &ansi);
         let script = Path::new(r"C:\Users\user\Programs\Nurt\completions\_nurt.ps1");
-        let records = add_completion(&user, script).unwrap_or_default();
+        let records = add_completion_to(&profiles, script).unwrap_or_default();
         assert_eq!(records.len(), 2);
         assert!(records.iter().all(|record| record.existed));
         assert!(
@@ -418,7 +480,11 @@ mod tests {
                 .unwrap_or_default()
                 .starts_with(&ansi)
         );
-        assert!(add_completion(&user, script).unwrap_or_default().is_empty());
+        assert!(
+            add_completion_to(&profiles, script)
+                .unwrap_or_default()
+                .is_empty()
+        );
         assert!(remove_completion(&records).is_ok());
         assert_eq!(fs::read(&profiles[0]).unwrap_or_default(), utf8_bom);
         assert_eq!(fs::read(&profiles[1]).unwrap_or_default(), ansi);
@@ -429,7 +495,8 @@ mod tests {
         let scratch = Scratch::new("created");
         let user = scratch.user();
         let script = Path::new(r"C:\n\completions\_nurt.ps1");
-        let records = add_completion(&user, script).unwrap_or_default();
+        let profiles = paths::powershell_profiles(&user);
+        let records = add_completion_to(&profiles, script).unwrap_or_default();
         assert_eq!(records.len(), 2);
         assert!(records.iter().all(|record| !record.existed));
         let created = fs::read(&records[0].path).unwrap_or_default();
@@ -449,7 +516,8 @@ mod tests {
         let profiles = paths::powershell_profiles(&user);
         let utf16 = [0xFF, 0xFE, b'a', 0, b'\n', 0];
         write(&profiles[0], &utf16);
-        let records = add_completion(&user, Path::new(r"C:\n\_nurt.ps1")).unwrap_or_default();
+        let records =
+            add_completion_to(&profiles, Path::new(r"C:\n\_nurt.ps1")).unwrap_or_default();
         assert_eq!(records.len(), 1);
         assert_eq!(fs::read(&profiles[0]).unwrap_or_default(), utf16);
     }

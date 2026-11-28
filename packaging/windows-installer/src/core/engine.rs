@@ -85,6 +85,8 @@ pub(crate) struct Env<'a> {
     pub(crate) cancel: &'a dyn Fn() -> bool,
     /// Keeps every stage visible for a minimum time; off in the silent mode.
     pub(crate) pace: bool,
+    /// Tells whether PowerShell runs a profile file of the user under its execution policy.
+    pub(crate) profile_runs: &'a dyn Fn(&Path) -> bool,
 }
 
 /// A failed installation.
@@ -201,6 +203,8 @@ pub(crate) fn describe(entry: &Entry) -> String {
                 format!("copy the uninstaller and the icon to {dir}")
             } else if dir.to_ascii_lowercase().ends_with("\\doc") {
                 format!("copy the documentation to {dir}")
+            } else if dir.to_ascii_lowercase().ends_with("\\completions") {
+                format!("copy the tab completion scripts to {dir}")
             } else {
                 format!("copy LICENSE and NOTICE to {dir}")
             }
@@ -502,13 +506,17 @@ impl Install<'_> {
         let cancel = self.env.cancel;
         let mut ticks: Vec<f32> = Vec::new();
         let mut last = 0.0f32;
-        let extracted = payload::extract(&staging, cancel, &mut |done, total, _| {
-            let fraction = done as f32 / total.max(1) as f32;
-            if fraction - last >= 0.04 || done == total {
-                last = fraction;
-                ticks.push(fraction);
-            }
-        })?;
+        let layout = &self.layout;
+        let completions = self.env.options.completions;
+        let is_installed = |name: &str| payload::destination(name, layout, completions).is_some();
+        let extracted =
+            payload::extract(&staging, &is_installed, cancel, &mut |done, total, _| {
+                let fraction = done as f32 / total.max(1) as f32;
+                if fraction - last >= 0.04 || done == total {
+                    last = fraction;
+                    ticks.push(fraction);
+                }
+            })?;
         for fraction in ticks {
             self.tick(fraction);
         }
@@ -740,8 +748,15 @@ impl Install<'_> {
         let options = self.env.options;
         let user = self.env.user;
         let terminal_exe = paths::terminal_executable(user);
-        let terminal = (options.terminal_profile && paths::terminal_installed(user))
-            .then_some(terminal_exe.as_path());
+        // The shortcut of the profile starts the launcher, so it is made only when the
+        // launcher exists; a Windows Terminal without `wt.exe` gets the profile
+        // in its settings but no shortcut with a missing target. The launcher is
+        // the alias of the account that runs the setup, so an installation for all
+        // users does not point the shortcuts of the other accounts at it.
+        let terminal = (options.terminal_profile
+            && self.scope == Scope::User
+            && paths::terminal_launcher_present(user))
+        .then_some(terminal_exe.as_path());
         let file = |folder: PathBuf, name: &str| folder.join(format!("{name}.lnk"));
         match kind {
             "start" => {
@@ -927,7 +942,21 @@ impl Install<'_> {
             ));
             return;
         }
-        match terminal::add_completion(user, &script) {
+        let (runs, blocked): (Vec<PathBuf>, Vec<PathBuf>) = paths::powershell_profiles(user)
+            .into_iter()
+            .partition(|profile| (self.env.profile_runs)(profile));
+        for profile in &blocked {
+            self.warn(format!(
+                "PowerShell does not run {} under its execution policy, so the tab completion was \
+                 not added there; allow it with Set-ExecutionPolicy -Scope CurrentUser RemoteSigned \
+                 and run the setup again",
+                profile.display()
+            ));
+        }
+        if runs.is_empty() {
+            return;
+        }
+        match terminal::add_completion_to(&runs, &script) {
             Ok(files) => {
                 if !files.is_empty() {
                     self.journal.push(Entry::PowershellProfile { files });

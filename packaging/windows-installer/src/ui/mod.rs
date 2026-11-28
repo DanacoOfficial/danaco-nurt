@@ -44,7 +44,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, Color32, Key, Rect, ViewportCommand, vec2};
+use eframe::egui::{self, Key, Rect, ViewportCommand, vec2};
 
 use crate::app::{self, Runner, Startup};
 use crate::engine;
@@ -131,6 +131,8 @@ pub(crate) enum DialogKind {
     CancelUndo,
     /// Close the setup on a screen that changed nothing.
     Close,
+    /// Undo the setup that has just finished.
+    ConfirmUndo,
 }
 
 /// The buttons of the footer for a screen.
@@ -275,7 +277,15 @@ impl App {
             .existing
             .clone()
             .filter(|existing| existing.journal_ok);
-        let mut options = crate::cli::options_of(&startup.cli, Options::default());
+        // The documentation of the archive is offline HTML of some 200 files: the wizard offers it
+        // as an option that the user switches on; the silent mode installs it unless `--no-docs`.
+        let mut options = crate::cli::options_of(
+            &startup.cli,
+            Options {
+                docs: false,
+                ..Options::default()
+            },
+        );
         if let Some(recorded) = startup.resume.clone() {
             options = recorded;
         }
@@ -284,11 +294,13 @@ impl App {
         } else {
             (Flow::Install, Screen::Welcome)
         };
-        let required_space = requirements::required_space();
-        let requirements =
-            requirements::check(&crate::paths::default_bin(options.scope, &startup.user));
+        let required_space = requirements::required_space_for(options.docs);
+        let requirements = requirements::check(
+            &crate::paths::default_bin(options.scope, &startup.user),
+            options.docs,
+        );
         let location = location::check(&options, &startup.user, startup.elevated, required_space);
-        let maintenance = if startup.cli.undo || startup.cli.repair && false {
+        let maintenance = if startup.cli.undo {
             Maintenance::Undo
         } else {
             Maintenance::Repair
@@ -300,13 +312,11 @@ impl App {
             scroll: 0.0,
             content: 0.0,
         };
-        let animations = startup.animations && !startup.cli.no_animation;
         let splash_started = if startup.cli.no_animation {
             None
         } else {
             Some(Instant::now())
         };
-        let _ = animations;
         Self {
             pal: Palette::current(),
             art: None,
@@ -407,6 +417,7 @@ impl App {
         let key = (self.options.dir.clone(), self.options.scope);
         if force || key != self.location_key {
             self.location_key = key;
+            self.required_space = requirements::required_space_for(self.options.docs);
             self.location = location::check(
                 &self.options,
                 &self.startup.user,
@@ -635,6 +646,12 @@ impl App {
                     self.dialog = None;
                     match dialog.kind {
                         DialogKind::Close => self.exit(context, 0),
+                        DialogKind::ConfirmUndo => {
+                            self.flow = Flow::Maintenance;
+                            self.index = 0;
+                            self.maintenance = Maintenance::Undo;
+                            self.go(1);
+                        }
                         DialogKind::CancelInstall | DialogKind::CancelUndo => {
                             self.run.cancelling = true;
                             if let Some(runner) = &self.runner {
@@ -725,10 +742,11 @@ impl App {
     fn secondary(&mut self, context: &egui::Context) {
         match self.screen {
             Screen::Finish => {
-                self.flow = Flow::Maintenance;
-                self.index = 0;
-                self.maintenance = Maintenance::Undo;
-                self.go(1);
+                self.dialog = Some(Dialog {
+                    kind: DialogKind::ConfirmUndo,
+                    opened: Instant::now(),
+                });
+                self.dialog_focus_pending = true;
             }
             Screen::Error => {
                 let text = self.run.text.join("\n");
@@ -863,21 +881,32 @@ impl App {
     }
 }
 
+/// Opens a terminal with `nurt.exe`: a tab of Windows Terminal with the profile of the program
+/// when the profile was chosen, otherwise a console window.
+///
+/// The tab gets `exe` as its command line besides the profile. A Windows Terminal that was open
+/// before the setup wrote the fragment does not know the profile yet and opens its default one,
+/// so the profile alone would start another shell. When Windows Terminal cannot be started, or
+/// the path holds `;`, which Windows Terminal reads as the separator of its commands, the console
+/// window is opened instead.
 fn launch_terminal(exe: &std::path::Path, profile: bool) {
     use std::os::windows::process::CommandExt;
     let user = crate::model::UserPaths::current();
-    let mut command =
-        if profile && crate::paths::terminal_installed(&user) {
-            let mut command = std::process::Command::new(crate::paths::terminal_executable(&user));
-            command.args(["-p", crate::textedit::PROFILE_NAME]);
-            command
-        } else {
-            let mut command = std::process::Command::new("cmd.exe");
-            command.args(["/C", "start", "Danaco Nurt"]).arg(exe);
-            command.creation_flags(0x0800_0000);
-            command
-        };
-    let _ = command.spawn();
+    let separator = crate::shortcuts::TERMINAL_COMMAND_SEPARATOR;
+    let in_terminal = profile
+        && !exe.to_string_lossy().contains(separator)
+        && crate::paths::terminal_installed(&user)
+        && std::process::Command::new(crate::paths::terminal_executable(&user))
+            .args(["-p", crate::textedit::PROFILE_NAME])
+            .arg(exe)
+            .spawn()
+            .is_ok();
+    if !in_terminal {
+        let mut command = std::process::Command::new("cmd.exe");
+        command.args(["/C", "start", "Danaco Nurt"]).arg(exe);
+        command.creation_flags(0x0800_0000);
+        let _ = command.spawn();
+    }
 }
 
 /// The text of LICENSE and NOTICE of the archive and whether it could be read.
@@ -1140,7 +1169,6 @@ impl App {
             egui::Stroke::new(1.0, pal.line.gamma_multiply(alpha)),
             egui::StrokeKind::Inside,
         );
-        let _ = Color32::TRANSPARENT;
     }
 }
 

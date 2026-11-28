@@ -33,6 +33,7 @@ use crate::error::{SetupError, SetupResult};
 use crate::model::{
     Existing, FinishEvent, Job, JobKind, Options, ProgressEvent, Scope, UserPaths, WorkerEvent,
 };
+use crate::shortcuts::CREATE_NO_WINDOW;
 use crate::{logfile, paths, payload, registry, sys};
 
 /// Version of the program that this setup installs.
@@ -45,8 +46,7 @@ pub(crate) const TARGET: &str = if cfg!(target_arch = "aarch64") {
     "x86_64-pc-windows-msvc"
 };
 
-/// Flags of `CreateProcess`: no console window and detached.
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// Flag of `CreateProcess`: detached from the console of the parent.
 const DETACHED_PROCESS: u32 = 0x0000_0008;
 
 /// Facts that the process establishes before any screen opens.
@@ -263,6 +263,7 @@ pub(crate) fn execute(
                 emit,
                 cancel,
                 pace,
+                profile_runs: &crate::terminal::profile_runs,
             };
             match engine::install(&env) {
                 Ok(summary) => FinishEvent {

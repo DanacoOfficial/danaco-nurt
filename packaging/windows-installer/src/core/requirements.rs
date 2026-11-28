@@ -69,12 +69,13 @@ pub(crate) fn windows_version() -> WindowsVersion {
     WindowsVersion { build, name }
 }
 
-/// Space that an installation needs, in bytes.
-pub(crate) fn required_space() -> u64 {
+/// Space that an installation needs, in bytes, with the documentation or
+/// without it.
+pub(crate) fn required_space_for(docs: bool) -> u64 {
     let uninstaller = std::env::current_exe()
         .and_then(std::fs::metadata)
         .map_or(0, |meta| meta.len());
-    payload::unpacked_size() + uninstaller + payload::ICON.len() as u64 + SPACE_MARGIN
+    payload::installed_size(docs) + uninstaller + payload::ICON.len() as u64 + SPACE_MARGIN
 }
 
 /// Architecture of this setup as the design names it: `x86_64` or `aarch64`.
@@ -86,8 +87,9 @@ pub(crate) fn setup_arch() -> &'static str {
     }
 }
 
-/// Checks every requirement; `directory` is the default folder of `nurt.exe`.
-pub(crate) fn check(directory: &Path) -> Vec<Requirement> {
+/// Checks every requirement; `directory` is the default folder of `nurt.exe`
+/// and `docs` tells whether the documentation is installed.
+pub(crate) fn check(directory: &Path, docs: bool) -> Vec<Requirement> {
     let version = windows_version();
     let mut rows = Vec::new();
     rows.push(Requirement {
@@ -117,7 +119,7 @@ pub(crate) fn check(directory: &Path) -> Vec<Requirement> {
         found: machine.to_string(),
         required: setup.to_string(),
     });
-    let required = required_space();
+    let required = required_space_for(docs);
     let free = crate::paths::nearest_existing(directory)
         .and_then(|path| sys::free_space(&path))
         .unwrap_or(0);

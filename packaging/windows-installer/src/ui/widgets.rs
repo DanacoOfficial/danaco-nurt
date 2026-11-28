@@ -127,11 +127,7 @@ pub(crate) fn button(
             c.painter.rect_filled(
                 shifted,
                 0.0,
-                col(mix(
-                    Color32::TRANSPARENT.into_opaque_like(pal.graphite),
-                    pal.graphite_soft,
-                ))
-                .gamma_multiply(hover),
+                col(mix(pal.graphite, pal.graphite_soft)).gamma_multiply(hover),
             );
             mix(pal.text_soft, pal.text_strong)
         }
@@ -169,16 +165,6 @@ pub(crate) fn button(
 
 fn lerp_u8(a: u8, b: u8, t: f32) -> u8 {
     (a as f32 + (b as f32 - a as f32) * t.clamp(0.0, 1.0)).round() as u8
-}
-
-trait OpaqueLike {
-    fn into_opaque_like(self, base: Color32) -> Color32;
-}
-
-impl OpaqueLike for Color32 {
-    fn into_opaque_like(self, base: Color32) -> Color32 {
-        base
-    }
 }
 
 /// A card: a surface of `graphite-soft` with a border of `line` that follows the cut.

@@ -24,13 +24,16 @@ use serde::Serialize;
 use crate::model::Layout;
 
 /// Flag of `CreateProcess`: no console window.
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+pub(crate) const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// Name of the program in shortcuts and in the Start menu.
 pub(crate) const PROGRAM_NAME: &str = "Danaco Nurt";
 
 /// Name of the shortcut that undoes the setup.
 pub(crate) const UNDO_NAME: &str = "Uninstall Danaco Nurt";
+
+/// Character that separates the commands of one command line of Windows Terminal.
+pub(crate) const TERMINAL_COMMAND_SEPARATOR: char = ';';
 
 /// Shortcut to write.
 #[derive(Debug, Clone, Serialize)]
@@ -67,7 +70,8 @@ foreach ($item in $items) { \
   $link.Save() \
 }";
 
-fn powershell() -> PathBuf {
+/// Full path of Windows PowerShell in the system directory.
+pub(crate) fn powershell() -> PathBuf {
     let root =
         std::env::var_os("SystemRoot").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
     root.join(r"System32\WindowsPowerShell\v1.0\powershell.exe")
@@ -120,15 +124,25 @@ fn write_with(shell: &Path, links: &[Link]) -> Result<(), String> {
 /// holds the full path of its `wt.exe`, otherwise `nurt.exe` itself, which opens a console with the
 /// banner of the session. The target of the first form is always a full path: the shell resolves a
 /// bare `wt.exe` through no search path and shows the dialog of a missing shortcut.
+///
+/// The first form names `nurt.exe` as the command line of the tab besides the profile. Windows
+/// Terminal opens its default profile when it does not know the named one, which is the case for
+/// a window that was open before the setup wrote the fragment and for a profile that the user
+/// removed; with the command line the tab runs `nurt.exe` in every case. Windows Terminal reads
+/// `;` as the separator of its commands, so a path of `nurt.exe` with that character gets the
+/// second form.
 pub(crate) fn program_link(
     path: PathBuf,
     layout: &Layout,
     home: &Path,
     terminal: Option<&Path>,
 ) -> Link {
+    let exe = layout.exe().display().to_string();
     let (target, arguments) = match terminal {
-        Some(wt) => (wt.display().to_string(), format!("-p \"{PROGRAM_NAME}\"")),
-        None => (layout.exe().display().to_string(), String::new()),
+        Some(wt) if !exe.contains(TERMINAL_COMMAND_SEPARATOR) => {
+            (wt.display().to_string(), profile_arguments(&exe))
+        }
+        _ => (exe, String::new()),
     };
     Link {
         path,
@@ -139,6 +153,12 @@ pub(crate) fn program_link(
         description: "Danaco Nurt: a command shell and language where every change can be undone"
             .to_string(),
     }
+}
+
+/// Arguments of `wt.exe` that open the profile of the program with `exe` as the command line of
+/// the tab.
+fn profile_arguments(exe: &str) -> String {
+    format!("-p \"{PROGRAM_NAME}\" \"{exe}\"")
 }
 
 /// The shortcut that undoes the setup.
@@ -248,12 +268,17 @@ mod tests {
         let wt = Path::new(r"C:\Users\user\AppData\Local\Microsoft\WindowsApps\wt.exe");
         let profile = program_link(PathBuf::from("p.lnk"), &layout, home, Some(wt));
         assert_eq!(
-            (profile.target.as_str(), profile.arguments.as_str()),
-            (
-                r"C:\Users\user\AppData\Local\Microsoft\WindowsApps\wt.exe",
-                "-p \"Danaco Nurt\""
-            )
+            profile.target,
+            r"C:\Users\user\AppData\Local\Microsoft\WindowsApps\wt.exe"
         );
+        assert_eq!(
+            profile.arguments,
+            format!("-p \"Danaco Nurt\" \"{}\"", layout.exe().display())
+        );
+        let odd = Layout::of(Path::new(r"C:\Users\user\a;b\bin"), true);
+        let direct = program_link(PathBuf::from("p.lnk"), &odd, home, Some(wt));
+        assert_eq!(direct.target, odd.exe().display().to_string());
+        assert!(direct.arguments.is_empty());
         let plain = program_link(PathBuf::from("p.lnk"), &layout, home, None);
         assert_eq!(plain.target, layout.exe().display().to_string());
         assert!(plain.arguments.is_empty());
