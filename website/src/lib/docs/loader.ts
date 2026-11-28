@@ -4,7 +4,7 @@
 //
 // Module:           website.src.lib.docs.loader
 // Responsibility:   Content loader of the documentation: reads the Markdown files of the repository directories named in the docs configuration and stores them as entries of the docs collection.
-// Dependencies:     astro (loader interface), website.config.docs, website.src.lib.docs.frontmatter, website.src.lib.docs.links, website.src.lib.docs.urls
+// Dependencies:     astro (loader interface), website.config.docs, website.src.lib.docs.frontmatter, website.src.lib.docs.links, website.src.lib.docs.urls, website.src.lib.docs.angleBrackets
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ import { docsExcludedFiles, docsRoots, docsSources, type DocsSource } from '../.
 import { docsUrl } from './urls';
 import { readSource } from './frontmatter';
 import { rewriteLinks, type UrlMap } from './links';
+import { literalAngleBrackets } from './angle-brackets';
 
 interface Discovered {
   readonly source: DocsSource;
@@ -74,7 +75,7 @@ export function docsLoader(): Loader {
       store.clear();
       for (const file of files) {
         const parsed = readSource(file.text, file.stem);
-        const body = rewriteLinks(parsed.body, file.repositoryPath, urls as UrlMap);
+        const body = literalAngleBrackets(rewriteLinks(parsed.body, file.repositoryPath, urls as UrlMap));
         const order = typeof parsed.front.order === 'number' ? parsed.front.order : undefined;
         const data = await parseData({
           id: file.id,
@@ -158,7 +159,7 @@ export function docsTranslationsLoader(): Loader {
       store.clear();
       for (const { file, text } of translated) {
         const parsed = readSource(text, file.stem);
-        const body = explicitHeadings(rewriteLinks(parsed.body, file.repositoryPath, urls as UrlMap));
+        const body = explicitHeadings(literalAngleBrackets(rewriteLinks(parsed.body, file.repositoryPath, urls as UrlMap)));
         const order = typeof parsed.front.order === 'number' ? parsed.front.order : undefined;
         const data = await parseData({
           id: file.id,
