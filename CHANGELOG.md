@@ -111,6 +111,13 @@ their own version numbers, described in the specification.
   silence even when no event had arrived, so under load the changes below
   `.git/` and new files were not reported although the result was marked as
   tracked by events; the wait now confirms the delivery with a barrier file.
+- The service accepts a connection whose peer has already closed. On macOS
+  setting the write timeout of such a socket fails with `EINVAL`, and the accept
+  loop treated that as an accept error and waited 100 ms before the next
+  connection. A client that polls every few milliseconds and gives up after
+  50 ms, such as the liveness check of the journal, produced closed connections
+  faster than the loop removed them, so every ping timed out. The write timeout
+  is now best effort.
 
 ### Changed
 
@@ -185,11 +192,8 @@ their own version numbers, described in the specification.
 
 ### Known issues
 
-- macOS: the protocol test `client_compat_d2_journal_inactive_rules` of
-  `nurt-service` exceeded its time limit intermittently on the macOS runners of
-  the continuous integration. The cause is not established; the test now reports
-  the verdict of the reference client and the steps of its last ping when it
-  times out. No macOS archive is published for this release.
+- No macOS archive is published for this release. The code for macOS passes
+  `cargo check` and the tests of the continuous integration on the macOS runner.
 
 ## [0.1.1] - 2026-11-27
 
