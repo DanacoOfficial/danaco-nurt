@@ -17,11 +17,15 @@ interface Props {
   caption?: string;
 }
 
-const images = import.meta.glob<{ default: ImageMetadata }>('../../assets/brand/**/*.webp', { eager: true });
+// Only the images a page shows are listed: every matched file is written to the output in full size.
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/brand/**/{mockup-business-card,mockup-docs-header-dark,mockup-terminal-banner,render-hero-front,render-light-ground,render-macro-edge}.webp',
+  { eager: true },
+);
 const { name, alt, width = 1200, caption } = Astro.props;
 const key = Object.keys(images).find((candidate) => candidate.endsWith(`/${name}.webp`));
 if (!key) {
-  throw new Error(`unknown brand image: ${name}`);
+  throw new Error(`unknown brand image: ${name}; add the name to the list of BrandImage.astro`);
 }
 ---
 
