@@ -20,7 +20,6 @@ export const homeEn: HomeContent = {
   pillars: {
     eyebrow: 'Why Nurt',
     title: 'A shell that answers for what it does',
-    lead: 'The design follows from one promise: you can see what a program will do, what it did, and take it back.',
     cards: [
       { icon: 'undo-2', title: 'Undo is part of the language', text: 'File changes are recorded in a journal. Reviewing an operation, undoing it and redoing it are commands of the language.', path: '/product/journal-and-undo/', shell: false, program: 'history limit: 5\nundo 18' },
       { icon: 'scan-search', title: 'Checked before it runs', text: 'Names, parameters and types are validated against the command catalog before any effect takes place. Errors carry a stable code, a position and a correction.', path: '/product/language/', shell: true, program: 'nurt check -e \'remove "/home/user/app/build"\'' },

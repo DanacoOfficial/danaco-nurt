@@ -20,7 +20,6 @@ export const homePl: HomeContent = {
   pillars: {
     eyebrow: 'Dlaczego Nurt',
     title: 'Powłoka, która odpowiada za to, co robi',
-    lead: 'Cały projekt wynika z jednej obietnicy: widzisz, co program zrobi i co zrobił, i możesz to cofnąć.',
     cards: [
       { icon: 'undo-2', title: 'Cofanie jest częścią języka', text: 'Zmiany w plikach trafiają do dziennika. Przejrzenie operacji, jej cofnięcie i ponowienie są poleceniami języka.', path: '/product/journal-and-undo/', shell: false, program: 'history limit: 5\nundo 18' },
       { icon: 'scan-search', title: 'Sprawdzone przed uruchomieniem', text: 'Nazwy, parametry i typy są weryfikowane względem katalogu poleceń, zanim cokolwiek się zmieni. Błędy mają stabilny kod, położenie i poprawkę.', path: '/product/language/', shell: true, program: 'nurt check -e \'remove "/home/user/app/build"\'' },

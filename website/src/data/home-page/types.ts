@@ -26,7 +26,7 @@ export interface HomeCard {
 
 export interface HomeContent {
   readonly hero: { readonly eyebrow: string; readonly title: string; readonly lead: string; readonly note: string; readonly sceneLabel: string; readonly sceneCaption: string };
-  readonly pillars: { readonly eyebrow: string; readonly title: string; readonly lead: string; readonly cards: readonly HomeCard[] };
+  readonly pillars: { readonly eyebrow: string; readonly title: string; readonly cards: readonly HomeCard[] };
   readonly statement: { readonly eyebrow: string; readonly quote: string; readonly role: string };
   readonly how: {
     readonly eyebrow: string;

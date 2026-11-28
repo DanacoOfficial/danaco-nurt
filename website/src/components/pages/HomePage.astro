@@ -41,7 +41,7 @@ const content = locale === 'pl' ? homePl : homeEn;
 <BaseLayout title="Danaco Nurt" description={seo.descriptions[locale]} locale={locale} path="/" home={true} context={ui.siteDescription}>
   <Hero locale={locale} content={content.hero} />
 
-  <Section id="why" eyebrow={content.pillars.eyebrow} title={content.pillars.title} lead={content.pillars.lead}>
+  <Section id="why" eyebrow={content.pillars.eyebrow} title={content.pillars.title}>
     <FeatureTour locale={locale} id="why" label={content.pillars.title} items={content.pillars.cards} />
   </Section>
 
