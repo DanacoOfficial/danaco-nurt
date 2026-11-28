@@ -683,11 +683,11 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> suspend'
+program = 'jobs "${step1/report/job/fields/id/v}" |> suspend'
 expect = { report = { status = "ok", kind = "suspend", irreversible = [{ reason = "process_state_changed" }] } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}"'
+program = 'jobs "${step1/report/job/fields/id/v}"'
 expect = { report = { records = { rows = [{ kind = "job", fields = { state = { t = "enum", v = "suspended" } } }] } } }
 
 [[case]]
@@ -701,14 +701,14 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> resume'
+program = 'jobs "${step1/report/job/fields/id/v}" |> resume'
 expect = { report = { status = "failed", error = { code = "E_JOB_STATE" } } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> suspend'
+program = 'jobs "${step1/report/job/fields/id/v}" |> suspend'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> resume'
+program = 'jobs "${step1/report/job/fields/id/v}" |> resume'
 expect = { report = { status = "ok", kind = "resume" } }
 
 [[case]]

@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+# Continuation of shortened results: next.
+
+[[case]]
+id = "exec/core/next/continues-lines"
+kind = "exec"
+summary = "next returns the next part of a shortened result and keeps the continuation while lines remain."
+fs_before = { entries = [{ path = "long.txt", type = "file", content_utf8 = "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n" }] }
+
+[[case.step]]
+program = 'lines "long.txt"'
+expect = { report = { status = "ok", kind = "lines", continuation = { id = "c1", unit = "records", shown = 50, remaining = 71 } } }
+
+[[case.step]]
+program = "next"
+expect = { report = { status = "ok", kind = "next", continuation = { id = "c1", unit = "records", shown = 100, remaining = 21 } } }
+
+[[case]]
+id = "exec/core/next/count-and-all"
+kind = "exec"
+summary = "next with a count returns that many units, and next all returns everything that is left."
+fs_before = { entries = [{ path = "long.txt", type = "file", content_utf8 = "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n" }] }
+
+[[case.step]]
+program = 'lines "long.txt"'
+expect = { report = { status = "ok", continuation = { id = "c1", shown = 50, remaining = 71 } } }
+
+[[case.step]]
+program = "next 10"
+expect = { report = { status = "ok", kind = "next", continuation = { id = "c1", shown = 60, remaining = 61 } } }
+
+[[case.step]]
+program = "next all"
+expect = { report = { status = "ok", kind = "next", continuation = { id = "c1", shown = 121, remaining = 0 } } }
+
+[[case]]
+id = "exec/core/next/without-result"
+kind = "exec"
+summary = "next in a session without a shortened result fails with E_CONTINUATION_EXPIRED and changes nothing."
+fs_before = { entries = [] }
+program = "next"
+fs_after = "unchanged"
+expect = { report = { status = "failed", kind = "next", error = { code = "E_CONTINUATION_EXPIRED" } } }
+
+[[case]]
+id = "exec/core/next/invalid-count"
+kind = "exec"
+summary = "next with a count below 1 fails with E_INVALID_VALUE."
+fs_before = { entries = [] }
+program = "next count: 0"
+expect = { report = { status = "failed", kind = "next", error = { code = "E_INVALID_VALUE" } } }
