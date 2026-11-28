@@ -6,7 +6,7 @@
 // Responsibility:   System calls of the macOS back end.
 // Dependencies:     backend, nurt_contracts, rustix
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! System calls of the macOS back end.
@@ -104,6 +104,28 @@ fn retry_io<T>(mut call: impl FnMut() -> io::Result<T>) -> io::Result<T> {
             result => return result,
         }
     }
+}
+
+/// Basic metadata of the entry `name` of the directory `dir`; a symbolic link
+/// in the last component is reported, not followed.
+pub(crate) fn entry_meta(
+    dir: std::os::fd::BorrowedFd<'_>,
+    name: &std::ffi::OsStr,
+    op: &str,
+    report: &Path,
+) -> FsResult<nurt_contracts::fs::FileMeta> {
+    retry(|| rustix::fs::statat(dir, name, rustix::fs::AtFlags::SYMLINK_NOFOLLOW))
+        .map(|stat| metadata::file_meta(&stat))
+        .map_err(|errno| sys_error(errno, ErrnoContext::Plain, op, report))
+}
+
+/// Basic metadata of an open entry.
+pub(crate) fn fd_meta(
+    fd: std::os::fd::BorrowedFd<'_>,
+    op: &str,
+    report: &Path,
+) -> FsResult<nurt_contracts::fs::FileMeta> {
+    metadata::stat_fd(fd, op, report).map(|stat| metadata::file_meta(&stat))
 }
 
 fn sys_error(errno: Errno, context: ErrnoContext, op: &str, path: &Path) -> FsError {

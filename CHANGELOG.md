@@ -96,6 +96,14 @@ their own version numbers, described in the specification.
   811 MB to 298 MB and the archive of `x86_64-unknown-linux-musl` from 235 MB to
   63 MB. The exported functions are unchanged and a C program still links with
   the library.
+- Unix: the window in which the account could swap a directory of its own
+  journal for a link is closed in the descriptor mode of the journal of an
+  account that an elevated process writes (macOS, `doas` and `sudo` there).
+  Reading, listing, moving, linking, locking and removing now name the entry
+  relative to the descriptor of its checked directory (`openat` with
+  `O_NOFOLLOW`, `fstatat`, `renameat`, `linkat`, `unlinkat`) instead of
+  walking the path again after the check, as creating files already did, and a
+  call without such a form is refused instead of falling back to a path.
 
 ### Known issues
 

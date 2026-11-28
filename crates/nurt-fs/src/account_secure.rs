@@ -3,12 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs.account_secure
-// Responsibility:   Creates journal files, directories and links for an account through checked directory descriptors and hands them to the account before use.
-// Dependencies:     libc, std
+// Responsibility:   Creates, reads, moves and removes journal entries of an account through checked directory descriptors and hands new entries to the account before use.
+// Dependencies:     libc, rustix, xattr, std
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
-//! Creation of journal files for an account without a file system identity
+//! Access to journal entries of an account without a file system identity
 //! (Unix systems other than Linux, and the portable path on Linux).
 //!
 //! The process has the rights of the administrator, so it must neither follow
@@ -23,13 +23,25 @@
 //! directory is created with `mkdirat`, opened without following links and
 //! given to the account the same way. A name that already exists, whatever it
 //! is, makes the creation fail.
+//!
+//! Reading, renaming, linking and removing follow the same rule: the entry is
+//! named relative to the descriptor of its checked directory and is opened,
+//! examined (`fstatat` with `AT_SYMLINK_NOFOLLOW`), renamed (`renameat`),
+//! linked (`linkat`) or removed (`unlinkat`) through that descriptor, with no
+//! second walk of the path. A directory of the journal that the account
+//! replaces by a link after the check cannot redirect the call, because the
+//! call no longer resolves the directory by name.
 
-use std::ffi::{CString, OsStr};
+use std::ffi::{CString, OsStr, OsString};
 use std::fs::File;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-use std::os::unix::ffi::OsStrExt;
-use std::path::{Component, Path};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::path::{Component, Path, PathBuf};
+
+use rustix::fs::{AtFlags, Dir, FileType, FlockOperation, RenameFlags};
+use rustix::io::Errno;
+use xattr::FileExt;
 
 /// Name that marks a journal directory.
 const JOURNAL_DIR: &str = ".nurt-journal";
@@ -249,6 +261,346 @@ pub(crate) fn split(path: &Path) -> io::Result<(&Path, &OsStr)> {
     }
 }
 
+fn from_errno(errno: Errno) -> io::Error {
+    io::Error::from_raw_os_error(errno.raw_os_error())
+}
+
+/// Repeats a system call that a signal interrupted, at most eight times.
+fn retried<T>(mut call: impl FnMut() -> rustix::io::Result<T>) -> io::Result<T> {
+    let mut attempts = 1;
+    loop {
+        match call() {
+            Err(Errno::INTR) if attempts < 8 => attempts += 1,
+            result => return result.map_err(from_errno),
+        }
+    }
+}
+
+/// `fstatat` of the entry `name` of `dir`; a link in the last component is
+/// reported, not followed.
+fn stat_entry(dir: &OwnedFd, name: &OsStr) -> io::Result<libc::stat> {
+    let text = cstring(name)?;
+    // SAFETY: an all-zero `stat` is a valid buffer for `fstatat` to fill.
+    let mut info: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: `text` is a valid C string, `dir` is an open descriptor and
+    // `info` is a valid buffer.
+    check(unsafe {
+        libc::fstatat(
+            dir.as_raw_fd(),
+            text.as_ptr(),
+            &raw mut info,
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    })?;
+    Ok(info)
+}
+
+fn is_directory(info: &libc::stat) -> bool {
+    info.st_mode & libc::S_IFMT == libc::S_IFDIR
+}
+
+/// Opens the entry `name` of `dir` with `flags`, never following a link in the
+/// last component.
+///
+/// # Errors
+///
+/// Fails with the error of `openat`; a link in the place of the entry gives
+/// `ELOOP` (`ENOTDIR` for a directory open).
+pub(crate) fn open_entry(dir: &OwnedFd, name: &OsStr, flags: libc::c_int) -> io::Result<OwnedFd> {
+    open_at(
+        dir.as_raw_fd(),
+        name,
+        flags | libc::O_NOFOLLOW | libc::O_NOCTTY,
+    )
+}
+
+/// Opens the file `name` of `dir` for reading without waiting for a writer of
+/// a pipe and without following a link.
+///
+/// # Errors
+///
+/// Fails with the error of `openat`.
+pub(crate) fn open_file_for_read(dir: &OwnedFd, name: &OsStr) -> io::Result<File> {
+    open_entry(dir, name, libc::O_RDONLY | libc::O_NONBLOCK).map(File::from)
+}
+
+/// Opens the file `name` of `dir` for writing in place without following a
+/// link.
+///
+/// # Errors
+///
+/// Fails with the error of `openat`.
+pub(crate) fn open_file_for_write(dir: &OwnedFd, name: &OsStr) -> io::Result<File> {
+    open_entry(dir, name, libc::O_WRONLY).map(File::from)
+}
+
+/// Target of the link `name` of `dir`, as stored in the link.
+///
+/// # Errors
+///
+/// Fails with the error of `readlinkat`; `EINVAL` when the entry is not a link.
+pub(crate) fn read_link_in(dir: &OwnedFd, name: &OsStr) -> io::Result<PathBuf> {
+    let target = retried(|| rustix::fs::readlinkat(dir, name, Vec::new()))?;
+    Ok(PathBuf::from(OsString::from_vec(target.into_bytes())))
+}
+
+/// How [`rename_in`] treats an existing destination.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RenameHow {
+    /// Replace the destination.
+    Replace,
+    /// Fail with `EEXIST` when the destination exists.
+    NoReplace,
+    /// Swap the two names.
+    Exchange,
+}
+
+/// Renames `from` of `from_dir` to `to` of `to_dir` (`renameat`,
+/// `renameat2` or `renamex_np` through `rustix`).
+///
+/// Where the file system refuses `RENAME_NOREPLACE`, a non-directory is moved
+/// with `linkat` followed by `unlinkat`, both relative to the same
+/// descriptors.
+///
+/// # Errors
+///
+/// Fails with the error of the system call; `EOPNOTSUPP` when an exchange or a
+/// no-replace move of a directory is not available.
+pub(crate) fn rename_in(
+    from_dir: &OwnedFd,
+    from: &OsStr,
+    to_dir: &OwnedFd,
+    to: &OsStr,
+    how: RenameHow,
+) -> io::Result<()> {
+    let flags = match how {
+        RenameHow::Replace => RenameFlags::empty(),
+        RenameHow::NoReplace => RenameFlags::NOREPLACE,
+        RenameHow::Exchange => RenameFlags::EXCHANGE,
+    };
+    let result = retried(|| {
+        if flags.is_empty() {
+            rustix::fs::renameat(from_dir, from, to_dir, to)
+        } else {
+            rustix::fs::renameat_with(from_dir, from, to_dir, to, flags)
+        }
+    });
+    match (result, how) {
+        (Err(error), RenameHow::NoReplace)
+            if matches!(
+                error.raw_os_error(),
+                Some(libc::EINVAL | libc::ENOSYS | libc::EOPNOTSUPP)
+            ) =>
+        {
+            move_without_replacing(from_dir, from, to_dir, to)
+        }
+        (Err(error), RenameHow::Exchange)
+            if matches!(
+                error.raw_os_error(),
+                Some(libc::EINVAL | libc::ENOSYS | libc::EOPNOTSUPP)
+            ) =>
+        {
+            Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP))
+        }
+        (result, _) => result,
+    }
+}
+
+fn move_without_replacing(
+    from_dir: &OwnedFd,
+    from: &OsStr,
+    to_dir: &OwnedFd,
+    to: &OsStr,
+) -> io::Result<()> {
+    if is_directory(&stat_entry(from_dir, from)?) {
+        return Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP));
+    }
+    retried(|| rustix::fs::linkat(from_dir, from, to_dir, to, AtFlags::empty()))?;
+    if let Err(error) = retried(|| rustix::fs::unlinkat(from_dir, from, AtFlags::empty())) {
+        let _ = rustix::fs::unlinkat(to_dir, to, AtFlags::empty());
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// Gives the existing entry `existing` of `existing_dir` the additional name
+/// `new` in `new_dir` (`linkat`, a link in the last component is not
+/// followed).
+///
+/// # Errors
+///
+/// Fails with the error of `linkat`.
+pub(crate) fn link_in(
+    existing_dir: &OwnedFd,
+    existing: &OsStr,
+    new_dir: &OwnedFd,
+    new: &OsStr,
+) -> io::Result<()> {
+    retried(|| rustix::fs::linkat(existing_dir, existing, new_dir, new, AtFlags::empty()))
+}
+
+/// Removes the entry `name` of `dir`: a directory when `directory` is set, any
+/// other entry otherwise (`unlinkat`).
+///
+/// # Errors
+///
+/// Fails with the error of `unlinkat`.
+pub(crate) fn unlink_entry(dir: &OwnedFd, name: &OsStr, directory: bool) -> io::Result<()> {
+    let flags = if directory {
+        AtFlags::REMOVEDIR
+    } else {
+        AtFlags::empty()
+    };
+    retried(|| rustix::fs::unlinkat(dir, name, flags))
+}
+
+/// What a recursive removal took away.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct Removed {
+    pub files: u64,
+    pub directories: u64,
+    pub bytes: u64,
+}
+
+/// Deepest tree that a recursive removal enters.
+const TREE_DEPTH_MAX: usize = 256;
+
+/// Removes the entry `name` of `dir` with everything below it. A link is
+/// removed, never followed; every subdirectory is opened relative to its
+/// parent with `O_NOFOLLOW`; a mount point inside the tree ends the removal
+/// with `EBUSY`.
+///
+/// # Errors
+///
+/// Fails with the error of the first system call that failed; the entries
+/// removed before it stay removed.
+pub(crate) fn remove_tree_in(dir: &OwnedFd, name: &OsStr) -> io::Result<Removed> {
+    remove_entry(dir, name, 0)
+}
+
+fn remove_entry(dir: &OwnedFd, name: &OsStr, depth: usize) -> io::Result<Removed> {
+    let info = stat_entry(dir, name)?;
+    let mut total = Removed::default();
+    if !is_directory(&info) {
+        unlink_entry(dir, name, false)?;
+        total.files = 1;
+        total.bytes = u64::try_from(info.st_size).unwrap_or(0);
+        return Ok(total);
+    }
+    if depth >= TREE_DEPTH_MAX {
+        return Err(io::Error::from_raw_os_error(libc::ELOOP));
+    }
+    let child = open_entry(dir, name, libc::O_RDONLY | libc::O_DIRECTORY)?;
+    let mut opened: libc::stat = {
+        // SAFETY: an all-zero `stat` is a valid buffer for `fstat` to fill.
+        unsafe { std::mem::zeroed() }
+    };
+    // SAFETY: `child` is open and `opened` is a valid buffer.
+    check(unsafe { libc::fstat(child.as_raw_fd(), &raw mut opened) })?;
+    if opened.st_dev != info.st_dev {
+        return Err(io::Error::from_raw_os_error(libc::EBUSY));
+    }
+    for (entry, _) in list_entries(&child)? {
+        match remove_entry(&child, &entry, depth + 1) {
+            Ok(removed) => {
+                total.files += removed.files;
+                total.directories += removed.directories;
+                total.bytes += removed.bytes;
+            }
+            Err(error) if error.raw_os_error() == Some(libc::ENOENT) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    drop(child);
+    unlink_entry(dir, name, true)?;
+    total.directories += 1;
+    Ok(total)
+}
+
+/// Names and types of the entries of the open directory `dir`, without `.` and
+/// `..`.
+///
+/// # Errors
+///
+/// Fails with the error of reading the directory.
+pub(crate) fn list_entries(dir: &OwnedFd) -> io::Result<Vec<(OsString, FileType)>> {
+    let reader = Dir::read_from(dir).map_err(from_errno)?;
+    let mut entries = Vec::new();
+    for entry in reader {
+        let entry = entry.map_err(from_errno)?;
+        let name = entry.file_name().to_bytes();
+        if name == b"." || name == b".." {
+            continue;
+        }
+        entries.push((OsString::from_vec(name.to_vec()), entry.file_type()));
+    }
+    Ok(entries)
+}
+
+/// Opens the lock file `name` of `dir`, creating it for the account when it
+/// does not exist, and refuses an entry that is not a regular file.
+///
+/// # Errors
+///
+/// Fails with the error of the system call.
+pub(crate) fn open_lock_file(owner: &Owner<'_>, dir: &OwnedFd, name: &OsStr) -> io::Result<File> {
+    match create_file_in(owner, dir, name, 0o600) {
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+            let existing = open_file_for_read(dir, name)?;
+            if !existing.metadata()?.is_file() {
+                return Err(io::Error::from_raw_os_error(libc::EINVAL));
+            }
+            Ok(existing)
+        }
+        other => other,
+    }
+}
+
+/// Takes the exclusive lock of `file` without waiting; `false` when another
+/// holder has it.
+///
+/// # Errors
+///
+/// Fails with the error of `flock` other than the lock being held.
+pub(crate) fn try_lock_exclusive(file: &File) -> io::Result<bool> {
+    match retried(|| rustix::fs::flock(file, FlockOperation::NonBlockingLockExclusive)) {
+        Ok(()) => Ok(true),
+        Err(error) if error.raw_os_error() == Some(libc::EWOULDBLOCK) => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
+/// Extended attributes of the open file, sorted by name; empty when the file
+/// system has none.
+///
+/// # Errors
+///
+/// Fails with the error of listing or reading an attribute.
+pub(crate) fn read_xattrs_of(file: &File) -> io::Result<Vec<(OsString, Vec<u8>)>> {
+    let names = match file.list_xattr() {
+        Ok(names) => names,
+        Err(error)
+            if matches!(
+                error.raw_os_error(),
+                Some(code) if code == libc::ENOTSUP
+                    || code == libc::EOPNOTSUPP
+                    || code == libc::EPERM
+            ) =>
+        {
+            return Ok(Vec::new());
+        }
+        Err(error) => return Err(error),
+    };
+    let mut found = Vec::new();
+    for name in names {
+        if let Some(value) = file.get_xattr(&name)? {
+            found.push((name, value));
+        }
+    }
+    found.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(found)
+}
+
 #[cfg(test)]
 mod tests {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -345,6 +697,209 @@ mod tests {
         assert!(meta.file_type().is_symlink());
         assert_eq!(meta.uid(), owner.uid);
         assert!(symlink_in(&owner, &dir, OsStr::new("link"), Path::new("/else")).is_err());
+    }
+
+    /// Journal directory `ops` that the account swaps for a link to `outside`
+    /// after its descriptor was opened: the descriptor, the directory that
+    /// moved away and the directory that the link points to.
+    fn swapped_directory(root: &Path, owner: &Owner<'_>) -> (OwnedFd, PathBuf, PathBuf) {
+        let state = root.join("state");
+        let journal = state.join(".nurt-journal");
+        let ops = journal.join("ops");
+        let outside = root.join("outside");
+        std::fs::create_dir_all(&ops).unwrap();
+        std::fs::create_dir(&outside).unwrap();
+        for name in ["a", "b", "c"] {
+            std::fs::write(ops.join(name), b"inside").unwrap();
+            std::fs::write(outside.join(name), b"outside").unwrap();
+        }
+        let checked = open_dir(owner, &ops).unwrap();
+        let moved = journal.join("ops-moved");
+        std::fs::rename(&ops, &moved).unwrap();
+        std::os::unix::fs::symlink(&outside, &ops).unwrap();
+        (checked, moved, outside)
+    }
+
+    #[test]
+    fn a_read_after_the_swap_of_the_directory_for_a_link_stays_in_the_checked_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let owner = me(&state);
+        let (checked, _moved, _outside) = swapped_directory(root.path(), &owner);
+        let mut content = String::new();
+        std::io::Read::read_to_string(
+            &mut open_file_for_read(&checked, OsStr::new("a")).unwrap(),
+            &mut content,
+        )
+        .unwrap();
+        assert_eq!(content, "inside");
+        let info = stat_entry(&checked, OsStr::new("b")).unwrap();
+        assert_eq!(info.st_size, 6);
+        let names: Vec<_> = list_entries(&checked)
+            .unwrap()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(names.len(), 3);
+        assert!(open_dir(&owner, &state.join(".nurt-journal/ops")).is_err());
+    }
+
+    #[test]
+    fn a_move_after_the_swap_of_the_directory_for_a_link_leaves_the_outside_alone() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let owner = me(&state);
+        let (checked, moved, outside) = swapped_directory(root.path(), &owner);
+        rename_in(
+            &checked,
+            OsStr::new("a"),
+            &checked,
+            OsStr::new("moved"),
+            RenameHow::Replace,
+        )
+        .unwrap();
+        rename_in(
+            &checked,
+            OsStr::new("b"),
+            &checked,
+            OsStr::new("c"),
+            RenameHow::Exchange,
+        )
+        .unwrap();
+        link_in(
+            &checked,
+            OsStr::new("moved"),
+            &checked,
+            OsStr::new("linked"),
+        )
+        .unwrap();
+        assert!(!moved.join("a").exists());
+        assert_eq!(std::fs::read(moved.join("moved")).unwrap(), b"inside");
+        assert_eq!(std::fs::read(moved.join("linked")).unwrap(), b"inside");
+        for name in ["a", "b", "c"] {
+            assert_eq!(std::fs::read(outside.join(name)).unwrap(), b"outside");
+        }
+        assert!(!outside.join("moved").exists());
+        assert!(!outside.join("linked").exists());
+    }
+
+    #[test]
+    fn a_removal_after_the_swap_of_the_directory_for_a_link_leaves_the_outside_alone() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let owner = me(&state);
+        let (checked, moved, outside) = swapped_directory(root.path(), &owner);
+        std::fs::create_dir(moved.join("tree")).unwrap();
+        std::fs::write(moved.join("tree/leaf"), b"leaf").unwrap();
+        std::fs::create_dir(outside.join("tree")).unwrap();
+        std::fs::write(outside.join("tree/leaf"), b"outside").unwrap();
+        unlink_entry(&checked, OsStr::new("a"), false).unwrap();
+        let removed = remove_tree_in(&checked, OsStr::new("tree")).unwrap();
+        assert_eq!(
+            (removed.files, removed.directories, removed.bytes),
+            (1, 1, 4)
+        );
+        assert!(!moved.join("a").exists());
+        assert!(!moved.join("tree").exists());
+        assert!(outside.join("a").exists());
+        assert_eq!(
+            std::fs::read(outside.join("tree/leaf")).unwrap(),
+            b"outside"
+        );
+    }
+
+    #[test]
+    fn a_removal_of_a_tree_removes_a_link_inside_it_and_not_what_it_points_to() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let tree = state.join("tree");
+        let outside = root.path().join("outside");
+        std::fs::create_dir_all(tree.join("deeper")).unwrap();
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("keep"), b"keep").unwrap();
+        std::os::unix::fs::symlink(&outside, tree.join("deeper/link")).unwrap();
+        std::fs::write(tree.join("file"), b"12345").unwrap();
+        let owner = me(&state);
+        let dir = open_dir(&owner, &state).unwrap();
+        let removed = remove_tree_in(&dir, OsStr::new("tree")).unwrap();
+        assert_eq!(removed.directories, 2);
+        assert_eq!(removed.files, 2);
+        assert!(!tree.exists());
+        assert_eq!(std::fs::read(outside.join("keep")).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn a_link_in_the_place_of_the_entry_is_not_opened_for_reading_or_writing() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let outside = root.path().join("outside");
+        std::fs::write(&outside, b"outside").unwrap();
+        std::os::unix::fs::symlink(&outside, state.join("link")).unwrap();
+        let owner = me(&state);
+        let dir = open_dir(&owner, &state).unwrap();
+        assert!(open_file_for_read(&dir, OsStr::new("link")).is_err());
+        assert!(open_file_for_write(&dir, OsStr::new("link")).is_err());
+        assert!(open_lock_file(&owner, &dir, OsStr::new("link")).is_err());
+        assert_eq!(read_link_in(&dir, OsStr::new("link")).unwrap(), outside);
+        unlink_entry(&dir, OsStr::new("link"), false).unwrap();
+        assert_eq!(std::fs::read(&outside).unwrap(), b"outside");
+    }
+
+    #[test]
+    fn a_move_without_replacing_keeps_an_existing_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(state.join("from"), b"from").unwrap();
+        std::fs::write(state.join("to"), b"to").unwrap();
+        let owner = me(&state);
+        let dir = open_dir(&owner, &state).unwrap();
+        let refused = rename_in(
+            &dir,
+            OsStr::new("from"),
+            &dir,
+            OsStr::new("to"),
+            RenameHow::NoReplace,
+        )
+        .unwrap_err();
+        assert_eq!(refused.raw_os_error(), Some(libc::EEXIST));
+        assert_eq!(std::fs::read(state.join("to")).unwrap(), b"to");
+        rename_in(
+            &dir,
+            OsStr::new("from"),
+            &dir,
+            OsStr::new("fresh"),
+            RenameHow::NoReplace,
+        )
+        .unwrap();
+        assert!(!state.join("from").exists());
+        assert_eq!(std::fs::read(state.join("fresh")).unwrap(), b"from");
+    }
+
+    #[test]
+    fn the_lock_is_taken_once_and_the_attributes_of_a_file_are_read() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let owner = me(&state);
+        let dir = open_dir(&owner, &state).unwrap();
+        let first = open_lock_file(&owner, &dir, OsStr::new("lock")).unwrap();
+        let second = open_lock_file(&owner, &dir, OsStr::new("lock")).unwrap();
+        assert!(try_lock_exclusive(&first).unwrap());
+        assert!(!try_lock_exclusive(&second).unwrap());
+        drop(first);
+        // A process started by another test between the open and the close of
+        // the descriptor can hold the lock until it executes its program.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !try_lock_exclusive(&second).unwrap() {
+            assert!(std::time::Instant::now() < deadline, "the lock stayed held");
+            std::thread::yield_now();
+        }
+        assert!(read_xattrs_of(&second).is_ok());
     }
 }
 
