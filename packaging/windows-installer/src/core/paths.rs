@@ -148,11 +148,14 @@ pub(crate) fn terminal_settings(user: &UserPaths) -> Vec<PathBuf> {
     .collect()
 }
 
+/// Full path of the launcher `wt.exe` of Windows Terminal: the alias of the user in `WindowsApps`.
+pub(crate) fn terminal_executable(user: &UserPaths) -> PathBuf {
+    user.local_appdata.join(r"Microsoft\WindowsApps\wt.exe")
+}
+
 /// Windows Terminal is installed for the user.
 pub(crate) fn terminal_installed(user: &UserPaths) -> bool {
-    user.local_appdata
-        .join(r"Microsoft\WindowsApps\wt.exe")
-        .exists()
+    terminal_executable(user).exists()
         || user
             .local_appdata
             .join(r"Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe")

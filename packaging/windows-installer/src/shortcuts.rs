@@ -116,18 +116,19 @@ fn write_with(shell: &Path, links: &[Link]) -> Result<(), String> {
     Ok(())
 }
 
-/// The shortcut that opens a terminal with `nurt`: the profile of Windows Terminal when there is
-/// one, otherwise `nurt.exe` itself, which opens a console with the banner of the session.
+/// The shortcut that opens a terminal with `nurt`: the profile of Windows Terminal when `terminal`
+/// holds the full path of its `wt.exe`, otherwise `nurt.exe` itself, which opens a console with the
+/// banner of the session. The target of the first form is always a full path: the shell resolves a
+/// bare `wt.exe` through no search path and shows the dialog of a missing shortcut.
 pub(crate) fn program_link(
     path: PathBuf,
     layout: &Layout,
     home: &Path,
-    terminal_profile: bool,
+    terminal: Option<&Path>,
 ) -> Link {
-    let (target, arguments) = if terminal_profile {
-        ("wt.exe".to_string(), format!("-p \"{PROGRAM_NAME}\""))
-    } else {
-        (layout.exe().display().to_string(), String::new())
+    let (target, arguments) = match terminal {
+        Some(wt) => (wt.display().to_string(), format!("-p \"{PROGRAM_NAME}\"")),
+        None => (layout.exe().display().to_string(), String::new()),
     };
     Link {
         path,
@@ -244,12 +245,16 @@ mod tests {
     fn the_program_opens_the_profile_of_windows_terminal_or_the_executable() {
         let layout = layout();
         let home = Path::new(r"C:\Users\user");
-        let profile = program_link(PathBuf::from("p.lnk"), &layout, home, true);
+        let wt = Path::new(r"C:\Users\user\AppData\Local\Microsoft\WindowsApps\wt.exe");
+        let profile = program_link(PathBuf::from("p.lnk"), &layout, home, Some(wt));
         assert_eq!(
             (profile.target.as_str(), profile.arguments.as_str()),
-            ("wt.exe", "-p \"Danaco Nurt\"")
+            (
+                r"C:\Users\user\AppData\Local\Microsoft\WindowsApps\wt.exe",
+                "-p \"Danaco Nurt\""
+            )
         );
-        let plain = program_link(PathBuf::from("p.lnk"), &layout, home, false);
+        let plain = program_link(PathBuf::from("p.lnk"), &layout, home, None);
         assert_eq!(plain.target, layout.exe().display().to_string());
         assert!(plain.arguments.is_empty());
         assert_eq!(plain.icon, layout.icon().display().to_string());

@@ -739,7 +739,9 @@ impl Install<'_> {
     fn links(&self, paths_and_links: &mut Vec<(PathBuf, shortcuts::Link)>, kind: &str) {
         let options = self.env.options;
         let user = self.env.user;
-        let profile = options.terminal_profile;
+        let terminal_exe = paths::terminal_executable(user);
+        let terminal = (options.terminal_profile && paths::terminal_installed(user))
+            .then_some(terminal_exe.as_path());
         let file = |folder: PathBuf, name: &str| folder.join(format!("{name}.lnk"));
         match kind {
             "start" => {
@@ -748,7 +750,7 @@ impl Install<'_> {
                 let undo = file(folder, shortcuts::UNDO_NAME);
                 paths_and_links.push((
                     program.clone(),
-                    shortcuts::program_link(program, &self.layout, &user.profile, profile),
+                    shortcuts::program_link(program, &self.layout, &user.profile, terminal),
                 ));
                 paths_and_links.push((undo.clone(), shortcuts::undo_link(undo, &self.layout)));
             }
@@ -756,14 +758,14 @@ impl Install<'_> {
                 let path = file(paths::desktop(self.scope, user), shortcuts::PROGRAM_NAME);
                 paths_and_links.push((
                     path.clone(),
-                    shortcuts::program_link(path, &self.layout, &user.profile, profile),
+                    shortcuts::program_link(path, &self.layout, &user.profile, terminal),
                 ));
             }
             _ => {
                 let path = file(paths::quick_launch(user), shortcuts::PROGRAM_NAME);
                 paths_and_links.push((
                     path.clone(),
-                    shortcuts::program_link(path, &self.layout, &user.profile, profile),
+                    shortcuts::program_link(path, &self.layout, &user.profile, terminal),
                 ));
             }
         }
