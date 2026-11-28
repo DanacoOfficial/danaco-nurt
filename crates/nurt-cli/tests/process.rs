@@ -757,7 +757,7 @@ fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output
 }
 
 /// Rows of the records of a program run as JSON.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "macos")))]
 fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
     let output = program_in(home, &["--format", "json"], program);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));

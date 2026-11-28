@@ -119,9 +119,17 @@ fn files(home: &Path, count: u32) -> String {
     dir.display().to_string()
 }
 
-/// Writes the configuration file of the account.
+/// Writes the configuration file of the account, where the platform reads it:
+/// below `XDG_CONFIG_HOME` on Linux and in `Library/Application Support` on
+/// macOS.
 fn configure(home: &Path, text: &str) {
-    let dir = home.join("config").join("nurt");
+    let dir = if cfg!(target_os = "macos") {
+        home.join("Library")
+            .join("Application Support")
+            .join("Nurt")
+    } else {
+        home.join("config").join("nurt")
+    };
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("nurt.toml"), text).unwrap();
 }

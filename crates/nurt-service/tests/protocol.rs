@@ -342,13 +342,12 @@ fn client_compat_d2_journal_inactive_rules() {
     let service = launch(modules(&space, &schedule), Options::default());
     let state_dir = service.paths.state_dir().to_owned();
     let paths = service.paths.clone();
-    let attempts = 3;
-    assert!(
-        (0..attempts).any(|_| {
-            d2_client::journal_active(&state_dir, jiff::Timestamp::now()) == Verdict::Active
-        }),
-        "the reference client must see a running service within {attempts} attempts"
-    );
+    // The reference client waits 50 ms for the answer to its ping, so a busy
+    // runner can miss it; the attempts are spaced like those of a console that
+    // asks again.
+    eventually("the reference client to see a running service", || {
+        d2_client::journal_active(&state_dir, jiff::Timestamp::now()) == Verdict::Active
+    });
     let liveness = status::liveness(
         &paths,
         status::wall_now(),
