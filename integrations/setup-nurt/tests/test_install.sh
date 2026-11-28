@@ -67,9 +67,9 @@ assert_file 'places the executable in the tool cache' "$cache/nurt/1.2.3/x64/nur
 assert_file 'writes the completion marker' "$cache/nurt/1.2.3/x64.complete"
 assert_file 'keeps the notice file from the archive' "$cache/nurt/1.2.3/x64/NOTICE"
 assert_contains 'reports verification' 'verified SHA-256' "$(cat "$work/stdout")"
-assert_contains 'outputs the executable path' "path=$cache/nurt/1.2.3/x64/nurt" "$(cat "$work/github_output")"
+assert_contains 'outputs the executable path' "path=$(native_path "$cache/nurt/1.2.3/x64/nurt")" "$(cat "$work/github_output")"
 assert_contains 'outputs the resolved version' 'version=1.2.3' "$(cat "$work/github_output")"
-assert_eq 'adds the install directory to the path' "$cache/nurt/1.2.3/x64" "$(cat "$work/github_path")"
+assert_eq 'adds the install directory to the path' "$(native_path "$cache/nurt/1.2.3/x64")" "$(cat "$work/github_path")"
 assert_eq 'installed executable runs' 'Danaco Nurt 1.2.3' "$("$cache/nurt/1.2.3/x64/nurt")"
 
 rm -rf "$release/v1.2.3"
