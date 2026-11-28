@@ -194,10 +194,10 @@ h4 {
   overflow-wrap: anywhere;
 }
 
-/* On a wide window the first cell of the other rows still wraps, but only between words: an identifier such as run.spool_max is not cut in the middle. */
+/* On a wide window an identifier or a path in a cell is not cut in the middle while the table has room: the column takes the width of its longest name, and a name breaks only when it is longer than the column can be. */
 @media (min-width: 80rem) {
   .prose td:first-child:has(> code:only-child),
-  .prose td:first-child > code:only-child {
+  .prose td > code {
     overflow-wrap: break-word;
   }
 }
