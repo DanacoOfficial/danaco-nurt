@@ -76,7 +76,7 @@
 }
 
 .card__icon {
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .card__eyebrow {
@@ -104,7 +104,7 @@
 .card__arrow {
   margin-top: auto;
   padding-top: var(--space-2);
-  color: var(--accent-strong);
+  color: var(--accent-text);
   transition: transform var(--duration-base) var(--ease-out);
 }
 
@@ -171,5 +171,5 @@
 }
 
 .card--link:hover .card__arrow {
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }

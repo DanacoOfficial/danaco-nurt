@@ -89,7 +89,7 @@
 }
 
 .site-footer__heading a:hover {
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .site-footer__column ul,

@@ -37,10 +37,5 @@
 
 .language-switch [aria-current='true'] {
   background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.language-switch span[aria-disabled='true'] {
-  opacity: 0.4;
-  cursor: not-allowed;
+  color: var(--accent-text);
 }

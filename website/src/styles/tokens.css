@@ -15,6 +15,8 @@
   --brand-gold: #c9a15a;
   --brand-gold-deep: #a3722a;
   --brand-gold-ground: #d9bc85;
+  /* A gold of this site for accent text on light grounds, 5.3 : 1 on paper; the identity palette has no gold of 4.5 : 1 on paper. */
+  --brand-gold-text: #8a5e1f;
   --brand-ink: #2b2f36;
   --brand-paper: #f6f7f8;
   --brand-paper-warm: #f2eee6;
@@ -92,6 +94,7 @@
   --name-product: #f6f7f8;
   --accent: var(--brand-gold);
   --accent-strong: var(--brand-gold-ground);
+  --accent-text: var(--brand-gold-ground);
   --accent-on: var(--brand-graphite);
   --accent-soft: rgba(201, 161, 90, 0.12);
   --link: var(--brand-gold-ground);
@@ -125,6 +128,7 @@
   --name-product: #0b0c0e;
   --accent: var(--brand-gold);
   --accent-strong: var(--brand-gold-deep);
+  --accent-text: var(--brand-gold-text);
   --accent-on: var(--brand-graphite);
   --accent-soft: rgba(163, 114, 42, 0.1);
   --link: var(--brand-ink);
@@ -158,6 +162,7 @@
     --name-company: #4a515c;
     --name-product: #0b0c0e;
     --accent-strong: var(--brand-gold-deep);
+    --accent-text: var(--brand-gold-text);
     --accent-soft: rgba(163, 114, 42, 0.1);
     --link: var(--brand-ink);
     --link-hover: #000000;

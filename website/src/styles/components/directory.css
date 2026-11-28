@@ -44,7 +44,7 @@
 }
 
 .directory__title a:hover {
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .directory__lead {
@@ -73,7 +73,7 @@
 
 .directory__link > svg:first-child {
   margin-top: 0.15rem;
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .directory__link:hover {
@@ -104,7 +104,7 @@
 }
 
 .directory__link:hover .directory__arrow {
-  color: var(--accent-strong);
+  color: var(--accent-text);
   transform: translateX(4px);
 }
 
@@ -144,7 +144,7 @@
   margin-top: 0.2rem;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 @media (min-width: 64rem) {

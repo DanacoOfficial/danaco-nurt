@@ -46,7 +46,7 @@
 .install-tabs input:nth-of-type(2):checked ~ .install-tabs__labels label:nth-child(2) {
   border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .install-tabs input:focus-visible ~ .install-tabs__labels label {

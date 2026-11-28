@@ -40,7 +40,7 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
   white-space: nowrap;
-  color: var(--accent-strong);
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
 }
 

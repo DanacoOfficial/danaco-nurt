@@ -53,7 +53,7 @@
 .statement__name {
   font-size: var(--text-lg);
   font-weight: 600;
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .statement__role {

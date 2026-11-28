@@ -44,7 +44,7 @@
 
 .downloads__icon {
   flex: none;
-  color: var(--accent-strong);
+  color: var(--accent-text);
   transition: transform var(--duration-base) var(--ease-out);
 }
 

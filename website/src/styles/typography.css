@@ -44,7 +44,7 @@ h4 {
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .eyebrow::before {
@@ -121,7 +121,7 @@ h4 {
 }
 
 .prose ol > li::marker {
-  color: var(--accent-strong);
+  color: var(--accent-text);
   font-family: var(--font-mono);
   font-size: 0.85em;
 }

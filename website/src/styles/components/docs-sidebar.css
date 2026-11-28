@@ -33,7 +33,7 @@
   font-size: var(--text-xs);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--accent-strong);
+  color: var(--accent-text);
   cursor: pointer;
   list-style: none;
 }
