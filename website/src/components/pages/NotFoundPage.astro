@@ -4,7 +4,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.pages.NotFoundPage
-// Responsibility:   The page for an address that does not exist, in both languages of the site, with ways back to the home page, the documentation and the search beside the sections of the site. The page shows both languages without scripts; with scripts it keeps the language of the address.
+// Responsibility:   The page for an address that does not exist, in both languages of the site, with ways back to the home page, the documentation and the search beside the sections of the site. The English page is the answer of the server for every missing address and carries both languages for a browser without scripts; with scripts it shows English, and under a Polish address it puts the Polish page in its place, so the header and the footer are Polish as well. The Polish page carries Polish only.
 // Dependencies:     website.src.layouts.BaseLayout, website.src.components.base.Button, website.src.components.brand.Mark, website.src.components.sections.SiteSections
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
@@ -16,26 +16,32 @@ import { href } from '../../lib/urls';
 import { useUi } from '../../i18n';
 import '../../styles/components/not-found.css';
 
-const locales: readonly Locale[] = ['en', 'pl'];
-const selectLanguage = "(function(){var pl=/^\\/pl(\\/|$)/.test(location.pathname);var keep=pl?'pl':'en';document.documentElement.lang=keep;var parts=document.querySelectorAll('[data-not-found]');for(var i=0;i<parts.length;i++){parts[i].hidden=parts[i].getAttribute('data-not-found')!==keep;}})();";
-const en = useUi('en');
+interface Props {
+  locale?: Locale;
+}
+
+const { locale: pageLocale = 'en' } = Astro.props;
+const shown: readonly Locale[] = pageLocale === 'en' ? ['en', 'pl'] : ['pl'];
+const polishPage = href('/404/', 'pl');
+const selectLanguage = `(function(){var parts=document.querySelectorAll('[data-not-found]');function keep(locale){for(var i=0;i<parts.length;i++){parts[i].hidden=parts[i].getAttribute('data-not-found')!==locale;}}if(!/^\\/pl(\\/|$)/.test(location.pathname)){keep('en');return;}var root=document.documentElement;root.style.visibility='hidden';function fallback(){root.lang='pl';keep('pl');root.style.visibility='';}fetch(${JSON.stringify(polishPage)}).then(function(response){if(!response.ok){throw new Error('status');}return response.text();}).then(function(page){document.open();document.write(page);document.close();}).catch(fallback);})();`;
+const ui = useUi(pageLocale);
 ---
 
-<BaseLayout title={en.notFound.title} description={en.notFound.lead} locale="en" path="/404/" noindex={true} available={['en']} searchable={false}>
+<BaseLayout title={ui.notFound.title} description={ui.notFound.lead} locale={pageLocale} path="/404/" noindex={true} available={[pageLocale]} searchable={false}>
   <div class="container not-found">
-    {locales.map((locale) => {
-      const ui = useUi(locale);
+    {shown.map((locale) => {
+      const text = useUi(locale);
       return (
-        <div class="split-page not-found__language" data-not-found={locale} lang={locale}>
+        <div class="split-page not-found__language" data-not-found={pageLocale === 'en' ? locale : undefined} lang={locale}>
           <div class="not-found__message">
             <Mark size={96} />
             <p class="eyebrow">404</p>
-            {locale === 'en' ? <h1>{ui.notFound.title}</h1> : <h2 class="not-found__title">{ui.notFound.title}</h2>}
-            <p class="lead">{ui.notFound.lead}</p>
+            {locale === pageLocale ? <h1>{text.notFound.title}</h1> : <h2 class="not-found__title">{text.notFound.title}</h2>}
+            <p class="lead">{text.notFound.lead}</p>
             <div class="cluster">
-              <Button href={href('/', locale)} variant="primary">{ui.notFound.home}</Button>
-              <Button href={href('/docs/', locale)} variant="secondary">{ui.notFound.docs}</Button>
-              <Button href={href('/search/', locale)} variant="quiet">{ui.notFound.search}</Button>
+              <Button href={href('/', locale)} variant="primary">{text.notFound.home}</Button>
+              <Button href={href('/docs/', locale)} variant="secondary">{text.notFound.docs}</Button>
+              <Button href={href('/search/', locale)} variant="quiet">{text.notFound.search}</Button>
             </div>
           </div>
           <SiteSections locale={locale} />
@@ -43,5 +49,5 @@ const en = useUi('en');
       );
     })}
   </div>
-  <script is:inline set:html={selectLanguage} />
+  {pageLocale === 'en' && <script is:inline set:html={selectLanguage} />}
 </BaseLayout>
