@@ -108,14 +108,14 @@ The first release, dated 2026-11-22. Added:
 
 ## Archives
 
-The packaging definitions in [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) name a program archive `nurt-<version>-<target>` and a library archive `nurt-lib-<version>-<target>`. The archives are `.tar.gz` for Linux and macOS and `.zip` for Windows.
+The packaging definitions in [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) name a program archive `nurt-<version>-<target>` and a library archive `nurt-lib-<version>-<target>`. The archives of release 0.1.2 are `.tar.gz` for Linux and `.zip` for Windows.
 
 | Target | Form |
 |---|---|
 | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | glibc |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | static program archive |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | MSVC |
-| `x86_64-apple-darwin`, `aarch64-apple-darwin` | macOS |
+| `nurt-<version>-<target>-setup.exe` for both Windows targets | setup wizard |
 
 The program archive of Linux holds `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, manual pages, completion scripts and the documentation site. The Windows archive holds `nurt.exe` and the same texts at the top level. The installation page describes the package managers and the scripts: [Installation](/docs/guide/installation/).
 

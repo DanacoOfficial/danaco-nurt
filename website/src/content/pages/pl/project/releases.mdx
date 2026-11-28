@@ -108,14 +108,14 @@ Pierwsze wydanie z datą 2026-11-22. Dodano:
 
 ## Archiwa
 
-Definicje pakowania w [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) nazywają archiwum programu `nurt-<version>-<target>`, a archiwum biblioteki `nurt-lib-<version>-<target>`. Archiwa mają postać `.tar.gz` dla Linuksa i macOS oraz `.zip` dla Windows.
+Definicje pakowania w [packaging/](https://github.com/DanacoOfficial/danaco-nurt/tree/release-0.1.2/packaging) nazywają archiwum programu `nurt-<version>-<target>`, a archiwum biblioteki `nurt-lib-<version>-<target>`. Archiwa wydania 0.1.2 mają postać `.tar.gz` dla Linuksa oraz `.zip` dla Windows.
 
 | Cel | Postać |
 |---|---|
 | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | glibc |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | statyczne archiwum programu |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | MSVC |
-| `x86_64-apple-darwin`, `aarch64-apple-darwin` | macOS |
+| `nurt-<version>-<target>-setup.exe` dla obu celów Windows | kreator instalacji |
 
 Archiwum programu dla Linuksa zawiera `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, strony podręcznika, skrypty uzupełniania i witrynę dokumentacji. Archiwum Windows zawiera `nurt.exe` i te same teksty na najwyższym poziomie. Strona instalacji opisuje menedżery pakietów i skrypty: [Instalacja](/pl/docs/guide/installation/).
 
