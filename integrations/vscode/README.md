@@ -65,8 +65,8 @@ npm run package
 | Command | Requirement | Check |
 |---|---|---|
 | `bash scripts/test-copy-grammar.sh` | `bash` | Grammar copy script. |
-| `npm run test:unit` | Node.js 20 | Executable resolution, command arguments, manifest contents, absence of telemetry. |
-| `node ./out/test/runTest.js` | Node.js 20, display | Extension host tests with `@vscode/test-electron`: activation, commands, settings, formatting through a stand-in executable. |
+| `npm run test:unit` | Node.js 22 | Executable resolution, command arguments, manifest contents, absence of telemetry. |
+| `node ./out/test/runTest.js` | Node.js 22, display | Extension host tests with `@vscode/test-electron`: activation, commands, settings, formatting through a stand-in executable. |
 
 ## Publication
 

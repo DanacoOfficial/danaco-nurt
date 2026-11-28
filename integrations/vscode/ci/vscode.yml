@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or workflow definition of integrations/vscode/ci/vscode.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: vscode-extension
@@ -45,7 +45,9 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
+      # @vscode/test-electron 3 requires Node.js 22 and starts the macOS
+      # executable that VS Code 1.110 renamed from Electron to Code.
       - name: Test the grammar copy script
         shell: bash
         run: bash scripts/test-copy-grammar.sh
@@ -74,7 +76,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm run build:grammar && npm run compile
       - run: npm run package
@@ -96,7 +98,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install the publishing tools
         run: npm install --global --no-audit --no-fund --ignore-scripts @vscode/vsce@3.7.1 ovsx@0.10.9
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
