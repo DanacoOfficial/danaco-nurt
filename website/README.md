@@ -67,6 +67,8 @@ The site is published at `https://nurt.danaco-group.pl/` (`SITE_MODE=subdomain`,
 
 `npm run build` produces `dist/`, which holds the whole site: the pages, `_assets/`, `pagefind/`, `downloads/`, `install.sh`, `install.ps1` and `schema/`. A release is a copy of `dist/` in `environments/production/releases/<date>-<version>/` of the project directory of the product on the server; the symbolic link `environments/production/current` points to the release in service, and the web server reads the files through it. Returning to an earlier release is the change of that link.
 
+The site of a version is built with the repository at the tag of that version. The documentation, the specification, the schemas, the installers and the counted numbers are read from the directories beside `website/`, so a build on a tree older than the tag publishes the documentation of that older tree; the Polish translations in `translations/pl/` follow the documentation of the tag.
+
 The server needs the following rules for the site. Every address of a directory serves its `index.html`; a missing address answers 404 with `404.html`; `_assets/` and `downloads/` may be cached without limit because their names carry a hash or a version; HTML, `install.sh` and `install.ps1` are revalidated on every request; the policy of the content allows scripts and styles of the site itself, inline scripts of the pages and WebAssembly of the search (`script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`).
 
 The corporate site `www.danaco-group.pl` introduces the product on the page `danaco-nurt.html`, which links to this site.
