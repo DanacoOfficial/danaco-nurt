@@ -6,7 +6,7 @@
 // Responsibility:   Reference client of the journal liveness rule, written against the file and wire formats only.
 // Dependencies:     serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Reference client of the journal liveness rule, written against the file
@@ -20,7 +20,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -63,6 +63,27 @@ pub(crate) fn journal_active(state_dir: &Path, now: jiff::Timestamp) -> Verdict 
         Verdict::Active
     } else {
         Verdict::Inactive("no_response")
+    }
+}
+
+/// Steps and timing of one ping with the read limit `limit`, for the
+/// message of a failed wait.
+pub(crate) fn diagnose(state_dir: &Path, limit: Duration) -> String {
+    let started = Instant::now();
+    let mut stream = match UnixStream::connect(state_dir.join("service.sock")) {
+        Ok(stream) => stream,
+        Err(error) => return format!("connect failed after {:?}: {error}", started.elapsed()),
+    };
+    if let Err(error) = stream.set_read_timeout(Some(limit)) {
+        return format!("set_read_timeout failed: {error}");
+    }
+    if let Err(error) = stream.write_all(PING) {
+        return format!("write failed after {:?}: {error}", started.elapsed());
+    }
+    let mut line = String::new();
+    match BufReader::new(stream).read_line(&mut line) {
+        Ok(read) => format!("read {read} bytes after {:?}: {line:?}", started.elapsed()),
+        Err(error) => format!("read failed after {:?}: {error}", started.elapsed()),
     }
 }
 
