@@ -6,12 +6,12 @@
 // Responsibility:   In-memory journal store and virtual clock for retention tests.
 // Dependencies:     nurt_contracts, nurt_fs, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! In-memory journal store and virtual clock for retention tests.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -91,6 +91,7 @@ struct Inner {
     fail_at: Option<FailPoint>,
     next_op: u64,
     locks: usize,
+    busy: BTreeSet<OpId>,
     account: Option<String>,
 }
 
@@ -190,6 +191,11 @@ impl MemStore {
         self.read_file(area, name).unwrap().unwrap()
     }
 
+    /// Makes the lock of the entry `op` held by another holder.
+    pub(crate) fn hold_lock(&self, op: OpId) {
+        self.lock().busy.insert(op);
+    }
+
     /// Number of entry locks taken so far.
     pub(crate) fn locks_taken(&self) -> usize {
         self.lock().locks
@@ -237,7 +243,13 @@ impl RetentionStore for MemStore {
         self.lock().account.clone()
     }
 
-    fn lock_entry(&self, volume: &AbsPath, _op: OpId) -> Result<Box<dyn FileLock>> {
+    fn lock_entry(&self, volume: &AbsPath, op: OpId) -> Result<Box<dyn FileLock>> {
+        if self.lock().busy.contains(&op) {
+            return Err(Error::new(
+                ErrorCode::InUse,
+                "the lock of the entry is held by another process",
+            ));
+        }
         self.lock().locks += 1;
         Ok(Box::new(MemLock(volume.clone())))
     }
