@@ -20,6 +20,18 @@
     --line: #bbbbbb;
     --line-strong: #888888;
     --link: #000000;
+    --bg-sunken: #ffffff;
+    --accent-strong: var(--brand-gold-deep);
+    --accent-text: var(--brand-gold-text);
+    --mark-back: var(--brand-ink);
+    --mark-forward: var(--brand-gold-deep);
+    --name-company: #222222;
+    --name-product: #000000;
+    --pipe: #0a7ea4;
+    --success: #17703f;
+    --warning: #8a5d0a;
+    --danger: #a3261c;
+    color-scheme: light;
   }
 
   body {
