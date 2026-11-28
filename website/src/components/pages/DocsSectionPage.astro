@@ -1,0 +1,44 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.DocsSectionPage
+// Responsibility:   The landing page of a documentation section that has no index file of its own: the lead of the section and the list of its pages; the command section is grouped by command group.
+// Dependencies:     website.src.layouts.DocsLayout, website.src.lib.docs.model, website.src.components.content.Card
+
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import CommandCatalog from '../docs/CommandCatalog.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import { entryUrl, getDocs, groupDocs } from '../../lib/docs/model';
+import { useUi } from '../../i18n';
+
+interface Props {
+  section: string;
+}
+
+const { section } = Astro.props;
+const ui = useUi('en');
+const entries = await getDocs();
+const group = groupDocs(entries).find((candidate) => candidate.section === section);
+if (!group) {
+  throw new Error(`unknown documentation section: ${section}`);
+}
+const labels = ui.docs.sectionLabels as Record<string, string>;
+const leads = ui.docs.sectionLeads as Record<string, string>;
+const label = labels[group.labelKey] ?? section;
+const lead = leads[group.labelKey] ?? '';
+const commandGroups = section === 'commands';
+---
+
+<DocsLayout title={label} description={lead || label} path={`/docs/${section}/`} section={section}>
+  <p class="lead">{lead}</p>
+  {commandGroups ? (
+    <CommandCatalog locale="en" />
+  ) : (
+    <CardGrid columns={2}>
+      {group.entries.map((entry) => <Card title={entry.data.title} href={entryUrl(entry)}>{entry.data.description}</Card>)}
+    </CardGrid>
+  )}
+</DocsLayout>

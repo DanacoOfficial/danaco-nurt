@@ -1,0 +1,40 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Toc
+// Responsibility:   The table of contents of a page: the second and third level headings, with the heading in view marked while the page is read.
+// Dependencies:     website.src.i18n, website.src.styles.components.toc, website.src.scripts.toc
+
+import '../../styles/components/toc.css';
+import type { MarkdownHeading } from 'astro';
+import type { Locale } from '../../../config/i18n';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  headings: MarkdownHeading[];
+}
+
+const { locale, headings } = Astro.props;
+const ui = useUi(locale);
+const items = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+---
+
+{items.length > 1 && (
+  <aside class="toc" aria-label={ui.toc.title}>
+    <p class="toc__title">{ui.toc.title}</p>
+    <ul role="list">
+      {items.map((heading) => (
+        <li class:list={[heading.depth === 3 && 'toc__item--nested']}>
+          <a href={`#${heading.slug}`}>{heading.text}</a>
+        </li>
+      ))}
+    </ul>
+  </aside>
+)}
+
+<script>
+  import '../../scripts/toc';
+</script>

@@ -1,0 +1,27 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.ContentPage
+// Responsibility:   Renders one authored page of the pages collection in its language: the MDX content with the component map inside the page layout.
+// Dependencies:     astro:content, website.src.layouts.PageLayout, website.src.components.content.index
+
+import { render } from 'astro:content';
+import PageLayout from '../../layouts/PageLayout.astro';
+import { mdxComponents } from '../content';
+import type { Locale } from '../../../config/i18n';
+import type { PageEntry } from '../../lib/pages';
+
+interface Props {
+  entry: PageEntry;
+  locale: Locale;
+}
+
+const { entry, locale } = Astro.props;
+const { Content, headings } = await render(entry);
+---
+
+<PageLayout entry={entry} locale={locale} headings={headings}>
+  <Content components={mdxComponents} />
+</PageLayout>

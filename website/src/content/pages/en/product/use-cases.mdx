@@ -1,0 +1,116 @@
+---
+title: Use cases
+description: Seven concrete tasks with real programs from the cookbook and the guides, and what the effect report and the journal give you for each of them.
+section: product
+order: 8
+eyebrow: Product
+lead: Editing, refactoring, Git, administration, documents, scheduled work and searching, each with a program that is checked against the command catalog.
+updated: 2026-11-28
+related: [product/commands, product/journal-and-undo, product/effect-reports, product/migration]
+keywords: [cookbook, guides, refactoring, git, administration, schedules, search]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+Each task below names a program and the page of the documentation it comes from. The [cookbook](/docs/cookbook/) states a problem, a program, the expected result and, where useful, the equivalent in bash and PowerShell; the guides, listed in the [documentation index](/docs/guide/), explain a topic. In every case the report describes what the run did, and the journal keeps the previous content of the files that the run changed.
+
+## Editing many files
+
+Replace a function name in every Go file of a directory and roll the change back when the build fails ([cookbook: editing many files](/docs/cookbook/edit-many-files/)):
+
+```nurt
+search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
+|> replace "newName("
+|> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
+```
+
+A second cookbook program stops before any change when the pattern occurs in a different number of files than expected: `assert paths: 1` between `search` and `replace`. The report lists the changed targets and the unusual effects, for example `nothing_matched` or `mass_delete`. An operation with 200 or more targets is a bulk operation: the report shows the extensions, the first and last targets, and the rest through the cursor. The whole replacement is one journal entry, so one `undo` reverts it. A regular-expression replacement of 20,000 matches on a line of 60,000 bytes takes about 0.1 s (version 0.1.2). See also [text editing](/docs/guides/text-editing/).
+
+## Refactoring
+
+`search` and `replace` work on text; the `code.*` commands work on symbols, so a rename follows the definition and its references and leaves other uses of the same word untouched. `code.rename` renames a symbol and its references in all files as one operation ([guide: refactoring](/docs/guides/refactoring/)):
+
+```nurt
+code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
+```
+
+After the change, `verify` runs a check and rolls the change back when the check fails, so a refactoring that breaks the build leaves the tree as it was.
+
+## Working with Git
+
+All operations of the group `git` are built in and run on a machine that has no installed git; OpenPGP signatures of commits and tags are made through GnuPG. `git.review` checks the staged changes for conflict markers, secrets and other defects before a commit, and `git.checkpoint` keeps a snapshot of the working tree outside the branches ([guide: Git workflow](/docs/guides/git-workflow/)):
+
+```nurt
+git.checkpoint "/srv/app" action: create label: "before-refactoring"
+git.review "/srv/app" scope: staged checks: ["conflict_markers", "secrets"]
+git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"]
+```
+
+Commit, switch, merge, rebase, reset and stash are recorded in the journal, and `undo` reverts a commit or a merge by moving the branch back. `fetch`, `clone`, `pull` and `push` act outside the local file system and are recorded as irreversible. More programs: [cookbook: Git](/docs/cookbook/git/).
+
+## Administration
+
+Administration commands read the state of the system and change it. Since 0.1.1 the group `administration` holds accounts, groups, mounts, kernel parameters, power, disks, the firewall, routes, name servers and the clock. Each of these commands records the state before and after, and `undo` runs the inverse where one exists ([guide: administration](/docs/guides/administration/)):
+
+```nurt
+processes name: "node" |> filter memory > 500mb |> select pid name memory
+services name: "nginx" |> restart
+logs level: error since: ago(1h) limit: 50
+```
+
+`start` and `stop` of a service and the installation of a package are undone by the opposite operation. Work that needs the rights of the administrator takes `privilege: elevated`; the console starts `sudo`, `doas` or `run0` and never asks for a password. `steps` runs several changes as one journal entry, all or nothing; the irreversible steps of the block are listed before the start:
+
+```nurt
+steps {
+    sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
+    firewall.allow port: 8443 protocol: tcp privilege: elevated
+    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
+    assert r.exit_code == 0
+}
+```
+
+The first and the third program above read the state of the system. See [cookbook: administration](/docs/cookbook/administration/) and the platform guides for [Unix](/docs/guides/unix/) and [Windows](/docs/guides/windows/).
+
+## Documents
+
+`set` writes a value at a key path of a JSON, YAML, TOML, XML, INI or other supported file and keeps the layout, the comments and the key order; only the bytes of the changed value change ([guide: documents](/docs/guides/documents/)):
+
+```nurt
+read "/srv/app/values.yaml" key: "image.tag"
+set "/srv/app/package.json" key: "scripts.test" value: "vitest"
+```
+
+A write that introduces a new syntax error into a known format is rolled back unless `validate` says otherwise. A change to a file that was modified after it was read fails with `E_STALE`, so the report names the conflict instead of overwriting the other change. Since 0.1.1 `sql` also journals a change to an SQLite file, together with its `-wal`, `-shm` and `-journal` files, so `undo` restores the database.
+
+## Scheduled work
+
+`schedule.create` takes a label, an action that is a pipeline, and a time given as `cron`, `every` or `at` ([guide: scheduling](/docs/guides/scheduling/)):
+
+```nurt
+schedule.create "sync" every: 1h action: (run ["sync"] cwd: "/srv") on_missed: run_once overlap: skip
+```
+
+Schedules run while `nurt service` is running, and `schedule.list` reports whether each schedule is active. `schedule.history` lists past runs with the journal operation of the changes they made, and a change made by a scheduled run is undone like any other change.
+
+## Searching a large tree
+
+A result is limited by `limit`, 50 records by default, and the answer carries a cursor for the next page. A shortened response ends with `more: next`, and the program `next` returns the next part without running the search again. `count` and `summarize` answer a question about a large set without returning the set ([guide: large results](/docs/guides/large-results/)):
+
+```nurt
+find "/srv/app" |> summarize size by: type
+search "deprecated" "/srv/app/src" output: counts
+find "/srv/app" |> sort size order: desc |> first 10
+```
+
+These programs only read. Reading a further page never runs a changing program again. See [cookbook: searching and reading](/docs/cookbook/search-and-read/).
+
+<CardGrid columns={2}>
+  <Card title="Journal and undo" icon="undo-2" href="/product/journal-and-undo/">
+    How an operation is recorded, reviewed and reverted.
+  </Card>
+  <Card title="Coming from bash and PowerShell" icon="terminal" href="/product/migration/">
+    The habits of both shells and their forms in Nurt.
+  </Card>
+</CardGrid>

@@ -1,0 +1,25 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.figure
+ * Responsibility:   The figure: a framed image with a small caption.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.figure {
+  margin-block: var(--space-6);
+}
+
+.figure img {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--bg-raised);
+}
+
+.figure figcaption {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}

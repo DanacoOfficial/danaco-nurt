@@ -1,0 +1,110 @@
+---
+title: Nurt for AI agents
+description: How an agent runtime or a platform gives a model the nurt tool through the Model Context Protocol, a JSON-RPC server or a library, and what the report and the journal return.
+section: product
+order: 7
+eyebrow: Product
+lead: One tool named nurt, three ways to host it, and a structured report of every call that a program can read.
+updated: 2026-11-28
+related: [product/effect-reports, product/journal-and-undo, architecture/protocols, product/integrations, ai/overview]
+keywords: [agents, MCP, JSON-RPC, tool definition, policy, journal]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## One tool, three hosts
+
+A model sees one tool, named `nurt`. Its input is a program as text (or its syntax tree), and its result is the effect report of the run. The host decides, before the call, which programs an agent runs.
+
+| Interface | Start | Use |
+|---|---|---|
+| Model Context Protocol server | `nurt mcp --stdio` or `nurt mcp --http <address>` | an MCP client starts it; no integration code is needed |
+| JSON-RPC server | `nurt serve --stdio` | a host that runs its own agent loop; one process per session or workspace |
+| C library | `libnurt`, `nurt.h` | short calls without effects in the host process (`nurt_check`, `nurt_describe`, `nurt_correct`) |
+
+`nurt mcp` is present in builds that link the feature `mcp`, and its HTTP transport uses the feature `mcp-http`; `nurt serve` is present in every build. The [bindings](/product/integrations/) wrap `nurt serve` and `libnurt`. The [integrator guide](/docs/integrators/) is the full reference.
+
+## The tool definition
+
+The installed program produces the definition, so it always agrees with the installed catalog:
+
+```sh
+nurt schema tool --format anthropic
+nurt schema tool --format openai-responses-strict --groups core,git
+```
+
+The formats are `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` and `json-schema`. The description holds the core group; `--groups core` starts a session, and a new render adds another command group when the model needs it. A host that caches definitions keys them by format, language, groups and catalog version. See [tool definition](/docs/integrators/tool-definition/).
+
+## Tool calls
+
+A call carries exactly one of `program`, `ast`, `cursor` and `accept`, plus call options such as `preview`, `base`, `limit`, `fields` and `session`. The host returns a report with an `error` as a tool error, so that the model reads the `fix` and corrects the call.
+
+A correction that touches the target of a change waits for the choice of the caller: `remvoe "/home/user/app/build"` returns `E_AMBIGUOUS` with ranked candidates, and the call `{"accept": "c1"}` runs the chosen candidate as listed. A program in which several pipelines change something is answered with `E_ONE_EFFECT`, and its first candidate wraps the pipelines in `steps { … }`: one journal entry, all or nothing ([tool calls](/docs/integrators/tool-calls/), [language](/docs/guide/language/)).
+
+A result longer than `limit` ends with `report.next_cursor`; reading a page never reruns a changing program. A response that the console shortened carries `continuation` and ends with `more: next`; the call `next` returns the next part without running the program again. Kept parts expire after one hour by default, and an expired one ends with `E_CONTINUATION_EXPIRED` ([large results](/docs/guides/large-results/)).
+
+## The Model Context Protocol server
+
+The server in `crates/nurt-mcp` offers three tools and read-only resources.
+
+| Item | Content |
+|---|---|
+| `nurt` | runs a program; `structuredContent` is the report `nurt-report/1` |
+| `nurt_check` | binds and plans a program without running it; returns `nurt-check/1` |
+| `nurt_help` | built-in help as text |
+| resources | `nurt://help/{topic}`, `nurt://schema/{name}`, `nurt://describe/core`, `nurt://describe/group/{name}` |
+
+The server negotiates four protocol versions, from `2024-11-05` to `2025-11-25`. Progress goes out as `notifications/progress`, and `notifications/cancelled` stops the running program. The HTTP transport listens on `127.0.0.1` by default and accepts an optional bearer token ([crate README](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/crates/nurt-mcp/README.md)).
+
+## The JSON-RPC server
+
+`nurt serve --stdio` speaks `nurt-rpc/1`, JSON-RPC 2.0 with newline-delimited or `Content-Length` framing. The first request is `initialize`; its result lists the protocol, the versions of the formats, the features and the limits. The methods include `run`, `check`, `parse`, `page`, `catalog`, `history`, `cancel` and `shutdown`. Language errors are part of the result. The reference is [serve protocol](/docs/reference/serve-protocol/).
+
+## Privilege elevation
+
+Work that needs the rights of the administrator takes the call parameter `privilege` (`account`, the default, `elevated` or `auto`) and, on Linux and macOS, `as_user`. The console starts `sudo`, `doas` or `run0`, or runs in the same process when it already is the administrator; it sends the syntax tree, never shell text, and never asks for a password. When no backend can run the operation, the call ends with `E_PRIVILEGE`, and its detail lists the backends and the next steps. An embedding engine switches elevation off with `privilege.allowed = false` ([administration guide](/docs/guides/administration/)).
+
+## Policy before the run
+
+The host enforces its policy on data that the console computes without any effect. `check` returns the strongest effect (`read`, `local`, `external`, `process`), the weakest reversibility, the paths, the network targets and the external programs, after correction and binding. `run` with `preview: true` lists the targets that the program would change.
+
+```python
+check = nurt.check(program)
+commands = {use["command"] for use in check.raw["network"]}
+commands |= {facts["command"] for facts in check.raw["details"]}
+if "git.push" in commands:
+    return tool_error("git.push is not allowed")
+response = nurt.run(program)
+```
+
+The example is from [policy](/docs/integrators/policy/). A host that asks the user before a change runs `preview: true`, shows the result, and then runs the same program without it.
+
+## Remote use and events
+
+A host that runs programs on another machine applies its policy with `check` locally and sends the syntax tree to `nurt serve` there; the remote instance runs the tree it receives. With `capabilities.events` set in `initialize`, a run sends `nurt/event` notifications such as `exec.started`, `progress`, `job.output` and `exec.finished`. Connection and authentication belong to the host ([remote and events](/docs/integrators/remote-and-events/)).
+
+## Versions of the interface
+
+Requests, responses, reports and syntax trees carry `nurt: "MAJOR.MINOR"`; a minor version adds optional fields, and a reader ignores unknown optional ones. The language, the syntax tree, the command catalog, the report format and the C interface carry their own version numbers, and a change between 0.x versions is recorded in the changelog. The syntax tree `nurt-ast/1` is at version 1.1 since 0.1.1, and documents of version 1.0 are read unchanged. The host checks the major version of `nurt-rpc/1` and reads the feature list from `initialize`. Hosts pin the major version and test with `nurt-conformance` ([versions](/docs/integrators/versioning/)).
+
+## The report and the journal
+
+The result of every run is the report `nurt-report/1`: a status (`ok`, `planned`, `partial`, `failed`), the targets, the changes, the irreversible effects, and an error with a stable code and a correction ([effect reports](/product/effect-reports/)). Each change to files is recorded in the journal with the previous content, and the number `op` in the report names the entry that `undo` reverts. Effects outside the file system, such as `git.push`, are reported as irreversible ([journal and undo](/product/journal-and-undo/)).
+
+## Several agents on one tree
+
+Every read returns an `etag`. A change is applied when the file still has the content that was read; `if_match` makes the check explicit:
+
+```nurt
+write "/srv/app/config.toml" "mode = 1\n" if_match: "a41f9c"
+```
+
+A change to a file that another session modified fails with `E_STALE` and leaves the file unchanged; the agent reads again and decides. The call parameter `session` names the session, and `undo` reverts the current session, or every session with `all_sessions: true` ([multi-agent](/docs/guides/multi-agent/)).
+
+## For AI labs and agent engines
+
+The section [For AI labs and agent engines](/ai/) describes the use of Danaco Nurt by model labs and by agent engines. The [training packages](/ai/training-packages/) hold pairs of an input and a Danaco Nurt program that the engine has bound against the command catalog, chat and tool-call conversations built from those pairs, the tool definition in every format, and the documentation as a corpus. The [benchmark](/ai/benchmark/) holds 720 tasks in 12 domains and compares Danaco Nurt with bash and PowerShell 7 as the tool of an AI agent.
+
+Next: [integrations](/product/integrations/) for bindings, editors and CI, and the [integrator guide](/docs/integrators/).

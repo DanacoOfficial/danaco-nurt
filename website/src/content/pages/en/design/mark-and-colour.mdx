@@ -1,0 +1,142 @@
+---
+title: Mark, colour and type
+description: "Construction of the Danaco Nurt mark, the colour palette with contrast ratios, the wordmark in Geist, the layouts and variants, the grounds and pairings, and the finishing for screens and print."
+section: design
+order: 2
+eyebrow: Design
+lead: The grid, the angle and the tones of the mark, the typeface of the name and the variants for every ground.
+updated: 2026-11-28
+toc: true
+related: [design/overview, design/identity]
+keywords: [mark, construction, colour, palette, contrast, wordmark, Geist, lockup, print, foil, emboss]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Construction of the mark
+
+The mark stands on a grid of 96 x 96 units with the centre of the turn at (48, 48). The gold chevron is the silver one rotated by 180 degrees about that centre; both are drawn from one list of vertices, so the turn is exact. Corners are circular arcs written as cubic curves. The paths of both chevrons are in `identity.json`, under `mark.paths_main.left` and `mark.paths_main.right`.
+
+| Parameter | Value |
+|---|---|
+| Grid | 96 x 96 units, centre of the turn (48, 48) |
+| Slope of the arms | 3 : 4 (36.8699 degrees) |
+| Stroke | 11 units |
+| Stream (clearance between the chevrons) | 5.5 units, equal along the band |
+| Apex of the silver chevron | x = 20, centre line at y = 37.31 |
+| Cuts of the arms | vertical, x = 49.7 (silver) and x = 46.3 (gold) |
+| Radii | outer apex 5.5 (half of the stroke), four ends 1.2, inner apex 0.6 |
+| Box of the mark | 67.0 x 77.28 units |
+| Interlock of the tips | 3.4 units |
+
+The slope 3 : 4 is a ratio of whole numbers, and the interlock of the tips means that no vertical line divides the two chevrons.
+
+<BrandImage name="render-macro-edge" alt="Close view of the edge of the gold chevron." width={1000} caption="Macro render of the edge of the gold chevron." />
+
+### Optical compensation of gold against silver
+
+The geometry is identical for both chevrons; the compensation is made in tone and in placement. Silver is the lighter tone and gold the deeper one. On the graphite ground the luminance-weighted centre of mass of the mark lies 4.3 units to the left and 3.4 units above the centre of the box, on a light ground 1.4 and 1.1 units. In the horizontal lockup the centre of the turn sits 3 cap units below the middle of the cap height, the value that holds on both grounds.
+
+### Drawings for small sizes
+
+Three drawings, aligned to the pixel grid, replace the main drawing below 48 px. Their cuts have square ends and no interlock, the outer apex is rounded with half of the stroke and the inner apex is sharp.
+
+| Drawing | Used at | Stroke | Stream | Cuts |
+|---|---|---|---|---|
+| S16 | 16 to 23 px | 3.00 px | 2.00 px | x = 42 and 54 |
+| S24 | 24 to 31 px | 3.50 px | 2.11 px | x = 44 and 52 |
+| S32 | 32 to 47 px | 4.00 px | 2.00 px | x = 48 and 48 |
+| Main | from 48 px | 5.50 px at 48 px | 2.75 px at 48 px | x = 49.7 and 46.3 |
+
+The lightness contrast of silver to gold in grey scale, measured on the delivered pixels of the icons from 16 to 96 px, is 1.87 to 1.89 : 1.
+
+### Clear space and minimum size
+
+Around the mark alone the clear space is a quarter of the box height, 19 units, on every side. Around a lockup it is the cap height of the wordmark, written x, on every side. The minimum size of the mark is 16 px with the drawing S16, 6 mm in ink and in foil, and 19.3 mm in blind emboss.
+
+## Colour palette
+
+The tokens are in `identity.json` under `tokens` and in `tokens.css`; the names describe the function.
+
+| Name | Hex | Role | Contrast (WCAG 2.1) |
+|---|---|---|---|
+| Graphite (`graphite`) | #0B0C0E | main ground | silver 14.9 : 1, gold 8.1 : 1 |
+| Graphite soft (`graphite_soft`) | #15171A | soft ground | |
+| Deep black (`black_deep`) | #050506 | ground for foil and metal in print | |
+| Silver (`silver`) | #DDE1E6 | step back | silver : gold 1.83 : 1 |
+| Gold (`gold`) | #C9A15A | step forward | |
+| Ink (`ink`) | #2B2F36 | ink on light | ink on paper 12.5 : 1, ink : gold deep 3.20 : 1 |
+| Gold deep (`gold_deep`) | #A3722A | gold on light, marks and lines | gold deep on paper 3.9 : 1 |
+| Paper (`paper`) | #F6F7F8 | light ground | |
+| Paper warm (`paper_warm`) | #F2EEE6 | warm light ground | |
+| Gold ground (`gold_ground`) | #D9BC85 | campaign ground, black one-colour variant | |
+| Caption (`caption`) | #7C8390 | caption text | |
+| Cyan | #4FD1F5 | the pipe `\|>` in the terminal and in code | |
+
+Four further tones set the lettering: Danaco on dark #C9CED5, Nurt on dark #F6F7F8, Danaco on light #4A515C and Nurt on light #0B0C0E.
+
+## Wordmark and typeface
+
+Geist is the typeface of the name, selected from eight typefaces under the SIL Open Font License 1.1 by four criteria: Polish diacritics, the weight range, flat cut terminals that take the cuts of the mark and a companion for the terminal. It is a neutral geometric grotesque with square-cut terminals on r and t and a plain N, with the monospaced sibling Geist Mono for the terminal and code.
+
+| Parameter | Value |
+|---|---|
+| Weights | Danaco 400, Nurt 700 |
+| Tracking (per mille of the em) | Danaco +22, Nurt -4 |
+| Pair corrections (per mille of the em) | Da -10, an +4, na -4, ac +12, co -2, Nu +6, ur +6, rt +34 |
+| Gap between the words | 40 cap units (cap height = 100) |
+| Bevels on N, r, t | 100 per mille of the em, at 3 : 4 |
+| Width of the wordmark | 823.1 cap units; x-height 74.6 |
+
+The stems of Danaco regular measure 11.8 cap units and of Nurt bold 21.1, a ratio of 1 : 1.79. The pair rt, with a closest approach of 10.7 cap units, is the narrowest gap of the wordmark.
+
+## Layouts and variants
+
+The identity has three lockups, the mark alone and the wordmark. In the horizontal lockup the mark is 2.2 cap heights tall and the gap between the mark and the name is 0.75 cap. The compact lockup carries the name Nurt alone, with the mark at 2.0 and the gap at 0.68. In the vertical lockup the mark is 3.8 cap heights tall, the gap is 0.95 and the wordmark is centred under the mark.
+
+Each layout exists in ten variants; the wordmark has no metal variant.
+
+| Variant | Allowed on | Use |
+|---|---|---|
+| `color-dark` | graphite, deep black, graphite with the trace | silver and gold mark on dark grounds |
+| `color-light` | paper, warm paper, paper with the trace | ink and deep gold on light grounds |
+| `black` | paper, warm paper, gold ground, paper with the trace | single-colour print |
+| `white` | graphite, deep black, graphite with the trace | engraving, single-colour print |
+| `grey` | paper, warm paper, paper with the trace | grey print, photocopies |
+| `grey-dark` | graphite, deep black, graphite with the trace | grey screens |
+| `gold` | graphite, deep black, graphite with the trace | foil stamping |
+| `metal` | graphite, deep black, graphite with the trace | screens from 128 px |
+| `emboss-light` | paper, warm paper | blind emboss on cotton paper |
+| `emboss-dark` | graphite, deep black | blind emboss on dark card |
+
+Minimum sizes are given as the width of the whole layout; the mark alone is measured by height.
+
+| Layout | Screen | Ink in print | Hot foil | Blind emboss |
+|---|---|---|---|---|
+| Mark | 16, 24, 32 px; 48 px main | 6 mm | 6.0 mm | 19.3 mm |
+| Horizontal | 96 px | 28 mm | 40.8 mm | 95.6 mm |
+| Vertical | 64 px | 20 mm | 30.8 mm | 51.7 mm |
+| Compact | 56 px | 20 mm | 20.2 mm | 52.0 mm |
+| Wordmark | 72 px | 22 mm | 30.8 mm | 51.7 mm |
+
+## Grounds and pairings
+
+Seven grounds carry the identity: graphite #0B0C0E, deep black #050506, light #F6F7F8, warm light #F2EEE6, warm gold #D9BC85, and graphite and light with the trace of the stream. A variant is allowed on a ground when the mark keeps 3 : 1 and the lettering 4.5 : 1 against it. The contrast of `color-dark` on graphite is 8.1 : 1 and of `color-light` on light 3.9 : 1.
+
+The trace of the stream is a set of hairlines at the slope 3 : 4 that fade out toward the centre, with one pair of lines, silver and gold, spaced by the stream of the mark. Tiles that repeat without a visible joint, for CSS and print, are `pattern-stream-dark.svg` and `pattern-stream-light.svg`.
+
+## Finishing for screens
+
+Flat premium metal has the silver as brushed metal with a fine horizontal grain and the gold as polished metal, with a lit edge line of 0.55 units. It serves large formats and hero surfaces from 128 px, and the lettering stays flat. Below 64 px and in the product the flat tones apply. Five 3D renders (Blender Cycles, chevrons extruded by 8 grid units with a bevel of 0.6 units) show the front view, the angle view, the macro edge, the light ground and a transparent version.
+
+<BrandImage name="render-light-ground" alt="The mark rendered on a light ground." width={1000} caption="Render on the light ground." />
+
+## Print specification
+
+The print specification states the separations as vector PDF files with spot colours: `FOIL_GOLD`, `FOIL_SILVER`, `EMBOSS_DIE` and K 100 %, for the horizontal, vertical and mark layouts. Colour on a dark ground uses CMYK recipes computed for coated paper (FOGRA39) and uncoated paper (FOGRA47); graphite prints as rich black, 60 / 50 / 50 / 100 on coated and 50 / 40 / 40 / 100 on uncoated.
+
+Hot foil stamping uses a heated die and high-gloss metallised foil on a polyester carrier, with a line of at least 0.25 mm and a clear gap of at least 0.4 mm. Blind emboss has a depth of 0.3 to 0.5 mm, walls of 45 to 55 degrees, a line of at least 0.5 mm and an inner corner radius of at least 0.15 mm; the inner apex of the mark reaches that radius at a mark height of 19.3 mm. Emboss stocks are black card of 400 to 600 g and cotton paper of 300 to 600 g.
+
+<BrandImage name="mockup-business-card" alt="Business card with the mark in gold foil." width={1000} caption="Business card: gold foil on black card." />

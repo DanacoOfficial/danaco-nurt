@@ -1,0 +1,66 @@
+---
+title: Wersjonowanie
+description: "Jak wersjonuje się Danaco Nurt: Semantic Versioning dla programu oraz osobne numery wersji dla języka, drzewa składni, katalogu, raportu i interfejsu C."
+section: project
+order: 3
+eyebrow: Projekt
+lead: Jeden numer wersji dla programu i osobny dla każdego formatu, od którego zależą inne programy.
+updated: 2026-11-28
+related: [project/status, project/releases, architecture/c-interface, product/effect-reports]
+keywords: [semantic versioning, zgodność, wycofywanie, abi, katalog]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Jeden program, kilka wersji
+
+Program `nurt` jest wersjonowany według [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji, dzięki czemu program-host zależy od formatu, nie zależąc od wersji programu. Bieżąca wersja programu to 0.1.2; strona [stan bieżący](/pl/project/status/) podaje wersję każdego formatu.
+
+## Co nosi jaką wersję
+
+Tabela łączy stronę dokumentacji [Versioning and support](/docs/guide/versioning/) ze stroną [Versions and compatibility](/docs/integrators/versioning/) przeznaczoną dla integratorów.
+
+| Element | Postać wersji | Zasada w obrębie wersji głównej |
+|---|---|---|
+| Program | `MAJOR.MINOR.PATCH`, Semantic Versioning 2.0.0 | wydania jednej wersji głównej nie łamią zgodności; wydania podrzędne ukazują się co 8 tygodni, a poprawkowe w miarę potrzeby |
+| Język | `language MAJOR.MINOR` | język tylko się rozrasta; synonimy i aliasy korekt są zachowywane |
+| Drzewo składni | `nurt-ast/MAJOR` oraz `"nurt": "MAJOR.MINOR"` w każdym dokumencie | nowa wersja podrzędna tylko dodaje opcjonalne pola i rodzaje węzłów; po zmianie wersji głównej poprzednia jest przyjmowana przez co najmniej 24 miesiące |
+| Drzewo powiązane | `nurt-bound/1` | podlega tej samej zasadzie co drzewo składni |
+| Katalog poleceń | `nurt-catalog/1`, `catalog_version` | katalog tylko się rozrasta: nowe polecenia, nowe parametry opcjonalne, których wartość domyślna zachowuje poprzednie działanie, nowe wartości wyliczeń |
+| Raport, żądanie, odpowiedź | `nurt-report/1`, `nurt-request/1`, `nurt-response/1`, `"nurt": "MAJOR.MINOR"` | wersja podrzędna dodaje opcjonalne pola i nowe wartości wyliczeń rozszerzalnych; czytnik pomija nieznane pola opcjonalne |
+| Protokół | `nurt-rpc/1` | host sprawdza wersję główną i czyta listę funkcji zwracaną przez `initialize` |
+| Interfejs C | `NURT_ABI_MAJOR.MINOR`, nazwa biblioteki `libnurt.so.<MAJOR>` | funkcje, kody statusu i człony JSON są tylko dodawane, nigdy usuwane ani zmieniane |
+
+Format `nurt-ast/1` ma od wydania 0.1.1 wersję 1.1: wersja 1.1 dodaje konstrukcje sterujące (`when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`, `params`), a dokumenty w wersji 1.0 są odczytywane bez zmian. Strony specyfikacji to [drzewa składni](/docs/specification/syntax-tree/), [katalog](/docs/specification/catalog/) i [raport](/docs/specification/report/). Wartości interfejsu C to `NURT_ABI_MAJOR` = 1 i `NURT_ABI_MINOR` = 0, podane w [opisie interfejsu C](/docs/reference/c-abi/).
+
+## Jak czytnik traktuje nowszą wersję
+
+Dokument niesie swoją wersję w członie `nurt`, zapisanym jako `MAJOR.MINOR`. Zasady ze specyfikacji i dokumentacji dla integratorów:
+
+- czytnik przyjmuje dokument, którego wersja podrzędna nie jest większa od jego własnej; nowsza wersja podrzędna drzewa składni jest odrzucana z kodem `E_AST_VERSION` i listą nieznanych rodzajów węzłów (czytnik wersji 1.0 odrzuca dokument zawierający instrukcję dodaną w 1.1), a nowsza wersja główna jest odrzucana jako nieobsługiwana;
+- czytnik pomija pola raportu, których nie zna;
+- program-host przekazuje `NURT_ABI_VERSION` ze swojego nagłówka do `nurt_abi_check` jednokrotnie po załadowaniu biblioteki; wywołanie kończy się powodzeniem, gdy wersje główne są równe, a wersja podrzędna biblioteki nie jest niższa, w przeciwnym razie zwraca `NURT_E_ABI`;
+- hosty przypinają wersję główną używanych formatów i testują za pomocą zestawu zgodności `nurt-conformance`.
+
+Pierwsze żądanie sesji, `initialize`, zwraca protokół, wersje formatów, funkcje i limity, więc host odczytuje obsługiwane wersje, zamiast porównywać wersje programów.
+
+## Zmiany wymagające nowej wersji głównej
+
+Dla katalogu specyfikacja jest jednoznaczna: usunięcie lub zmiana nazwy polecenia albo parametru, niezgodna zmiana typu i zmiana wartości domyślnej są zmianami wersji głównej. Ta sama sekcja wymienia, co obowiązuje w obrębie `nurt-catalog/1`: nowe polecenia, nowe parametry opcjonalne z wartością domyślną zachowującą poprzednie działanie, nowe wartości wyliczeń i nowe klucze opcjonalne.
+
+## Wycofywanie i wsparcie
+
+| Przedmiot | Zasada | Dokumentacja |
+|---|---|---|
+| Wycofanie elementu języka | oznaczone w `help`; usunięte najwcześniej po 24 miesiącach, w wersji głównej | [Versioning and support](/docs/guide/versioning/) |
+| Poprzednia wersja główna drzewa składni | przyjmowana przez co najmniej 24 miesiące | [Versioning and support](/docs/guide/versioning/) i [drzewa składni](/docs/specification/syntax-tree/) |
+| Wsparcie długoterminowe | jedno wydanie rocznie jest wydaniem wsparcia długoterminowego; przez 36 miesięcy dostaje poprawki błędów i podatności, bez nowych funkcji | [Versioning and support](/docs/guide/versioning/) |
+| Poprawki bezpieczeństwa | stosowane w gałęzi `main` i publikowane w nowym wydaniu | [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) |
+
+## Nazwy używające wersji
+
+„Danaco Nurt Compatible” to nazwa implementacji lub integracji, która przechodzi obowiązkowe testy `nurt-conformance`. Zob. [Licencja](/pl/project/license/).
+
+Listę wydań i to, co przyniosło każde z nich, zawiera strona [Wydania](/pl/project/releases/).

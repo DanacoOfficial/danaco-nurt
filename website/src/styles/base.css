@@ -1,0 +1,105 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.base
+ * Responsibility:   Base look of the document: the page ground, the text, links, focus rings, selection and the stream trace used behind hero areas.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-height) + var(--space-5));
+  background: var(--bg);
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  font-feature-settings: 'calt', 'kern';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--text);
+}
+
+a {
+  color: var(--link);
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: color var(--duration-fast) var(--ease-out), text-decoration-color var(--duration-fast) var(--ease-out);
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration-color: var(--accent);
+}
+
+:focus {
+  outline: none;
+}
+
+/* The ring uses the strong accent of the theme, which keeps at least 3:1 against the ground in both themes; the plain gold does not on the light ground. */
+:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--space-7) 0;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.05em 0.45em;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-1);
+  background: var(--bg-raised);
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.stream-trace {
+  position: relative;
+  isolation: isolate;
+}
+
+.stream-trace::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(36.87deg, transparent 0 23px, var(--trace) 23px 24px),
+    linear-gradient(36.87deg, transparent 74%, var(--trace-silver) 74.04%, transparent 74.12%, transparent 74.5%, var(--trace-gold) 74.54%, transparent 74.62%);
+  -webkit-mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.35) 0 40%, #000 85%);
+  mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.35) 0 40%, #000 85%);
+}

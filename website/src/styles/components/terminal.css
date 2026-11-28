@@ -1,0 +1,110 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.terminal
+ * Responsibility:   The terminal window and the style of code blocks: the frame, the title bar, the code area and the copy button.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.terminal {
+  margin: 0;
+  max-width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: #08090b;
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+}
+
+.terminal__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.55rem var(--space-4);
+  border-bottom: 1px solid #1c1f24;
+  background: #0d0f12;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #7c8390;
+}
+
+.terminal__dots {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.terminal__dots i {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: #30343b;
+}
+
+.terminal__body {
+  max-width: 100%;
+}
+
+.terminal pre,
+.prose pre,
+.code-block pre {
+  position: relative;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow-x: auto;
+  border-radius: 0;
+  background: transparent;
+  color: #e4e7eb;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+.prose pre,
+.code-block pre {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: #0b0d10;
+}
+
+.terminal pre {
+  border: 0;
+}
+
+.terminal pre code,
+.prose pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.has-copy {
+  position: relative;
+}
+
+.copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid #30343b;
+  border-radius: var(--radius-1);
+  background: #14171b;
+  color: #aab0b9;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.has-copy:hover .copy-button,
+.copy-button:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .copy-button {
+    opacity: 1;
+  }
+}

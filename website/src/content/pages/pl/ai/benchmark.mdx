@@ -1,0 +1,95 @@
+---
+title: Benchmark zadań
+description: nurt-bench porównuje Danaco Nurt z bash i PowerShell 7 jako narzędzie agenta AI na 720 zadaniach w 12 dziedzinach, z wyrocznią, protokołem i poleceniami uruchamianymi na własnych modelach laboratorium.
+section: ai
+order: 5
+eyebrow: AI
+lead: 720 zadań, w tym 72 wstrzymane, jedna pętla agenta, cztery warunki i wyrocznia, która ocenia stan końcowy każdego przebiegu.
+updated: 2026-11-28
+related: [ai/overview, ai/model-labs, ai/training-packages, quality/performance]
+keywords: [benchmark, nurt-bench, zadania, zbiór wstrzymany, wyrocznia, protokół, ukończenie, szkoda, modele]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co porównuje benchmark
+
+`nurt-bench` mierzy, czy Danaco Nurt, użyty jako narzędzie agenta AI, kończy więcej zadań, z mniejszą szkodą i niższym kosztem niż bash i PowerShell 7. Ta sama pętla agenta uruchamia te same zadania z kilkoma modelami, a różni się tylko narzędzie. Uruchamiacz, analiza i generator zbiorów danych to skrzynka `crates/nurt-bench` (Apache-2.0) z programem wykonywalnym `nurt-bench`, a laboratorium uruchamia go na własnych modelach z własnymi kluczami API.
+
+| Katalog | Zawartość | Licencja |
+|---|---|---|
+| `bench/tasks` | 720 zadań w 12 dziedzinach, format `nurt-bench-task/1` | CC BY 4.0 |
+| `bench/oracles` | wyrocznia, która ocenia stan końcowy przebiegu | Apache-2.0 |
+| `bench/fixtures` | wspólne początkowe drzewa plików | CC BY 4.0 |
+| `bench/protocol` | protokół, komunikat systemowy, definicje narzędzi, konfiguracje modeli, schematy i obrazy kontenerów | CC BY 4.0 |
+| `bench/data` | zbiór par „zadanie → program Danaco Nurt” | CC BY 4.0 |
+
+## Zbiór zadań
+
+Zbiór zawiera 720 zadań, po 60 w każdej z 12 dziedzin. Z 720 zadań 648 jest opublikowanych (`split: "public"`), a 72 tworzą zbiór wstrzymany (`split: "holdout"`), który `holdout.json` wymienia z identyfikatorem i skrótem treści. W każdej dziedzinie 30 zadań ma platformę `linux`, 15 ma `windows`, a 15 to zadania `cross`, które mają jeden opis i jeden oczekiwany stan dla systemów Linux, macOS i Windows.
+
+| Dziedzina | Katalog | Zawartość |
+|---|---|---|
+| 1 | `01-search` | wyszukiwanie i czytanie |
+| 2 | `02-multi-edit` | edycja wielu plików |
+| 3 | `03-single-edit` | edycja jednego pliku, w tym dokładna zamiana tekstu |
+| 4 | `04-structured` | formaty strukturalne (JSON, TOML, YAML, INI, CSV, XML) |
+| 5 | `05-code` | kod: refaktoryzacja i symbole |
+| 6 | `06-programs` | uruchamianie programów i testów |
+| 7 | `07-background` | zadania w tle |
+| 8 | `08-system` | system i procesy |
+| 9 | `09-archives` | archiwa i kodowania |
+| 10 | `10-git` | Git |
+| 11 | `11-admin` | administracja: usługi, rejestr, harmonogram |
+| 12 | `12-provoke` | zadania, które prowokują znane klasy awarii powłoki |
+
+Zadanie to jeden plik JSON z opisem `nl` po angielsku, początkowym drzewem plików `fs_before`, oczekiwanym stanem końcowym `expect`, zmianami, które liczą się jako szkoda (`forbidden`), limitami (15 kroków i limit czasu), programem referencyjnym Danaco Nurt oraz rozwiązaniami referencyjnymi w bash i PowerShell 7. Zadania dziedziny 12 są raportowane osobno według klasy awarii: usunięty zły katalog, obcięte wejście i uszkodzone kodowanie są szkodą w warunku powłoki, nawet gdy model zgłasza sukces.
+
+## Warunki i pętla agenta
+
+| Warunek | Narzędzie pokazane modelowi | Systemy |
+|---|---|---|
+| `bash` | `bash` | Linux, macOS |
+| `pwsh` | `pwsh` | Windows |
+| `nurt` | `nurt`, z opisem rdzenia | Linux, macOS, Windows |
+| `nurt-groups` | `nurt`, z opisem grupy poleceń dodawanym do wyniku pierwszego wywołania, które jej używa | Linux, macOS, Windows |
+
+Pętla agenta, komunikat systemowy, limity i ustawienia modelu są takie same w każdym warunku. Rozmowa zaczyna się opisem zadania jako komunikatem użytkownika, a model otrzymuje jedno narzędzie. Odpowiedź bez wywołania narzędzia kończy przebieg jako `answered`, a jedno wywołanie modelu to jeden krok. Przebieg kończy się przy limicie kroków jako `step_limit` albo przy limicie czasu jako `time_limit`. Wynik narzędzia wraca do modelu, a ten sam limit `max_tool_output_chars` (30 000) obowiązuje w każdym warunku. Warunki Danaco Nurt używają jednego procesu `nurt serve --stdio` na przebieg, z własnym katalogiem stanu i własną konfiguracją, więc przebieg nigdy nie dotyka dziennika użytkownika.
+
+## Wyrocznia
+
+Wyrocznia jest osobnym procesem. Czyta zadanie, migawkę przed przebiegiem, migawkę po przebiegu i obserwację (odpowiedź końcową i wyniki sond), a zapisuje werdykt `nurt-bench-verdict/1`. Werdykt podaje, czy przebieg jest `completed`, bo oczekiwany stan końcowy zachodzi, oraz czy jest `harmed`, bo wpis zmienił się poza dozwolonym zbiorem, wpis początkowego drzewa zaginął, zmieniło się kodowanie lub styl końców wierszy pliku albo zaszła zmiana zakazana. Sondy odczytują stan poza drzewem plików: wynik polecenia, procesy, rejestr i zaplanowane zadania.
+
+## Miary i analiza
+
+Miarami przebiegu są ukończenie, szkoda, utracone wpisy, zmiany kodowania, tokeny wejścia i wyjścia, tokeny opisu narzędzia, kroki, czas zegarowy, skrypty pośrednie (wywołanie, które uruchamia interpreter innego języka) oraz, dla zadań międzysystemowych, poprawki poleceń. Dla Danaco Nurt zapisywane są miary FV (wywołania bez poprawki i bez błędu notacji), FC (wywołania uruchomione po poprawce notacji), FE (FV + FC), FCR (poprawione wywołania, które zmieniły nieoczekiwaną ścieżkę) i AMB (wywołania zakończone błędem `E_AMBIGUOUS`).
+
+Przebieg Danaco Nurt jest łączony w parę z przebiegiem powłoki tego samego modelu, zadania i ziarna. Ukończenie porównuje dokładny dwustronny test McNemara, a koszty dwustronny test znakowanych rang Wilcoxona; przedziały to 95% przedziały percentylowe bootstrapu z 10 000 prób na poziomie istotności 0,05. Kryteria to brak szkody w każdym przebiegu warunku Danaco Nurt, odsetek ukończeń nie niższy niż w powłoce oraz mediany tokenów, kroków i czasu nie wyższe niż w powłoce na parach ukończonych w obu warunkach.
+
+## Protokół i modele
+
+Protokół ma wersję 1.0.0 (`protocol.toml`), a każdy przebieg ją zapisuje. Każde zadanie jest uruchamiane trzy razy na model i warunek, z ziarnami 1, 2 i 3. Panel obejmuje co najmniej sześć modeli co najmniej czterech producentów, w tym modele z otwartymi wagami. Katalog `bench/protocol/models` zawiera sześć konfiguracji, każda jest plikiem w formacie `nurt-bench-model/1` z dostawcą, nazwą modelu, producentem, wagami, temperaturą, limitem tokenów i nazwą zmiennej środowiskowej z kluczem API:
+
+| Konfiguracja | Producent | Wagi |
+|---|---|---|
+| `anthropic.toml` | Anthropic | zamknięte |
+| `openai.toml` | OpenAI | zamknięte |
+| `google.toml` | Google | zamknięte |
+| `alibaba-qwen.toml` | Alibaba Cloud | otwarte |
+| `deepseek.toml` | DeepSeek | otwarte |
+| `meta-llama.toml` | Meta | otwarte |
+
+Zadania wstrzymane są uruchamiane razem z publicznymi i raportowane osobno. Model `mock:<file>` odtwarza skryptowe odpowiedzi i uruchamia uruchamiacz oraz analizę bez dostępu do sieci.
+
+## Uruchamianie benchmarku
+
+```sh
+cargo build --release -p nurt-bench
+nurt-bench run --condition bash --model bench/protocol/models/openai.toml --out runs
+nurt-bench run --condition nurt --nurt "nurt serve --stdio" --model bench/protocol/models/openai.toml --out runs
+nurt-bench analyze runs --out results
+```
+
+`nurt-bench run` przyjmuje `--tasks`, `--seeds` (domyślnie 3), `--filter`, `--jobs` i `--out`; przebieg, którego pełny dziennik istnieje, nie jest powtarzany. `nurt-bench analyze` zapisuje `summary.json`, `tables.md` i `runs.csv`. `nurt-bench variants` zapisuje warianty B i C programów referencyjnych dla testu składni, a `nurt-bench pairs` buduje zbiór par [paczek treningowych](/pl/ai/training-packages/). Dzienniki przebiegów `nurt-bench-run/1` zawierają każde wywołanie modelu i narzędzia. Kod jest objęty licencją Apache-2.0, a zadania, pliki protokołu i zbiory danych licencją CC BY 4.0. Laboratorium przekazuje wyniki jako pull request do `github.com/DanacoOfficial/danaco-nurt` albo na adres support@danaco-group.pl.

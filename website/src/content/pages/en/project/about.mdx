@@ -1,0 +1,66 @@
+---
+title: About
+description: Who builds Danaco Nurt, where the name comes from, under which terms the code is open source and where the repository is.
+section: project
+order: 7
+eyebrow: Project
+lead: Danaco Nurt is built by Danaco Holding Group Sp. z o.o. and published as open source.
+updated: 2026-11-28
+related: [project/license, design/identity, project/support, product/overview]
+keywords: [about, Danaco Holding Group, name, open source, repository]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Who builds it
+
+Danaco Nurt is a product of Danaco Holding Group Sp. z o.o. The company holds the copyright (Copyright 2026 Danaco Holding Group Sp. z o.o.), publishes the release archives, installers and packages, and owns the names "Danaco", "Danaco Nurt" and "Danaco Holding Group". The company is the publisher of the release artifacts and issues the certificate that signs `nurt.exe`.
+
+The files of the repository carry a producer header with the names Danaco Official and Danaco Holding Group Sp. z o.o., the address `www.danaco-group.pl`, the GitHub organisation `DanacoOfficial` and the contact address `support@danaco-group.pl`.
+
+## The creator
+
+Danaco Nurt was designed and developed by Dariusz Naharnowicz.
+
+> I did not want another shell. I wanted a language made for the age of AI. A language that gives full awareness of changes before they are made, full transparency after they are made, and full control over undoing each of them. When I did not find such a solution, I designed it from scratch.
+>
+> Dariusz Naharnowicz, creator of Danaco Nurt
+
+## What it is
+
+Danaco Nurt is a command shell and a language where every change can be undone, built for people and AI agents. The program is `nurt`, pronounced *NOORT*. The design rests on five points:
+
+- one executable per operating system, for Linux, macOS and Windows;
+- file, text, archive, document, code, version control, network and system operations built into the program;
+- programs as pipelines of typed records, checked against the command catalog before any effect takes place;
+- a structured report of the effects of every run;
+- a journal of file changes that can be reviewed and undone.
+
+The engine is a Rust library with a C interface. The repository also holds bindings for Python, Go, Node, Java and .NET, integrations for editors and containers, a conformance suite and benchmarks. The [overview](/product/overview/) and the [architecture](/architecture/overview/) pages describe them.
+
+## The origin of the name
+
+*Nurt* is a Polish word for a stream or a current. The mark shows it: two chevrons, a silver one that steps back and a gold one that steps forward, are separated by a channel between their parallel arms, and that channel is the stream, in Polish *nurt*, the name of the product. The mark is also the figure of the main idea of the product: the second chevron is the first turned by 180 degrees, as an undo turns a change.
+
+The [design](/design/) section presents the visual identity: the mark, the colours and the guidelines of their use. The page [Identity](/design/identity/) holds the guidelines.
+
+## Open source terms
+
+The code is licensed under the Apache License, Version 2.0, and every distribution includes the `NOTICE` file. The License permits the customary description of the origin of the product with the names. The specification and the data sets are licensed under CC BY 4.0. The dependency policy accepts permissive licenses, with a short list of reviewed single-crate licenses. See [License](/project/license/) for the full statement.
+
+Contributions are made under the Developer Certificate of Origin 1.1 and the Code of Conduct of the repository. Every commit of the `main` branch is signed with a dedicated OpenPGP key, and the releases are signed with a separate release key, as [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) describes. How to take part is on the [contributing](/project/contributing/) page.
+
+## Where the repository is
+
+<Facts
+  items={[
+    { term: 'Repository', value: 'github.com/DanacoOfficial/danaco-nurt', href: 'https://github.com/DanacoOfficial/danaco-nurt' },
+    { term: 'Releases', value: 'github.com/DanacoOfficial/danaco-nurt/releases', href: 'https://github.com/DanacoOfficial/danaco-nurt/releases' },
+    { term: 'Issues', value: 'github.com/DanacoOfficial/danaco-nurt/issues', href: 'https://github.com/DanacoOfficial/danaco-nurt/issues' },
+    { term: 'Contact', value: 'support@danaco-group.pl', href: 'mailto:support@danaco-group.pl' },
+  ]}
+/>
+
+The repository holds the Rust crates, the specification (`spec/`), the command catalog (`catalog/`), the documentation (`docs/`), the packaging, the tests and this site. The current version is 0.1.2, dated 2026-11-28; the [current state](/project/status/) page lists the systems, the interfaces and the documentation of each part.

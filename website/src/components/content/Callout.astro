@@ -1,0 +1,29 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Callout
+// Responsibility:   A highlighted note inside a page: information, a tip, a warning or an important remark.
+// Dependencies:     website.src.components.base.Icon, website.src.styles.components.callout
+
+import '../../styles/components/callout.css';
+import Icon from '../base/Icon.astro';
+import type { IconName } from '../../../config/icons';
+
+interface Props {
+  type?: 'note' | 'tip' | 'warning' | 'important';
+  title?: string;
+}
+
+const { type = 'note', title } = Astro.props;
+const icons: Record<string, IconName> = { note: 'info', tip: 'zap', warning: 'triangle-alert', important: 'shield-alert' };
+---
+
+<aside class:list={['callout', `callout--${type}`]}>
+  <Icon name={icons[type]} size={20} class="callout__icon" />
+  <div class="callout__body">
+    {title && <p class="callout__title">{title}</p>}
+    <slot />
+  </div>
+</aside>

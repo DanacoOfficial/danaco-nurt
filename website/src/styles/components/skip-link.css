@@ -1,0 +1,27 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.skip-link
+ * Responsibility:   The skip link: hidden above the page until it receives the keyboard focus.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  z-index: var(--z-overlay);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent);
+  color: var(--accent-on);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-120%);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline-offset: 0;
+}

@@ -1,0 +1,38 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.motion.TerminalSession
+// Responsibility:   A terminal window that plays a recorded session of nurt: the start banner, a program typed at the prompt, its effect report and the undo. Without scripts or with reduced motion the whole session is shown at once.
+// Dependencies:     website.src.components.brand.Banner, website.src.data.session, website.src.scripts.motion.session, website.src.styles.components.session
+
+import '../../styles/components/session.css';
+import Banner from '../brand/Banner.astro';
+import { sessionLines, sessionVersion } from '../../data/session';
+
+interface Props {
+  title: string;
+  replayLabel: string;
+  caption?: string;
+}
+
+const { title, replayLabel, caption } = Astro.props;
+---
+
+<figure class="session" data-session>
+  <div class="session__bar">
+    <span class="session__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="session__title">{title}</span>
+    <button class="session__replay" type="button" data-session-replay hidden>{replayLabel}</button>
+  </div>
+  <div class="session__body">
+    <Banner label={`nurt ${sessionVersion}`} />
+    <pre class="session__screen" data-session-screen>{sessionLines.map((line) => (
+      <span class:list={['session__line', `session__line--${line.kind}`]} data-kind={line.kind} data-step={line.step}>{line.segments.map((segment) => (
+        <span class:list={[`session__${segment.tone}`]} data-tone={segment.tone}>{segment.text}</span>
+      ))}<span class="session__cursor" aria-hidden="true"></span>{'\n'}</span>
+    ))}</pre>
+  </div>
+  {caption && <figcaption class="session__caption">{caption}</figcaption>}
+</figure>

@@ -1,0 +1,80 @@
+---
+title: Wydajność
+description: Zmierzone zmiany wydajności Danaco Nurt 0.1.2 i 0.1.1, limity egzekwowane przez testy, limity uruchomienia, testy skali oraz benchmark zadań z bashem i PowerShell 7.
+section: quality
+order: 4
+eyebrow: Jakość
+lead: Zmierzone zmiany wyszukiwania, zamiany i kosztu dziennika, limity uruchomienia, limity egzekwowane przez testy, testy skali i benchmark zadań.
+updated: 2026-11-28
+toc: true
+related: [quality/overview, quality/testing, product/journal-and-undo, product/ai-agents]
+keywords: [wydajność, benchmark, dziennik, wyszukiwanie, zamiana, spool_max, skala, nurt-bench]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Wyszukiwanie i zamiana w 0.1.2
+
+Wyszukiwanie i zamiana z wyrażeniem regularnym nie zajmują już czasu kwadratowego względem liczby dopasowań w jednym wierszu. Granice wiersza dopasowania są wyprowadzane z dopasowania zamiast szukane od nowa od początku wiersza.
+
+| Przypadek | Przed | Po |
+|---|---|---|
+| 20 000 dopasowań w wierszu o długości 60 000 bajtów (wersja 0.1.2) | 2,5 s | około 0,1 s |
+| 20 000 dopasowań, zamiana wyrażeniem regularnym z grupami (wersja 0.1.2, kompilacja debug) | 2,5 s | 0,09 s |
+| 40 000 dopasowań, ta sama zamiana (wersja 0.1.2, kompilacja debug) | 9,5 s | 0,18 s |
+
+## Koszt dziennika w 0.1.1
+
+Operacje na wielu małych plikach, na przykład `replace` na tysiącach plików i jego `undo`, zapisują tańsze wpisy dziennika:
+
+- taka operacja jest kilkukrotnie szybsza, a jej wpis jest proporcjonalny do zmienionej zawartości;
+- w wywołaniu `preserve` z co najmniej 64 celami poprzednia zawartość plików do 4096 bajtów jest przechowywana w manifeście, a nowe pliki i katalogi są zapisywane na dysk jednym wywołaniem przed zatwierdzeniem, a nie jednym zapisem na plik;
+- manifesty operacji z co najmniej 256 celami używają formatu w wersji 2, a wpis cofnięcia tysięcy plików jest około siedem razy mniejszy.
+
+Cofnięcie jednego miliona usuniętych plików trwa 5,3 razy dłużej niż usunięcie (wersja 0.1.1). Test cofnięcia w pełnej skali `undo_mass_full_scale_within_six_times_the_operation` w `crates/nurt-journal/src/undo.rs` dopuszcza do sześciu czasów trwania operacji. Scenariusz T12 w `tools/release/scenarios.sh` uruchamia `replace` i `undo` na 3000 plików i wymaga, by każde zakończyło się w 60 sekund.
+
+## Limity uruchomienia
+
+Dwa ustawienia ograniczają wyjście programu. Oba opisuje `spec/configuration.md`.
+
+| Klucz | Domyślnie | Skutek |
+|---|---|---|
+| `run.spool_max` | `1gib` | największe wyjście zachowane dla programu: jego początek oraz, do jednej czwartej limitu (najwyżej 64 MiB), jego koniec; bajty pomiędzy są pomijane, oznaczone w pliku spool i raportowane uwagą `spool_limit`; liczniki i skrót obejmują całe wyjście |
+| `output.max_bytes` | `4096` | bajty tekstu jednego strumienia wyjścia pokazane w odpowiedzi; `0` oznacza brak limitu |
+
+`run.spool_max` chroni dysk przed programem, który pisze bez końca; `unlimited` zachowuje całość i można go ustawić na dowolnym poziomie, także dla jednego uruchomienia. Dzięki `max_bytes` odpowiedź `run` jest domyślnie krótka: po kodzie wyjścia 0 zwracane jest ostatnie 5 wierszy i `digest`, a po niepowodzeniu wydobywane są diagnostyki `cargo`, `rustc` i `pytest` z plikiem i wierszem.
+
+## Limity egzekwowane przez testy
+
+Testy niosą limity czasu i kosztu, które produkt musi dotrzymać.
+
+| Test | Limit | Zdefiniowany w |
+|---|---|---|
+| mały zapis z dziennikiem | mediana najwyżej 1 ms na woluminach w pamięci, 201 próbek; dziesięciokrotność w kompilacjach bez optymalizacji | `tests/d2/perf/main.rs` |
+| cofnięcie operacji zbiorczej na 1000 plikach | najwyżej trzy czasy trwania operacji | `tests/d2/perf/main.rs` |
+| usunięcie drzewa | liczone jako jedna zmiana nazwy, przez liczenie operacji systemu plików, co nie zależy od maszyny | `tests/d2/perf/main.rs` |
+| odtworzenie dziennika o milionie wpisów | budżet 5 sekund w kompilacji wydaniowej | `tests/d2/crash/journal_scale.rs` |
+| odtworzenie wśród miliona pustych katalogów wpisów | poniżej 5 sekund | `crates/nurt-journal/tests/perf.rs` |
+| wyszukiwanie względem `rg` na korpusie 1 GiB; przejście 10^6 wpisów względem `fd` | najwyżej 1,3 czasu drugiego programu | `crates/nurt-files/tests/perf_search.rs`, `perf_walk.rs` |
+| polecenia przeszukujące programy systemu, syntetyczny system z 2000 plikami wykonywalnymi | od 5 ms do 1 s zależnie od przypadku, kompilacje wydaniowe; 25 razy więcej w kompilacjach debug | `crates/nurt-programs/tests/perf.rs` |
+
+Pliki testowe o nazwie `perf` działają osobno, z zarezerwowanymi wszystkimi wątkami maszyny, przez `.config/nextest.toml`.
+
+## Testy skali
+
+Test `remove_tree_1e6_is_undone_and_redone` usuwa drzewo miliona plików, a następnie cofa i ponawia usunięcie. Testy skali (11 testów) zakończyły się kodem wyjścia 0, a usunięcie 1 000 000 plików trwało 24 minuty (wersja 0.1.1, Linux, 27 listopada 2026).
+
+## Benchmark zadań
+
+`nurt-bench` (katalog `bench/` i skrzynka `crates/nurt-bench`) sprawdza, czy Danaco Nurt używany jako narzędzie agenta AI kończy więcej zadań z mniejszą szkodą i niższym kosztem niż bash i PowerShell 7. Ta sama pętla agenta uruchamia te same zadania z kilkoma modelami, a różni się tylko narzędzie.
+
+- Zestaw zadań liczy 720 zadań w 12 dziedzinach, po 60 w dziedzinie: wyszukiwanie, edycja wielokrotna, edycja pojedyncza, formaty strukturalne, kod, programy, zadania w tle, system, archiwa, Git, administracja oraz zadania prowokujące znane awarie powłok. 648 zadań jest publicznych, a 72 zatrzymano w zbiorze wstrzymanym, wymienionym tylko z identyfikatorem i skrótem.
+- Warunki to `bash`, `pwsh`, `nurt` i `nurt-groups`. Miary to ukończenie, szkoda, utracone wpisy, zmiany kodowania, tokeny, kroki i czas zegarowy. Analiza paruje każde uruchomienie Danaco Nurt z uruchomieniem powłoki dla tego samego zadania: dokładny dwustronny test McNemara dla ukończenia i dwustronny test rang znaków Wilcoxona dla kosztów.
+- Reguła wejścia protokołu wspiera dalszą pracę nad warunkiem Nurt, gdy kryteria ukończenia i kosztu zachodzą łącznie dla modeli oraz dla czterech z sześciu modeli i żadne uruchomienie nie wyrządza szkody.
+- Konfiguracji modeli w `bench/protocol/models` jest sześć: `alibaba-qwen`, `anthropic`, `deepseek`, `google`, `meta-llama` i `openai`. Model próbny `--model mock:<plik>` działa bez dostępu do sieci.
+
+Przepływ `bench-oracles.yml` waliduje zadania, uruchamia testy jednostkowe wyroczni na Linuksie, Windows i macOS oraz uruchamia rozwiązania wzorcowe w bashu na Linuksie i w PowerShell na Windows. Zweryfikowano 648 zadań i zaliczono 112 testów wyroczni (wersja 0.1.1, 27 listopada 2026).
+
+Dokumentacja [dziennika](/docs/guide/journal/) opisuje wpisy, których koszt mierzy ta strona, a strona [testowanie](/pl/quality/testing/) podaje, jak uruchamia się testy skali.

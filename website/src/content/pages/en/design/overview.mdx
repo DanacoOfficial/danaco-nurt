@@ -1,0 +1,69 @@
+---
+title: The design of Nurt
+description: "The identity of Danaco Nurt, production 1.0.0: the name, the mark of two chevrons, the angle of the stream, the typeface, the grounds and the places where the identity appears in the product."
+section: design
+order: 1
+eyebrow: Design
+lead: Two chevrons, one stepping back and one stepping forward, and the stream between them.
+updated: 2026-11-28
+toc: true
+related: [design/mark-and-colour, design/identity, product/overview]
+keywords: [identity, mark, logo, design, colour, typeface, terminal banner]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## The idea
+
+The name of the product is the Polish word *nurt*, the stream. The identity draws the stream as a channel between two arms: the figure stands for a command shell and a language in which every change can be undone, and a change and its undo are one shape.
+
+<BrandImage name="render-hero-front" alt="The mark of Danaco Nurt as a metal object: a silver chevron on the left and a gold chevron on the right, rendered on a dark ground." width={1200} caption="Render of the mark, production identity 1.0.0." />
+
+The mark is built from two identical chevrons on a grid of 96 x 96 units. The left chevron is silver and points back: a step back, the undo. The right chevron is gold and points forward: a step forward, the change. The gold chevron is the silver one turned by 180 degrees about the centre of the grid, so the two are one drawing used twice. The silver chevron stands left and raised, the gold chevron right and lowered.
+
+The arms of both chevrons have the slope 3 : 4 (36.87 degrees). The channel between the parallel arms is the stream, 5.5 units wide along the whole band, half of the stroke of 11 units. The cuts of the arms are vertical, at x = 49.7 for silver and x = 46.3 for gold, and the tips interlock by 3.4 units, so no vertical line divides the figure.
+
+## Decisions of the identity
+
+The production identity 1.0.0 is dated 2026-11-26. It keeps the idea and the silhouette of the earlier mark, corrects the optics of the mark, sets the name in a new typeface and draws the system around it.
+
+| Area | Before | Production 1.0.0 | Reason |
+|---|---|---|---|
+| Arms of the mark | 36.5 degrees | 36.87 degrees = slope 3 : 4 | A ratio of whole numbers: every point is set with a ruler and a compass. |
+| Stroke : stream | 11 : 5 nominal, 5.9 clear | 11 : 5.5, equal along the whole band | The stream is half of the stroke and has one width everywhere. |
+| Cuts of the arms | x = 45.5, tips 5.0 units apart | x = 49.7, tips interlock by 3.4 units | No vertical line divides the figure. |
+| Tones | the former silver and gold: 1.24 : 1 | silver #DDE1E6, gold #C9A15A: 1.83 : 1 | The pair keeps a lightness difference in grey (1.91 : 1 against 1.27 : 1). |
+| Drawings for small sizes | one drawing for 16 to 32 px | three drawings: 16, 24 and 32 px, aligned to the pixel grid | Stream 2.0 px, stroke 3.0 to 4.0 px; the channel stays open at every size. |
+| Typeface of the name | letters drawn on the mark grid | Geist 400 / 700 (SIL OFL), own spacing per pair, bevels on N, r, t | Compared with seven other typefaces on one sheet. |
+| Layouts | horizontal, stacked, mark | horizontal, vertical, compact, mark, wordmark | Each in nine colour variants, ten with the screen metal. |
+| Grounds | graphite and light | seven grounds with a measured matrix of allowed pairings | Contrast measured on every pair. |
+| Finishing | one render with grey silver | flat metal, five 3D renders, foil and emboss, print values | Screens and print. |
+
+## Typeface and wordmark
+
+The name is set in Geist, a neutral geometric grotesque with flat, square-cut terminals, under the SIL Open Font License. Danaco is set in weight 400 and Nurt in weight 700: the company name steps back and the product name steps forward, as the chevrons do. The letters N, r and t carry a cut at the slope of the arms of the mark. Geist Mono is the typeface of the terminal and of code. In every file of the identity the lettering is converted to curves.
+
+## Grounds
+
+The main ground of the product is graphite #0B0C0E: terminal, documentation and screens. Light documents use paper #F6F7F8, stationery and packaging use warm paper #F2EEE6, and foil and metal in print use deep black #050506. Two further grounds carry the trace of the stream, a set of hairlines at the slope 3 : 4 that fades toward the centre, for covers, social cards and headers of documentation. The matrix of allowed pairings between variants and grounds is on the page [Mark, colour and type](/design/mark-and-colour/).
+
+## The identity in the product
+
+The start banner of the terminal session draws the mark with half blocks: a silver chevron and a gold chevron, with the name, the canonical sentence, the version, a hint and the copyright line beside it. On a terminal without UTF-8 the banner uses 7-bit ASCII characters. The banner, the prompt and the highlighting of the line use silver, gold and the cyan of the pipe `|>`. A terminal that reports 24-bit colour shows exactly these colours, any other terminal the nearest colours of the 256-colour palette: silver is index 254, gold is index 179 and cyan is index 81. `NO_COLOR` and `output.color` turn the colours off. The session is described in the page of the command [`nurt`](/docs/cli/nurt/).
+
+<BrandImage name="mockup-terminal-banner" alt="The terminal banner of Danaco Nurt with the mark drawn in silver and gold characters." width={1000} caption="Start banner of the terminal session: silver, gold and cyan for the pipe." />
+
+The icons of the three desktop systems are drawn from the same mark. macOS uses `nurt.icns`, Windows uses `nurt.ico`, which is embedded in `nurt.exe`, and Linux uses the hicolor sizes from 16 to 512 px with a scalable and a symbolic icon. The website uses the favicon, the icons of the web manifest and a social card of 1200 x 630 px. The header of the documentation carries the horizontal lockup, in the dark and in the light theme.
+
+<BrandImage name="mockup-docs-header-dark" alt="The header of the documentation in the dark theme with the horizontal lockup." width={1200} caption="Header of the documentation, dark ground." />
+
+<CardGrid columns={2}>
+  <Card title="Mark, colour and type" icon="pen-line" href="/design/mark-and-colour/">
+    Construction of the mark, the palette with contrast ratios, the wordmark, the layouts, the grounds and the print finishing.
+  </Card>
+  <Card title="Identity files" icon="download" href="/design/identity/">
+    The guidelines book, the vector and raster files, the icons, the backgrounds, the tokens and the rules of use.
+  </Card>
+</CardGrid>

@@ -1,0 +1,31 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Card
+// Responsibility:   A card with an icon, a title, a text and an optional link; the cut corners of the identity mark the card as a unit.
+// Dependencies:     website.src.components.base.Icon, website.src.styles.components.cards
+
+import '../../styles/components/cards.css';
+import Icon from '../base/Icon.astro';
+import type { IconName } from '../../../config/icons';
+import { withBase } from '../../lib/urls';
+interface Props {
+  title: string;
+  href?: string;
+  icon?: IconName;
+  eyebrow?: string;
+}
+const { title, href, icon, eyebrow } = Astro.props;
+const link = href && href.startsWith('/') ? withBase(href) : href;
+const Tag = link ? 'a' : 'div';
+---
+
+<Tag class:list={['card', 'cut', link && 'card--link']} href={link}>
+  {icon && <Icon name={icon} size={22} class="card__icon" />}
+  {eyebrow && <p class="card__eyebrow">{eyebrow}</p>}
+  <h3 class="card__title">{title}</h3>
+  <div class="card__body"><slot /></div>
+  {link && <Icon name="arrow-right" size={20} class="card__arrow" />}
+</Tag>

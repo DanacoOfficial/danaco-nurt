@@ -1,0 +1,37 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.sections.PageHeader
+// Responsibility:   The head of a content page: the breadcrumb trail, the eyebrow, the title, the lead and the line of facts (last update and status).
+// Dependencies:     website.src.components.layout.Breadcrumbs, website.src.i18n, website.src.styles.components.page-header
+
+import '../../styles/components/page-header.css';
+import Breadcrumbs from '../layout/Breadcrumbs.astro';
+import type { Locale } from '../../../config/i18n';
+import { formatDate, useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  lead?: string;
+  eyebrow?: string;
+  crumbs?: { label: string; path?: string }[];
+  updated?: Date;
+}
+
+const { locale, title, lead, eyebrow, crumbs = [], updated } = Astro.props;
+const ui = useUi(locale);
+---
+
+<header class="page-header stream-trace">
+  <div class="container container--narrow-header">
+    {crumbs.length > 0 && <Breadcrumbs locale={locale} items={crumbs} />}
+    {eyebrow && <p class="eyebrow page-header__eyebrow">{eyebrow}</p>}
+    <h1 class="page-header__title">{title}</h1>
+    {lead && <p class="lead page-header__lead">{lead}</p>}
+    {updated && <p class="page-header__meta">{ui.common.lastUpdated}: <time datetime={updated.toISOString().slice(0, 10)}>{formatDate(updated, locale)}</time></p>}
+    <slot />
+  </div>
+</header>

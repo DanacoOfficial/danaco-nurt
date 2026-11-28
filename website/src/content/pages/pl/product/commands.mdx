@@ -1,0 +1,122 @@
+---
+title: Katalog poleceń
+description: "Katalog poleceń Danaco Nurt: polecenia rdzenia i opcjonalne grupy, budowa strony polecenia oraz sposób sprawdzania nazw, parametrów i typów."
+section: product
+order: 5
+eyebrow: Produkt
+lead: Jeden katalog definiuje każde polecenie, a wiązanie, pomoc, opis dla modelu, strony referencyjne i zestaw zgodności czytają go wszystkie.
+updated: 2026-11-28
+related: [product/features, product/language, architecture/engine, quality/conformance]
+keywords: [katalog, polecenia, grupy, sygnatury, typy, walidacja]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Czym jest katalog
+
+Katalog poleceń jest jedynym źródłem sygnatur poleceń. Czytają go wiązanie, wbudowana pomoc, opis dla modelu, dokumentacja referencyjna, definicje narzędzi i zestaw zgodności, tak jak definiuje to [specyfikacja katalogu](/docs/specification/catalog/). Składa się z plików TOML w formacie `nurt-catalog/1`: `core.toml` dla poleceń rdzenia, jednego pliku dla każdej opcjonalnej grupy oraz indeksu (`_index.toml`), który wymienia pliki i oczekiwaną liczbę poleceń.
+
+<Stats>
+  <Fact id="commands" />
+  <Fact id="coreCommands" />
+  <Fact id="optionalGroups" />
+</Stats>
+
+Wpis każdego polecenia podaje jego nazwę, kategorię (`source`, `transform`, `check`, `change`, `run`, `system`, `journal` lub `help`), odwracalność (`read`, `reversible`, `reversible_if_preserved` lub `irreversible`), rodzaje rekordów wejścia i wyjścia oraz parametry z typem, pozycją, wartością domyślną i streszczeniem. Polecenie może należeć do jednego systemu operacyjnego; w innym systemie wiązanie odpowiada kodem `E_OS_ONLY`.
+
+```toml
+[[command]]
+name = "set"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Set values at key paths, preserving layout."
+```
+
+Zmiany wykonane przez polecenie są zapisywane w [dzienniku](/pl/product/journal-and-undo/) zgodnie z podaną tu odwracalnością.
+
+## Polecenia rdzenia i opcjonalne grupy
+
+34 polecenia rdzenia są zawsze opisywane modelowi. Obejmują pliki (`list`, `find`, `info`, `read`, `lines`, `write`, `copy`, `move`, `remove`, `rename`, `create`, `attributes`), tekst (`search`, `replace`, `insert`, `edit`), rekordy (`filter`, `select`, `sort`, `first`, `last`, `skip`, `count`), kontrole (`assert`, `verify`), programy (`run`, `jobs`, `stop`, `retry`), dziennik (`history`, `undo`, `redo`), kontynuację skróconej odpowiedzi (`next`) oraz `help`. Pozostałe polecenia należą do opcjonalnych grup, opisywanych na żądanie.
+
+| Grupa | Polecenia | Obejmuje | Dokumentacja |
+|---|---|---|---|
+| core | 34 | pliki, tekst, rekordy, programy, dziennik i pomoc | [strony poleceń](/docs/commands/) |
+| documents | 3 | dokumenty strukturalne według klucza i bazy SQLite | [`set`](/docs/commands/set/) |
+| text | 11 | różnice, łatki, skróty, kodowania, wyrażenia i operacje na rekordach | [`diff`](/docs/commands/diff/) |
+| code | 13 | symbole, definicje, odwołania, diagnostyka, zmiana nazw, profil repozytorium | [`code.symbols`](/docs/commands/code.symbols/) |
+| notebook | 10 | komórki notatników Jupyter | [`notebook.cells`](/docs/commands/notebook.cells/) |
+| git | 22 | repozytoria Git | [grupa git](/docs/groups/git/) |
+| archive | 5 | archiwa i kompresja | [`archive.list`](/docs/commands/archive.list/) |
+| system | 11 | procesy, porty, dyski, host, środowisko, dzienniki systemowe, zawieszanie | [grupa system](/docs/groups/system/) |
+| administration | 34 | usługi, konta, grupy, montowania, parametry jądra, zasilanie, dyski, dostawca rejestru, CIM, zapora sieciowa, trasy, DNS i zegar | [grupa administration](/docs/groups/administration/) |
+| package | 5 | systemowe menedżery pakietów | [grupa package](/docs/groups/package/) |
+| network | 5 | żądania HTTP, pobieranie, rozpoznawanie nazw, ping, interfejsy | [grupa network](/docs/groups/network/) |
+| schedule | 7 | harmonogramy potoków | [grupa schedule](/docs/groups/schedule/) |
+| journal | 5 | dziennik: miejsce, limity, stan, przypięte wpisy, czyszczenie | [`journal.status`](/docs/commands/journal.status/) |
+| program | 4 | zainstalowane programy: wyszukiwanie, opisy | [grupa program](/docs/groups/program/) |
+| verify | 8 | testy i analiza kodu przez typowane opakowania | [`test.run`](/docs/commands/test.run/) |
+
+Strony grup opisują zakres, rekordy, różnice między platformami i odwracalność; pozostałe grupy są opisane na stronach ich poleceń. Grupa administration ma od wersji 0.1.1 34 polecenia.
+
+## Jak zbudowana jest strona polecenia
+
+Każde polecenie katalogu ma jedną stronę i każda strona należy do polecenia. Strona ma stałą kolejność sekcji, określoną w [konwencjach dokumentacji poleceń](/docs/commands/):
+
+| Sekcja | Źródło |
+|---|---|
+| Synopsis | generowana z katalogu |
+| Description | pisana ręcznie |
+| Parameters (nazwa, typ, wartość domyślna, opis) | generowana, opisy można rozszerzać |
+| Input and output | generowana |
+| Effect (kategoria, odwracalność i jej warunki) | generowana, uwagi pisane ręcznie |
+| Examples (co najmniej trzy) | pisane ręcznie |
+| Errors i Related | pisane ręcznie |
+
+Pierwsze trzy przykłady to te, które pokazuje `help <command>`.
+
+## Jak kompilacja sprawdza strony
+
+Kompilacja dokumentacji weryfikuje, że:
+
+- każde polecenie ma stronę, a każda strona należy do polecenia;
+- front matter (`command`, `group`, `summary`) jest równy katalogowi;
+- sekcja generowana jest równa tekstowi wygenerowanemu z katalogu;
+- strona ma co najmniej trzy bloki `nurt example`;
+- każdy przykład daje się przeanalizować, wiąże się, uruchamia się na wirtualnym systemie plików i daje oczekiwany fragment wyniku;
+- nazwa polecenia lub parametru w odwrotnych apostrofach istnieje w katalogu.
+
+Zestaw testów sprawdza każdy plik `catalog/`: nazwy są poprawne i niepowtarzalne, każde wyrażenie typu daje się przeanalizować, parametr wymagany nie ma wartości domyślnej, a indeks wymienia każdy plik z właściwą liczbą poleceń, sumującą się do `total`.
+
+## Jak sprawdzane są nazwy, parametry i typy
+
+Wiązanie działa przed jakimkolwiek skutkiem. Program, który nie może być poprawny, jest odrzucany kodem nazywającym problem, a błąd wymienia najbliższe nazwy lub dopuszczalne typy, więc poprawka jest częścią odpowiedzi.
+
+| Kod | Problem |
+|---|---|
+| `E_UNKNOWN_COMMAND`, `E_UNKNOWN_PARAM` | nieznana nazwa; `expected` wymienia do ośmiu najbliższych nazw |
+| `E_MISSING_PARAM` | brakuje parametru wymaganego |
+| `E_PARAM_CONFLICT` | podano razem parametry, które się wykluczają |
+| `E_TYPE` | wartość lub strumień rekordów ma typ, którego to miejsce nie przyjmuje |
+| `E_UNKNOWN_VALUE` | wartość wyliczenia, która nie istnieje |
+
+Typy zapisuje się jako wyrażenia, takie jak `path | list<path>`, `enum(report|force|abort)` czy `stream<entry>`. Tekst w cudzysłowie jest w miejscu danego typu przekształcany na `path`, `glob`, `instant`, `key`, `size` lub `duration`. Każde związane drzewo zapisuje `catalog_rev`, czyli SHA-256 kanonicznego katalogu, więc każda zmiana polecenia, parametru lub opisu zmienia rewizję.
+
+<Callout type="note" title="Wersjonowanie katalogu">
+  W ramach `nurt-catalog/1` katalog rośnie o nowe polecenia, parametry opcjonalne, wartości wyliczeń i klucze. Usunięcie lub zmiana nazwy polecenia albo niezgodna zmiana typu jest zmianą wersji głównej. Zmiana między wersjami 0.x jest zapisana w dzienniku zmian.
+</Callout>
+
+## Wszystkie polecenia
+
+Poniższy indeks wymienia każde polecenie z jego streszczeniem. Każda nazwa prowadzi do strony polecenia ze składnią, parametrami, skutkami, błędami i przykładami.
+
+<CommandCatalog locale="pl" level={3} />
+
+## Dokąd dalej
+
+Strona o [możliwościach](/pl/product/features/) grupuje polecenia według obiektu pracy, a strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany. [Książka kucharska](/docs/cookbook/) i [strony poleceń](/docs/commands/) zawierają programy.

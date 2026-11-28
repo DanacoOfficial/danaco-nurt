@@ -1,0 +1,32 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.pages.docs.slug
+// Responsibility:   The routes of the imported documentation: one page per entry of the docs collection and a landing page for each section that has no index file.
+// Dependencies:     website.src.components.pages.DocsEntryPage, website.src.components.pages.DocsSectionPage, website.src.lib.docs.model
+
+import DocsEntryPage from '../../components/pages/DocsEntryPage.astro';
+import DocsSectionPage from '../../components/pages/DocsSectionPage.astro';
+import { getDocs, groupDocs } from '../../lib/docs/model';
+import { translatedDocsIds } from '../../lib/docs/translations';
+
+export async function getStaticPaths() {
+  const entries = await getDocs();
+  const translated = await translatedDocsIds();
+  const paths = entries.map((entry) => ({
+    params: { slug: entry.id.endsWith('/index') ? entry.id.slice(0, -'/index'.length) : entry.id },
+    props: { kind: 'entry' as const, entry, available: translated.has(entry.id) ? (['en', 'pl'] as const) : (['en'] as const), section: entry.data.section },
+  }));
+  const withIndex = new Set(entries.filter((entry) => entry.id.endsWith('/index')).map((entry) => entry.data.section));
+  const sections = groupDocs(entries)
+    .filter((group) => !withIndex.has(group.section))
+    .map((group) => ({ params: { slug: group.section }, props: { kind: 'section' as const, entry: undefined, available: ['en'] as const, section: group.section } }));
+  return [...paths, ...sections];
+}
+
+const { kind, entry, available, section } = Astro.props;
+---
+
+{kind === 'entry' && entry ? <DocsEntryPage entry={entry} available={[...available]} /> : <DocsSectionPage section={section} />}

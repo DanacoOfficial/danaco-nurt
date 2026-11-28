@@ -1,0 +1,71 @@
+---
+title: Silnik
+description: "Życie programu Danaco Nurt: parsowanie, wiązanie z katalogiem, planowanie, wykonanie etapowe na rekordach, dziennik i raport, a także uprawnienia, nadzorca zadań i usługi wspólne."
+section: architecture
+order: 2
+eyebrow: Architektura
+lead: Jeden program przechodzi przez stałe kroki. Kroki od 0 do 4 nie mają skutku w świecie, a każda zmiana danych użytkownika przechodzi przez transakcję dziennika.
+updated: 2026-11-28
+related: [architecture/overview, architecture/crates, product/journal-and-undo]
+keywords: [silnik, etapy, moduł wykonawczy, dziennik, raport, uprawnienia, nadzorca, usługi]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Od tekstu do drzewa składni
+
+Nurt wykonuje i zapisuje drzewo składni, nigdy tekst programu. Skrzynka `nurt-syntax` zawiera analizator leksykalny, parsery trzech wariantów zapisu, drukarkę kanoniczną używaną przez `nurt fmt` oraz kodeki JSON i CBOR drzewa. Skrzynka `nurt-correct` najpierw naprawia postać programu, nigdy jego zamiar, a każda korekta jest zgłaszana wywołującemu.
+
+Parsowanie daje **drzewo powierzchniowe** `nurt-ast/1`. Powiązanie go z katalogiem poleceń (`nurt-bind`) daje **drzewo powiązane** `nurt-bound/1`, w którym każdy etap ma kanoniczną nazwę polecenia, argumenty z wartościami domyślnymi i fazę. Dziennik i raport skutków zapisują drzewo powiązane. Oba drzewa mają wersję 1.1, dokumenty w wersji 1.0 są odczytywane bez zmian, a oba opisuje [specyfikacja drzewa składni](/docs/specification/syntax-tree/).
+
+Potok zawiera najwyżej jeden etap, który zmienia świat (faza `mutate`) albo uruchamia program (faza `run`). Etapy fazy `after` stoją wyłącznie za nim, a `verify`, jeśli występuje, jest ostatnim etapem. Każdy inny etap po skutku jest odrzucany z błędem `E_ONE_EFFECT`.
+
+Wersja 1.1 drzew wprowadza konstrukcje sterujące `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define` i `params` ([gramatyka](/docs/specification/grammar/)). Program z taką konstrukcją to jedna operacja i jeden wpis dziennika, w całości albo wcale. Transakcja dziennika ma w tym celu opcję `allow_incremental`, która pozwala zachować kolejne cele po pierwszej zmianie.
+
+## Kroki wykonania
+
+Specyfikacja [interfejsu etapu](/docs/specification/stages/) ustala kroki. Planista `nurt-plan` zamienia program powiązany na plan wykonania, a moduł wykonawczy `nurt-exec` go uruchamia.
+
+| Krok | Nazwa | Co się dzieje | Skutek w świecie |
+|---|---|---|---|
+| `0` | parse | tekst jest korygowany i parsowany do drzewa powierzchniowego | brak |
+| `1` | bind | drzewo jest wiązane z katalogiem; statyczne sprawdzenie każdego etapu | brak |
+| `2` | read | źródła i przekształcenia tworzą rekordy | tylko odczyt |
+| `3` | check | sprawdzenia przed skutkiem (`assert`) | brak |
+| `4` | plan | etap ze skutkiem wylicza swoje cele; tu kończy się `preview` | tylko odczyt |
+| `5` | apply | etap ze skutkiem zmienia świat przez transakcję dziennika | zmiana |
+| `5a` | after | etapy po skutku odczytują rekordy skutku | brak |
+| `6` | verify | uruchamia się potok `verify`; niepowodzenie cofa skutek | wycofanie |
+| `7` | report | budowany jest raport skutków | brak |
+
+Faza etapu wybiera interfejs, który wywołuje moduł wykonawczy: `ReadStage::execute` dla źródeł, przekształceń, sprawdzeń i etapów po skutku oraz `EffectStage::plan`, a po nim `EffectStage::apply` dla `mutate` i `run`. W kroku 1 każdy etap zgłasza też fakty statyczne bez uruchamiania: punkty sieci, z którymi się łączy, programy zewnętrzne, które uruchamia, i ścieżki, które nazywa, dzięki czemu aplikacja osadzająca stosuje własne reguły przed wykonaniem. Jedną nazwę polecenia, na przykład `remove`, może implementować kilka skrzynek; rejestr wybiera implementację według rodzaju rekordu poprzedniego etapu, a wiązanie kończy się błędem `E_TYPE`, gdy żadna go nie przyjmuje.
+
+Etapy wymieniają rekordy w `RecordStream`, leniwym iteratorze wyników. Etap pobiera rekordy z wejścia w miarę potrzeby, więc potok trzyma całe wejście w pamięci tylko tam, gdzie etap musi, jak `sort`, `last` i `group`; taki etap zbiera dane w granicach limitu, a przekroczenie `limits.max_records` kończy się błędem `E_LIMIT`. Błąd kończy program ([specyfikacja rekordów](/docs/specification/records/)).
+
+## Skutki, dziennik i raport
+
+W kroku 4 etap ze skutkiem zapisuje znacznik encji (entity tag) każdego odczytanego celu i zwraca plan. Podgląd (`preview`) zgłasza ten plan i się zatrzymuje, a krok apply używa tego samego planu, więc podgląd pokazuje dokładnie te cele, które wykonanie zmienia. W kroku 5 moduł wykonawczy otwiera transakcję dziennika. Wszystkie cele są deklarowane, a ich poprzedni stan jest zachowywany przed pierwszą zmianą; dziennik porównuje znaczniki encji (`E_STALE` przy niezgodności). Etap nigdy nie zatwierdza: zatwierdza moduł wykonawczy po powodzeniu, a po niepowodzeniu lub anulowaniu cofa zmiany. Etapy po skutku odczytują rekordy skutku w kroku 5a i nigdy nie zmieniają świata; skutek cofa tylko `verify`.
+
+Skrzynka `nurt-journal` implementuje [specyfikację dziennika](/docs/specification/journal/): zachowywanie poprzedniej zawartości, odtwarzanie po awarii, cofanie i ponawianie oraz retencję według liczby, wieku i rozmiaru. Poprzednia zawartość każdego celu istnieje w co najmniej jednym miejscu w każdej chwili awarii. Skrzynka `nurt-space` rozstrzyga dla każdego celu, czy poprzednia zawartość jest zachowywana. Wolne miejsce użytkownika ma pierwszeństwo przed dziennikiem, więc cel, którego dziennik nie może zachować, jest zmieniany bez zachowania i oznaczany jako nieodwracalny.
+
+Skrzynka `nurt-report` buduje raport `nurt-report/1` i renderuje go jako tekst, JSON, Markdown oraz w postaci zwartej. Raport opisuje skutek i ma status: `ok`, `planned`, `running`, `partial`, `rolled_back` albo `failed`. Pola opisuje [specyfikacja raportu](/docs/specification/report/).
+
+## Uprawnienia, programy i anulowanie
+
+Wywołanie żąda praw administratora parametrem `privilege` (`account`, domyślnie, `elevated` albo `auto`) oraz innego konta parametrem `as_user`. Silnik próbuje mechanizmów z `privilege.backends`: `self`, gdy proces już jest administratorem, oraz `sudo`, `doas` lub `run0`, które uruchamiają `nurt elevated-exec` i przekazują mu jedno żądanie na standardowe wejście, bez budowania tekstu dla powłoki. Wpis z podniesionymi uprawnieniami trafia do dziennika konta, które o niego poprosiło, a `undo N` przywraca go tym samym mechanizmem ([bezpieczeństwo](/docs/guide/security/)).
+
+Skrzynka `nurt-proc` uruchamia programy bez powłoki, we własnej grupie procesów lub obiekcie zadania, z limitami czasu, bezczynności, procesora i pamięci. Inne grupy poleceń docierają do niej przez cechę usługi `ProcessHost`, która uruchamia także GnuPG dla podpisów OpenPGP.
+
+Anulowanie jest kooperacyjne. Jeden token jest wspólny dla wszystkich etapów wykonania, a jego pierwsza przyczyna kończy program błędem `E_CANCELLED`, `E_TIMEOUT` albo `E_LIMIT`. Anulowanie w kroku 5 cofa transakcję, a anulowanie przed krokiem 5 nie ma skutku w świecie.
+
+## Nadzorca i usługi
+
+Przebieg, który trwa w tle po zakończeniu wiersza poleceń, jest nadzorowany przez proces, który go przeżywa. Oba wymieniają pliki w `<state>/jobs`: żądania startu w `inbox/` oraz plik zadania i katalog sterowania dla każdego zadania. Anulowanie dociera do przebiegu w postaci dopasowanej do jego postępu, a po starcie programu nadzorca kończy całe drzewo procesów naraz ([specyfikacja nadzorcy](/docs/specification/supervisor/)). Usługa w tle z `nurt-service` to inny proces: obsługuje moduł harmonogramów z `nurt-sched` oraz moduł wolnego miejsca i odpowiada na gnieździe Unix, a w Windows na potoku nazwanym.
+
+Gdy polecenie jednej grupy potrzebuje innej grupy, wywołuje cechę usługi zarejestrowaną w rejestrze `Services` niesionym przez kontekst wykonania: `DocService`, `CodeService`, `ProcessHost`, `FileListService`, `GitQueryService`, `TextCodecService`, `FileHolderService` i `ReviewRuleProvider`. Usługę, której jej grupa nie dostarcza, zastępuje rozwiązanie z [specyfikacji usług](/docs/specification/services/), a raport odnotowuje to rozwiązanie.
+
+## Dalej
+
+Strona o [skrzynkach](/pl/architecture/crates/) wymienia skrzynki, które implementują te kroki; [interfejs C](/pl/architecture/c-interface/) i [protokoły](/pl/architecture/protocols/) opisują interfejsy do silnika.

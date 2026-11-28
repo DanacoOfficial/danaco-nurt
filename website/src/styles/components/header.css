@@ -1,0 +1,169 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.header
+ * Responsibility:   The site header: the sticky bar, the navigation, the tools and the menu panel on narrow screens.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.components.button
+ */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: var(--header-height);
+}
+
+.site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  text-decoration: none;
+}
+
+.site-header__nav {
+  display: none;
+  flex: 1 1 auto;
+}
+
+.site-header__nav ul {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__nav a {
+  white-space: nowrap;
+  display: inline-block;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.site-header__nav a:hover,
+.site-header__nav a[aria-current='page'] {
+  color: var(--text);
+}
+
+.site-header__nav a[aria-current='page'] {
+  background: var(--accent-soft);
+}
+
+.site-header__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.site-header__icon-link {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-2);
+  color: var(--text-muted);
+}
+
+.site-header__icon-link:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+
+.site-header__github,
+.site-header__install {
+  display: none;
+}
+
+.site-header__menu-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  color: var(--text);
+}
+
+.site-header__menu-close,
+.site-header__menu-button[aria-expanded='true'] .site-header__menu-open {
+  display: none;
+}
+
+.site-header__menu-button[aria-expanded='true'] .site-header__menu-close {
+  display: block;
+}
+
+.site-header__panel {
+  display: none;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  max-height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+}
+
+.site-header__panel[data-open] {
+  display: block;
+}
+
+.site-header__panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-4) 0 var(--space-6);
+  list-style: none;
+}
+
+.site-header__panel a:not(.button) {
+  display: block;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--text-lg);
+  text-decoration: none;
+}
+
+.site-header__panel .button {
+  margin-top: var(--space-4);
+}
+
+@media (min-width: 66rem) {
+  .site-header__nav {
+    display: block;
+  }
+
+  .site-header__menu-button,
+  .site-header__panel {
+    display: none !important;
+  }
+
+  .site-header__install {
+    display: inline-flex;
+  }
+
+  .site-header__tools {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 75rem) {
+  .site-header__github {
+    display: inline-grid;
+  }
+}

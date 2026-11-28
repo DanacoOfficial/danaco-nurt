@@ -1,0 +1,131 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.footer
+ * Responsibility:   The site footer: the about block, the link columns and the legal strip.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.site-footer {
+  margin-top: var(--space-9);
+  padding-block: var(--space-8) var(--space-6);
+  border-top: 1px solid var(--line);
+  background: var(--bg-sunken);
+  font-size: var(--text-sm);
+}
+
+.site-footer__top {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.site-footer__about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 24rem;
+}
+
+.site-footer__about a:first-child {
+  text-decoration: none;
+}
+
+.site-footer__tagline {
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.site-footer__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.site-footer__facts span {
+  display: inline-block;
+  min-width: 6.5rem;
+  color: var(--text-faint);
+}
+
+.site-footer__columns {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+}
+
+.site-footer__heading {
+  margin-bottom: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-footer__heading a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.site-footer__column ul,
+.site-footer__legal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer__column a,
+.site-footer__legal a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.site-footer__column a:hover,
+.site-footer__legal a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.site-footer__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+.site-footer__legal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 64rem) {
+  .site-footer__top {
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    gap: var(--space-9);
+  }
+}
+
+.site-footer__creator {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.site-footer__creator strong {
+  font-weight: 600;
+  color: var(--text);
+}

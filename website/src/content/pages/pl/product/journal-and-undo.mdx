@@ -1,0 +1,101 @@
+---
+title: Dziennik i cofanie
+description: Jak Danaco Nurt zapisuje zmiany plików w dzienniku, jak operacje są przeglądane, cofane i ponawiane oraz jak klasyfikowane są skutki poza systemem plików.
+section: product
+order: 3
+eyebrow: Produkt
+lead: Każda zmiana plików jest zapisywana razem ze stanem, który ją poprzedzał, aby można ją było przejrzeć, cofnąć i zastosować ponownie.
+updated: 2026-11-28
+related: [product/effect-reports, product/commands, quality/reliability, architecture/engine]
+keywords: [dziennik, cofanie, ponawianie, historia, odtwarzanie po awarii, retencja]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Jak zapisywana jest zmiana
+
+Dziennik zapisuje każdą operację zmieniającą pliki, wartości dostawców lub stan repozytorium, razem z poprzednim stanem potrzebnym do cofnięcia. Jeden etap skutku jednego programu to jedna operacja z jednym numerem; odczyty i podglądy nie mają wpisu. Program z konstrukcją sterującą (`when`, `each`, `repeat`, `while`, `steps`) to jedna operacja i jeden wpis, w trybie „wszystko albo nic”. Kontraktem jest [specyfikacja dziennika](/docs/specification/journal/).
+
+Kolejność kroków jest stała:
+
+1. Etap deklaruje każdy cel, który zmieni.
+2. Dziennik zachowuje poprzedni stan wszystkich celów przed pierwszą zmianą.
+3. Etap stosuje zmiany; nowa zawartość jest zapisywana do pliku tymczasowego i atomowo wstawiana na miejsce.
+4. Wykonawca zatwierdza wpis albo wycofuje całą operację, jeśli późniejszy krok się nie powiedzie.
+
+Poprzednia zawartość jest zachowywana przez przeniesienie usuniętego wpisu do dziennika, zamianę nazw przy nadpisaniu, wykonanie klonu współdzielącego bloki albo skopiowanie bajtów. Jeśli plik zmienił się między odczytem a zapisem, operacja kończy się błędem `E_STALE` i jest wycofywana w całości. Od wersji 0.1.1 znacznik encji pliku, który został odczytany, zawiera SHA-256 zwróconych bajtów, więc wykrywane jest także przepisanie pliku przez inny program bez zmiany rozmiaru.
+
+## Przeglądanie, cofanie i ponawianie
+
+| Polecenie | Funkcja |
+|---|---|
+| `history` | wypisuje operacje, od najnowszej; filtruje według `state`, `path`, `since`, `before` i `deleted` |
+| `undo` | odwraca jedną operację, każdą operację od danego punktu, zmiany jednego pliku albo wybrane elementy operacji |
+| `redo` | stosuje cofniętą operację ponownie |
+
+Operacja ma stan `available`, `partial`, `expired` albo `undone`, a `history` podaje, który z nich.
+
+```nurt
+history path: "/home/user/app/main.go"
+undo 18 on_conflict: include_later
+undo file: "/home/user/app/config.toml" since: 12
+undo to: 30
+redo
+```
+
+Strony poleceń [`history`](/docs/commands/history/), [`undo`](/docs/commands/undo/) i [`redo`](/docs/commands/redo/) opisują każdy parametr. `undo` bez argumentów odwraca najnowszą dostępną operację sesji, która sama nie jest cofnięciem.
+
+Zanim cokolwiek zostanie zapisane, `undo` porównuje każdy element ze stanem, który dziennik zapisał po operacji. Jeśli plik zmienił się od tego czasu, nic nie jest zmieniane, chyba że `on_conflict` stanowi inaczej: `report` (domyślnie) kończy się błędem `E_JOURNAL_CONFLICT` i wypisuje różnice, `abort` kończy się błędem, `force` cofa mimo to, `include_later` cofa także późniejsze operacje na tych samych elementach, a `partial` przywraca elementy, które są jeszcze przechowywane.
+
+Cofnięcie jest wpisem z własnym numerem i zachowuje bieżący stan tego, co przywróciło, więc `redo` może je zastosować ponownie. Późniejsza zwykła operacja na tych samych plikach powoduje, że `redo` kończy się błędem `E_JOURNAL_CONFLICT`: ponowienie nigdy nie nadpisuje nowszej pracy.
+
+<Callout type="tip" title="Sprawdzenie przed zmianą">
+  `preview: true` oblicza cele operacji bez żadnej zmiany, a `assert` zatrzymuje program przed zmianą, gdy liczba celów różni się od oczekiwanej. `undo` naprawia to, co sprawdzony program mimo wszystko zrobił źle.
+</Callout>
+
+## Skutki poza systemem plików
+
+Skutek poza systemem plików jest cofany, gdy silnik potrafi wyprowadzić operację odwrotną ze stanu, który zapisał. Od wersji 0.1.1 silnik wyprowadza ją dla `start` i `stop` usługi (polecenie przeciwne), dla `enable` i `disable` przy typach uruchamiania `disabled` i `automatic` oraz dla zapory, tras, DNS, kont, grup, montowań, parametrów jądra i strefy czasowej (poprzednie wartości). [Przewodnik po administracji](/docs/guides/administration/) wymienia je wszystkie. Skutek bez operacji odwrotnej jest wymieniony w raporcie w polu `irreversible`, z przyczyną taką jak `service_changed`, `package_changed` lub `no_space_for_copy`.
+
+Raport oznacza jako nieodwracalne między innymi:
+
+| Skutek | Dokumentacja |
+|---|---|
+| Restart usługi; zatrzymanie procesu albo zadania przez `stop` | [przewodnik po administracji](/docs/guides/administration/), polecenie `stop` |
+| `clock.set`, `accounts.password`, `power.cancel`, `disks.partition`, `disks.format`, natychmiastowy restart lub wyłączenie | [grupa administration](/docs/groups/administration/) |
+| Wywołanie `windows.cim`, którego metoda nie ma udokumentowanego przeciwieństwa | [`windows.cim`](/docs/commands/windows.cim/) |
+| Żądanie HTTP z `post`, `put`, `patch` lub `delete` | [grupa network](/docs/groups/network/) |
+| Program uruchomiony przez `run`, który pasuje do tabeli programów ze skutkami poza komputerem, na przykład `git push` | [`run`](/docs/commands/run/) |
+| `load_extension` oraz pragmy `temp_store_directory` i `data_store_directory` polecenia `sql` | podgląd [`sql`](/docs/commands/sql/) |
+
+Brak miejsca lub nieaktywny dziennik nigdy nie powoduje niepowodzenia operacji użytkownika: operacja jest wykonywana, a cel dostaje oznaczenie z przyczyną, na przykład `no_space_for_copy`, `journal_inactive` lub `too_large_for_journal`. Usunięcie nigdy nie kasuje danych po tym, jak dziennik nie zdołał ich zachować.
+
+Wpis wykonany z `privilege: elevated` jest cofany tym samym backendem: `undo N privilege: elevated`. W macOS dziennik jest aktywny dla ścieżek woluminu danych od wydania 0.1.2.
+
+## Wiele plików i awarie
+
+Operacja na wielu celach to jeden wpis i jest cofana w całości. Od wersji 0.1.1 `replace` na tysiącach plików i jego `undo` działają kilka razy szybciej. Manifesty operacji z co najmniej 256 celami używają formatu w wersji 2; dzienniki zapisane przez 0.1.0 są odczytywane bez zmian.
+
+Gdy kończy się wolne miejsce, dziennik zwalnia część wpisu. Wpis przechodzi w stan `partial`, a `undo ... on_conflict: partial` przywraca to, co zachowano.
+
+W każdej chwili awarii poprzednia zawartość każdego celu istnieje w co najmniej jednym miejscu. Odtwarzanie działa przed pierwszą transakcją procesu i po restarcie komputera: wpis przygotowany, ale niezatwierdzony, jest wycofywany, a przerwane wycofanie jest dokańczane. Wpis, który nie przejdzie kontroli integralności, przyjmuje stan `corrupt` i jest naprawiany poleceniem `nurt journal salvage`. Skrzynka `nurt-crashfs` symuluje utratę zasilania i wstrzykiwane błędy oraz po odtworzeniu sprawdza, że każda operacja jest kompletna albo w pełni wycofana.
+
+## Konta, sesje i retencja
+
+Katalog dziennika woluminu jest wspólny dla każdego konta, które na nim pracuje, a `history`, `undo` i `redo` pokazują wpisy konta wywołującego. Zakres wybrany przez `to` obejmuje operacje bieżącej sesji, a `all_sessions` rozszerza go na pozostałe.
+
+Wpis wygasa, gdy liczba późniejszych operacji, jego wiek lub bajty przechowywane na woluminie przekroczą limit. Domyślnie zachowywanych jest ostatnich 30 operacji oraz operacje z ostatnich 30 minut.
+
+| Polecenie | Funkcja |
+|---|---|
+| `journal.status` | czy dziennik jest włączony, wpisy, przechowywane bajty, najstarszy wpis, limity i ich źródło |
+| `journal.limits` | pokazuje lub ustawia limity; obniżenie limitu natychmiast wygasza wpisy |
+| `journal.pin` | chroni wpisy przed wygaśnięciem z powodu limitów, domyślnie na 24 godziny |
+| `journal.space` | wolne miejsce i miejsce zajęte przez dziennik, na wolumin |
+| `journal.purge` | zwalnia wpisy; nie można tego cofnąć |
+
+## Dokąd dalej
+
+[Raport skutków](/pl/product/effect-reports/) zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem. Książka kucharska ma 25 przepisów w kategorii [dziennik, cofanie i bezpieczeństwo](/docs/cookbook/journal-and-undo/), a [katalog poleceń](/pl/product/commands/) wymienia grupy.

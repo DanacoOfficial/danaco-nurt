@@ -1,0 +1,25 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Timeline
+// Responsibility:   A vertical timeline of dated or labelled events, for example the releases.
+// Dependencies:     website.src.styles.components.timeline
+
+import '../../styles/components/timeline.css';
+interface Props {
+  items: { label: string; title: string; text?: string; href?: string; current?: boolean }[];
+}
+const { items } = Astro.props;
+---
+
+<ol class="timeline" role="list">
+  {items.map((item) => (
+    <li class:list={['timeline__item', item.current && 'timeline__item--current']}>
+      <p class="timeline__label">{item.label}</p>
+      <h3 class="timeline__title">{item.href ? <a href={item.href}>{item.title}</a> : item.title}</h3>
+      {item.text && <p class="timeline__text">{item.text}</p>}
+    </li>
+  ))}
+</ol>

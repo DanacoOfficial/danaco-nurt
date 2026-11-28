@@ -1,0 +1,36 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.page-header
+ * Responsibility:   The page header: the stream trace behind the title, the title block and the meta line.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.base
+ */
+
+.page-header {
+  padding-block: var(--space-7) var(--space-7);
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-sunken), var(--bg));
+}
+
+.page-header .container > * + * {
+  margin-top: var(--space-4);
+}
+
+.page-header__eyebrow {
+  margin-top: var(--space-5) !important;
+}
+
+.page-header__title {
+  max-width: 24ch;
+}
+
+.page-header__lead {
+  max-width: 62ch;
+}
+
+.page-header__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}

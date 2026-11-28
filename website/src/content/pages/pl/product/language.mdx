@@ -1,0 +1,126 @@
+---
+title: Język
+description: "Język Danaco Nurt: programy jako potoki typowanych rekordów, wartości, etapy, konstrukcje sterujące, poprawki, kody błędów oraz kontrole wykonywane przed uruchomieniem programu."
+section: product
+order: 4
+eyebrow: Produkt
+lead: Program to potok typowanych rekordów. Zanim cokolwiek się zmieni, jest analizowany, poprawiany i wiązany z katalogiem poleceń.
+updated: 2026-11-28
+related: [product/commands, product/effect-reports, product/journal-and-undo, architecture/engine]
+keywords: [język, potok, rekordy, etapy, konstrukcje sterujące, poprawki, kody błędów, check]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Programy i potoki
+
+Program to ciąg instrukcji rozdzielonych końcami wierszy. Instrukcją jest potok albo wiązanie `let`. Potok to polecenie, po którym następują polecenia połączone operatorem `|>`; koniec wiersza przed `|>` kontynuuje potok. `let name = pipeline` zapisuje wynik, a `@name` go używa, więc wartość zachowuje typ od jednej instrukcji do następnej.
+
+```nurt
+let recent = find "/home/user/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
+@recent |> count
+```
+
+Każdy etap przyjmuje rekordy i zwraca rekordy, pojedynczą wartość albo nic, więc żaden etap nie analizuje tekstu innego. [Przewodnik po języku](/docs/guide/language/) opisuje każdą formę. Etap, który potrzebuje całego wejścia w pamięci, taki jak `sort`, `last` czy `group`, zbiera je z ograniczeniem: przekroczenie `limits.max_records` kończy się błędem `E_LIMIT`, a rekordy nigdy nie są po cichu pomijane.
+
+## Wartości, rekordy i ścieżki kluczy
+
+| Rodzaj | Zapis | Przykład |
+|---|---|---|
+| Tekst | cudzysłowy | `"/home/user/app"` |
+| Tekst surowy | `r"…"` lub `r#"…"#` | `r#"import "fmt""#` |
+| Wyrażenie regularne | między ukośnikami, flagi `i m s x` | `/oldName\(/i` |
+| Rozmiar | liczba i jednostka | `10mb` (dziesiętna), `10mib` (binarna) |
+| Czas trwania | liczby z jednostkami | `1h30m` |
+| Zakres | granice włącznie | `10..20`, `40..`, `all` |
+| Lista, mapa | nawiasy kwadratowe, klamrowe | `["a", "b"]`, `{CI: "1"}` |
+
+[Specyfikacja rekordów](/docs/specification/records/) definiuje typy wartości i rodzaje rekordów, wśród nich `entry`, `line`, `match`, `process`, `commit` i `operation`. Rekord ma pola w stałej kolejności, a w JSON rozmiary są wyrażone w bajtach, czasy trwania w milisekundach. Ścieżka, która nie jest poprawnym Unicode, zachowuje swoje natywne bajty obok postaci wyświetlanej.
+
+Dokumenty adresuje się ścieżkami kluczy, które wiązanie przekształca przed uruchomieniem jakiegokolwiek polecenia; niepoprawny klucz jest zgłaszany jako `E_KEY_SYNTAX`:
+
+```nurt
+read "package.json" key: "scripts.test"
+set "package.json" key: "keywords[+]" value: "cli"
+read "users.json" key: "users[?age >= 18 and active].name"
+```
+
+[Specyfikacja ścieżek kluczy](/docs/specification/keypath/) definiuje składnię. Wyrażenia w `filter`, `sort`, `select`, `assert` i `evaluate` używają `== != < <= > >= ~ !~ in and or not + - * /`, gdzie `~` dopasowuje wyrażenie regularne.
+
+## Etapy i skutki
+
+Potok jest wykonywany w stałych krokach, a kroki od 0 do 4 nie mają skutku w świecie.
+
+| Krok | Nazwa | Skutek |
+|---|---|---|
+| 0, 1 | parse, bind | brak |
+| 2 | read | tylko odczyt |
+| 3 | check (`assert`) | brak; niepowodzenie niczego nie zmienia |
+| 4 | plan | tylko odczyt; `preview` kończy się tutaj |
+| 5 | apply | zmiana, przez transakcję dziennika |
+| 5a | after | brak |
+| 6 | verify | niepowodzenie wycofuje skutek |
+| 7 | report | brak |
+
+Potok ma jeden etap, który zmienia świat lub uruchamia program; drugi kończy się błędem `E_ONE_EFFECT`, którego pierwszym kandydatem są te same potoki wewnątrz `steps`. Po skutku mogą występować tylko `assert`, `filter`, `select`, `first`, `last`, `skip`, `count`, `sort` i `group`. `verify` jest ostatnim etapem i wycofuje zmianę, gdy jego sprawdzenie się nie powiedzie:
+
+```nurt
+search /oldName\(/ "/home/user/app/src" glob: "**/*.go"
+|> replace "newName("
+|> verify (run ["go", "build", "./..."] cwd: "/home/user/app" |> assert exit_code: 0)
+```
+
+Przepis książki kucharskiej [edycja wielu plików](/docs/cookbook/edit-many-files/) używa tej formy. Warianty składni A i B tworzą to samo drzewo składni; wariant C zapisuje każdy argument z nazwą. Tekst programu nie jest wykonywany: wykonywane jest drzewo składni, a dziennik i raport przechowują jego skrót (`ast_hash`).
+
+## Konstrukcje sterujące
+
+Od wersji 0.1.1 język ma `when` z `otherwise when` i `otherwise`, pętle `each`, `repeat until` i `while` z `break` i `continue`, `steps` dla kilku zmian w jednym wywołaniu, funkcje z `define` oraz parametry skryptu z `params`. Drzewo składni ma wersję 1.1; dokumenty wersji 1.0 są odczytywane bez zmian.
+
+```nurt
+steps {
+    find "/srv/app/old" glob: "*.conf" |> move to: "/srv/app/conf"
+    replace /old\/path/ "conf/path" in: "/srv/app/app.toml" expect: 3
+}
+```
+
+Konstrukcja to jeden wpis dziennika i działa w trybie „wszystko albo nic”: gdy część się nie powiedzie, dotychczasowe zmiany są wycofywane, a części, których nie da się wycofać, takie jak uruchomienie programu, są wypisywane przed zmianą. `preview` oblicza wybraną gałąź, iteracje i każdy skutek bez zmiany, a typy, nazwy i liczba argumentów są sprawdzane przed jakimkolwiek skutkiem. Bez `limit` pętla kończy się przy `loop.max_iterations` (10 000) lub `loop.max_time` (10 minut). Parametr typu `bool` zapisany bez wartości ma wartość `true`, więc `remove "/tmp/x" preview` jest poprawne.
+
+## Poprawki
+
+Danaco Nurt przyjmuje nawyki innych powłok i formy z drobnymi błędami. Poprawka zmienia formę programu, nigdy jego znaczenie, a zastosowane poprawki są wymienione w raporcie. Nazwy dotykającej zmiany dotyczą dwie reguły:
+
+- Błędnie zapisana nazwa polecenia, które tylko odczytuje, jest poprawiana i program się uruchamia.
+- Błędnie zapisana nazwa polecenia, które zmienia pliki lub uruchamia program, na przykład `remvoe`, otrzymuje odpowiedź `E_AMBIGUOUS` w kroku 1. Nic się nie uruchamia, a `candidates` zawiera uszeregowane programy, z których pierwszy jest gotowy do ponownego wysłania.
+
+`undo op: 18` jest poprawiane na `undo id: 18` (reguła L06). Nawyki basha i PowerShella oraz ich formy zawierają ściągawki dla użytkowników [basha](/docs/cheatsheets/nurt-for-bash-users/) i [PowerShella](/docs/cheatsheets/nurt-for-powershell-users/).
+
+## Kody błędów
+
+Błąd ma stabilny kod z przedrostkiem `E_`, komunikat po angielsku oraz, gdy są znane, etap, położenie i zamienniki tekstu programu. Kody są dodawane wyłącznie w obrębie wersji głównej, a znaczenie kodu nigdy się nie zmienia.
+
+| Kod | Etap | Znaczenie |
+|---|---|---|
+| `E_SYNTAX` | 0 | program nie jest zgodny z gramatyką |
+| `E_UNKNOWN_COMMAND`, `E_UNKNOWN_PARAM` | 1 | nieznana nazwa; `expected` wymienia do ośmiu najbliższych nazw |
+| `E_TYPE` | 1, 2 | wartość lub strumień rekordów ma typ, którego to miejsce nie przyjmuje |
+| `E_ASSERT` | 3, 4, 5a | asercja nie jest spełniona |
+
+Błąd etapów parse i bind opisuje pomyłkę w programie i sposób jej poprawienia, a świat pozostaje taki, jaki był. [Specyfikacja błędów](/docs/specification/errors/) wymienia każdy kod.
+
+## Sprawdzanie przed uruchomieniem
+
+`nurt check` analizuje, poprawia i wiąże program, wypisuje jego postać kanoniczną i skutek, niczego przy tym nie zmieniając. `preview: true` przeprowadza program zmieniający przez kroki od 0 do 4 i zgłasza cele. `assert` wyraża oczekiwaną liczbę celów wewnątrz programu.
+
+```sh
+nurt check -e 'remove "/home/user/app/build"'
+```
+
+<Callout type="note" title="Wersje">
+  Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji; zmiana między wersjami 0.x jest zapisana w dzienniku zmian.
+</Callout>
+
+## Dokąd dalej
+
+[Katalog poleceń](/pl/product/commands/) definiuje nazwy, parametry i typy, które sprawdza wiązanie. [Raport skutków](/pl/product/effect-reports/) opisuje wynik, a przewodnik po [edycji tekstu](/docs/guides/text-editing/) pokazuje polecenia edycji w potokach.

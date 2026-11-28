@@ -1,0 +1,138 @@
+{
+  "name": "nurt",
+  "description": "Danaco Nurt (`nurt`) — konsola do plików, tekstu, programów i systemu (zastępuje basha i PowerShella; działa tak samo w systemach Linux, macOS i Windows). Parametr wywołania: `program` (tekst Nurt).\n\nPROGRAM\nprogram = [let nazwa = POTOK]… POTOK. POTOK = źródło |> etap |> etap… Koniec wiersza kończy polecenie; wiersz zaczynający się od `|>` je kontynuuje. Komentarz: `#`.\nDane między etapami to typowane rekordy (entry, line, match…), nie tekst. `@name` = wynik `let`; `...@name.path` = rozwinięcie listy. Nie ma $, cd, ;, &&, ||, flag z myślnikiem, podstawiania tekstu ani bieżącego katalogu.\nLiterały: ścieżka = tekst w cudzysłowie \"/srv/app\" lub \"C:/proj\" (zawsze w cudzysłowie, bezwzględna, separator `/`; względna tylko z parametrem wywołania `base`); tekst \"…\" (sekwencje \\\\ \\\" \\n \\t \\u{..}) lub surowy r\"…\" / r#\"…\"#; wyrażenie regularne /…/i (flagi i m s x; `\\/` dla ukośnika; składnia RE2); glob \"**/*.go\".\nPonadto: rozmiar 10mb 1.5gib; czas trwania 30s 5m 1h30m 7d; chwila \"2026-11-21T10:00:00Z\", ago(7d), now(); zakres 5, 1..5, 40.., ..9; lista [a, b]; mapa {k: \"v\"}; klucz dokumentu \"a.b[0].c\".\nArgumenty: najpierw pozycyjne, potem `name: value`. Wartości wyliczeniowe to gołe słowa (order: desc).\nExpressions (filter, assert, select): record fields, == != < <= > >= ~ (regex) !~ in and or not + - * /, functions lower upper len trim contains(a,b) starts_with(a,b) ends_with(a,b) ago(d) now().\n\nKONSTRUKCJE\nwhen COND { … } otherwise when COND { … } otherwise { … } — wykonuje się jedna gałąź; COND to bool: == != < and or not, `exists \"/p\"`, `(find \"/d\" |> count) > 0`, `exit_code`.\neach (find \"/d\" glob: \"*.log\") as f { remove f.path } — blok wykonuje się dla każdego rekordu po kolei (f.path, f.name); opcje parallel: N, atomic: false.\nrepeat until: COND every: 5s limit: 2m { … } wykonuje, potem sprawdza (E_LIMIT, gdy nigdy); while COND limit: 20 { … } sprawdza najpierw i kończy normalnie na limicie; domyślnie loop.max_iterations 10000, loop.max_time 10m; break, continue.\nsteps { POTOK … } — kilka zmian w jednym wywołaniu, po jednej w wierszu; let przekazuje wyniki dalej. Wszystko albo nic; jedno undo cofa całość.\ndefine name(dir: path, keep: int = 7) { … } potem name(\"/x\", keep: 14) — typowane parametry z domyślnymi; ciało widzi tylko swoje parametry (@dir); wynikiem jest ostatnia instrukcja; rekurencja do function.max_depth 64.\nparams { dir: path  days: int = 30  dry: bool = false } na początku pliku: `nurt run f.nurt dir: \"/x\" dry`. Wartość bool bez wartości to true (remove preview); false zapisuje się jawnie.\nKażda konstrukcja to jeden wpis dziennika, sprawdzany pod względem typów przed skutkiem; preview: true pokazuje gałąź i każdy przebieg.\n\nZASADY\n1. Jedna akcja na krok: najwyżej jeden etap zmieniający (write, replace, remove, move, copy, run…), na końcu. Po nim może być verify (…), a po skutku assert, filter, select, first, last, skip, count i sort na rekordach wyniku. Niespełnione sprawdzenie po skutku to błąd bez wycofania; wycofuje wyłącznie verify. Kilka akcji = kilka wywołań.\n2. Wzorce są dozwolone; konsola wypisuje obliczone cele. Opcjonalne sprawdzenie: assert count: 12 | paths: 12 | exit_code: 0.\n3. Wynik pokazuje skutek: diff, pliki, liczby, rozmiary, notable (poza projektem, masowe usuwanie…) i irreversible. Etap zmieniający na pustej liście nic nie robi (0).\n4. Błąd przed skutkiem zatrzymuje cały program i nic się nie zmienia. Pliki są zapisywane atomowo ze sprawdzeniem etag (E_STALE); kodowanie i końce wierszy są zachowane; wyjście jest w UTF-8.\n5. Zapis, który wprowadza NOWY błąd składni do znanego formatu (JSON, TOML, YAML, XML, kod), jest wycofywany (validate: reject).\n6. Forma jest poprawiana, gdy to bezpieczne (literówki, jednostki, cudzysłowy, nawyki basha i PowerShella); wynik zawiera `corrected` i `ran` (co wykonano). Gdy korekta dotknęłaby celu zmiany, odpowiedzią jest E_AMBIGUOUS z gotowymi programami do ponownego wysłania.\n7. Pomyłkę widoczną w wyniku można naprawić poleceniem undo (history wypisuje operacje; history state: partial i undo on_conflict: partial dotyczą wpisów przywracalnych tylko częściowo; undo paths: przywraca wybrane ścieżki). Naprawia błędy, ale nie zastępuje sprawdzania: gdy nie ma pewności, użyj preview: true lub assert.\n8. Ograniczenia: konsola nie zapobiega błędom logicznym uruchamianych programów; zmiany wykonane przez run są wykrywane tylko w `watch` (domyślnie katalog roboczy programu) i mogą być oznaczone jako nieodwracalne.\n\nPOLECENIA RDZENIA (WERSALIKI = pozycyjny, * = wymagany, … = lista; name:value = wartość domyślna; name:a|b = wyliczenie, domyślna pierwsza; name: = bez wartości domyślnej)\nźródła:\nlist PATH* depth:1 type:any|file|directory|link hidden:true sort:name|modified|size|type — List the entries of a directory.\nfind PATH* GLOB type:file|directory|link|any depth: hidden:true follow_links:false — Find entries under a directory by name pattern and attributes.\ninfo PATH…* hash:none|sha256|sha512|sha1|md5|blake3|crc32 details:[text|exif|pdf|media|git|symbols] known: — Describe paths, including paths that do not exist.\nread PATH… lines: last: around: context:3 — Read text, images, PDF pages, notebooks or document keys.\nlines PATH* RANGE — Produce the lines of a file or of the input content.\nsearch PATTERN* PATH…* glob:\"**\" mode:auto|literal|regex|syntax case_sensitive:true whole_word:false — Search file content for text, regular expressions or syntax patterns.\njobs ID state:any|running|suspended|exited|failed|stopped|timed_out|stalled|limit|lost head: tail: stream:both|stdout|stderr\nhistory ID limit:20 state:any|available|partial|expired|undone before: since:\nnext ID COUNT all:false full_lines:false\nhelp TOPIC kind:command|group|error|skill|syntax|corrections group: skill: search:\netapy:\nfilter CONDITION* — Keep the records that meet a condition.\nselect FIELDS…* — Keep the given fields of each record and add computed fields.\nsort BY…* order:asc|desc — Sort the records by fields.\nfirst COUNT* — Keep the first records.\nlast COUNT* — Keep the last records.\nskip COUNT* — Drop the first records.\ncount — Count the records.\nassert count: paths: exit_code: all: — Stop the program with E_ASSERT unless the records meet one condition.\nverify CHECK* — Check a change with a pipeline and roll the change back when the check fails.\nzmiany:\nwrite PATH TEXT mode:create|overwrite|append|prepend* from: encoding:\"auto\" line_ending:keep|lf|crlf|cr — Write text, bytes or records to a file.\nreplace PATTERN* WITH* in:* glob:\"**\" mode:auto|literal|regex|syntax occurrence: — Replace text in files or in the found text.\ninsert TEXT* in:* line: position:after|before|start|end ensure_newline:false — Insert text before or after lines, matches or nodes, or at the start or end of files.\nedit PATH* changes:* expect: if_match: whitespace:normalize|exact|trailing|indent — Apply a list of changes to one file, all or none.\ncopy FROM…* TO into: on_conflict:overwrite|skip|error preserve:true clone:auto|always|never — Copy files and directories.\nmove FROM…* TO into: on_conflict:overwrite|skip|error — Move files and directories.\nremove PATH…* on_missing:skip|error check_references:false — Remove files, directories, registry keys and values, lines, matches, document items, syntax nodes or finished jobs.\nrename PATTERN WITH path:* to: on_conflict:error|overwrite|skip check_references:false — Rename entries by pattern or to a new name.\ncreate PATH… type:file|directory|link|junction|fifo|device* target: hard:false temporary:false — Create files, directories, links, junctions, named pipes, device nodes or temporary entries.\nattributes PATH…* mode: owner: group: acl: — Change permissions, account, times and extended attributes of entries.\nrun COMMAND* cwd:* env: inherit_env:all|none stdin: — Run a program without a shell; after wait it continues as a background job.\nstop signal:terminate|kill|interrupt|hangup grace:5s\nretry timeout: wait:forever\nundo ID to: file: since: paths:\nredo ID\n\nRECORDS (fields): entry(path name stem extension parent type size modified created mode owner link_target encoding line_ending binary hash etag) · content(path text lines etag encoding line_ending) · line(path no text) · match(path no column text line groups) · exec(command cwd exit_code signal timed_out stdout stderr changes) · job(id state exit_code elapsed stdout stderr) · operation(id time kind summary state files irreversible)\n\nPARAMETRY WYWOŁANIA: preview (tylko cele i skutek), base (katalog dla ścieżek względnych), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.\nSkrócony wynik kończy się `more: next`; wywołaj `next`, aby pobrać następną część.\n\nPRZYKŁADY\nfind \"/srv/app/src\" glob: \"**/*.go\" |> filter size > 1mb |> sort size order: desc |> first 20\nsearch /oldName\\(/ \"/srv/app/src\" glob: \"**/*.go\" |> assert paths: 12 |> replace \"newName(\"\nfind \"/srv/app/build\" glob: \"**/*.tmp\" |> remove\nwrite \"/srv/app/.gitignore\" \"dist/\\n\" mode: append\nread \"/srv/app/main.go\" lines: 10..40\nrun [\"go\",\"test\",\"./...\"] cwd: \"/srv/app\" |> assert exit_code: 0\nlet ts = find \"/srv/app\" glob: \"**/*.ts\" |> filter modified > ago(1h)\n@ts |> count\n\nGrupy (opisy na żądanie poleceniem help group: NAZWA):\ndocuments — Structured documents by key and SQLite databases.\ntext — Differences, patches, hashes, encodings, expressions and record operations.\ncode — Source code symbols, definitions, references, diagnostics, renaming and repository profile.\nnotebook — Cells of Jupyter notebooks.\ngit — Git repositories.\narchive — Archives and compression.\nsystem — Processes, ports, disks, host, environment, system logs and suspension of processes.\nadministration — System services, the registry provider, CIM, the firewall, routes, DNS and the clock.\npackage — System package managers.\nnetwork — HTTP requests, downloads, name resolution, ping and network interfaces.\nschedule — Schedules of pipelines.\njournal — Management of the journal, its space, limits, state and pinned entries.\nprogram — Programs installed in the system: lookup, search, navigation and descriptions.\nverify — Tests and code analysis through typed wrappers of test frameworks and analyzers.\n\nPomoc: help, help \"commands\" (wszystkie polecenia), help search: \"słowa\", help group: \"documents\", help \"E_ASSERT\", help skill: \"bash-migration\". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu.",
+  "inputSchema": {
+    "type": "object",
+    "description": "Give exactly one of `program`, `ast`, `cursor` or `accept`.",
+    "properties": {
+      "program": {
+        "type": "string",
+        "description": "Program text in any notation variant."
+      },
+      "ast": {
+        "type": "object",
+        "required": [
+          "nurt",
+          "program"
+        ],
+        "description": "Surface syntax tree nurt-ast/1, equivalent to program."
+      },
+      "cursor": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Cursor of a further page of an earlier result."
+      },
+      "accept": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Identifier of a candidate from an earlier E_AMBIGUOUS error."
+      },
+      "preview": {
+        "type": "boolean",
+        "default": false,
+        "description": "Only compute targets and effect; change nothing."
+      },
+      "base": {
+        "type": "string",
+        "description": "Absolute directory against which relative paths are resolved."
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5000,
+        "default": 50,
+        "description": "Records or changes per page."
+      },
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Fields of the result to keep."
+      },
+      "format": {
+        "enum": [
+          "text",
+          "json",
+          "markdown",
+          "compact"
+        ],
+        "default": "text"
+      },
+      "verbosity": {
+        "enum": [
+          "quiet",
+          "normal",
+          "detailed"
+        ],
+        "default": "normal"
+      },
+      "diff": {
+        "enum": [
+          "none",
+          "stat",
+          "unified"
+        ],
+        "default": "unified"
+      },
+      "diff_context": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 3
+      },
+      "max_chars": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "description": "Largest number of characters of a single text field; 0 means no limit."
+      },
+      "save_to": {
+        "type": "string",
+        "description": "Absolute path of a file that receives the full result instead of the response."
+      },
+      "timeout": {
+        "type": "string",
+        "pattern": "^([0-9]+(ms|s|m|h|d))+$",
+        "default": "120s",
+        "description": "Time limit of the whole program."
+      },
+      "session": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Session identifier recorded in the journal."
+      },
+      "language": {
+        "enum": [
+          "en",
+          "pl"
+        ],
+        "default": "pl",
+        "description": "Language of messages and help."
+      },
+      "script": {
+        "type": "boolean",
+        "default": false,
+        "description": "Script mode: several pipelines, each its own operation."
+      },
+      "privilege": {
+        "enum": [
+          "account",
+          "elevated",
+          "auto"
+        ],
+        "default": "account",
+        "description": "Rights of the operation: the account, the administrator, or the account with one elevated repetition after E_PERMISSION or E_PRIVILEGE."
+      },
+      "as_user": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Account that runs the operation (Linux and macOS); implies elevation for the switch."
+      }
+    },
+    "additionalProperties": false
+  },
+  "_meta": {
+    "pl.danaco-group/nurt-catalog": "sha256:ad74233c7b6b364643edd1df1721eb3539cd261eb1be3d74bd631a6cca997196"
+  }
+}

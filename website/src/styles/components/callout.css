@@ -1,0 +1,52 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.callout
+ * Responsibility:   The callout box: a tinted block with an icon and a coloured edge for each kind of remark.
+ * Dependencies:     website.src.styles.tokens
+ */
+
+.callout {
+  --callout-colour: var(--accent);
+  display: flex;
+  gap: var(--space-3);
+  margin-block: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--callout-colour) 35%, var(--line));
+  border-left: 3px solid var(--callout-colour);
+  border-radius: var(--radius-2);
+  background: color-mix(in srgb, var(--callout-colour) 8%, var(--bg-raised));
+  font-size: var(--text-sm);
+}
+
+.callout--tip {
+  --callout-colour: var(--success);
+}
+
+.callout--warning {
+  --callout-colour: var(--warning);
+}
+
+.callout--important {
+  --callout-colour: var(--danger);
+}
+
+.callout__icon {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--callout-colour);
+}
+
+.callout__body > * + * {
+  margin-top: var(--space-2);
+}
+
+.callout__title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.callout__body p:last-child {
+  margin-bottom: 0;
+}

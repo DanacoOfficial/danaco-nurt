@@ -1,0 +1,23 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.base.Prose
+// Responsibility:   The block of running text used by pages and imported documentation: typography, code blocks with copy buttons and the style of Markdown output.
+// Dependencies:     website.src.styles.typography, website.src.styles.components.terminal, website.src.scripts.copy-code
+
+import '../../styles/components/terminal.css';
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<div class:list={['prose', className]}>
+  <slot />
+</div>
+
+<script>
+  import '../../scripts/copy-code';
+</script>

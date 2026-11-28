@@ -1,0 +1,82 @@
+---
+title: Standardy inżynierskie
+description: Zasady stylu kodu, konwencja commitów, nazewnictwo i nagłówki licencyjne w repozytorium Danaco Nurt oraz kontrole, które stosują je automatycznie w CI i przed pull requestem.
+section: quality
+order: 8
+eyebrow: Jakość
+lead: Zasady dotyczące kodu, commitów i plików w repozytorium oraz kontrole, które je stosują.
+updated: 2026-11-28
+related: [quality/supply-chain, project/contributing, quality/testing]
+keywords: [clippy, rustfmt, conventional commits, DCO, higiena, nagłówki, CI, przegląd]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Styl kodu
+
+Zasady zawierają konwencje [styl kodu](/docs/conventions/code-style/) i [nazewnictwo](/docs/conventions/naming/), podsumowane w `CONTRIBUTING.md`. Ich rdzeń:
+
+- Rust edycja 2024 na łańcuchu narzędzi przypiętym w `rust-toolchain.toml` (kanał 1.98.1, z `rustfmt` i `clippy`). Formatowanie używa `rustfmt.toml`: maksymalna szerokość 100, zakończenia wierszy Unix.
+- Lint jest ustawiony raz w `[workspace.lints]` i dziedziczony przez każdą skrzynkę: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub` oraz ostrzeżenia clippy dla `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` i `cognitive_complexity`. Próg `clippy.toml` to złożoność kognitywna 15 na funkcję. Testy używają `unwrap`, `expect`, `panic!`, `print!` i `dbg!`.
+- Kod produkcyjny zwraca typy błędów `nurt-contracts`; każdy błąd niesie stały kod. Lint jest wyłączany na najmniejszym elemencie i zawsze z `reason`.
+- `unsafe` jest dozwolone tylko w skrzynkach, które z definicji wywołują interfejsy systemu operacyjnego lub obce, a każdy blok ma komentarz `// SAFETY:`. Metoda jest zabroniona w `clippy.toml`: tylko dziennik tworzy zakresy transakcji (`TxScope::new_for_journal`).
+- Każdy element publiczny ma rustdoc, skrzynki biblioteczne zabraniają `missing_docs`, przykłady w dokumentacji działają jako testy, a dokumentacja buduje się z ostrzeżeniami jako błędami.
+- Komentarze podają to, czego kod nie pokazuje. Nie ma zakomentowanego kodu, komentarzy o historii, znaczników niedokończonej pracy ani makr zastępczych. Kod biblioteczny niczego nie drukuje; diagnostyka używa `tracing`.
+
+Nazewnictwo jest również ustalone: produkt to „Danaco Nurt”, plik wykonywalny `nurt`; polecenia, parametry i typy rekordów piszemy małymi literami; kody błędów to `E_` i słowa wielkimi literami; klucze konfiguracji to `sekcja.klucz`; pełne słowa są preferowane przed skrótami.
+
+## Konwencja commitów
+
+Komunikaty commitów stosują Conventional Commits 1.0.0: `<typ>(<zakres>)[!]: <streszczenie>` ([konwencje commitów](/docs/conventions/commits/)).
+
+| Część | Reguła |
+|---|---|
+| `type` | `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert` |
+| `scope` | nazwa skrzynki bez przedrostka `nurt-` albo jeden z obszarów `workspace`, `deps`, `ci`, `spec`, `catalog`, `tables`, `docs`, `tools`, `release`, `repo`, `bindings`, `packaging`, `integrations` (lista `AREAS` w `check-commits.sh`) |
+| `summary` | tryb rozkazujący, zaczyna się małą literą, bez kropki końcowej, pierwszy wiersz najwyżej 72 znaki |
+| stopki | `BREAKING CHANGE:` z `!` po zakresie; `Refs:` lub `Closes:`; `Signed-off-by:` zgodne z autorem |
+
+```text
+feat(journal): record the pre-image of truncated files
+```
+
+Każdy commit niesie podpis Developer Certificate of Origin 1.1. `tools/ci/check-commits.sh <zakres>` sprawdza temat i stopkę każdego commitu w zakresie i kończy się kodem 1, gdy jakikolwiek commit jest nieprawidłowy. Zadanie `commits` w `hygiene.yml` uruchamia go przy każdym pull requeście poza pull requestami bota zależności. Skrypt pomija commity wymienione w `tools/ci/commits-allow.txt`, opublikowane, zanim objęły je kontrole.
+
+## Nagłówki licencyjne
+
+Licencja produktu jest podana tylko w `LICENSE` (Apache-2.0). Pliki źródłowe nie zawierają wierszy z identyfikatorem licencji w pliku. Każdy plik źródłowy w formacie z komentarzami zaczyna się od trzywierszowego nagłówka producenta (prawa autorskie, wiersz o warunkach licencji, adres repozytorium i wsparcia), zapisanego w składni komentarzy formatu; JSON, pliki blokad i dane binarne nie mają nagłówka. Wyjątki są wymienione z uzasadnieniem w `tools/ci/hygiene-allow.txt`.
+
+## Co egzekwuje repozytorium
+
+`tools/ci/repo-hygiene.sh` ma trzy grupy kontroli, uruchamiane przez zadanie `content` przepływu `hygiene.yml` jako trzy kroki; pozostałe zadania tego przepływu sprawdzają skrypty powłoki przez ShellCheck, pliki przepływów przez `actionlint` i commity. Skrypt uruchamia pojedynczą kontrolę lub grupę z `--only` i wypisuje je z `--list`; lista wyjątków `tools/ci/hygiene-allow.txt` ma wiersze postaci `<kontrola> <glob>`.
+
+| Grupa | Kontrole |
+|---|---|
+| `content` | `user-path` (katalogi domowe prawdziwych użytkowników), `private-address` (adresy IPv4 sieci prywatnych), `work-marker` (znaczniki niedokończonej pracy), `process-id` i `process-word` (identyfikatory i słownictwo procesu wytwórczego), `polish-text` (polskie litery w plikach pisanych po angielsku), `external-pattern` (wzorce wdrożenia) |
+| `style` | `promotional-word`, `hedging`, `reader-address`, `boilerplate` (nagłówki i wstępy), `tool-mention`, `emoji`, `allow-attribute` (wyłączenia lintu bez uzasadnienia), `history-comment`, `placeholder-macro` |
+| `headers` | `producer-header` (brak nagłówka), `spdx-line` (wiersze z identyfikatorem licencji w pliku), `tool-mark` |
+
+Kontrola higieny znalazła 0 trafień w 10 566 plikach (wersja 0.1.1, 27 listopada 2026).
+
+## Przegląd i przepływy CI
+
+Pull request jest scalany tylko wtedy, gdy te polecenia kończą się powodzeniem; CI uruchamia polecenia formatowania, lintu i testów na Linuksie, macOS i Windows:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo deny --locked check
+cargo nextest run --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+bash tools/ci/repo-hygiene.sh
+bash tools/ci/check-commits.sh origin/main..HEAD
+```
+
+Przepływ [`ci.yml`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/ci.yml) ma zadania Format, Clippy, Test (trzy systemy operacyjne), Coverage, Documentation, Dependency policy oraz kontrolę czterech dalszych celów, a także codzienny przebieg zaplanowany. Pokrycie jest mierzone przez `cargo-llvm-cov`: co najmniej 80 procent wierszy dla przestrzeni roboczej i 90 procent dla `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` i `nurt-ffi`. Przebieg zaplanowany ustawia `NURT_PROPTEST_FULL=1` dla testów własności (100 000 przypadków dla większości własności). Przepływy `bindings-*`, `integrations-*`, `bench-oracles`, `packaging` i `release` obejmują wiązania, integracje, benchmarki i pakiety.
+
+Przegląd: opiekun przegląda każdy pull request; commity są scalane bez zmian, więc każdy musi spełniać reguły commitów i podpisu ([`CONTRIBUTING.md`](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md)). Pull request dotyczy jednej zmiany, a zmiany widoczne dla użytkownika są zapisywane w sekcji `Unreleased` dziennika zmian.
+
+Zasady zależności i podpisywania opisuje strona [łańcuch dostaw i wydania](/pl/quality/supply-chain/), a proces — strona [współtworzenie](/pl/project/contributing/).

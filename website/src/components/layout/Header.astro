@@ -1,0 +1,109 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.Header
+// Responsibility:   The site header: the lockup, the main navigation, the search link, the language switch, the theme toggle and the menu panel for narrow screens.
+// Dependencies:     website.config.navigation, website.config.site, website.src.components.brand.Lockup, website.src.components.base.Icon, website.src.components.layout.LanguageSwitch, website.src.components.layout.ThemeToggle, website.src.lib.urls, website.src.i18n
+
+import '../../styles/components/button.css';
+import '../../styles/components/header.css';
+import { mainNavigation } from '../../../config/navigation';
+import { repository } from '../../../config/site';
+import type { Locale } from '../../../config/i18n';
+import Lockup from '../brand/Lockup.astro';
+import Icon from '../base/Icon.astro';
+import LanguageSwitch from './LanguageSwitch.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import { href } from '../../lib/urls';
+import { useUi } from '../../i18n';
+
+interface Props {
+  locale: Locale;
+  path: string;
+  available?: Locale[];
+}
+
+const { locale, path, available } = Astro.props;
+const ui = useUi(locale);
+
+const items = mainNavigation.map((item) => ({
+  ...item,
+  label: ui.nav[item.key as keyof typeof ui.nav],
+  active: path === item.path || path.startsWith(item.path),
+}));
+---
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="site-header__brand" href={href('/', locale)} aria-label={ui.header.home}>
+      <Lockup layout="horizontal" height={26} title="Danaco Nurt" />
+    </a>
+
+    <nav class="site-header__nav" aria-label={ui.nav.label}>
+      <ul role="list">
+        {
+          items.map((item) => (
+            <li>
+              <a href={href(item.path, locale)} aria-current={item.active ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="site-header__tools">
+      <a class="site-header__icon-link" href={href('/search/', locale)} aria-label={ui.nav.search} title={ui.nav.search}>
+        <Icon name="search" />
+      </a>
+      <a class="site-header__icon-link site-header__github" href={repository.url} aria-label={ui.header.github} title={ui.header.github} rel="noopener">
+        <Icon name="git-branch" />
+      </a>
+      <LanguageSwitch locale={locale} path={path} available={available} />
+      <ThemeToggle locale={locale} />
+      <a class="button button--primary button--small site-header__install" href={href('/docs/guide/installation/', locale)}>{ui.header.install}</a>
+      <button
+        type="button"
+        class="site-header__menu-button"
+        data-menu-toggle
+        data-label-open={ui.header.openMenu}
+        data-label-close={ui.header.closeMenu}
+        aria-expanded="false"
+        aria-controls="site-menu"
+        aria-label={ui.header.openMenu}
+      >
+        <Icon name="menu" size={22} class="site-header__menu-open" />
+        <Icon name="x" size={22} class="site-header__menu-close" />
+      </button>
+    </div>
+  </div>
+
+  <div id="site-menu" class="site-header__panel">
+    <nav class="container" aria-label={ui.nav.label}>
+      <ul role="list">
+        {
+          items.map((item) => (
+            <li>
+              <a href={href(item.path, locale)} aria-current={item.active ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a href={href('/search/', locale)}>{ui.nav.search}</a>
+        </li>
+        <li>
+          <a class="button button--primary" href={href('/docs/guide/installation/', locale)}>{ui.header.install}</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<script>
+  import '../../scripts/menu';
+</script>

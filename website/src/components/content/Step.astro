@@ -1,0 +1,20 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.content.Step
+// Responsibility:   One step of a numbered sequence with a title and a body.
+// Dependencies:     website.src.styles.components.steps
+
+import '../../styles/components/steps.css';
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<li class="step">
+  <h3 class="step__title">{title}</h3>
+  <div class="step__body"><slot /></div>
+</li>

@@ -1,0 +1,103 @@
+---
+title: Effect reports
+description: What the effect report of a Danaco Nurt run contains, its text, JSON and Markdown forms, where the schema is published, how to read its fields and how it relates to the journal.
+section: product
+order: 6
+eyebrow: Product
+lead: Each run returns a description of its effect, not only the fact that something ran, in a format a program can read.
+updated: 2026-11-28
+related: [product/journal-and-undo, product/language, product/ai-agents, architecture/protocols]
+keywords: [report, effect, json, markdown, schema, run, output, continuation]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What a report contains
+
+The format is `nurt-report/1`. The report shows the effect, not only the fact that something ran. It lists the targets, the changed and deleted files with their number and total size, sizes and hashes before and after, a sample of differences, a summary of bulk operations and the unusual effects. Lists are omitted when empty and optional fields when absent, so the report of an ordinary effect stays short.
+
+The report carries the operation number `op`, which connects the run to its journal entry (see below). The [report specification](/docs/specification/report/) lists every field.
+
+## The forms of the report
+
+The call parameter `format` selects the form of the rendered result.
+
+| Form | Content |
+|---|---|
+| `text` (default) | one block per part of the report in a fixed order, without ANSI sequences in a response |
+| `json` | the reduced report as one line of JSON that validates against `nurt-report/1` |
+| `markdown` | headings, pipe tables and fenced blocks for differences |
+| `compact` | one record per line, without headings |
+
+Text, JSON and Markdown are the forms for readers and programs. The text form of a replacement looks like this; the [report output reference](/docs/reference/report-output/) documents every form:
+
+```text
+op 18  replace  ok
+targets 3 files · replacements 7 · lines +7 −7 · 41.2kib → 41.3kib
+  /srv/app/src/a.go    3 repl  1.1kib → 1.1kib    1a2b3c4d → 9f8e7d6c
+diff (3 hunks)
+  /srv/app/src/a.go:12
+    - func oldName(x int) {
+    + func newName(x int) {
+notable
+  ! many_per_file  /srv/app/src/c/d.go  2  many replacements in one file
+next cursor c_5d2e
+```
+
+Headings and labels of the text, Markdown and compact forms are keywords and stay English whatever the parameter `language` is.
+
+## The schema
+
+`nurt-report/1` is published as `schemas/nurt-report-1.schema.json` in the specification, together with the schemas of the request and the response. The command `nurt schema report` prints it. Within major version 1 the formats only gain optional fields and new values of code enumerations, and a reader ignores fields it does not know. Fields marked `x-nurt-volatile` (`op`, `result_file`, `next_cursor`, `timing`) differ between runs of the same program and are ignored when reports are compared.
+
+## Reading the fields
+
+| Field | Meaning |
+|---|---|
+| `status` | `ok`, `planned` (a preview, nothing changed), `running`, `partial`, `rolled_back` or `failed` |
+| `kind` | the changing command, or the source command of a reading program |
+| `op` | the number of the journal entry; absent for reads, previews and programs without targets |
+| `targets`, `summary` | counts of files, directories and bytes; counts of creations, modifications, deletions and replacements |
+| `changes` | changed targets on the page, each with an `action` such as `create`, `modify`, `delete` or `rename`; `state` marks a change outside the file system |
+| `notable` | unusual effects by severity (`info`, `notice`, `warning`, `alert`); it informs and does not stop the program |
+| `irreversible` | effects that undo cannot reverse, with a reason such as `service_changed` or `package_changed` |
+| `error` | `code`, `message`, `at`, `fix` and `candidates` of a failed program |
+| `corrections`, `ran` | corrections applied to the program text, and the canonical text that ran |
+| `parts` | the parts of a control construct in order (branch, iteration, step), each with its `ok`, `rolled_back` and `irreversible` marks |
+| `elevated`, `backend` | present when the operation ran with elevated rights, and the backend that ran it |
+| `continuation`, `next_cursor` | what a shortened response leaves out, and the cursor of the next page |
+
+An operation from 200 targets (`report.mass_threshold`) is a bulk operation: at `normal` verbosity the report shows totals, the largest directories and extensions, and a few targets from the start and the end, and the full list stays available through the cursor. A check that fails after the effect, such as `assert exit_code: 0` after `run`, gives status `ok` with an `error`: the effect remains.
+
+Verbosity is `quiet`, `normal` (default) or `detailed`, `limit` sets the page size (50 by default), and `save_to` writes the full result to a file named by `result_file`.
+
+## The report and the journal
+
+The report names the operation with `op`. The state of the entry, `available`, `partial`, `expired` or `undone`, is shown by `history`, and `irreversible` lists the effects that undo cannot reverse. The report of `undo` and `redo` is an ordinary effect report. See [journal and undo](/product/journal-and-undo/).
+
+## The output of `run` and its continuation
+
+Since 0.1.1 the response of [`run`](/docs/commands/run/) is short by default. The full output is kept in a spool file, and the response shapes it:
+
+| Rule | Default |
+|---|---|
+| text of all streams together | at most `max_bytes`, 4096 bytes (key `output.max_bytes`, `0` is no limit) |
+| a line longer than 400 characters | cut, ending with `… [+N characters]` |
+| repeated lines | collapsed (`dedupe`), also lines that differ only in numbers or versions |
+| after exit code 0 | the last 5 lines and the field `digest` |
+| after a failure with more than 20 lines | the output of `cargo`/`rustc` and `pytest` is recognised: `diagnostics` holds the counts and the first 10 distinct errors; the text keeps the last 10 lines |
+| output of one program | `run.spool_max` is `1gib`; beyond it output is counted, hashed and noted `spool_limit` |
+
+The diagnostics cover the output of `cargo`/`rustc` and `pytest` after a failure with longer output, and `dedupe: false`, `max_bytes: 0` or `head` and `tail` return the earlier shape of the response.
+
+Since 0.1.1 the command `next` and the field `continuation` replace the former `read_hint`. A response that leaves lines, records or the end of long lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`), and its text ends with `more: next`. `next`, `next 200`, `next all` and `next full` return the next part from the output file, from the kept result of a reading command or from the cursor of `logs`, without running the program again. Kept results expire after `continuation.max_age` (1 hour) and are limited by `continuation.max_count` (50) and `continuation.max_size` (256 MiB); an expired continuation ends with `E_CONTINUATION_EXPIRED`.
+
+<Callout type="note" title="Version of the report format">
+  The format version is `1.0`, written `"nurt": "1.0"`. The report format carries its own version number; a change between 0.x versions is recorded in the changelog.
+</Callout>
+
+## Where to go next
+
+[The language](/product/language/) page explains how a program is checked before a report exists. The reference on [report output](/docs/reference/report-output/) lists every option, and [Nurt for AI agents](/product/ai-agents/) describes how a host program reads reports.

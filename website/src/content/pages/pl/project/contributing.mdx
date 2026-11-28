@@ -1,0 +1,102 @@
+---
+title: Współtworzenie
+description: "Jak współtworzyć Danaco Nurt: zgłoszenia, poświadczenie pochodzenia, komunikaty rewizji, standard kodu, kontrole, które musi przejść pull request, i sposób dodania strony polecenia."
+section: project
+order: 4
+eyebrow: Projekt
+lead: Zmiany zgłasza się jako pull requesty; są scalane, gdy spełniają zasady repozytorium.
+updated: 2026-11-28
+related: [project/support, project/license, quality/engineering-standards, project/status]
+keywords: [współtworzenie, pull request, DCO, conventional commits, kodeks postępowania]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Zasady
+
+Zasady repozytorium są w [CONTRIBUTING.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CONTRIBUTING.md). Konwencje są w `docs/conventions`:
+
+| Temat | Dokument |
+|---|---|
+| Komunikaty rewizji | [Commit conventions](/docs/conventions/commits/) |
+| Styl kodu | [Code style](/docs/conventions/code-style/) |
+| Nazwy | [Naming conventions](/docs/conventions/naming/) |
+| Licencje, nagłówki i zależności | [Licensing conventions](/docs/conventions/licensing/) |
+| Zachowanie uczestników | [CODE_OF_CONDUCT.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/CODE_OF_CONDUCT.md) |
+
+Wszyscy uczestnicy stosują Kodeks postępowania, którym jest Contributor Covenant 2.1. Zachowania naruszające go zgłasza się na adres `support@danaco-group.pl`.
+
+## Najpierw zgłoszenie
+
+- Przed otwarciem nowego zgłoszenia przeszukaj istniejące.
+- W przypadku błędu podaj wersję, system operacyjny, minimalny program odtwarzający problem oraz wynik rzeczywisty i oczekiwany. [Formularz zgłoszenia błędu](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/ISSUE_TEMPLATE/bug_report.yml) pyta o te same pozycje.
+- W przypadku nowego polecenia, parametru, typu rekordu lub zmiany języka otwórz zgłoszenie opisujące przypadek użycia, zanim napiszesz kod. Zmiany języka, drzewa składni, formatu raportu i interfejsu C podlegają zasadom zgodności ze strony [wersjonowanie](/pl/project/versioning/).
+- Podatności bezpieczeństwa zgłasza się prywatnie; zob. [Wsparcie i kontakt](/pl/project/support/).
+
+Językiem kodu, komentarzy, dokumentacji, komunikatów rewizji, zgłoszeń i pull requestów jest angielski, w rejestrze formalnym i technicznym.
+
+## Poświadczenie pochodzenia i komunikaty rewizji
+
+Wkłady są przyjmowane na podstawie Developer Certificate of Origin 1.1 i są licencjonowane na warunkach Apache License 2.0. Każda rewizja ma stopkę `Signed-off-by` zgodną z autorem; `git commit --signoff` dodaje ją.
+
+Komunikaty rewizji stosują Conventional Commits 1.0.0:
+
+```text
+<type>(<scope>)[!]: <summary>
+
+[body]
+
+[footers]
+```
+
+`type` to jedno z: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `style`, `chore`, `revert`. `scope` to nazwa zmienianej skrzynki bez przedrostka `nurt-` (na przykład `journal` lub `git-ops`) albo obszar, taki jak `workspace`, `deps`, `ci`, `spec`, `catalog`, `docs` lub `release`. Streszczenie ma tryb rozkazujący, zaczyna się małą literą, nie kończy się kropką i ma co najwyżej 72 znaki. Zmianę łamiącą zgodność oznacza się znakiem `!` i opisuje w stopce `BREAKING CHANGE:`. Skrypt `tools/ci/check-commits.sh` sprawdza komunikaty pull requesta.
+
+## Budowanie i testowanie
+
+Polecenia są takie jak w README. Wymagany łańcuch narzędzi Rust jest przypięty w `rust-toolchain.toml`, a potrzebny jest kompilator C, ponieważ dołączone komponenty, takie jak SQLite i gramatyki tree-sitter, są kompilowane ze źródeł.
+
+```sh
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
+cd danaco-nurt
+cargo build --release --locked
+cargo test --workspace --locked
+```
+
+## Co musi spełnić pull request
+
+Pull request jest scalany dopiero wtedy, gdy wszystkie poniższe kontrole się powiodą; ciągła integracja uruchamia je w Linuksie, macOS i Windows.
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo deny --locked check
+cargo nextest run --workspace --locked      # or: cargo test --workspace --locked
+cargo test --workspace --doc --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+bash tools/ci/repo-hygiene.sh
+bash tools/ci/check-commits.sh origin/main..HEAD
+```
+
+Dalsze wymagania z CONTRIBUTING.md i z szablonu pull requesta:
+
+- minimalne pokrycie wierszy 80% dla przestrzeni roboczej i 90% dla `nurt-contracts`, `nurt-syntax`, `nurt-correct`, `nurt-journal`, `nurt-fs` i `nurt-ffi`, mierzone przez `cargo-llvm-cov`;
+- żadnych `unwrap`, `expect` ani `panic!` w kodzie produkcyjnym; kod `unsafe` tylko w skrzynkach wywołujących interfejsy systemu operacyjnego, każdy blok z komentarzem `// SAFETY:`; każdy publiczny element udokumentowany;
+- każdy plik źródłowy w formacie z komentarzami zaczyna się od nagłówka producenta i nie zawiera identyfikatora licencji w pliku;
+- nowe zależności są deklarowane w `[workspace.dependencies]`, mają dozwoloną licencję i są uzasadnione w pull requeście;
+- jedna spójna zmiana na pull request, z testami i dokumentacją, a zmiany widoczne dla użytkownika zapisane w sekcji `Unreleased` pliku `CHANGELOG.md`;
+- opiekun przegląda każdy pull request, a rewizje są scalane bez zmian.
+
+## Dodawanie polecenia
+
+Każde polecenie katalogu ma dokładnie jedną stronę w `docs/commands/<command>.md`, a każda strona należy do polecenia katalogu. Konwencje są w `docs/commands/README.md`, a szablon w `docs/commands/_template.md`.
+
+1. Dodaj polecenie do katalogu (`catalog/*.toml`, format `nurt-catalog/1`); nazwy, typy, wartości domyślne i wartości wyliczeń pochodzą z katalogu, nie ze strony.
+2. Skopiuj szablon. Nagłówek ma pola `command`, `group`, `summary` (równe katalogowi) i `since` (wersja wprowadzająca polecenie).
+3. Zachowaj kolejność sekcji: Synopsis, Parameters, Input and output oraz Effect są generowane z katalogu i tylko sprawdzane; Description, Examples, Errors i Related są pisane ręcznie.
+4. Napisz co najmniej trzy przykłady w blokach oznaczonych `nurt example`, w wariancie A składni, opcjonalnie z migawką `fs-before` i fragmentem `text expected`. Kompilacja parsuje, wiąże i uruchamia każdy z nich.
+
+Kompilacja kończy się błędem, gdy polecenie nie ma strony, strona nie ma polecenia, nagłówek różni się od katalogu, sekcja generowana się różni, przykład się nie uruchamia albo nazwa w odwrotnych apostrofach nie istnieje w katalogu. Istniejące strony wymienia [dokumentacja poleceń](/docs/commands/).
+
+Po scaleniu zmiany strona [wydania](/pl/project/releases/) pokazuje, w której wersji się znalazła.

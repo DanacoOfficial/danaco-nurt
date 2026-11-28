@@ -1,0 +1,76 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.statement
+ * Responsibility:   The statement of the creator: a graphite band in the dark theme of the identity, the mark beside a large quotation with a gold rule, and the name and the role of the author.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.base
+ */
+
+.statement {
+  padding-block: var(--space-9);
+  border-block: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.statement__inner {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.statement__figure {
+  margin: 0;
+  max-width: 62rem;
+}
+
+.statement__quote {
+  margin: var(--space-4) 0 0;
+  padding: 0 0 0 var(--space-5);
+  border-left: 3px solid var(--accent);
+}
+
+.statement__quote p {
+  margin: 0;
+  font-size: clamp(1.35rem, 0.9rem + 1.7vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.32;
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+
+.statement__author {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-5);
+  padding-left: calc(var(--space-5) + 3px);
+}
+
+.statement__name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.statement__role {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (min-width: 64rem) {
+  .statement__inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .statement__mark {
+    margin-top: var(--space-2);
+  }
+}

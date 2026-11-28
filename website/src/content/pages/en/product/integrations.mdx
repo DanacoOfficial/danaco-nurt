@@ -1,0 +1,94 @@
+---
+title: Integrations
+description: Language bindings, the C interface, the language server, editor support, extensions, continuous integration and container images, and how each of them reaches the engine.
+section: product
+order: 11
+eyebrow: Product
+lead: Every integration reaches the same engine, either through the library libnurt in your process or through a child process that runs nurt.
+updated: 2026-11-28
+related: [product/ai-agents, architecture/c-interface, architecture/protocols, product/platforms]
+keywords: [bindings, C interface, language server, VS Code, tree-sitter, CI, containers, extensions]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Language bindings
+
+The directory `bindings/` holds clients for five languages. Each one offers the same API: run a program, check it, follow the events of an execution, cancel it. A language error is part of the response, and a failure of the call itself is an exception that carries the status of the C interface. The request types of all five carry `params`, `privilege` and `as_user` (CHANGELOG, 0.1.1).
+
+| Language | Package | Backends |
+|---|---|---|
+| Python | `pip install nurt` | `library` through `ctypes`, `process` (`nurt serve --stdio`), `auto`; `AsyncNurt` for coroutines |
+| TypeScript, Node.js | `npm install nurt` | `library` (Node-API addon), `process`, `auto`; Node.js 18 or later, Bun and Deno |
+| Go | `go get github.com/DanacoOfficial/danaco-nurt/bindings/go` | `process` by default, pure Go; `library` through cgo with `-tags nurt_cgo` |
+| Java | `pl.danaco-group:nurt`, and `nurt-ffm` for the library backend | `PROCESS` on Java 17 or later; `LIBRARY` through the Foreign Function and Memory API on Java 22 or later |
+| .NET | `dotnet add package Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 and .NET Standard 2.0 |
+
+The Python wheels, the Node platform packages and the Java and .NET packages carry the `nurt` executable and `libnurt` for Linux, macOS and Windows on x86-64 and ARM64. The Go module locates the executable through `ClientOptions.Executable`, `NURT_EXECUTABLE` or `PATH`. Each binding has tests that run against the engine when `NURT_TEST_EXECUTABLE` names it.
+
+Against the program of the Linux glibc archive the bindings pass these checks: Go (`go vet`, `go test -race`), Node (120 of 120 tests), .NET (105 tests passed) and Java 21 (101 of 101 tests), all in version 0.1.1, Linux, 27 November 2026. A short example from the Python README:
+
+```python
+from nurt import Nurt
+
+with Nurt() as nurt:
+    response = nurt.run('find "/home/user/project" glob: "**/*.py"', limit=20)
+    if response.ok:
+        print(response.text)
+    else:
+        print(response.error["code"], response.error.get("fix"))
+```
+
+## The C interface
+
+`libnurt` (crate `nurt-ffi`) exposes the engine to every language with a C foreign function interface, through `nurt.h`. Strings are UTF-8, complex values are JSON documents in the published formats, and handles are opaque. `nurt_status` reports failures of the call; errors of the language come back with `NURT_OK` inside the JSON result. Within a major version the interface only grows, and a caller passes `NURT_ABI_VERSION` to `nurt_abi_check` once after loading the library. Events of an execution reach a callback `nurt_event_cb`. The shared library is `libnurt.so.1` on Linux, `libnurt.1.dylib` on macOS and `nurt.dll` on Windows; on musl targets the archive holds the static `libnurt.a` and `nurt.pc`, and `pkg-config --static --libs nurt` links a C program. See the [reference](/docs/reference/c-abi/) and the [architecture page](/docs/architecture/c-interface/).
+
+## Language server and editors
+
+`nurt lsp` serves the language protocol for `.nurt` files over standard input and output. The extension for Visual Studio Code in `integrations/vscode` uses it:
+
+| Feature | Provided by |
+|---|---|
+| Syntax highlighting | TextMate grammar `source.nurt`, kept in `editors/textmate/nurt.tmLanguage.json` |
+| Diagnostics, completion | `nurt lsp` |
+| Commands | Run File (`nurt script`), Format File (`nurt fmt`), Restart Language Server |
+| Settings | `nurt.path`, `nurt.lsp.enabled`, `nurt.trace.server` |
+
+`nurt.path` names the executable; a bare name is looked up in the `PATH`, and `${workspaceFolder}` and a leading `~` are expanded. Workspace trust governs the extension: `nurt lsp` and file runs start after the workspace is trusted. The workflow `ci/vscode.yml` packages the extension and publishes it to the Visual Studio Marketplace (publisher `danaco`) and to Open VSX (namespace `danaco`). The directory `editors/tree-sitter-nurt` holds Tree-sitter grammars for the scope `source.nurt` and the file type `nurt`, with highlight and injection queries, in three variants of the syntax.
+
+## Model Context Protocol and agent frameworks
+
+`nurt mcp` serves the tool over the Model Context Protocol. The directory `integrations/examples` holds minimal agent loops for the Anthropic SDK (Python and TypeScript), the OpenAI SDK (Chat Completions and Responses), the Google Gen AI SDK, the Vercel AI SDK, LangGraph, Semantic Kernel, OpenHands and SWE-agent (which calls `nurt exec`), and client configurations for MCP clients. Their tests replace the model and the console with mock objects and need no keys. See [Nurt for AI agents](/product/ai-agents/).
+
+## Extensions
+
+Extensions add commands, document formats and grammars without changing the program. An extension is a directory with a manifest `nurt-ext.toml` and a WebAssembly component; a WebAssembly extension runs in a sandbox and reaches files within the `permissions.read` and `permissions.write` that it declares. Native libraries load with the configuration key `ext.native`, in builds with the `native` feature. See the [extensions reference](/docs/reference/extensions/).
+
+## Continuous integration and containers
+
+| Integration | What it does |
+|---|---|
+| `setup-nurt` | a GitHub Action that installs Danaco Nurt, adds it to `PATH` and verifies the SHA-256 digest; Linux, macOS and Windows runners |
+| devcontainer Feature | `ghcr.io/danacoofficial/features/nurt:1` installs the musl archive into `/usr/local/bin` on Debian, Ubuntu, Alpine and Red Hat based images |
+| container images | `nurt`, `nurt-ci` and `nurt-devcontainer` for `linux/amd64` and `linux/arm64` |
+
+The image `nurt` has `nurt` as its entry point; the image `nurt-ci` starts `nurt` by default and runs any command of a CI job. The workflows in `.github/workflows` are examples of use, for instance [bindings-python.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/bindings-python.yml), [integrations-setup-nurt.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-setup-nurt.yml) and [integrations-containers.yml](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/.github/workflows/integrations-containers.yml). A workflow step that uses the action:
+
+```yaml
+steps:
+  - uses: DanacoOfficial/setup-nurt@v1
+    with:
+      version: '1'
+  - run: nurt version
+```
+
+<CardGrid columns={2}>
+  <Card title="C interface" icon="binary" href="/architecture/c-interface/">
+    How the library is structured and versioned.
+  </Card>
+  <Card title="Platforms and installation" icon="download" href="/product/platforms/">
+    Archives, installers and packages per system.
+  </Card>
+</CardGrid>

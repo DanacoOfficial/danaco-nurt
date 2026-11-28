@@ -1,0 +1,68 @@
+---
+title: Dostępność
+description: Cel dostępności tej witryny, WCAG 2.2 poziom AA, środki wbudowane w witrynę i sposób zgłaszania barier.
+section: legal
+order: 2
+eyebrow: Informacje prawne
+lead: Witryna dąży do WCAG 2.2 poziom AA. Ta strona wymienia wbudowane środki i sposób zgłoszenia bariery.
+updated: 2026-11-28
+related: [legal/privacy, design/identity, project/support]
+keywords: [dostępność, WCAG, klawiatura, kontrast, czytnik ekranu]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Przyjęty standard
+
+Witryna dąży do spełnienia wytycznych Web Content Accessibility Guidelines (WCAG) 2.2, poziom AA. Cel kształtuje projekt i budowę: według niego ułożono strukturę stron, obsługę z klawiatury, kolory obu motywów, ruch i działanie bez skryptów.
+
+## Środki wbudowane w witrynę
+
+Każda strona ma tę samą strukturę. Link pomijający, widoczny po przejściu fokusem klawiatury, prowadzi od początku strony do treści. Strony używają punktów orientacyjnych: nagłówka, nawigacji, regionu głównego i stopki. Nagłówki podążają za układem treści, a spis treści długiej strony odsyła do jej nagłówków.
+
+Nawigację, menu wąskich ekranów, wyszukiwanie, przyciski kopiowania i przełącznik motywu obsługuje się z klawiatury, a klawisz Escape zamyka menu. Tekst można powiększać w przeglądarce. Witryna stosuje preferencję kolorów systemu, dopóki czytelnik nie wybierze motywu przełącznikiem.
+
+| Obszar | Środek |
+|---|---|
+| Struktura | link pomijający, widoczny po przejściu fokusem klawiatury, prowadzi od początku każdej strony do treści; strony używają punktów orientacyjnych (nagłówek, nawigacja, region główny i stopka) |
+| Klawiatura | nawigację, menu wąskich ekranów (zamykane klawiszem Escape), wyszukiwanie, przyciski kopiowania i przełącznik motywu można obsługiwać z klawiatury |
+| Fokus | fokus klawiatury jest widoczny, rysowany jako obrys o grubości 2 px w mocnym akcencie motywu; kontrast tego obrysu podano niżej |
+| Kolor | jasny i ciemny motyw używają kolorów tożsamości; wartości kontrastu są w tabeli poniżej |
+| Tekst | tekst można powiększać w przeglądarce |
+| Skrypty | strony można czytać bez JavaScriptu, a główna nawigacja i odnośniki w stopce działają bez niego; JavaScript jest używany przez wyszukiwanie, przyciski kopiowania, przełącznik motywu, przycisk menu wąskich ekranów, wyróżnianie bieżącego nagłówka w spisie treści i ruch na stronach |
+| Ruch | wejścia elementów, liczniki, sesja terminala i trójwymiarowy znak działają, gdy czytelnik nie zażądał ograniczenia ruchu; w przeciwnym razie ta sama treść jest pokazana w spoczynku |
+| Motywy | motyw podąża za preferencją systemu, dopóki czytelnik nie wybierze własnego przełącznikiem |
+
+## Fokus i kontrast
+
+Fokus klawiatury jest rysowany jako obrys o grubości 2 px. W ciemnym motywie obrys ma złoto tła `#D9BC85` na graficie `#0B0C0E`, z kontrastem 10,7 : 1. W jasnym motywie ma głębokie złoto `#A3722A` na papierze `#F6F7F8`, z kontrastem 3,9 : 1. Obie wartości przekraczają 3 : 1, jakie kryterium sukcesu 1.4.11 (kontrast elementów nietekstowych) ustala dla widocznego stanu składników interfejsu.
+
+### Kontrast kolorów tożsamości
+
+Paletę tożsamości opisuje strona [tożsamość](/pl/design/identity/) i sekcja [projekt wizualny](/pl/design/).
+
+| Kolory | Współczynnik | Użycie |
+|---|---|---|
+| Srebro `#DDE1E6` na grafitowym `#0B0C0E` | 14,9 : 1 | tekst na ciemnych tłach |
+| Złoto `#C9A15A` na grafitowym `#0B0C0E` | 8,1 : 1 | akcenty na ciemnych tłach |
+| Tusz `#2B2F36` na papierze `#F6F7F8` | 12,5 : 1 | tekst na jasnych tłach |
+| Głębokie złoto `#A3722A` na papierze `#F6F7F8` | 3,9 : 1 | znaki i linie |
+| Złoto tła `#D9BC85` na graficie `#0B0C0E` | 10,7 : 1 | obrys fokusu w ciemnym motywie |
+
+Tekst używa par o kontraście 4,5 : 1 i wyższym: srebro na graficie oraz tusz na papierze. Głębokie złoto służy do znaków i linii.
+
+## Ruch
+
+Wejścia elementów, liczniki, sesja terminala i trójwymiarowy znak działają, gdy czytelnik nie zażądał ograniczenia ruchu. Przy ustawieniu ograniczenia ruchu ta sama treść pojawia się w spoczynku, bez ruchu.
+
+## Działanie bez skryptów
+
+Strony można czytać bez JavaScriptu. Główna nawigacja i odnośniki w stopce działają bez niego. Na wąskim ekranie menu główne jest pokazane w postaci rozwiniętej pod nagłówkiem. Wyszukiwanie, przyciski kopiowania i przełącznik motywu używają JavaScriptu.
+
+## Zgłaszanie bariery
+
+Czytelnik, który nie może skorzystać ze strony, komponentu lub dokumentu witryny, pisze na adres `support@danaco-group.pl`. Wiadomość podaje adres strony, co czytelnik próbował zrobić, co go zatrzymało oraz przeglądarkę, system operacyjny i używane technologie wspomagające. Zgłoszenia dotyczące programu (nie witryny) przebiegają według strony [Wsparcie i kontakt](/pl/project/support/).
+
+Opis tego, co witryna zapisuje i wysyła, jest na stronie [prywatność](/pl/legal/privacy/); kolory tożsamości opisuje strona [tożsamość](/pl/design/identity/).

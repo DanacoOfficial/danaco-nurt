@@ -1,0 +1,84 @@
+---
+title: Reliability
+description: How the Danaco Nurt journal behaves after a crash, on a full disk and on volumes without a journal, what the crash tests cover, and which effects are marked irreversible.
+section: quality
+order: 5
+eyebrow: Quality
+lead: What the journal guarantees when a run is interrupted or the disk is short of space, and how that is tested.
+updated: 2026-11-28
+related: [quality/testing, product/journal-and-undo, architecture/crates]
+keywords: [journal, crash, recovery, irreversible, disk space, tmpfs, spool, macOS]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## What is guaranteed after a crash
+
+The contract of the journal is the specification [Journal and file system contract](/docs/specification/journal/). Its second principle is an order: the previous content of every target is preserved before anything is changed, so at every instant of a crash the previous content exists in at least one place. Recovery runs before the first transaction of a process and before the first operation after a reboot.
+
+| Moment of the crash | State after recovery (specification, section 4) |
+|---|---|
+| Before the entry is `prepared` | Nothing changed; no entry. |
+| After `prepared`, during preservation or apply | The entry is rolled back and becomes `undone` with the cause `crash`. |
+| During rollback | The rollback is completed; it is idempotent. |
+| After `committed` | The entry is complete and can be undone. |
+| The manifest fails its integrity check | The entry becomes `corrupt`; its data is kept for manual salvage. |
+
+An operation on many targets is one entry, so a crash leaves all of it done or none of it. Volumes whose file system has no durable metadata after a flush have the journal disabled by default.
+
+## How it is tested
+
+The crate `nurt-crashfs` is a test harness, not part of the shipped program. It simulates power loss on top of any mutating file system implementation. It keeps in memory a live image and a durable image of every volume, chooses with a seed the operations that survive a crash, produces torn writes, and provides six persistence profiles: `posix_worst_case`, `ext4_ordered`, `xfs`, `btrfs`, `ntfs` and `apfs`. It also injects system call errors, generates seeded crash points and kills a child process on a real file system. After recovery an oracle checks that the previous content of every target exists, that the tree equals the state before or after the operation and never a mixture, that no temporary entries remain and that a second recovery changes nothing.
+
+The journal suites in `tests/d2` run on this harness. The target `crash` holds crash points, fault injection, capacity, reclaim, undo and scale cases. The target `coverage` checks the table `tables/journal-coverage.toml` against the command catalog and runs an undo and redo round trip for each row. The target `property` runs random sequences of operations, undos, limit changes, clock steps and restarts against a reference model. The target `retention` covers step, age and size limits and the space reserve, and the target `volumes` runs on prepared file-backed volumes and overlay mounts. The long crash corpora run 100,000 crash points each.
+
+<Stats>
+  <Stat value="265" label="rows of the coverage table" source="tables/journal-coverage.toml, version 0.1.2" />
+  <Stat value="307" label="coverage cases, one per test function" source="tests/d2/coverage, version 0.1.2" />
+</Stats>
+
+Of the 265 rows, 120 are marked `full` and 87 are marked `no_effect`, for commands without an effect on the file system.
+
+## Disk space and the full volume
+
+Before preserving a target, admission checks that the volume is eligible, that free space after the write stays at or above the reserve plus a margin, and that the size budget holds. Otherwise the journal releases its oldest entries within a synchronous time budget; if that is not enough, the operation proceeds without keeping the previous content and the target is marked irreversible with a reason (`no_space_for_copy`, `too_large_for_journal`, `journal_inactive`, `network_volume` or `removable_volume`).
+
+| Volume state | Condition | Behaviour |
+|---|---|---|
+| `normal` | free space at or above the soft threshold | data accepted |
+| `soft` | between reserve and soft threshold | data accepted while free space after the write stays above reserve plus margin |
+| `hard` | below the reserve | no data accepted; immediate reclaim |
+| `emergency` | below half the reserve | as `hard`, on all cores |
+
+By default `space.reserve` is `15%`, clamped between `5gib` and `50gib`. Lack of space for the journal, an inactive journal and journal input and output errors are never errors of a user operation. One exception is stated in the specification: if the journal fails while moving a removed target into the journal, the removal fails with the target still in place.
+
+The journal is inactive by default on network, removable and memory-backed volumes and active on overlay volumes. On a `tmpfs`, undo fails with `E_JOURNAL_NOOP`.
+
+## What is irreversible, and how it is marked
+
+A target without preserved content carries an irreversible marker with a reason, and the report lists such effects separately. Examples: a network request, `accounts.password`, an immediate `power.restart`, `clock.set`, `disks.partition`, `disks.format`, and files changed by a program started with `run` and `privilege: elevated`. Reports do not state until when an operation can be undone ([report specification](/docs/specification/report/)). For the commands, see [Journal and undo](/docs/guides/journal-undo/).
+
+## Limits of a run and unusual paths
+
+`run.spool_max` defaults to `1gib`. A program that writes without end keeps its first part and, up to a quarter of the limit (at most 64 MiB), its last part; the rest is counted, hashed and reported with the note `spool_limit`.
+
+A path that is not valid Unicode is stored with its native bytes beside the display form, in reports (the field `raw_path`, Base64, in the format `json`) and in journal manifests, so that an entry leads back to the file that was changed.
+
+## Release 0.1.2 and macOS
+
+On macOS the mount point of the data volume, `/System/Volumes/Data`, does not prefix the paths of the firmlinked directories. Version 0.1.2 makes the volume report the mount point that holds its paths, so the directories of the data volume qualify as journal anchors and every operation on them is journaled.
+
+## Volume tests of version 0.1.1
+
+| Check | Result |
+|---|---|
+| Volume tests on a machine of the pool (Debian 13, kernel 6.12, 27 November 2026) | 8 of 8: 7 as root, the overlay test without space as an ordinary account |
+| Removal, undo and redo of one million files, scale tests (version 0.1.1, Linux, 27 November 2026) | exit code 0; removal 24 minutes |
+
+<Stats>
+  <Fact id="tests" />
+</Stats>
+
+Continue with [testing](/quality/testing/), the [journal and undo](/product/journal-and-undo/) page or the [journal guide](/docs/guide/journal/).

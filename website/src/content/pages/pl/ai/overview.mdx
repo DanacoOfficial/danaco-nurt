@@ -1,0 +1,79 @@
+---
+title: Dla laboratoriów AI i silników agentów
+description: Co daje laboratorium AI lub twórcy silnika agentów instalacja Danaco Nurt, czyli jedno narzędzie dla modelu, sprawdzane programy, odwracalne zmiany, raporty, interfejsy, dane treningowe i benchmark.
+section: ai
+order: 1
+eyebrow: AI
+lead: Jedno narzędzie z jedną opublikowaną definicją dla modelu, raport z każdego uruchomienia, który program potrafi odczytać, i dziennik, który cofa każdą zmianę plików.
+updated: 2026-11-28
+related: [ai/model-labs, ai/agent-engines, ai/training-packages, ai/benchmark, product/ai-agents]
+keywords: [laboratoria AI, silniki agentów, definicja narzędzia, MCP, dane treningowe, benchmark, dziennik, cofanie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co daje instalacja Danaco Nurt
+
+Danaco Nurt daje modelowi jedno narzędzie w miejsce wielu narzędzi powłoki. Program `nurt` uruchamia język, w którym program jest potokiem typowanych rekordów, a silnik, który go wykonuje, sprawdza program, wykonuje skutek, zapisuje go i raportuje. Sekcja jest adresowana do twórców modeli AI oraz do twórców silników agentów i platform agentowych. Każda korzyść poniżej jest właściwością produktu i odsyła do strony, która ją pokazuje.
+
+<CardGrid columns={2}>
+  <Card title="Jedno narzędzie, jedna definicja" icon="terminal" href="/pl/ai/agent-engines/">
+    Model otrzymuje narzędzie `nurt` z jedną opublikowaną definicją w ośmiu formatach, w miejsce osobnych narzędzi bash, PowerShell i plikowych. Ten sam tekst programu działa w systemach Linux, Windows i macOS.
+  </Card>
+  <Card title="Sprawdzenie przed skutkiem" icon="scan-search" href="/pl/ai/model-labs/">
+    Każdy program jest analizowany i wiązany z katalogiem poleceń, zanim cokolwiek zrobi. Błąd niesie stabilny kod, położenie w programie i poprawkę, którą model stosuje.
+  </Card>
+  <Card title="Ustrukturyzowany raport skutków" icon="file-text" href="/pl/product/effect-reports/">
+    Każde uruchomienie zwraca raport `nurt-report/1` w postaci tekstu, JSON, Markdown lub zwartej, ze stronicowaniem i ograniczonym rozmiarem. Długi wynik trwa dalej wywołaniem `next`.
+  </Card>
+  <Card title="Pomyłki są odwracalne" icon="undo-2" href="/pl/product/journal-and-undo/">
+    Każda zmiana plików trafia do dziennika wraz z poprzednią treścią, a `undo` ją przywraca. Błędną zmianę agenta cofa jedno polecenie.
+  </Card>
+  <Card title="Polityka i uprawnienia dla integratorów" icon="shield-check" href="/pl/ai/agent-engines/">
+    Host odczytuje `check` i `preview` przed uruchomieniem i stosuje własną politykę do skutku, ścieżek, adresów sieciowych i programów zewnętrznych. Podniesione uprawnienia przechodzą przez parametr wywołania `privilege`.
+  </Card>
+  <Card title="Cztery drogi integracji" icon="plug" href="/pl/ai/agent-engines/">
+    Serwer Model Context Protocol `nurt mcp`, serwer JSON-RPC `nurt serve`, biblioteka C `libnurt` oraz powiązania z językami Python, TypeScript, Go, Java i .NET.
+  </Card>
+  <Card title="Gotowe paczki treningowe" icon="package" href="/pl/ai/training-packages/">
+    Pięć paczek do trenowania i oceny modeli: pary, rozmowy czatu, rozmowy z wywołaniami narzędzia, definicje narzędzia i korpus dokumentacji. Licencje wyraźnie zezwalają na trenowanie.
+  </Card>
+  <Card title="Benchmark ze zbiorem wstrzymanym" icon="chart-bar" href="/pl/ai/benchmark/">
+    `nurt-bench` zawiera 720 zadań w 12 dziedzinach, w tym 648 publicznych i 72 wstrzymane, oraz wyrocznię, która ocenia stan końcowy każdego przebiegu.
+  </Card>
+</CardGrid>
+
+## Na czym opierają się korzyści
+
+Katalog poleceń jest jedynym źródłem języka. Silnik wiąże z nim każdy program, `nurt schema tool` generuje z niego definicję narzędzia, a paczki treningowe i benchmark powstają tym samym programem wykonywalnym. Model wytrenowany na definicji i parach celuje więc w katalog, który silnik egzekwuje, a katalog ma wersję, którą host odczytuje.
+
+Skutek programu jest znany przed uruchomieniem. `check` zwraca najsilniejszy skutek (`read`, `local`, `external` lub `process`), najsłabszą odwracalność oraz ścieżki, adresy sieciowe i programy, które program wymienia. `run` z `preview: true` wylicza cele, które program zmieni. Host decyduje na tych danych przed wywołaniem `run`.
+
+Wynik uruchomienia jest daną. Raport zawiera status (`ok`, `planned`, `partial`, `failed`), cele, zmiany, skutki nieodwracalne oraz, po niepowodzeniu, błąd z kodem i poprawką. Dziennik zamienia każdą zmianę plików we wpis, który `undo` cofa, a parametr wywołania `session` przypisuje wpis do agenta. Kilku agentów na jednym drzewie wykrywa wzajemne zmiany przez `etag` każdego odczytu.
+
+## Instalacja
+
+Linux i macOS:
+
+```sh
+curl -fsSL https://nurt.danaco-group.pl/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://nurt.danaco-group.pl/install.ps1 | iex
+```
+
+Oba instalatory weryfikują sumę SHA-256 archiwum względem `checksums.txt`, zanim umieszczą program wykonywalny. Polecenie `nurt --version` wypisuje zainstalowaną wersję, a `nurt schema tool --format anthropic` wypisuje pierwszą definicję narzędzia. [Strona platform](/pl/product/platforms/) wymienia archiwa, pakiety i obrazy kontenerów, a akcja instalacyjna dla GitHub Actions jest opisana na [stronie silników agentów](/pl/ai/agent-engines/).
+
+## Dokąd dalej
+
+- [Dla laboratoriów modeli](/pl/ai/model-labs/): definicja narzędzia w ośmiu formatach i dwóch językach, kody błędów jako sygnał, paczki treningowe i zbiór zadań wstrzymanych.
+- [Dla silników agentów](/pl/ai/agent-engines/): interfejsy integracji, sesje, zdarzenia, polityka, uprawnienia, praca wielu agentów i przykłady integracji.
+- [Paczki treningowe](/pl/ai/training-packages/): pięć paczek z rozmiarami, sumami i liczbami rekordów.
+- [Benchmark zadań](/pl/ai/benchmark/): zadania, warunki, wyrocznia, miary i polecenia, które go uruchamiają.
+
+Strona [Nurt dla agentów AI](/pl/product/ai-agents/) opisuje wywołania narzędzia i interfejsy szczegółowo.

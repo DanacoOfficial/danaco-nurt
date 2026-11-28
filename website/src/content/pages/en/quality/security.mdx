@@ -1,0 +1,82 @@
+---
+title: Security
+description: "The security model of Danaco Nurt and the process around it: how to report a vulnerability, the policy of privilege, what integrators enforce, the checks in CI and the advisories fixed in 0.1.1."
+section: quality
+order: 6
+eyebrow: Quality
+lead: What the program does to limit the effect of a mistake or a hostile program, how a vulnerability is reported and handled, and which checks protect the code and the releases.
+updated: 2026-11-28
+related: [quality/supply-chain, product/ai-agents, architecture/protocols, project/support]
+keywords: [security, vulnerability, privilege, elevation, advisories, secrets, policy]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Reporting a vulnerability
+
+Suspected vulnerabilities are reported by e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`, not in a public issue, pull request or discussion. Reports are accepted in English or Polish. The policy is the file [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); the documentation page is [Security](/docs/guide/security/).
+
+A report names the affected version, commit or release artifact, the operating system and architecture, the issue and its impact, and steps to reproduce. The policy sets these target times:
+
+| Step | Target time |
+|---|---|
+| Acknowledgement of the report | within 3 business days |
+| Initial assessment and severity rating | within 10 business days |
+| Fix for a critical vulnerability | within 7 days of confirmation |
+| Coordinated public disclosure | within 90 days of the report, or earlier when a fix is released |
+
+Fixed vulnerabilities are described in a security advisory of the repository and in the changelog; a CVE identifier is requested where appropriate, and reporters are credited unless they ask otherwise.
+
+The scope covers the `nurt` executable and `libnurt`, the Model Context Protocol server and the language server, the journal including recovery and undo, the release artifacts, installers and packages, and the continuous integration configuration. The policy names as relevant issues the execution of effects that the program check did not show or permit, escapes from the configured working scope, loss or corruption of journal data, unsafe extraction of archives, command injection through argument quoting, memory safety defects in the C interface, and disclosure of credentials or environment data in reports. Vulnerabilities in third-party Rust crates are also reported to the maintainers of the crate and to the RustSec advisory database.
+
+## Supported versions
+
+Version 0.1.0 is the first release; the current release is 0.1.2. Until the first stable release, security fixes are applied to the `main` branch and published in a new release.
+
+## Properties of the shell
+
+The documentation lists the properties that limit the effect of a program ([Security](/docs/guide/security/)):
+
+- **Check before effect.** Names, parameters and types are validated against the command catalog before any effect takes place.
+- **No shell.** Programs do not pass through a shell; a path is one value and is not split or expanded.
+- **One effect per program.** A program with more than one changing or running command is rejected with `E_ONE_EFFECT`.
+- **Report.** Each run reports its targets, unusual effects and irreversible effects.
+- **Secrets.** Parameters marked `secret` in the catalog are masked in the journal, the report and printed trees. The value of `accounts.password` goes to standard input.
+- **Project files.** A project file cannot grant itself trust: the keys that widen trust are ignored in `.nurt.toml`.
+- **Journal.** Effects are recorded in the journal and undone with `undo`; the [reliability](/quality/reliability/) page describes the guarantees.
+
+## Privilege
+
+The console does not raise privileges by itself. A call asks for the rights of the administrator with the parameter `privilege` (`account`, `elevated`, `auto`) and for another account with `as_user`. The embedding engine decides the policy, and `privilege.allowed = false` refuses `elevated` and `auto` with `E_PRIVILEGE` and the reason `disabled_by_configuration`. A project file cannot set `privilege.*`.
+
+| Backend | How it works |
+|---|---|
+| `self` | the process already is the administrator |
+| `sudo`, `doas`, `run0` | `nurt elevated-exec` runs with the rights of the administrator and reads one request on standard input; no shell text is built and no password is asked |
+| `broker` | the privileged service `nurt-elevation` |
+
+Access control is that of the operating system: an account that is allowed to run `nurt` through `sudo`, `doas` or `run0` is administrator-equivalent. The elevated process runs only when its identity is the administrator or the account named by `as_user`, and writes its journal entry with the rights of the account that asked. Files changed by a program started with `run` and `privilege: elevated` are not preserved and the entry is irreversible.
+
+## Policy of integrators
+
+The console runs the programs it receives; the host decides which programs an agent runs. The host enforces its policy before `run`, on data computed without any effect: `nurt check` and `run` with `preview: true` ([policy of integrators](/docs/integrators/policy/)). The document `nurt-check/1` returns the strongest effect, the weakest reversibility, the paths named by the program, the network targets, the programs to run and the command groups. Decisions are made on the corrected and bound program, never on the program text.
+
+## Checks in CI
+
+The workspace lints set `unsafe_code = "deny"`, and `unsafe` is allowed only in the crates that call operating system or foreign interfaces, with a `// SAFETY:` comment on every block. Clippy denies `unwrap_used`, `expect_used`, `panic`, `dbg_macro` and `print_stdout` in production code. The job Dependency policy runs `cargo deny` for bans, licences, sources and advisories, and the daily run of `ci.yml` evaluates new security advisories. The workflows run with read access to the repository contents, check out without persisting credentials, and pin every action to a commit hash. The hygiene check rejects home directories of real users, private network addresses and other content that does not belong in a public repository. The changelog records that a code review of 0.1.0 corrected defects in every crate.
+
+## Advisories fixed in 0.1.1
+
+The changelog (section Security, 0.1.1, 27 November 2026) lists these changes of the dependency graph:
+
+| Change | Advisory |
+|---|---|
+| `gix` updated to the 0.91 generation, dropping `heapless` 0.8 (nine advisories about unsound code) | RUSTSEC-2026-0574 to RUSTSEC-2026-0582 |
+| unused `netstat2` removed; AVIF encoder of `image` (`ravif`, `rav1e`) removed, which removes `paste` | RUSTSEC-2024-0436 |
+| OpenPGP signing and checking moved to GnuPG, which removes `rsa` 0.9 and `crypto-bigint` 0.5 | RUSTSEC-2023-0071, RUSTSEC-2026-0387 |
+| `pdf-extract` text extraction taken into the workspace on `lopdf` 0.47, which drops `ttf-parser` | RUSTSEC-2026-0192 |
+| `chrono` feature disabled where possible | RUSTSEC-2026-0543, listed in `deny.toml` with a reason |
+
+The page [supply chain and releases](/quality/supply-chain/) describes the dependency policy, the signing of releases and of commits, and [testing](/quality/testing/) describes the test suites.

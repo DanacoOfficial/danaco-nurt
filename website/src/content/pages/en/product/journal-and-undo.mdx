@@ -1,0 +1,101 @@
+---
+title: Journal and undo
+description: How Danaco Nurt records file changes in a journal, how operations are reviewed, undone and redone, and how effects outside the file system are classified.
+section: product
+order: 3
+eyebrow: Product
+lead: Every change to files is recorded with the state that preceded it, so that it can be reviewed, undone and applied again.
+updated: 2026-11-28
+related: [product/effect-reports, product/commands, quality/reliability, architecture/engine]
+keywords: [journal, undo, redo, history, crash recovery, retention]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## How a change is recorded
+
+The journal records every operation that changes files, provider values or repository state, together with the previous state that undo needs. One effect stage of one program is one operation with one number; reads and previews have no entry. A program with a control construct (`when`, `each`, `repeat`, `while`, `steps`) is one operation and one entry, all or nothing. The contract is the [journal specification](/docs/specification/journal/).
+
+The order of the steps is fixed:
+
+1. The stage declares every target it will change.
+2. The journal preserves the previous state of all targets before the first change.
+3. The stage applies the changes; new content is written to a staged file and switched in atomically.
+4. The executor commits the entry, or rolls the whole operation back if a later step fails.
+
+The previous content is kept by moving a removed entry into the journal, exchanging names on overwrite, taking a block-sharing clone, or copying the bytes. If a file changed between the read and the write, the operation fails with `E_STALE` and is rolled back as a whole. Since 0.1.1 the entity tag of a file that was read carries the SHA-256 of the bytes returned, so a same-size rewrite by another program is detected as well.
+
+## Reviewing, undoing and redoing
+
+| Command | Function |
+|---|---|
+| `history` | lists operations, latest first; filters by `state`, `path`, `since`, `before` and `deleted` |
+| `undo` | reverses one operation, every operation since a point, the changes of one file, or selected items of an operation |
+| `redo` | applies an undone operation again |
+
+An operation is `available`, `partial`, `expired` or `undone`, and `history` states which of these it is.
+
+```nurt
+history path: "/home/user/app/main.go"
+undo 18 on_conflict: include_later
+undo file: "/home/user/app/config.toml" since: 12
+undo to: 30
+redo
+```
+
+The pages of [`history`](/docs/commands/history/), [`undo`](/docs/commands/undo/) and [`redo`](/docs/commands/redo/) describe every parameter. `undo` without arguments reverses the latest available operation of the session that is not itself an undo.
+
+Before anything is written, `undo` compares every item with the state the journal recorded after the operation. If a file changed since, nothing is changed unless `on_conflict` says otherwise: `report` (default) fails with `E_JOURNAL_CONFLICT` and lists the differences, `abort` fails, `force` undoes anyway, `include_later` also undoes the later operations on the same items, and `partial` restores the items that are still kept.
+
+An undo is an entry with its own number and keeps the current state of what it restored, so `redo` can apply it again. A later ordinary operation on the same files makes `redo` fail with `E_JOURNAL_CONFLICT`: a redo never overwrites newer work.
+
+<Callout type="tip" title="Check before the change">
+  `preview: true` computes the targets of an operation without changing anything, and `assert` stops a program before the change when the number of targets differs from the expected one. `undo` then repairs what a checked program still got wrong.
+</Callout>
+
+## Effects outside the file system
+
+An effect outside the file system is undone when the engine can derive an inverse operation from the state it recorded. Since 0.1.1 the engine derives the inverse for `start` and `stop` of a service (the opposite command), for `enable` and `disable` with the start types `disabled` and `automatic`, and for the firewall, routes, DNS, accounts, groups, mounts, kernel parameters and the time zone (the previous values). The [administration guide](/docs/guides/administration/) lists them. An effect without an inverse is listed in the report under `irreversible`, with a reason such as `service_changed`, `package_changed` or `no_space_for_copy`.
+
+The report marks as irreversible, among others:
+
+| Effect | Documentation |
+|---|---|
+| Restarting a service; stopping a process or a job with `stop` | [administration guide](/docs/guides/administration/), command `stop` |
+| `clock.set`, `accounts.password`, `power.cancel`, `disks.partition`, `disks.format`, an immediate restart or shutdown | [administration group](/docs/groups/administration/) |
+| A `windows.cim` call whose method has no documented opposite | [`windows.cim`](/docs/commands/windows.cim/) |
+| An HTTP request with `post`, `put`, `patch` or `delete` | [network group](/docs/groups/network/) |
+| A program run by `run` that matches the table of programs with effects outside the computer, such as `git push` | [`run`](/docs/commands/run/) |
+| `load_extension` and the pragmas `temp_store_directory` and `data_store_directory` of `sql` | the preview of [`sql`](/docs/commands/sql/) |
+
+A lack of space or an inactive journal never makes a user operation fail: the operation proceeds and the target is marked with a reason such as `no_space_for_copy`, `journal_inactive` or `too_large_for_journal`. A removal never deletes data after the journal failed to keep it.
+
+An entry made with `privilege: elevated` is undone through the same backend: `undo N privilege: elevated`. On macOS the journal is active for the paths of the data volume since release 0.1.2.
+
+## Many files and crashes
+
+An operation on many targets is one entry and is undone as a whole. Since 0.1.1 a `replace` over thousands of files and its `undo` run several times faster. Manifests of operations with at least 256 targets use format version 2; journals written by 0.1.0 are read unchanged.
+
+When free space runs low, the journal releases part of an entry. The entry becomes `partial`, and `undo ... on_conflict: partial` restores what was kept.
+
+At every instant of a crash the previous content of every target exists in at least one place. Recovery runs before the first transaction of a process and after a reboot: an entry that was prepared but not committed is rolled back, and an interrupted rollback is completed. An entry that fails its integrity check becomes `corrupt` and is repaired with `nurt journal salvage`. The crate `nurt-crashfs` simulates power loss and injected errors and checks after recovery that each operation is complete or fully rolled back.
+
+## Accounts, sessions and retention
+
+The journal directory of a volume is shared by every account that works on it, and `history`, `undo` and `redo` show the entries of the calling account. A range selected with `to` covers the operations of the current session, and `all_sessions` extends it to the others.
+
+An entry expires when the number of later operations, its age or the bytes held on the volume exceed a limit. The defaults keep the last 30 operations and the operations of the last 30 minutes.
+
+| Command | Function |
+|---|---|
+| `journal.status` | whether the journal is on, entries, bytes held, the oldest entry, the limits and their source |
+| `journal.limits` | shows or sets the limits; lowering a limit expires entries at once |
+| `journal.pin` | protects entries from expiry by limits, 24 hours by default |
+| `journal.space` | free space and the space the journal holds, per volume |
+| `journal.purge` | releases entries; cannot be undone |
+
+## Where to go next
+
+The [effect report](/product/effect-reports/) carries the operation number `op` that connects a run to its entry. The cookbook has 25 recipes in [journal, undo and safety](/docs/cookbook/journal-and-undo/), and the [command catalog](/product/commands/) lists the groups.

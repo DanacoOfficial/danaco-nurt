@@ -1,0 +1,109 @@
+---
+title: Przejście z basha i PowerShella
+description: "Jak nawyki basha i PowerShella przekładają się na Danaco Nurt: co pozostaje takie samo, co się różni, tabela par poleceń oraz ściągawki i przewodniki, które do tego należą."
+section: product
+order: 9
+eyebrow: Produkt
+lead: Wiersz napisany według nawyków basha lub PowerShella jest odczytywany i, gdy cel jest bezpieczny, tłumaczony na program Nurt.
+updated: 2026-11-28
+related: [product/language, product/commands, product/use-cases, product/journal-and-undo]
+keywords: [bash, PowerShell, migracja, ściągawka, poprawianie]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Co konsola robi z nawykiem
+
+Wiersz zaczynający się od polecenia basha jest odczytywany według reguł powłoki POSIX, a wiersz zaczynający się od cmdletu w postaci `Verb-Noun` — jako PowerShell. Wiersz jest odczytywany jako polecenie basha, gdy ma zapis właściwy wyłącznie powłoce, taki jak flaga, operator lub `$NAME`. Konsola tłumaczy wiersz na program Nurt i pokazuje zarówno `corrected`, jak i `ran`, czyli program, który wykonano ([migracja z basha](/docs/guides/bash-migration/), [migracja z PowerShella](/docs/guides/powershell-migration/)).
+
+Tłumaczenie, które opiera się na założeniu i dotyka celu zmiany, czeka na wybór wywołującego. Odpowiedzią jest `E_AMBIGUOUS` z gotowymi programami, a wywołanie z `accept` uruchamia kandydata wybranego przez wywołującego. Flaga bez odpowiednika jest zgłaszana błędem, który wymienia parametry polecenia. Ściągawki podają wynik dla każdego nawyku: poprawiony automatycznie albo błąd niosący poprawkę.
+
+## Co pozostaje takie samo
+
+- Znane nazwy poleceń są zachowane jako synonimy: `cat`, `ps` i `which` są odczytywane w znaczeniu basha, gdy argumenty są takie jak w bashu.
+- Potok `A | B` staje się `A |> B`, gdy obie strony da się przetłumaczyć, a `Where-Object`, `Sort-Object` i `Select-Object -First` odpowiadają `filter`, `sort` i `first`.
+- Instrukcje warunkowe, pętle, funkcje i parametry skryptów basha są tłumaczone od 0.1.1: `if`, `elif`, `else`, `case` oraz testy `[ ]`, `[[ ]]` i `test` stają się `when`; `for`, `while` i `until` stają się `each`, `while` i `repeat until`; funkcje stają się `define`; `$1`, `$2`, `$@`, `shift` i `getopts` stają się blokiem `params`.
+- `sudo`, `doas` i `run0` są tłumaczone na parametr wywołania `privilege: elevated`, a `sudo -u NAME` na `as_user`.
+- Istniejący skrypt nadal działa: `run ["bash", "script.sh"] cwd: "/srv/app"` uruchamia go bez zmian, a `nurt migrate` tłumaczy skrypt na program Nurt.
+- `-WhatIf` z PowerShella staje się parametrem wywołania `preview: true`.
+- Programy administracyjne `useradd`, `usermod`, `userdel`, `groupadd`, `mount`, `sysctl -w`, `modprobe`, `ufw`, `firewall-cmd`, `nft`, `iptables`, `ip route`, `timedatectl`, `shutdown`, `parted` i `mkfs.*` są od 0.1.1 tłumaczone na natywne polecenia grupy `administration`.
+
+## Co się różni
+
+- **Ścieżki bezwzględne.** Ścieżka jest bezwzględna i ujęta w cudzysłów, z separatorem `/` w każdym systemie, a ścieżka względna przyjmuje parametr wywołania `base`. `cd D && CMD` jest tłumaczone, dla ścieżki bezwzględnej w tym samym wierszu, jako `cwd` polecenia `run`; program, który pracuje w katalogu, wskazuje go w `cwd`.
+- **Rekordy zamiast tekstu.** Etap zwraca rekordy z nazwanymi polami, więc `ps aux` staje się `processes`, a kolejne etapy filtrują po polach.
+- **Jeden skutek zmieniający na potok.** Potok z dwoma etapami zmieniającymi, połączonymi przez `&&` lub `;`, kończy się błędem `E_ONE_EFFECT`, który proponuje te same zmiany wewnątrz `steps { … }` jako pierwszego kandydata. Blok `steps` to jeden wpis dziennika, wszystko albo nic.
+- **Podniesienie uprawnień jako parametr.** Podniesienie uprawnień to parametr `privilege: elevated` przy poleceniu, które go potrzebuje; `sudo -i` i `su` kończą się błędem `E_AMBIGUOUS`, bo sesja z podniesionymi uprawnieniami nie jest poleceniem. Konsola nigdy nie pyta o hasło.
+- **Rekurencja jest domyślna.** `rm -rf` i `cp -r` nie potrzebują odpowiednika `-r`, a brakująca ścieżka jest pomijana.
+- **Cofanie.** Zmiana plików jest zapisywana w dzienniku i można ją przejrzeć oraz cofnąć poleceniami `history` i `undo`; skutki poza systemem plików są zapisywane jako nieodwracalne, chyba że polecenie ma operację odwrotną.
+
+## Pary poleceń
+
+Pary są wierszami ściągawek. Ścieżki są takie jak w systemie wskazanym w każdej ściągawce; każdy wiersz jest poprawiany automatycznie.
+
+| Nawyk | Nurt |
+|---|---|
+| `rm -rf /home/user/app/build` | `remove "/home/user/app/build"` |
+| `mkdir -p /home/user/app/out` | `create "/home/user/app/out" type: directory` |
+| `tail -n 20 /home/user/app/a.log` | `read "/home/user/app/a.log" last: 20` |
+| `sed -n '10,20p' /home/user/app/a.go` | `read "/home/user/app/a.go" lines: 10..20` |
+| `ps aux` | `processes` |
+| `systemctl restart nginx` | `services name: "nginx" \|> restart` |
+| `sudo systemctl restart nginx` | `services name: "nginx" \|> restart privilege: elevated` |
+| `git -C /home/user/app status` | `git.status "/home/user/app"` |
+| `Get-ChildItem C:\Users\user\app -Recurse -Filter *.go` | `find "C:/Users/user/app" glob: "**/*.go" type: any hidden: false` |
+| `Get-Content C:\Users\user\a.log -Tail 20` | `read "C:/Users/user/a.log" last: 20` |
+| `Get-Process \| Sort-Object WorkingSet -Descending` | `processes \|> sort memory order: desc` |
+| `Restart-Service nginx` | `services name: "nginx" \|> restart` |
+
+Nawyk, który ma bezpieczną postać, zapisuje się raz, a potem powtarza w postaci Nurt:
+
+```nurt
+find "/srv/app" glob: "**/*.tmp" |> remove
+```
+
+Konsola wymienia cele, które obliczyła przed usunięciem, a dziennik przechowuje usunięte pliki, więc `undo` je przywraca.
+
+Lista poleceń zmieniających staje się jednym blokiem z jednym wpisem dziennika (przewodnik migracji z basha):
+
+```text
+mkdir -p /srv/out && cp -a /srv/in/data.csv /srv/out/
+```
+
+```nurt
+steps {
+    create "/srv/out" type: directory
+    copy "/srv/in/data.csv" into: "/srv/out"
+}
+```
+
+Program uruchamiany w tle zapisuje się z `background: true`:
+
+```nurt
+run ["npm", "run", "build"] cwd: "/home/user/app" background: true
+```
+
+## Strony platform
+
+W systemach Linux i macOS `attributes`, `services` i `package.install` zajmują miejsce `chmod`, `systemctl` i menedżerów pakietów, a reguły wielkości liter w nazwach plików podążają za systemem ([przewodnik dla Uniksa](/docs/guides/unix/)). W systemie Windows rejestr jest adresowany jako ścieżka z przedrostkiem `registry:`, `windows.cim` zastępuje `Get-CimInstance` i `Invoke-CimMethod`, a pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` ([przewodnik dla Windows](/docs/guides/windows/)). Dostawca rejestru należy do systemu Windows.
+
+## Dokąd dalej
+
+<CardGrid columns={2}>
+  <Card title="Ściągawka: bash" icon="terminal" href="/docs/cheatsheets/nurt-for-bash-users/">
+    Każdy wiersz łączy polecenie basha z jego postacią w Nurt.
+  </Card>
+  <Card title="Ściągawka: PowerShell" icon="terminal" href="/docs/cheatsheets/nurt-for-powershell-users/">
+    Każdy wiersz łączy polecenie PowerShella z jego postacią w Nurt.
+  </Card>
+  <Card title="Przewodnik: migracja z basha" icon="book-open" href="/docs/guides/bash-migration/">
+    Co jest poprawiane i jak obsługiwane są skrypty.
+  </Card>
+  <Card title="Przewodnik: migracja z PowerShella" icon="book-open" href="/docs/guides/powershell-migration/">
+    Tłumaczone cmdlety i ich parametry.
+  </Card>
+</CardGrid>
+
+Strona [przykładów zastosowań](/pl/product/use-cases/) pokazuje kompletne programy do edycji, pracy z Gitem i administracji.

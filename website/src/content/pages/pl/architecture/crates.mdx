@@ -1,0 +1,116 @@
+---
+title: Skrzynki
+description: Każda skrzynka przestrzeni roboczej Danaco Nurt w jednej tabeli, pogrupowana według warstwy budowania, z opisem z manifestu i oznaczeniem dołączonych skrzynek zewnętrznych.
+section: architecture
+order: 3
+eyebrow: Architektura
+lead: Przestrzeń robocza jest podzielona na skrzynki według warstw i obszarów, a dozwolone zależności między nimi są danymi sprawdzanymi testem.
+updated: 2026-11-28
+related: [architecture/overview, architecture/engine, architecture/dependencies]
+keywords: [skrzynki, przestrzeń robocza, warstwy, dołączone kopie, jaq-json, pdf-extract]
+---
+
+{/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */}
+{/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */}
+{/* https://github.com/DanacoOfficial | support@danaco-group.pl */}
+
+## Przestrzeń robocza
+
+<Stats>
+  <Fact id="crates" />
+</Stats>
+
+Poniższe tabele wymieniają każdy katalog w `crates/`. Opis skrzynki pochodzi z pola `description` jej `Cargo.toml`, w tłumaczeniu i bez nazwy produktu tam, gdzie pole ją powtarza; każda skrzynka przestrzeni roboczej ma takie pole, a jego treść mówi, jaką rolę skrzynka pełni w systemie. Grupowanie odpowiada warstwie budowania przypisanej skrzynce w `tables/crate-graph.toml`. Skrzynka zależy tylko od skrzynek tej samej lub niższej warstwy, a test `workspace_graph.rs` ze skrzynki `nurt-contracts` kończy się niepowodzeniem, gdy manifest łamie tę regułę, deklaruje zależność, której tabela nie dopuszcza, albo nie ma wpisu w tabeli. Widok funkcjonalny tych samych skrzynek jest na stronie [przegląd](/pl/architecture/overview/).
+
+Każda skrzynka dziedziczy z manifestu przestrzeni roboczej edycję 2024, minimalną wersję Rust 1.98, licencję Apache-2.0 i tabelę lintów. Linty zabraniają `unsafe_code`, więc bloki `unsafe`, każdy z komentarzem `// SAFETY:`, zawierają tylko skrzynki, które z definicji wywołują interfejsy systemu operacyjnego: `nurt-ffi`, `nurt-fs` i `nurt-sys`. Linty oznaczają też element `pub`, do którego nie dochodzi `lib.rs`, a skrzynki biblioteczne dokumentują każdy element publiczny.
+
+Skrzynki przestrzeni roboczej przejmują z manifestu przestrzeni roboczej wersję 0.1.2 i `publish = false`. Dwie dołączone skrzynki zewnętrzne zachowują wersje swoich źródeł: 2.0.3 dla `jaq-json` i 0.12.1 dla `nurt-pdf-extract`.
+
+Warstwy mają następujące role. Warstwa kontraktu, `nurt-contracts`, zawiera typy, cechy i schematy wspólne dla każdej skrzynki. Warstwa fundamentu zawiera wartości języka i rejestr poleceń. Warstwa bazy zawiera warstwę systemu plików, składnię i wsparcie testów. Warstwa biblioteczna zawiera usługi wielokrotnego użytku, takie jak dziennik, raport, planista oraz biblioteki tekstu, dokumentów, kodu i procesów. Warstwa komponentów zawiera polecenia, wiązanie, wykonanie i punkty rozszerzeń. Warstwa hosta łączy wszystkie komponenty w fasadę silnika i usługę w tle. Warstwa interfejsu zawiera punkty wejścia: interfejs C, wiersz poleceń i serwer Model Context Protocol. Warstwa narzędzi zawiera zestaw zgodności i test wydajności. Skrzynka wsparcia testów `nurt-testkit` jest też zależnością deweloperską każdej skrzynki warstwy bazy i wyższych.
+
+Każda skrzynka udostępnia to, co jej `lib.rs` re-eksportuje, a jej moduły wewnętrzne są prywatne. Wyjątkiem jest `nurt-contracts`, którego moduły publiczne są przestrzeniami nazw kontraktów: `nurt_contracts::config`, `nurt_contracts::journal`, `nurt_contracts::stage`, `nurt_contracts::services` i `nurt_contracts::fs`. Możliwość wspólna dla dwóch obszarów jest cechą w `nurt-contracts`, implementowaną we własnym obszarze i przekazywaną przez warstwę hosta.
+
+## Kontrakt, fundament i baza
+
+| Skrzynka | Do czego służy |
+|---|---|
+| `nurt-contracts` | Zamrożone kontrakty: drzewa składni, rekordy, błędy, etap, raport oraz interfejsy dziennika i konfiguracji. Nie zależy od żadnej skrzynki przestrzeni roboczej. |
+| `nurt-types` | Wartości, rekordy, jednostki i zakresy języka. |
+| `nurt-catalog` | Katalog poleceń: rejestr, sygnatury i ładowanie katalogu. |
+| `nurt-fs` | Warstwa systemu plików niezależna od platformy. |
+| `nurt-syntax` | Analizator leksykalny, parsery, drukarka kanoniczna i kodeki JSON/CBOR programów. |
+| `nurt-testkit` | Wsparcie testów: wirtualny system plików, atrapy i uruchamiacz plików wzorcowych. |
+
+## Warstwa biblioteczna
+
+| Skrzynka | Do czego służy |
+|---|---|
+| `nurt-journal` | Dziennik operacji: zapis, odtwarzanie, cofanie, ponawianie i retencja. |
+| `nurt-space` | Pomiar wolnego miejsca, dopuszczanie i odzyskiwanie miejsca dla dziennika. |
+| `nurt-crashfs` | Zestaw do wstrzykiwania awarii i błędów w testach dziennika. |
+| `nurt-report` | Model raportu skutków i jego renderery. |
+| `nurt-plan` | Planowanie wykonania programów powiązanych. |
+| `nurt-correct` | Deterministyczna korekta zapisu programów. |
+| `nurt-text` | Kodowania tekstu, końce wierszy, wyszukiwanie, różnice, łatki i skróty. |
+| `nurt-doc` | Strukturalne formaty dokumentów z zachowaniem układu, SQLite i zapytania. |
+| `nurt-code` | Analiza kodu źródłowego z użyciem tree-sitter. |
+| `nurt-proc` | Uruchamianie programów, zadania w tle, limity i wykrywanie zmian. |
+| `nurt-git-transport` | Transporty, poświadczenia i podpisy dla operacji Git. |
+| `nurt-syslog` | Czytniki plików dzienników systemowych: plików dziennika systemd i dziennika ujednoliconego macOS. |
+| `jaq-json` | Wartości JSON dla jaq, z limitem długości powtarzanego napisu. **Dołączona kopia**, zobacz niżej. |
+| `nurt-pdf-extract` | Wyciąganie tekstu z dokumentów PDF: pdf-extract 0.12.1 autorstwa Jeffa Muizelaara, zbudowany na lopdf 0.47. **Dołączona kopia**, zobacz niżej. |
+
+## Warstwa komponentów
+
+| Skrzynka | Do czego służy |
+|---|---|
+| `nurt-bind` | Wiązanie drzew składni z katalogiem poleceń. |
+| `nurt-help` | Pomoc wbudowana, warstwy dokumentacji i opisy integracji narzędzia. |
+| `nurt-langserver` | Serwer języka dla plików programów. |
+| `nurt-migrate` | Tłumaczenie skryptów powłoki na programy. |
+| `nurt-exec` | Strumieniowy moduł wykonawczy potoków i etapy rekordów. |
+| `nurt-ext` | Interfejs rozszerzeń i host WebAssembly. |
+| `nurt-archive` | Archiwa i kompresja. |
+| `nurt-notebook` | Komórki notatników Jupyter. |
+| `nurt-files` | Polecenia plików i ich zawartości. |
+| `nurt-lspclient` | Klient Language Server Protocol. |
+| `nurt-verify` | Uruchamianie testów i parsery wyników analizy kodu. |
+| `nurt-git` | Operacje na repozytorium Git. |
+| `nurt-git-ops` | Operacje Git zmieniające drzewo robocze: switch, restore, reset, merge, rebase, stash, pull i push. |
+| `nurt-sys` | Inspekcja i administracja systemem. |
+| `nurt-net` | HTTP, pobieranie, DNS i diagnostyka sieci. |
+| `nurt-sched` | Harmonogramy, wyzwalacze i obsługa pominiętych uruchomień. |
+| `nurt-programs` | Zainstalowane programy i zewnętrzne katalogi programów. |
+| `nurt-tooldef` | Definicje narzędzia `nurt` w formatach dostawców modeli i Model Context Protocol. |
+
+## Warstwy hosta i interfejsu
+
+| Skrzynka | Do czego służy |
+|---|---|
+| `nurt-core` | Fasada silnika: konfiguracja, sesje, kursory i obsługa żądań. |
+| `nurt-service` | Host usługi w tle: moduły wolnego miejsca i harmonogramów. |
+| `nurt-ffi` | ABI języka C biblioteki. Buduje bibliotekę Rust, bibliotekę współdzieloną i statyczną. |
+| `nurt-cli` | Powłoka poleceń i język, w którym każdą zmianę można cofnąć; biblioteka interfejsu wiersza poleceń i program `nurt`. |
+| `nurt-mcp` | Serwer Model Context Protocol. |
+| `nurt` | Interfejs Rust produktu: klient `nurt serve`, osadzony silnik oraz program `nurt` za cechą `cli`. Opis w jego manifeście jest opisem produktu. |
+| `nurt-node` | Dodatek Node.js do biblioteki. |
+
+## Warstwa narzędzi
+
+| Skrzynka | Do czego służy |
+|---|---|
+| `nurt-conformance` | Uruchamiacz zestawu testów zgodności. |
+| `nurt-bench` | Uruchamiacz, analiza statystyczna i narzędzia zbiorów danych testu wydajności. |
+| `nurt-git-difftest` | Testy różnicowe poleceń Git względem programu `git`. |
+| `nurt-docgen` | Generator witryny dokumentacji, stron podręcznika, kontroli książki kucharskiej i ściąg. |
+
+## Dołączone skrzynki zewnętrzne
+
+Dwie skrzynki przestrzeni roboczej zawierają źródła cudzych projektów. Obie mają licencję MIT i obie są wymienione w `NOTICE`.
+
+- **`jaq-json`** to kopia jaq-json 2.0.3 z crates.io (autor Michael Färber). Jedyną zmianą względem źródeł jest limit długości powtarzanego napisu (`"x" * n`), zaimplementowany w `src/limit.rs`. Mnożenie jest zaimplementowane w typie wartości tej skrzynki, dlatego przestrzeń robocza trzyma kopię. `deny.toml` sprawdza licencję tej skrzynki tak jak każdej innej zależności.
+- **`nurt-pdf-extract`** zawiera źródła pdf-extract 0.12.1 autorstwa Jeffa Muizelaara, zmienione tak, by używały lopdf 0.47 zamiast lopdf 0.42, co odnotowuje `NOTICE`. Wydanie 0.1.1 wykonało ten krok, aby budowanie nie wymagało porzuconej (unmaintained) skrzynki `ttf-parser` (RUSTSEC-2026-0192). Nazwa biblioteki to `pdf_extract`.
+
+## Dalej
+
+Strona o [silniku](/pl/architecture/engine/) pokazuje, jak te skrzynki współpracują w jednym przebiegu. [Zależności i licencje](/pl/architecture/dependencies/) omawiają to, co skrzynki pobierają z zewnątrz.
