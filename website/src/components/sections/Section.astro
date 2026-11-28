@@ -7,6 +7,8 @@
 // Responsibility:   A band of a page with its own heading: the eyebrow, the title, the lead and the content in the slot.
 // Dependencies:     website.src.styles.layout
 
+import '../../styles/components/ledger.css';
+
 interface Props {
   id?: string;
   eyebrow?: string;
@@ -14,19 +16,22 @@ interface Props {
   lead?: string;
   tone?: 'plain' | 'raised';
   tight?: boolean;
+  split?: boolean;
 }
-const { id, eyebrow, title, lead, tone = 'plain', tight = false } = Astro.props;
+const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = false } = Astro.props;
 ---
 
-<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised']} aria-labelledby={title && id ? `${id}-title` : undefined}>
+<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised', split && 'section--split']} aria-labelledby={title && id ? `${id}-title` : undefined}>
   <div class="container">
-    {(eyebrow || title || lead) && (
-      <div class="section__head stack" style="--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;">
-        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
-        {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
-        {lead && <p class="lead">{lead}</p>}
-      </div>
-    )}
-    <slot />
+    <div class:list={[split && 'section__layout']}>
+      {(eyebrow || title || lead) && (
+        <div class="section__head stack" style={split ? '--stack-gap: var(--space-3);' : '--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;'}>
+          {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+          {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
+          {lead && <p class="lead">{lead}</p>}
+        </div>
+      )}
+      <div class:list={[split && 'section__body']}><slot /></div>
+    </div>
   </div>
 </section>

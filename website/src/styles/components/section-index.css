@@ -1,0 +1,47 @@
+/* Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. */
+/* Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl */
+/* https://github.com/DanacoOfficial | support@danaco-group.pl */
+/*
+ * Module:           website.src.styles.components.section-index
+ * Responsibility:   The index page of a section: the first page as a start panel in a sticky left column and the other pages as a numbered ledger on the right.
+ * Dependencies:     website.src.styles.tokens, website.src.styles.components.ledger
+ */
+
+.section-index {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  padding-block: var(--space-7) var(--space-9);
+}
+
+.section-index__start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--line-strong, var(--line));
+  background: var(--bg-raised);
+}
+
+.section-index__start h2 {
+  font-size: var(--text-2xl);
+}
+
+.section-index__start p:not(.eyebrow) {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+}
+
+@media (min-width: 64rem) {
+  .section-index {
+    grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
+    gap: var(--space-9);
+  }
+
+  .section-index__start {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-6));
+  }
+}

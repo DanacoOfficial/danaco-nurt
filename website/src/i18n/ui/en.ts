@@ -154,6 +154,19 @@ export const en = {
       conventions: 'Conventions',
       specification: 'Specification',
     },
+    hub: {
+      startEyebrow: 'Start',
+      startTitle: 'Install Nurt and run the first program',
+      startLead: 'One command installs a single executable. The first steps lead from the first command to the effect report and the journal.',
+      startSteps: 'First steps',
+      pages: 'pages',
+      bands: {
+        learn: { title: 'Learn', lead: 'Guides, ready programs and the habits of bash and PowerShell in Nurt.' },
+        reference: { title: 'Reference', lead: 'Every command, the groups of commands and the specification of the language.' },
+        build: { title: 'Build on Nurt', lead: 'The command line, the interfaces and the registry for tools and platforms that call Nurt.' },
+        project: { title: 'The project', lead: 'How the workspace is built and the rules of the repository.' },
+      },
+    },
     sectionLeads: {
       guide: 'Installation, first steps, the language, the command line, the effect report, the journal, configuration and integration.',
       guides: 'Longer guides for one task or one habit: administration, documents, encodings, Git, migration from bash and PowerShell, refactoring, scheduling and more.',

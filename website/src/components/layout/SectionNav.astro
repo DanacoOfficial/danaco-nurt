@@ -1,0 +1,35 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.layout.SectionNav
+// Responsibility:   The list of the pages of a section in the left column of a page, with the current page marked.
+// Dependencies:     website.src.lib.pages, website.src.lib.urls, website.src.styles.components.section-nav
+
+import '../../styles/components/section-nav.css';
+import type { Locale } from '../../../config/i18n';
+import { pagePath, type PageEntry } from '../../lib/pages';
+import { localisedPath } from '../../lib/urls';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  titlePath: string;
+  pages: PageEntry[];
+  currentId: string;
+}
+
+const { locale, title, titlePath, pages, currentId } = Astro.props;
+---
+
+<nav class="section-nav" aria-label={title}>
+  <p class="section-nav__title"><a href={localisedPath(titlePath, locale)}>{title}</a></p>
+  <ol role="list">
+    {pages.map((page) => (
+      <li>
+        <a href={localisedPath(pagePath(page), locale)} aria-current={page.id === currentId ? 'page' : undefined}>{page.data.title}</a>
+      </li>
+    ))}
+  </ol>
+</nav>

@@ -12,8 +12,7 @@ import Hero from '../sections/Hero.astro';
 import Section from '../sections/Section.astro';
 import Statement from '../sections/Statement.astro';
 import CtaBand from '../sections/CtaBand.astro';
-import Card from '../content/Card.astro';
-import CardGrid from '../content/CardGrid.astro';
+import Ledger from '../content/Ledger.astro';
 import TerminalSession from '../motion/TerminalSession.astro';
 import Terminal from '../content/Terminal.astro';
 import Fact from '../content/Fact.astro';
@@ -40,10 +39,8 @@ const content = locale === 'pl' ? homePl : homeEn;
 <BaseLayout title="Danaco Nurt" description={seo.descriptions[locale]} locale={locale} path="/" home={true} context={ui.siteDescription}>
   <Hero locale={locale} content={content.hero} />
 
-  <Section id="why" eyebrow={content.pillars.eyebrow} title={content.pillars.title} lead={content.pillars.lead}>
-    <CardGrid columns={3}>
-      {content.pillars.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+  <Section id="why" split eyebrow={content.pillars.eyebrow} title={content.pillars.title} lead={content.pillars.lead}>
+    <Ledger columns={1} items={content.pillars.cards.map((card) => ({ title: card.title, text: card.text, href: localisedPath(card.path, locale) }))} />
   </Section>
 
   <Statement eyebrow={content.statement.eyebrow} quote={content.statement.quote} name={site.creator} role={content.statement.role} />
@@ -77,9 +74,7 @@ const content = locale === 'pl' ? homePl : homeEn;
       <Fact id="toolFormats" />
       <Fact id="integrationExamples" />
     </Stats>
-    <CardGrid columns={4}>
-      {content.ai.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+    <div style="margin-top: var(--space-7);"><Ledger columns={2} items={content.ai.cards.map((card) => ({ title: card.title, text: card.text, href: localisedPath(card.path, locale) }))} /></div>
     <div class="cluster">
       <Button href={href('/ai/overview/', locale)} variant="primary" iconAfter="arrow-right">{content.ai.action}</Button>
     </div>
@@ -96,22 +91,16 @@ const content = locale === 'pl' ? homePl : homeEn;
     </Stats>
   </Section>
 
-  <Section id="quality" eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
-    <CardGrid columns={4}>
-      {content.quality.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+  <Section id="quality" split eyebrow={content.quality.eyebrow} title={content.quality.title} lead={content.quality.lead}>
+    <Ledger columns={1} items={content.quality.cards.map((card) => ({ title: card.title, text: card.text, href: localisedPath(card.path, locale) }))} />
   </Section>
 
-  <Section id="design" tone="raised" eyebrow={content.design.eyebrow} title={content.design.title} lead={content.design.lead}>
-    <CardGrid columns={2}>
-      {content.design.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+  <Section id="design" tone="raised" split eyebrow={content.design.eyebrow} title={content.design.title} lead={content.design.lead}>
+    <Ledger columns={1} items={content.design.cards.map((card) => ({ title: card.title, text: card.text, href: localisedPath(card.path, locale) }))} />
   </Section>
 
-  <Section id="docs" eyebrow={content.docs.eyebrow} title={content.docs.title} lead={content.docs.lead}>
-    <CardGrid columns={4}>
-      {content.docs.cards.map((card) => <Card title={card.title} icon={card.icon} href={localisedPath(card.path, locale)}>{card.text}</Card>)}
-    </CardGrid>
+  <Section id="docs" split eyebrow={content.docs.eyebrow} title={content.docs.title} lead={content.docs.lead}>
+    <Ledger columns={1} items={content.docs.cards.map((card) => ({ title: card.title, text: card.text, href: localisedPath(card.path, locale) }))} />
   </Section>
 
   <CtaBand title={content.cta.title} text={content.cta.text}>

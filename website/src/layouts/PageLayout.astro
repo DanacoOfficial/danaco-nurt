@@ -13,8 +13,8 @@ import PageHeader from '../components/sections/PageHeader.astro';
 import Prose from '../components/base/Prose.astro';
 import Toc from '../components/layout/Toc.astro';
 import Pager from '../components/layout/Pager.astro';
-import Card from '../components/content/Card.astro';
-import CardGrid from '../components/content/CardGrid.astro';
+import Ledger from '../components/content/Ledger.astro';
+import SectionNav from '../components/layout/SectionNav.astro';
 import type { Locale } from '../../config/i18n';
 import type { SectionKey } from '../../config/sections';
 import { findPage, getSectionPages, pagePath, type PageEntry } from '../lib/pages';
@@ -52,7 +52,10 @@ const crumbs = [{ label: sectionTitle, path: `/${section}/` }, { label: entry.da
 >
   <PageHeader locale={locale} title={entry.data.title} lead={entry.data.lead ?? entry.data.description} eyebrow={entry.data.eyebrow ?? sectionTitle} crumbs={crumbs} updated={entry.data.updated} />
   <div class="container">
-    <div class:list={['page-shell', entry.data.toc && headings.length > 2 && 'page-shell--with-toc']}>
+    <div class:list={['page-shell', 'page-shell--with-nav', entry.data.toc && headings.length > 2 && 'page-shell--with-toc']}>
+      <div class="page-shell__nav">
+        <SectionNav locale={locale} title={sectionTitle} titlePath={`/${section}/`} pages={siblings} currentId={entry.id} />
+      </div>
       <div class="page-shell__main">
         <Prose>
           <slot />
@@ -60,11 +63,7 @@ const crumbs = [{ label: sectionTitle, path: `/${section}/` }, { label: entry.da
         {related.length > 0 && (
           <section class="page-shell__related" aria-labelledby="related-title">
             <h2 id="related-title">{ui.common.related}</h2>
-            <CardGrid columns={3}>
-              {related.map((page) => (
-                <Card title={page.data.title} href={localisedPath(pagePath(page), locale)}>{page.data.description}</Card>
-              ))}
-            </CardGrid>
+            <Ledger items={related.map((page) => ({ title: page.data.title, text: page.data.description, href: pagePath(page) }))} />
           </section>
         )}
         <Pager
