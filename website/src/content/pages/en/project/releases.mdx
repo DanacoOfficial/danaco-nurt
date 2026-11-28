@@ -57,6 +57,9 @@ The [changelog](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2
 - macOS: `max_memory` applies to every start of a program. The address-space limit (`RLIMIT_AS`) is applied on Linux; on macOS the resident memory is measured.
 - macOS: the member list of a group is read without assuming the alignment of `gr_mem`, and suspending, resuming and stopping a program whose process group has ended complete without `EPERM`.
 - macOS: the change tracking of `nurt-proc` waits for the delivery of the events of FSEvents before it reads them, and the service accepts a connection whose peer has already closed.
+- Windows: `nurt` turns on the processing of escape sequences in the console that is not Windows Terminal, so the colours and the banner are drawn there, and it reads programs and configuration files saved as UTF-16 or with a byte order mark, as Windows editors and Windows PowerShell save them.
+- Journal: when the recovery of the journal fails at the start, the program starts, read-only programs run and a change is reported as irreversible; an interrupted operation whose target directory was removed ends its rollback at the first pass.
+- Git: a tracked file changed in the second in which the index was written is reported by `git status` after a command of `nurt` rewrites the index.
 - Documentation: 24 examples are corrected to programs that the language accepts, and 35 examples use absolute paths.
 
 **Changed.**

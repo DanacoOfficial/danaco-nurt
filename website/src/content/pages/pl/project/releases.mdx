@@ -57,6 +57,9 @@ keywords: [wydania, dziennik zmian, archiwa, sumy kontrolne, podpis]
 - macOS: `max_memory` obowiązuje przy każdym uruchomieniu programu. Limit przestrzeni adresowej (`RLIMIT_AS`) jest stosowany w Linuksie; w macOS mierzona jest pamięć rezydentna.
 - macOS: lista członków grupy jest czytana bez zakładania wyrównania `gr_mem`, a wstrzymanie, wznowienie i zatrzymanie programu, którego grupa procesów się zakończyła, kończą się bez `EPERM`.
 - macOS: śledzenie zmian w `nurt-proc` czeka na dostarczenie zdarzeń FSEvents, zanim je odczyta, a usługa przyjmuje połączenie, którego druga strona już się rozłączyła.
+- Windows: `nurt` włącza obsługę sekwencji sterujących w konsoli innej niż Windows Terminal, więc kolory i baner są tam rysowane, oraz czyta programy i pliki konfiguracji zapisane w UTF-16 albo ze znacznikiem kolejności bajtów, tak jak zapisują je edytory Windows i Windows PowerShell.
+- Dziennik: gdy odtwarzanie dziennika przy starcie się nie powiedzie, program startuje, programy tylko czytające działają, a zmiana jest zgłaszana jako nieodwracalna; przerwana operacja, której katalog docelowy usunięto, kończy wycofywanie w pierwszym przebiegu.
+- Git: śledzony plik zmieniony w tej samej sekundzie, w której zapisano indeks, jest zgłaszany przez `git status` po tym, jak polecenie `nurt` przepisze indeks.
 - Dokumentacja: 24 przykłady poprawiono na programy, które język przyjmuje, a 35 przykładów używa ścieżek bezwzględnych.
 
 **Zmieniono.**
