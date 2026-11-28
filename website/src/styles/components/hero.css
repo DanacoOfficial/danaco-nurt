@@ -9,6 +9,8 @@
 
 .hero {
   padding-block: var(--space-8) var(--space-9);
+  /* The canvas of the mark is wider than its stage; on a narrow window the part beyond the window is cut here. */
+  overflow-x: clip;
 }
 
 .hero__inner {

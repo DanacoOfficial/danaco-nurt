@@ -34,6 +34,8 @@
   inset: -14%;
   width: 128%;
   height: 128%;
+  /* The canvas is wider than its stage on purpose; the general limit of the reset would cut its width and move the scene off centre. */
+  max-width: none;
   opacity: 0;
   pointer-events: none;
   -webkit-mask-image: radial-gradient(closest-side, #000 66%, transparent 100%);
