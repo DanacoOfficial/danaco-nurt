@@ -16,6 +16,7 @@ import { readSource } from './frontmatter';
 import { rewriteLinks, type UrlMap } from './links';
 import { literalAngleBrackets } from './angle-brackets';
 import { tableCodeBars } from './table-code';
+import { documentMarker } from '../markdown/hast-command-links';
 
 interface Discovered {
   readonly source: DocsSource;
@@ -99,7 +100,7 @@ export function docsLoader(): Loader {
           data,
           body,
           digest: generateDigest(file.text),
-          rendered: await renderMarkdown(body),
+          rendered: await renderMarkdown(`${body}\n\n${documentMarker('en', file.id)}\n`),
         });
       }
       logger.info(`loaded ${files.length} documentation files`);
@@ -178,7 +179,7 @@ export function docsTranslationsLoader(): Loader {
             since: typeof parsed.front.since === 'string' || typeof parsed.front.since === 'number' ? String(parsed.front.since) : undefined,
           },
         });
-        store.set({ id: file.id, data, body, digest: generateDigest(text), rendered: await renderMarkdown(body) });
+        store.set({ id: file.id, data, body, digest: generateDigest(text), rendered: await renderMarkdown(`${body}\n\n${documentMarker('pl', file.id)}\n`) });
       }
       logger.info(`loaded ${translated.length} Polish documentation files`);
     },

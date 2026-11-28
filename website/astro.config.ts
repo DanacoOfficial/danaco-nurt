@@ -15,6 +15,8 @@ import { site } from './config/site';
 import { defaultLocale, localeSettings, locales } from './config/i18n';
 import { satteri } from '@astrojs/markdown-satteri';
 import { baseLinks } from './src/lib/markdown/hast-base';
+import { commandLinks } from './src/lib/markdown/hast-command-links';
+import { termLinks } from './src/lib/markdown/hast-term-links';
 
 const nurtGrammar = { ...JSON.parse(readFileSync(fileURLToPath(new URL('../editors/textmate/nurt.tmLanguage.json', import.meta.url)), 'utf8')), name: 'nurt' };
 
@@ -43,7 +45,7 @@ export default defineConfig({
       langs: ['sh', 'bash', 'json', 'toml', 'yaml', 'rust', 'c', 'python', 'powershell', 'text', 'ini', 'diff', 'markdown', nurtGrammar],
       wrap: true,
     },
-    processor: satteri({ hastPlugins: [baseLinks] }),
+    processor: satteri({ hastPlugins: [commandLinks, termLinks, baseLinks] }),
   },
   vite: {
     build: { assetsInlineLimit: 0 },

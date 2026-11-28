@@ -126,6 +126,22 @@ h4 {
   font-size: 0.85em;
 }
 
+/* A command name that leads to the page of the command keeps the look of code; the link shows in the colour of its frame and under the pointer. */
+.command-link {
+  text-decoration: none;
+}
+
+.command-link > code {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  transition: color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+}
+
+.command-link:hover > code,
+.command-link:focus-visible > code {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
 .prose strong {
   font-weight: 600;
   color: var(--text);
