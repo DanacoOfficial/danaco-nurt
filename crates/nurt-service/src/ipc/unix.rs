@@ -6,7 +6,7 @@
 // Responsibility:   Unix socket transport of the control channel.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Unix socket transport of the control channel.
@@ -97,7 +97,13 @@ impl TimedRead for UnixStream {
 impl Listener for SocketListener {
     fn accept(&self) -> io::Result<Accepted> {
         let (stream, _) = self.listener.accept()?;
-        stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
+        // macOS refuses the option with EINVAL when the peer has already
+        // closed the connection. That connection is not an accept error: a
+        // failure here would leave the loop waiting before the next accept,
+        // and a client that polls and gives up early would keep the loop from
+        // ever reaching a live connection. A write to the closed peer fails
+        // on its own.
+        let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
         let writer = stream.try_clone()?;
         let closer = stream.try_clone()?;
         Ok(Accepted {
@@ -148,6 +154,23 @@ mod tests {
         assert!(UnixStream::connect(&path).is_ok());
         listener.remove();
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn a_connection_closed_before_accept_is_accepted_and_does_not_hide_the_next() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("service.sock");
+        let listener = SocketListener::bind(&path).unwrap();
+        for _ in 0..3 {
+            drop(UnixStream::connect(&path).unwrap());
+        }
+        let live = UnixStream::connect(&path).unwrap();
+        for _ in 0..4 {
+            listener
+                .accept()
+                .expect("a closed connection is not an error");
+        }
+        drop(live);
     }
 
     #[test]
