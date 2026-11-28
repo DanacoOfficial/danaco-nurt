@@ -31,13 +31,50 @@
   .site-footer,
   .skip-link,
   .docs-sidebar,
+  .docs-page__sidebar,
+  .docs-page__menu-button,
+  .docs-page__toc,
+  .page-shell__nav,
+  .page-shell__toc,
   .toc,
   .pager,
   .cta-band,
   .language-switch,
   .theme-toggle,
-  .copy-button {
+  .copy-button,
+  .hero__visual,
+  .mark-scene,
+  canvas {
     display: none !important;
+  }
+
+  /* The page is one column of text: the columns of the screen layout would leave the paper half empty. */
+  .docs-page,
+  .page-shell {
+    display: block !important;
+  }
+
+  .docs-page__main .prose,
+  .page-shell__main .prose {
+    max-width: none;
+  }
+
+  /* Code is printed in black on a light ground: the colours of the dark code block are written for a dark ground and do not print without it. */
+  pre,
+  pre *,
+  .terminal,
+  .terminal *,
+  .session,
+  .session * {
+    background: transparent !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  pre {
+    border: 1px solid var(--line-strong) !important;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .prose a[href^='http']::after {
