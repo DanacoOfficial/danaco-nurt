@@ -514,10 +514,17 @@ pub(crate) fn context(config: Config) -> ExecCtx {
         .build()
 }
 
-/// Project directory with a `.git` marker.
+/// Project directory with a `.git` marker. On macOS the temporary directory
+/// lies behind the link `/var`, and the servers answer with the real path, so
+/// the project is named by its real path there.
 pub(crate) fn project() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().join("proj");
+    let base = if cfg!(target_os = "macos") {
+        dir.path().canonicalize().unwrap()
+    } else {
+        dir.path().to_path_buf()
+    };
+    let root = base.join("proj");
     std::fs::create_dir_all(root.join(".git")).unwrap();
     (dir, root)
 }
