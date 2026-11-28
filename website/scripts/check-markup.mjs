@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.scripts.check-markup
-// Responsibility:   Checks the markup of the built site for three defects a browser hides: an element whose name is not an element of HTML or SVG (text in angle brackets read as a tag, which removes the text from the page), content written after the end of the document, and a backtick left in the text of a page (Markdown that was not read). A full check of the markup is the task of an HTML checker; this check needs no program outside the package. An argument names another directory than dist. Elements of HTML that the site does not use and the documentation writes as types (map, object, data) are not in the list.
+// Responsibility:   Checks the markup of the built site for four defects a browser hides: an element whose name is not an element of HTML or SVG (text in angle brackets read as a tag, which removes the text from the page), content written after the end of the document, a backtick left in the text of a page (Markdown that was not read), and a description outside 40 to 220 characters on a page outside the documentation. A full check of the markup is the task of an HTML checker; this check needs no program outside the package. An argument names another directory than dist. Elements of HTML that the site does not use and the documentation writes as types (map, object, data) are not in the list.
 // Dependencies:     node:fs, node:path
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -58,6 +58,14 @@ for (const file of files) {
   const tick = text.indexOf('`');
   if (tick !== -1) {
     errors.push(`${address}: a backtick in the text, Markdown was not read: ${text.slice(Math.max(0, tick - 30), tick + 30).replace(/\s+/g, ' ').trim()}`);
+  }
+  // The description of a page of the site follows the authoring rule also where it comes from the interface texts; the documentation brings its own.
+  const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1];
+  if (description !== undefined && !/(^|\/)docs\//.test(address)) {
+    const length = description.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, '-').length;
+    if (length < 40 || length > 220) {
+      errors.push(`${address}: description has ${length} characters (40 to 220)`);
+    }
   }
 }
 
