@@ -1,0 +1,49 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.LandingPanels
+// Responsibility:   A row of framed panels of a section landing page: an icon and a title, an optional sentence, an optional list of points and the action that leads to a page.
+// Dependencies:     website.src.components.base.Button, website.src.components.base.Icon, website.src.lib.urls, website.src.styles.components.section-landing
+
+import '../../styles/components/section-landing.css';
+import Button from '../base/Button.astro';
+import Icon from '../base/Icon.astro';
+import type { Locale } from '../../../config/i18n';
+import type { Panel } from '../../data/section-pages/types';
+import { href } from '../../lib/urls';
+
+interface Props {
+  locale: Locale;
+  panels: readonly Panel[];
+  variant?: 'primary' | 'secondary';
+}
+
+const { locale, panels, variant = 'secondary' } = Astro.props;
+---
+
+<div class="landing-panels">
+  {panels.map((panel) => (
+    <article class="landing-panel">
+      <div class="landing-panel__head">
+        <Icon name={panel.icon} size={24} />
+        <h3>{panel.title}</h3>
+      </div>
+      {panel.text && <p>{panel.text}</p>}
+      {panel.points && (
+        <ul class="landing-checks" role="list">
+          {panel.points.map((point) => (
+            <li>
+              <Icon name="check" size={16} />
+              <span>{point}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div class="landing-panel__action">
+        <Button href={href(panel.path, locale)} variant={variant} iconAfter="arrow-right">{panel.action}</Button>
+      </div>
+    </article>
+  ))}
+</div>

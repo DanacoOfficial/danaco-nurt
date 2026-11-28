@@ -1,0 +1,44 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.LandingTable
+// Responsibility:   A table of evidence of a section landing page. Text between backticks in a cell is set as code; the last column may be marked as the result.
+// Dependencies:     website.src.styles.components.section-landing
+
+import '../../styles/components/section-landing.css';
+import type { Evidence } from '../../data/section-pages/types';
+
+interface Props {
+  table: Evidence;
+  result?: boolean;
+}
+
+const { table, result = false } = Astro.props;
+
+/** Splits a text at backticks: the odd parts are code. */
+function parts(text: string): { code: boolean; text: string }[] {
+  return text
+    .split('`')
+    .map((part, index) => ({ code: index % 2 === 1, text: part }))
+    .filter((part) => part.text !== '');
+}
+---
+
+<div class="landing-table">
+  <table>
+    <thead>
+      <tr>{table.columns.map((column) => <th scope="col">{column}</th>)}</tr>
+    </thead>
+    <tbody>
+      {table.rows.map((row) => (
+        <tr>
+          {row.map((cell, index) => (
+            <td class:list={[result && index === row.length - 1 && 'landing-table__result']}>{parts(cell).map((part) => (part.code ? <code>{part.text}</code> : part.text))}</td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>

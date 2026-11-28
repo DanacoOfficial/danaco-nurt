@@ -1,0 +1,358 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.pages.SectionLanding
+// Responsibility:   The content of the landing page of one section of the main menu. Each of the six sections has its own composition built from the content of its pages: programs, figures, maps, flows, tables, swatches and the release; the index of all pages of the section closes the page.
+// Dependencies:     website.src.components.sections.Section, website.src.components.content.*, website.src.components.base.*, website.src.components.pages.LandingPanels, website.src.components.pages.LandingTable, website.src.data.section-pages.*, website.src.lib.pages, website.src.lib.urls
+
+import '../../styles/components/section-landing.css';
+import Section from '../sections/Section.astro';
+import Terminal from '../content/Terminal.astro';
+import Stats from '../content/Stats.astro';
+import Fact from '../content/Fact.astro';
+import Timeline from '../content/Timeline.astro';
+import BrandImage from '../content/BrandImage.astro';
+import Button from '../base/Button.astro';
+import Icon from '../base/Icon.astro';
+import LandingPanels from './LandingPanels.astro';
+import LandingTable from './LandingTable.astro';
+import type { Locale } from '../../../config/i18n';
+import type { SectionKey } from '../../../config/sections';
+import type { FactId } from '../../data/facts';
+import type { FlowStep } from '../../data/section-pages/types';
+import { sectionPagesEn } from '../../data/section-pages/en';
+import { sectionPagesPl } from '../../data/section-pages/pl';
+import { getSectionPages, pagePath, pageSlug } from '../../lib/pages';
+import { href } from '../../lib/urls';
+
+interface Props {
+  locale: Locale;
+  section: Exclude<SectionKey, 'legal'>;
+}
+
+const { locale, section } = Astro.props;
+const content = locale === 'pl' ? sectionPagesPl : sectionPagesEn;
+const entries = await getSectionPages(locale, section);
+const entry = (slug: string) => entries.find((candidate) => pageSlug(candidate) === `${section}/${slug}`);
+
+const figures: Record<Props['section'], readonly FactId[]> = {
+  product: ['commands', 'coreCommands', 'optionalGroups', 'platforms'],
+  ai: ['trainingPairs', 'benchTasks', 'toolFormats', 'integrationExamples'],
+  quality: ['tests', 'windowsTests', 'gitComparisons', 'scenarios'],
+  architecture: ['crates', 'specFiles'],
+  design: [],
+  project: ['commands', 'crates', 'specFiles', 'license'],
+};
+
+const product = content.product;
+const ai = content.ai;
+const quality = content.quality;
+const architecture = content.architecture;
+const design = content.design;
+const project = content.project;
+---
+
+<div class="landing">
+  {section === 'product' && (
+    <>
+      <Section id="program" split={false} eyebrow={product.program.eyebrow} title={product.program.title} lead={product.program.lead}>
+        <div class="landing-split">
+          <div class="landing-copy">
+            <ol class="landing-points" role="list">
+              {product.program.points.map((point, index) => (
+                <li>
+                  <span class="landing-points__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <h3>{point.title}</h3>
+                    <p>{point.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div class="landing-figure">
+            {product.program.programs.map((program) => (
+              <div>
+                <Terminal title={program.title}>
+                  <pre><code class="language-nurt">{program.code}</code></pre>
+                </Terminal>
+                <p class="landing-caption">{program.caption}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section id="numbers" eyebrow={product.numbers.eyebrow} title={product.numbers.title}>
+        <Stats>{figures.product.map((id) => <Fact id={id} />)}</Stats>
+      </Section>
+
+      <Section id="map" eyebrow={product.map.eyebrow} title={product.map.title} lead={product.map.lead}>
+        <ul class="landing-map" role="list">
+          {product.map.cells.map((cell) => (
+            <li>
+              <div class="landing-cell">
+                <div class="landing-cell__head">
+                  <Icon name={cell.icon} size={22} />
+                  <h3>{cell.title}</h3>
+                </div>
+                {cell.code && <p class="landing-cell__commands">{cell.code}</p>}
+                <p class="landing-cell__note">{cell.note}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div class="cluster" style="margin-top: var(--space-6);">
+          <Button href={href('/product/features/', locale)} variant="primary" iconAfter="arrow-right">{product.map.action}</Button>
+        </div>
+      </Section>
+
+      <Section id="audiences" eyebrow={product.audiences.eyebrow} title={product.audiences.title}>
+        <LandingPanels locale={locale} panels={product.audiences.panels} variant="secondary" />
+      </Section>
+    </>
+  )}
+
+  {section === 'ai' && (
+    <>
+      <Section id="audiences" split={false} eyebrow={ai.audiences.eyebrow} title={ai.audiences.title} lead={ai.audiences.lead}>
+        <LandingPanels locale={locale} panels={ai.audiences.panels} variant="primary" />
+      </Section>
+
+      <Section id="call" eyebrow={ai.call.eyebrow} title={ai.call.title} lead={ai.call.lead}>
+        <ol class="landing-flow" role="list">
+          {ai.call.steps.map((step: FlowStep) => (
+            <li>
+              <p class="landing-flow__index">{step.index}</p>
+              <p class="landing-flow__name">{step.name}</p>
+              <p class="landing-flow__text">{step.text}</p>
+              {step.effect && <span class:list={['landing-flow__effect', step.change && 'landing-flow__effect--change']}>{step.effect}</span>}
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      <Section id="routes" eyebrow={ai.routes.eyebrow} title={ai.routes.title} lead={ai.routes.lead}>
+        <LandingTable table={ai.routes.table} />
+      </Section>
+
+      <Section id="numbers" eyebrow={ai.numbers.eyebrow} title={ai.numbers.title}>
+        <Stats>{figures.ai.map((id) => <Fact id={id} />)}</Stats>
+      </Section>
+
+      <Section id="data" eyebrow={ai.data.eyebrow} title={ai.data.title}>
+        <LandingPanels locale={locale} panels={ai.data.panels} variant="secondary" />
+      </Section>
+    </>
+  )}
+
+  {section === 'quality' && (
+    <>
+      <Section id="numbers" eyebrow={quality.numbers.eyebrow} title={quality.numbers.title}>
+        <Stats>{figures.quality.map((id) => <Fact id={id} />)}</Stats>
+      </Section>
+
+      <Section id="checks" eyebrow={quality.checks.eyebrow} title={quality.checks.title} lead={quality.checks.lead}>
+        <LandingTable table={quality.checks.table} result />
+        <div class="cluster" style="margin-top: var(--space-6);">
+          <Button href={href('/quality/overview/', locale)} variant="primary" iconAfter="arrow-right">{quality.checks.action}</Button>
+        </div>
+      </Section>
+
+      <Section id="areas" eyebrow={quality.areas.eyebrow} title={quality.areas.title}>
+        <ul class="landing-map" role="list">
+          {quality.areas.cells.map((cell) => (
+            <li>
+              <a class="landing-cell" href={href(`/quality/${cell.slug}/`, locale)}>
+                <div class="landing-cell__head">
+                  <Icon name={cell.icon} size={22} />
+                  <h3>{cell.title}</h3>
+                </div>
+                <p class="landing-cell__note">{cell.note}</p>
+                <span class="landing-cell__more" aria-hidden="true">
+                  <Icon name="arrow-right" size={16} />
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Section>
+    </>
+  )}
+
+  {section === 'architecture' && (
+    <>
+      <Section id="flow" split={false} eyebrow={architecture.flow.eyebrow} title={architecture.flow.title} lead={architecture.flow.lead}>
+        <ol class="landing-flow" role="list">
+          {architecture.flow.steps.map((step: FlowStep) => (
+            <li>
+              <p class="landing-flow__index">{step.index}</p>
+              <p class="landing-flow__name">{step.name}</p>
+              <p class="landing-flow__text">{step.text}</p>
+              {step.effect && <span class:list={['landing-flow__effect', step.change && 'landing-flow__effect--change']}>{step.effect}</span>}
+            </li>
+          ))}
+        </ol>
+        <div class="cluster" style="margin-top: var(--space-6);">
+          <Button href={href('/architecture/engine/', locale)} variant="primary" iconAfter="arrow-right">{architecture.flow.action}</Button>
+        </div>
+      </Section>
+
+      <Section id="entries" eyebrow={architecture.entries.eyebrow} title={architecture.entries.title} lead={architecture.entries.lead}>
+        <div class="landing-entries">
+          <ul class="landing-entries__list" role="list">
+            {architecture.entries.items.map((item) => (
+              <li>
+                <p class="landing-entries__command">{item.command}</p>
+                <p class="landing-entries__name">{item.name}</p>
+                <p class="landing-entries__note">{item.note}</p>
+              </li>
+            ))}
+          </ul>
+          <div class="landing-entries__core">
+            <strong>{architecture.entries.core.name}</strong>
+            <p>{architecture.entries.core.text}</p>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="layers" eyebrow={architecture.layers.eyebrow} title={architecture.layers.title} lead={architecture.layers.lead}>
+        <Stats>{figures.architecture.map((id) => <Fact id={id} />)}</Stats>
+        <LandingTable table={architecture.layers.table} />
+        <div class="cluster" style="margin-top: var(--space-6);">
+          <Button href={href('/architecture/crates/', locale)} variant="primary" iconAfter="arrow-right">{architecture.layers.action}</Button>
+        </div>
+      </Section>
+    </>
+  )}
+
+  {section === 'design' && (
+    <>
+      <Section id="idea" split={false} eyebrow={design.idea.eyebrow} title={design.idea.title} lead={design.idea.lead}>
+        <div class="landing-split landing-split--figure-first">
+          <div class="landing-figure">
+            <BrandImage name="render-hero-front" alt={design.idea.imageAlt} width={1200} caption={design.idea.imageCaption} />
+          </div>
+          <div class="landing-copy">
+            <ol class="landing-points" role="list">
+              {design.idea.points.map((point, index) => (
+                <li>
+                  <span class="landing-points__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <h3>{point.title}</h3>
+                    <p>{point.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div class="cluster" style="margin-top: var(--space-6);">
+              <Button href={href('/design/overview/', locale)} variant="primary" iconAfter="arrow-right">{design.idea.action}</Button>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="colours" eyebrow={design.colours.eyebrow} title={design.colours.title} lead={design.colours.lead}>
+        <ul class="landing-swatches" role="list">
+          {design.colours.swatches.map((swatch) => (
+            <li>
+              <div class="landing-swatch__colour" style={`background:${swatch.value};`}></div>
+              <p class="landing-swatch__name">{swatch.name}</p>
+              <p class="landing-swatch__value">{swatch.value}</p>
+              <p class="landing-swatch__role">{swatch.role}</p>
+            </li>
+          ))}
+        </ul>
+        <div class="cluster" style="margin-top: var(--space-6);">
+          <Button href={href('/design/mark-and-colour/', locale)} variant="secondary" iconAfter="arrow-right">{design.colours.action}</Button>
+        </div>
+      </Section>
+
+      <Section id="type" eyebrow={design.type.eyebrow} title={design.type.title} lead={design.type.lead}>
+        <div class="landing-specimen">
+          <p class="landing-specimen__name" aria-label="Danaco Nurt">
+            <span>Danaco</span> <strong>Nurt</strong>
+          </p>
+          <p class="landing-specimen__mono">{design.type.mono}</p>
+          <p class="landing-specimen__note">{design.type.note}</p>
+        </div>
+      </Section>
+
+      <Section id="files" eyebrow={design.files.eyebrow} title={design.files.title}>
+        <LandingPanels locale={locale} panels={design.files.panels} variant="secondary" />
+      </Section>
+    </>
+  )}
+
+  {section === 'project' && (
+    <>
+      <Section id="release" split={false} eyebrow={project.release.eyebrow} title={project.release.title}>
+        <div class="landing-split">
+          <div class="landing-release">
+            <p class="landing-release__version">{project.release.version}</p>
+            <p class="landing-release__date">{project.release.date}</p>
+            <p>{project.release.text}</p>
+            <div class="cluster">
+              {project.release.actions.map((action, index) => (
+                <Button href={href(action.path, locale)} variant={index === 0 ? 'primary' : 'secondary'} iconAfter="arrow-right">{action.label}</Button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Timeline items={project.release.timeline.map((item, index) => ({ ...item, current: index === 0 }))} />
+          </div>
+        </div>
+      </Section>
+
+      <Section id="numbers" eyebrow={project.numbers.eyebrow} title={project.numbers.title}>
+        <Stats>{figures.project.map((id) => <Fact id={id} />)}</Stats>
+      </Section>
+
+      <Section id="systems" eyebrow={project.systems.eyebrow} title={project.systems.title} lead={project.systems.lead}>
+        <LandingTable table={project.systems.table} />
+      </Section>
+
+      <Section id="pages" eyebrow={project.pages.eyebrow} title={project.pages.title}>
+        <div class="landing-groups">
+          {project.pages.groups.map((group) => (
+            <div>
+              <h3 class="landing-group__title">{group.title}</h3>
+              <ul class="landing-group__list directory__list" role="list" style="margin-top: 0; border-top: 0;">
+                {group.slugs.map((slug) => {
+                  const page = entry(slug);
+                  return page ? (
+                    <li>
+                      <a class="directory__link" href={href(pagePath(page), locale)} style="grid-template-columns: minmax(0, 1fr) auto;">
+                        <span class="directory__text">
+                          <span class="directory__name">{page.data.title}</span>
+                          <span class="directory__note">{page.data.description}</span>
+                        </span>
+                        <Icon name="arrow-right" size={16} class="directory__arrow" />
+                      </a>
+                    </li>
+                  ) : null;
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  )}
+
+  <Section id="index" eyebrow={content.common.indexEyebrow} title={content.common.indexTitle}>
+    <ol class="landing-index" role="list">
+      {entries.map((page, index) => (
+        <li>
+          <a href={href(pagePath(page), locale)}>
+            <span class="landing-index__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+            <span>{page.data.title}</span>
+            <Icon name="arrow-right" size={14} />
+          </a>
+        </li>
+      ))}
+    </ol>
+  </Section>
+</div>
