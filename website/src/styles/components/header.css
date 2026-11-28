@@ -143,6 +143,29 @@
   margin-top: var(--space-4);
 }
 
+/* A phone: the row of the header needs 381 px with closer gaps. Below 380 px the search leaves the row and stays in the menu, and the row needs 341 px. */
+@media (max-width: 26rem) {
+  .site-header__inner {
+    gap: var(--space-3);
+  }
+
+  .site-header__tools {
+    gap: var(--space-1);
+  }
+}
+
+@media (max-width: 23.75rem) {
+  .site-header__search {
+    display: none;
+  }
+}
+
+@media (max-width: 21.5rem) {
+  .site-header__inner {
+    padding-inline: var(--space-3);
+  }
+}
+
 @media (min-width: 66rem) {
   .site-header__nav {
     display: block;
