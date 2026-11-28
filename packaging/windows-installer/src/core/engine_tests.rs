@@ -535,6 +535,28 @@ fn undo_after_a_second_installation_removes_the_folders_of_the_first() {
 }
 
 #[test]
+fn undo_after_a_repair_removes_the_shortcut_and_fragment_folders_of_the_first_run() {
+    let _guard = serial();
+    let fixture = Fixture::new();
+    fixture.write_terminal_settings();
+    success(install_plain(&fixture.full(), &fixture.user));
+    success(install_plain(&fixture.full(), &fixture.user));
+    undo_run(&fixture.root(), &fixture.user, false).unwrap();
+    let start_menu = paths::start_menu(Scope::User, &fixture.user).join("Danaco Nurt");
+    let fragments = paths::terminal_fragments(Scope::User, &fixture.user);
+    assert!(
+        !start_menu.exists(),
+        "left: {:?}",
+        tree(start_menu.parent().unwrap())
+    );
+    assert!(
+        !fragments.exists(),
+        "left: {:?}",
+        tree(&fixture.user.profile)
+    );
+}
+
+#[test]
 fn a_run_writes_the_new_journal_beside_the_old_one() {
     let _guard = serial();
     let fixture = Fixture::new();

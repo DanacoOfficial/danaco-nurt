@@ -264,6 +264,7 @@ struct Install<'a> {
     placed: Vec<(PathBuf, bool)>,
     inherited: Vec<Entry>,
     inherited_dirs: usize,
+    earlier_folders: Vec<PathBuf>,
     size: u64,
     log: Vec<LogLine>,
 }
@@ -299,6 +300,7 @@ pub(crate) fn install(env: &Env<'_>) -> Result<Summary, Failure> {
         placed: Vec::new(),
         inherited: Vec::new(),
         inherited_dirs: 0,
+        earlier_folders: Vec::new(),
         size: 0,
         log: Vec::new(),
     };
@@ -333,6 +335,7 @@ pub(crate) fn install(env: &Env<'_>) -> Result<Summary, Failure> {
 impl Install<'_> {
     fn execute(&mut self) -> SetupResult<()> {
         self.inherited = inheritable(&self.layout.journal());
+        self.earlier_folders = earlier_folders(&self.layout.journal());
         self.journal.push(Entry::Begin {
             format: journal::FORMAT.to_string(),
             version: self.env.version.to_string(),
@@ -775,7 +778,7 @@ impl Install<'_> {
         let folder_created = (kind == "start")
             .then(|| folder.clone())
             .flatten()
-            .filter(|dir| !dir.exists());
+            .filter(|dir| !dir.exists() || self.earlier_folders.contains(dir));
         self.log.push(LogLine::command(
             "shortcut",
             &pairs[0].0.display().to_string(),
@@ -862,7 +865,7 @@ impl Install<'_> {
 
     fn terminal(&mut self, user: &UserPaths) {
         let directory = paths::terminal_fragments(self.scope, user);
-        let dir_created = !directory.exists();
+        let dir_created = !directory.exists() || self.earlier_folders.contains(&directory);
         self.log.push(LogLine::command("terminal", "Danaco Nurt"));
         match terminal::write_fragment(&directory, &self.layout.exe(), &self.layout.icon()) {
             Ok(()) => {
@@ -1587,6 +1590,30 @@ fn inheritable(file: &Path) -> Vec<Entry> {
             Entry::SetPath { .. } | Entry::TerminalDefault { .. } | Entry::PowershellProfile { .. }
         )
     })
+}
+
+/// The Start Menu folder and the Windows Terminal fragment folder that an earlier installation
+/// created: a run that finds them in place keeps them recorded as created by the setup.
+fn earlier_folders(file: &Path) -> Vec<PathBuf> {
+    entries_of(file, |entry| {
+        matches!(
+            entry,
+            Entry::Shortcuts {
+                dir_created: Some(_),
+                ..
+            } | Entry::TerminalFragment {
+                dir_created: true,
+                ..
+            }
+        )
+    })
+    .into_iter()
+    .filter_map(|entry| match entry {
+        Entry::Shortcuts { dir_created, .. } => dir_created.map(PathBuf::from),
+        Entry::TerminalFragment { path, .. } => Path::new(&path).parent().map(Path::to_path_buf),
+        _ => None,
+    })
+    .collect()
 }
 
 /// The folders that an earlier installation created; they stay recorded so that Undo removes them.
