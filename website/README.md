@@ -23,10 +23,11 @@ All commands run in the directory `website/`. Node.js 22.12 or later is required
 | `npm run training -- --nurt <nurt> --nurt-bench <nurt-bench>` | rebuilds the training packages in `training/` from the repository |
 | `npm run build:search` | writes the search index of an existing `dist/` |
 | `npm run preview` | serves `dist/` as built |
-| `npm run check` | runs the three checks below, in order |
+| `npm run check` | runs the four checks below, in order |
 | `npm run check:i18n` | every English page has a Polish page with the same structure |
 | `npm run check:content` | every page of `config/sections.ts` exists in both languages and keeps the page contract |
 | `npm run check:links` | every internal link and resource of `dist/` resolves, including fragments |
+| `npm run check:markup` | no page of `dist/` has an element that is not an element of HTML or SVG (text in angle brackets read as a tag) or content after the end of the document |
 
 The build must run in `website/`: the import of the documentation and the counted numbers read the parent directory as the repository.
 
