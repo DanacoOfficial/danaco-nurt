@@ -13,13 +13,18 @@ import Card from '../content/Card.astro';
 import CardGrid from '../content/CardGrid.astro';
 import { entryUrl, getDocs, groupDocs } from '../../lib/docs/model';
 import { useUi } from '../../i18n';
+import { localizedDocs } from '../../lib/docs/localized';
+import type { Locale } from '../../../config/i18n';
+import { href } from '../../lib/urls';
 
 interface Props {
   section: string;
+  locale?: Locale;
 }
 
-const { section } = Astro.props;
-const ui = useUi('en');
+const { section, locale = 'en' } = Astro.props;
+const ui = useUi(locale);
+const localized = await localizedDocs(locale);
 const entries = await getDocs();
 const group = groupDocs(entries).find((candidate) => candidate.section === section);
 if (!group) {
@@ -32,13 +37,13 @@ const lead = leads[group.labelKey] ?? '';
 const commandGroups = section === 'commands';
 ---
 
-<DocsLayout title={label} description={lead || label} path={`/docs/${section}/`} section={section}>
+<DocsLayout title={label} description={lead || label} path={`/docs/${section}/`} section={section} locale={locale} available={['en', 'pl']}>
   <p class="lead">{lead}</p>
   {commandGroups ? (
-    <CommandCatalog locale="en" />
+    <CommandCatalog locale={locale} />
   ) : (
     <CardGrid columns={2}>
-      {group.entries.map((entry) => <Card title={entry.data.title} href={entryUrl(entry)}>{entry.data.description}</Card>)}
+      {group.entries.map((entry) => <Card title={localized.title(entry)} href={href(entryUrl(entry), locale)}>{localized.description(entry)}</Card>)}
     </CardGrid>
   )}
 </DocsLayout>

@@ -22,7 +22,7 @@ export async function getStaticPaths() {
   const withIndex = new Set(entries.filter((entry) => entry.id.endsWith('/index')).map((entry) => entry.data.section));
   const sections = groupDocs(entries)
     .filter((group) => !withIndex.has(group.section))
-    .map((group) => ({ params: { slug: group.section }, props: { kind: 'section' as const, entry: undefined, available: ['en'] as const, section: group.section } }));
+    .map((group) => ({ params: { slug: group.section }, props: { kind: 'section' as const, entry: undefined, available: ['en', 'pl'] as const, section: group.section } }));
   return [...paths, ...sections];
 }
 

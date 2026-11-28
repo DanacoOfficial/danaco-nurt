@@ -10,6 +10,7 @@
 import '../styles/global.css';
 import themeInit from '../scripts/theme-init.ts?raw';
 import motionInit from '../scripts/motion-init.ts?raw';
+import localeInit from '../scripts/locale-init.ts?raw';
 import geistFont from '../assets/fonts/geist-variable.woff2?url';
 import geistMonoFont from '../assets/fonts/geist-mono-variable.woff2?url';
 import { localeSettings, locales, type Locale } from '../../config/i18n';
@@ -18,7 +19,7 @@ import Seo from '../components/layout/Seo.astro';
 import SkipLink from '../components/layout/SkipLink.astro';
 import Header from '../components/layout/Header.astro';
 import Footer from '../components/layout/Footer.astro';
-import { withBase } from '../lib/urls';
+import { href, withBase } from '../lib/urls';
 import { useUi } from '../i18n';
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
 
 const { title, description, locale, path, available = [...locales], type, noindex, home, breadcrumbs, searchable = true, context } = Astro.props;
 const ui = useUi(locale);
+const polishHref = locale === 'en' && available.includes('pl') ? href(path, 'pl') : undefined;
 ---
 
 <!doctype html>
@@ -45,6 +47,7 @@ const ui = useUi(locale);
   data-label-copy={ui.common.copy}
   data-label-copied={ui.common.copied}
   data-label-copy-failed={ui.common.copyFailed}
+  data-pl-href={polishHref}
 >
   <head>
     <meta charset="utf-8" />
@@ -60,6 +63,7 @@ const ui = useUi(locale);
     <link rel="manifest" href={withBase('/site.webmanifest')} />
     <link rel="preload" href={geistFont} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={geistMonoFont} as="font" type="font/woff2" crossorigin />
+    {polishHref && <script is:inline set:html={localeInit}></script>}
     <script is:inline set:html={themeInit}></script>
     <script is:inline set:html={motionInit}></script>
     <noscript>
@@ -72,12 +76,15 @@ const ui = useUi(locale);
   <body>
     <SkipLink locale={locale} />
     <Header locale={locale} path={path} available={available} />
-    <main id="content" tabindex="-1" data-pagefind-body={searchable ? '' : undefined}>
+    <main id="page-content" tabindex="-1" data-pagefind-body={searchable ? '' : undefined}>
       <slot />
     </main>
     <Footer locale={locale} />
     <script>
       import { startMotion } from '../scripts/motion';
+      import { labelTableCells, protectCode } from '../scripts/page-content';
+      protectCode();
+      labelTableCells();
       startMotion();
     </script>
   </body>

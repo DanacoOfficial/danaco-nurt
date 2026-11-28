@@ -76,6 +76,7 @@ export const pl: UiStrings = {
     copyFailed: 'Nie udało się skopiować',
     learnMore: 'Dowiedz się więcej',
     readMore: 'Czytaj dalej',
+    pageCount: { one: 'strona', few: 'strony', many: 'stron' },
     viewSource: 'Zobacz plik źródłowy',
     viewOnGithub: 'Zobacz na GitHubie',
     download: 'Pobierz',
@@ -155,6 +156,19 @@ export const pl: UiStrings = {
       providers: 'Dostawcy',
       conventions: 'Konwencje',
       specification: 'Specyfikacja',
+    },
+    hub: {
+      startEyebrow: 'Start',
+      startTitle: 'Zainstaluj Nurta i uruchom pierwszy program',
+      startLead: 'Jedno polecenie instaluje jeden plik wykonywalny. Pierwsze kroki prowadzą od pierwszego polecenia do raportu skutków i dziennika.',
+      startSteps: 'Pierwsze kroki',
+      pages: 'stron',
+      bands: {
+        learn: { title: 'Nauka', lead: 'Przewodniki, gotowe programy oraz nawyki basha i PowerShella w Nurcie.' },
+        reference: { title: 'Opis', lead: 'Każde polecenie, grupy poleceń i specyfikacja języka.' },
+        build: { title: 'Budowanie na Nurcie', lead: 'Wiersz poleceń, interfejsy i rejestr dla narzędzi i platform, które wywołują Nurta.' },
+        project: { title: 'Projekt', lead: 'Budowa przestrzeni roboczej i zasady repozytorium.' },
+      },
     },
     sectionLeads: {
       guide: 'Instalacja, pierwsze kroki, język, wiersz poleceń, raport skutków, dziennik, konfiguracja i integracja.',

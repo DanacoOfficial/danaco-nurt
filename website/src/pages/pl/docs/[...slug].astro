@@ -1,0 +1,53 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.pages.pl.docs.slug
+// Responsibility:   The routes of the Polish documentation: one page per translated documentation entry and a landing page for each section that has no translated index file.
+// Dependencies:     astro:content, website.src.components.pages.DocsSectionPage, website.src.layouts.DocsLayout, website.src.lib.docs.model, website.src.lib.docs.translations
+
+import { render } from 'astro:content';
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import DocsSectionPage from '../../../components/pages/DocsSectionPage.astro';
+import { entryUrl, getDocs, groupDocs } from '../../../lib/docs/model';
+import { getDocsTranslations } from '../../../lib/docs/translations';
+
+export async function getStaticPaths() {
+  const entries = await getDocs();
+  const translations = await getDocsTranslations();
+  const originals = new Map(entries.map((entry) => [entry.id, entry]));
+  const paths = translations
+    .filter((translation) => originals.has(translation.id))
+    .map((translation) => ({
+      params: { slug: translation.id.endsWith('/index') ? translation.id.slice(0, -'/index'.length) : translation.id },
+      props: { kind: 'entry' as const, translation, original: originals.get(translation.id)!, section: translation.data.section },
+    }));
+  const withIndex = new Set(translations.filter((translation) => translation.id.endsWith('/index')).map((translation) => translation.data.section));
+  const sections = groupDocs(entries)
+    .filter((group) => !withIndex.has(group.section))
+    .map((group) => ({ params: { slug: group.section }, props: { kind: 'section' as const, translation: undefined, original: undefined, section: group.section } }));
+  return [...paths, ...sections];
+}
+
+const { kind, translation, original, section } = Astro.props;
+const rendered = kind === 'entry' && translation ? await render(translation) : undefined;
+---
+
+{kind === 'entry' && translation && original && rendered ? (
+  <DocsLayout
+    title={translation.data.title}
+    description={translation.data.description}
+    path={entryUrl(original)}
+    section={section}
+    entryId={original.id}
+    repositoryPath={original.data.repositoryPath}
+    headings={rendered.headings}
+    available={['en', 'pl']}
+    locale="pl"
+  >
+    <rendered.Content />
+  </DocsLayout>
+) : (
+  <DocsSectionPage section={section} locale="pl" />
+)}

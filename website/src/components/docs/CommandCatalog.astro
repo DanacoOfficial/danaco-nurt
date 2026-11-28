@@ -4,13 +4,14 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.docs.CommandCatalog
-// Responsibility:   The index of every command of the catalog, read from the command pages of the repository: the commands are grouped by their group, and each row gives the name, the summary of the command page and a link to it. The summaries are those of the repository and stay English in every locale.
+// Responsibility:   The index of every command of the catalog, read from the command pages of the repository: the commands are grouped by their group, and each row gives the name, the summary of the command page and a link to it. The summaries come from the command pages in the language of the page where a translation exists.
 // Dependencies:     website.src.lib.docs.model, website.src.lib.urls, website.src.i18n, website.src.styles.components.command-catalog
 
 import '../../styles/components/command-catalog.css';
 import type { Locale } from '../../../config/i18n';
 import { entryUrl, getDocs, groupCommands } from '../../lib/docs/model';
-import { withBase } from '../../lib/urls';
+import { href } from '../../lib/urls';
+import { localizedDocs } from '../../lib/docs/localized';
 import { useUi } from '../../i18n';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 const { locale = 'en', level = 2 } = Astro.props;
 const ui = useUi(locale);
 const groups = groupCommands(await getDocs());
+const localized = await localizedDocs(locale);
 const Heading = `h${level}` as 'h2' | 'h3';
 ---
 
@@ -39,8 +41,8 @@ const Heading = `h${level}` as 'h2' | 'h3';
       <ul class="command-catalog__list" role="list">
         {commands.map((command) => (
           <li>
-            <a href={withBase(entryUrl(command))}><code>{command.data.stem}</code></a>
-            <span lang="en">{command.data.summary ?? command.data.description}</span>
+            <a href={href(entryUrl(command), locale)}><code>{command.data.stem}</code></a>
+            <span lang={localized.translated(command) ? locale : 'en'}>{localized.translations.get(command.id)?.data.summary ?? command.data.summary ?? localized.description(command)}</span>
           </li>
         ))}
       </ul>

@@ -9,6 +9,7 @@
 import { site } from '../../config/site';
 import { defaultLocale, localeSettings, locales, type Locale } from '../../config/i18n';
 import { docsPathPrefix } from '../../config/docs';
+import { translatedDocsPaths } from './docs/translated-paths';
 
 export function withBase(path: string): string {
   const base = site.base === '/' ? '' : site.base.replace(/\/$/, '');
@@ -16,9 +17,9 @@ export function withBase(path: string): string {
   return `${base}${normalised}`;
 }
 
-// The imported documentation exists in English only, so its pages keep their English address in every locale; the hub of the documentation is translated.
+// A documentation page without a Polish translation keeps its English address in every locale; the hub, the section pages and every translated page have a Polish address.
 function isEnglishOnly(path: string): boolean {
-  return path.startsWith(`${docsPathPrefix}/`) && path !== `${docsPathPrefix}/`;
+  return path.startsWith(`${docsPathPrefix}/`) && path !== `${docsPathPrefix}/` && !translatedDocsPaths.has(path.replace(/#.*$/, ''));
 }
 
 export function localisedPath(path: string, locale: Locale): string {

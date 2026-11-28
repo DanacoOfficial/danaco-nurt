@@ -313,6 +313,17 @@ polish-text website/src/data/facts.ts
 polish-text website/src/data/home-page/pl.ts
 polish-text website/src/i18n/ui/pl.ts
 
+# The Polish documentation of the website translates the documentation of the
+# repository file by file, so it is Polish text and repeats the examples and
+# the product description for which the English originals are listed above.
+polish-text website/translations/pl/*
+private-address website/translations/pl/docs/commands/network.ping.md
+user-path website/translations/pl/docs/commands/package.list.md
+user-path website/translations/pl/docs/guides/windows.md
+tool-mention website/translations/pl/docs/cli/nurt.md
+tool-mention website/translations/pl/docs/site/command-line.md
+tool-mention website/translations/pl/docs/integrators/README.md
+
 # The lock file of the website names third-party packages.
 promotional-word website/package-lock.json
 

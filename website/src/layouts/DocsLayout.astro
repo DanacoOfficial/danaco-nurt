@@ -19,6 +19,7 @@ import type { Locale } from '../../config/i18n';
 import { repository } from '../../config/site';
 import { seo } from '../../config/seo';
 import { entryUrl, getDocs, groupDocs, neighbours } from '../lib/docs/model';
+import { localizedDocs } from '../lib/docs/localized';
 import { useUi } from '../i18n';
 import '../styles/components/docs-page.css';
 
@@ -32,10 +33,12 @@ interface Props {
   headings?: MarkdownHeading[];
   available?: Locale[];
   showTitle?: boolean;
+  /** Language of the page; Polish pages show the translated titles of the documentation. */
+  locale?: Locale;
 }
 
-const { title, description, path, section, entryId, repositoryPath, headings = [], available = ['en'], showTitle = true } = Astro.props;
-const locale: Locale = 'en';
+const { title, description, path, section, entryId, repositoryPath, headings = [], available = ['en'], showTitle = true, locale = 'en' } = Astro.props;
+const localized = await localizedDocs(locale);
 const ui = useUi(locale);
 const entries = await getDocs();
 const groups = groupDocs(entries);
@@ -59,8 +62,12 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
   breadcrumbs={crumbs.map((crumb) => ({ label: crumb.label, path: crumb.path ?? path }))}
 >
   <div class="container docs-page">
-    <div class="docs-page__sidebar">
-      <DocsSidebar locale={locale} groups={groups} currentId={entryId} currentSection={section} />
+    <button class="docs-page__menu-button" type="button" aria-expanded="false" aria-controls="docs-menu" data-docs-menu>
+      <span>{ui.docs.title} · {sectionLabel}</span>
+      <Icon name="chevron-down" size={18} />
+    </button>
+    <div class="docs-page__sidebar" id="docs-menu">
+      <DocsSidebar locale={locale} groups={groups} currentId={entryId} currentSection={section} localized={localized} />
     </div>
     <article class="docs-page__main">
       <Breadcrumbs locale={locale} items={crumbs} />
@@ -76,12 +83,29 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
       )}
       <Pager
         locale={locale}
-        previous={previous ? { title: previous.data.title, path: entryUrl(previous) } : undefined}
-        next={next ? { title: next.data.title, path: entryUrl(next) } : undefined}
+        previous={previous ? { title: localized.title(previous), path: entryUrl(previous) } : undefined}
+        next={next ? { title: localized.title(next), path: entryUrl(next) } : undefined}
       />
     </article>
     <div class="docs-page__toc">
       <Toc locale={locale} headings={headings} />
     </div>
   </div>
+  <noscript>
+    <style is:inline>
+      .docs-page__sidebar { display: block !important; }
+      .docs-page__menu-button { display: none !important; }
+    </style>
+  </noscript>
+  <script>
+    const button = document.querySelector<HTMLButtonElement>('[data-docs-menu]');
+    const menu = document.getElementById('docs-menu');
+    if (button && menu) {
+      button.addEventListener('click', () => {
+        const open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        menu.toggleAttribute('data-open', open);
+      });
+    }
+  </script>
 </BaseLayout>

@@ -16,6 +16,16 @@ export function useUi(locale: Locale): UiStrings {
   return dictionaries[locale];
 }
 
+/** The word for pages after a count. Polish has one form for 1, one for counts ending in 2, 3 and 4 (except 12, 13 and 14) and one for the rest; English uses its plural for both. */
+export function pageCountLabel(count: number, locale: Locale): string {
+  const forms = dictionaries[locale].common.pageCount;
+  if (count === 1) {
+    return forms.one;
+  }
+  const few = count % 10 >= 2 && count % 10 <= 4 && !(count % 100 >= 12 && count % 100 <= 14);
+  return few ? forms.few : forms.many;
+}
+
 export function formatDate(value: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(locale === 'pl' ? 'pl-PL' : 'en-GB', {
     year: 'numeric',

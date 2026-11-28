@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.lib.docs.translations
-// Responsibility:   Access to the Polish translations of imported documentation pages: which entries have one and the translation of an entry.
+// Responsibility:   Access to the Polish translations of imported documentation pages: which entries have one and the translation of an entry; a translation has the identifier of its English original.
 // Dependencies:     astro:content
 
 import { getCollection, type CollectionEntry } from 'astro:content';
@@ -11,11 +11,11 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 export type DocsTranslation = CollectionEntry<'docsTranslations'>;
 
 export function translationKey(entry: DocsTranslation): string {
-  return entry.id.split('/').slice(1).join('/');
+  return entry.id;
 }
 
 export async function getDocsTranslations(): Promise<DocsTranslation[]> {
-  return getCollection('docsTranslations', (entry) => entry.id.startsWith('pl/'));
+  return getCollection('docsTranslations');
 }
 
 export async function translatedDocsIds(): Promise<Set<string>> {

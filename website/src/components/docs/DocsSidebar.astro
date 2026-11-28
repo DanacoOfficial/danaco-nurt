@@ -12,15 +12,18 @@ import type { Locale } from '../../../config/i18n';
 import { entryUrl, type DocsGroup } from '../../lib/docs/model';
 import { href } from '../../lib/urls';
 import { useUi } from '../../i18n';
+import type { LocalizedDocs } from '../../lib/docs/localized';
 
 interface Props {
   locale: Locale;
   groups: DocsGroup[];
   currentId?: string;
   currentSection?: string;
+  /** Titles and addresses of the entries in the language of the page. */
+  localized?: LocalizedDocs;
 }
 
-const { locale, groups, currentId, currentSection } = Astro.props;
+const { locale, groups, currentId, currentSection, localized } = Astro.props;
 const ui = useUi(locale);
 const labels = ui.docs.sectionLabels as Record<string, string>;
 ---
@@ -39,7 +42,7 @@ const labels = ui.docs.sectionLabels as Record<string, string>;
         <ul role="list">
           {group.entries.filter((entry) => entry !== index || group.entries.length > 1).map((entry) => (
             <li>
-              <a href={href(entryUrl(entry), 'en')} aria-current={entry.id === currentId ? 'page' : undefined}>{entry.data.title}</a>
+              <a href={href(entryUrl(entry), locale)} aria-current={entry.id === currentId ? 'page' : undefined}>{localized ? localized.title(entry) : entry.data.title}</a>
             </li>
           ))}
         </ul>

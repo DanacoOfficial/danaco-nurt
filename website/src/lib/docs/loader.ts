@@ -104,3 +104,81 @@ export function docsLoader(): Loader {
     },
   };
 }
+
+/** Directory of the Polish translations, laid out by the repository path of each English original. */
+const translationsDirectory = 'translations/pl';
+
+/** Turns a heading with an explicit identifier, "## Opis {#description}", into an HTML heading that keeps the identifier of the English original. */
+function explicitHeadings(markdown: string): string {
+  let fenced = false;
+  return markdown
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+      if (fenced) return line;
+      const match = /^(#{2,4})\s+(.*?)\s*\{#([\w.-]+)\}\s*$/.exec(line);
+      if (!match) {
+        return line;
+      }
+      // The heading already gets the identifier made from its text; the explicit identifier is added as an anchor only when it differs, so no identifier repeats on the page.
+      const slug = match[2]
+        .replace(/`/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+        .replace(/\s/g, '-');
+      return slug === match[3] ? `${match[1]} ${match[2]}` : `${match[1]} <a id="${match[3]}"></a>${match[2]}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Content loader of the Polish documentation: for every documentation file that has a translation in translations/pl it stores an entry with the identifier of the English original,
+ * with links rewritten to the Polish pages where a translation exists and to the English pages otherwise.
+ */
+export function docsTranslationsLoader(): Loader {
+  return {
+    name: 'nurt-docs-translations-loader',
+    async load({ config, store, parseData, renderMarkdown, generateDigest, logger }) {
+      const root = fileURLToPath(config.root);
+      const files = await discover(root);
+      const translated: { file: Discovered; text: string }[] = [];
+      for (const file of files) {
+        try {
+          translated.push({ file, text: await readFile(path.join(root, translationsDirectory, file.repositoryPath), 'utf8') });
+        } catch {
+          continue;
+        }
+      }
+      const available = new Set(translated.map((item) => item.file.repositoryPath));
+      const urls = new Map<string, string>();
+      for (const file of files) {
+        urls.set(file.repositoryPath, available.has(file.repositoryPath) ? `/pl${docsUrl(file.id)}` : docsUrl(file.id));
+      }
+      store.clear();
+      for (const { file, text } of translated) {
+        const parsed = readSource(text, file.stem);
+        const body = explicitHeadings(rewriteLinks(parsed.body, file.repositoryPath, urls as UrlMap));
+        const order = typeof parsed.front.order === 'number' ? parsed.front.order : undefined;
+        const data = await parseData({
+          id: file.id,
+          data: {
+            title: parsed.title,
+            description: parsed.description,
+            section: file.source.section,
+            sectionOrder: file.source.order,
+            order,
+            repositoryPath: file.repositoryPath,
+            stem: file.stem,
+            commands: Array.isArray(parsed.front.commands) ? parsed.front.commands.map(String) : undefined,
+            summary: typeof parsed.front.summary === 'string' ? parsed.front.summary : undefined,
+            group: typeof parsed.front.group === 'string' ? parsed.front.group : undefined,
+            since: typeof parsed.front.since === 'string' || typeof parsed.front.since === 'number' ? String(parsed.front.since) : undefined,
+          },
+        });
+        store.set({ id: file.id, data, body, digest: generateDigest(text), rendered: await renderMarkdown(body) });
+      }
+      logger.info(`loaded ${translated.length} Polish documentation files`);
+    },
+  };
+}

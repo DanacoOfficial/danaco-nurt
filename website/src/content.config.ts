@@ -9,7 +9,7 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { sectionKeys } from '../config/sections';
-import { docsLoader } from './lib/docs/loader';
+import { docsLoader, docsTranslationsLoader } from './lib/docs/loader';
 
 const pages = defineCollection({
   loader: glob({ base: './src/content/pages', pattern: '**/*.mdx' }),
@@ -27,31 +27,28 @@ const pages = defineCollection({
   }),
 });
 
+const docsSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  section: z.string(),
+  sectionOrder: z.number(),
+  order: z.number().optional(),
+  repositoryPath: z.string(),
+  stem: z.string(),
+  commands: z.array(z.string()).optional(),
+  summary: z.string().optional(),
+  group: z.string().optional(),
+  since: z.string().optional(),
+});
+
 const docs = defineCollection({
   loader: docsLoader(),
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    section: z.string(),
-    sectionOrder: z.number(),
-    order: z.number().optional(),
-    repositoryPath: z.string(),
-    stem: z.string(),
-    commands: z.array(z.string()).optional(),
-    summary: z.string().optional(),
-    group: z.string().optional(),
-    since: z.string().optional(),
-  }),
+  schema: docsSchema,
 });
 
 const docsTranslations = defineCollection({
-  loader: glob({ base: './src/content/docs-translations', pattern: '**/*.md' }),
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    source: z.string(),
-    sourceDigest: z.string().optional(),
-  }),
+  loader: docsTranslationsLoader(),
+  schema: docsSchema,
 });
 
 export const collections = { pages, docs, docsTranslations };
