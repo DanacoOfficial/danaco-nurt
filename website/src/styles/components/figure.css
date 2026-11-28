@@ -11,8 +11,13 @@
   margin-block: var(--space-6);
 }
 
+/* An image keeps its proportions and is never taller than about three quarters of the window, so the whole image and its caption are seen at once. */
 .figure img {
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: max(18rem, 72vh);
   border: 1px solid var(--line);
   border-radius: var(--radius-2);
   background: var(--bg-raised);
