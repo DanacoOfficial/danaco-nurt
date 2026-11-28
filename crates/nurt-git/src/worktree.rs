@@ -1667,7 +1667,8 @@ mod tests {
         assert_eq!(directory_name(Path::new("/")), FALLBACK_NAME);
     }
 
-    #[cfg(unix)]
+    // APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn link_files_keep_the_bytes_of_a_non_utf8_path() {
         use std::os::unix::ffi::OsStrExt;

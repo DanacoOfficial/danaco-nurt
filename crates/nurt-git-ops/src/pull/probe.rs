@@ -684,7 +684,8 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[cfg(unix)]
+    // APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[allow(
         clippy::disallowed_methods,
         reason = "the fixture adds an entry with a raw path by writing the index directly, outside a transaction"

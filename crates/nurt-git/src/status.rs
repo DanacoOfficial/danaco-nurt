@@ -923,7 +923,8 @@ mod tests {
         fixture.save_index(&mut index);
     }
 
-    #[cfg(unix)]
+    // APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn a_path_that_is_not_valid_unicode_keeps_its_bytes_beside_the_display_form() {
         use std::os::unix::ffi::OsStrExt;

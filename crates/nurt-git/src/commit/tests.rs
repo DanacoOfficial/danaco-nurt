@@ -1228,7 +1228,8 @@ fn all_leaves_out_a_socket_and_refuses_a_tracked_path_taken_by_one() {
     assert_eq!(error.data().problem.as_deref(), Some("special_file"));
 }
 
-#[cfg(unix)]
+// APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn all_follows_files_whose_names_are_not_unicode() {
     use std::os::unix::ffi::OsStrExt;

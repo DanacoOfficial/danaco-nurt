@@ -768,7 +768,8 @@ fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
-#[cfg(unix)]
+// APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
     use std::ffi::OsStr;

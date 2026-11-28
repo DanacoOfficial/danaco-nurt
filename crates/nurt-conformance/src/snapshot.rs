@@ -755,7 +755,8 @@ mod tests {
         assert_eq!(Snapshot::from_json(&captured.to_json()).unwrap(), captured);
     }
 
-    #[cfg(unix)]
+    // APFS rejects a name that is not valid UTF-8, so the setup cannot be made there.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn names_that_are_not_utf8_stay_distinct() {
         use std::os::unix::ffi::OsStrExt as _;
