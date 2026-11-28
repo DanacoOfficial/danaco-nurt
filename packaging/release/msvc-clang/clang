@@ -12,7 +12,8 @@
 
 # clang for build scripts that call clang directly for an MSVC target (ring
 # for aarch64-pc-windows-msvc): turns the clang-cl include option /imsvc of
-# the flags of cargo-xwin into -isystem.
+# the flags of cargo-xwin into -isystem. NURT_MSVC_CLANG names the clang
+# executable when it is not /usr/bin/clang.
 next=""
 for argument in "$@"; do
     shift
@@ -26,7 +27,7 @@ for argument in "$@"; do
         *) set -- "$@" "$argument" ;;
     esac
 done
-exec /usr/bin/clang "$@"
+exec "${NURT_MSVC_CLANG:-/usr/bin/clang}" "$@"
 
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl

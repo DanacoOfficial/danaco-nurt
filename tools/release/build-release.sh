@@ -48,6 +48,8 @@
 #                       targets (glibc and musl); auto needs both installed
 #                       targets and zig
 #   ZIG                 the zig executable of the zig cc wrappers; zig when unset
+#   NURT_MSVC_CLANG     the clang executable of the MSVC wrappers of
+#                       packaging/release/msvc-clang; /usr/bin/clang when unset
 #   SOURCE_DATE_EPOCH   time of the archive entries; the commit time of HEAD
 #                       when unset
 #   CARGO_TARGET_DIR    build directory; the target directory of the workspace

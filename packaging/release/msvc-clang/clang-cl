@@ -12,6 +12,7 @@
 
 # clang-cl for cross builds from Linux: an option /FI followed by an absolute
 # Linux path (/FI/home/user/...) is read as a file name, so it is passed as -FI.
+# NURT_MSVC_CLANG names the clang executable when it is not /usr/bin/clang.
 for argument in "$@"; do
     shift
     case $argument in
@@ -19,7 +20,7 @@ for argument in "$@"; do
         *) set -- "$@" "$argument" ;;
     esac
 done
-exec /usr/bin/clang --driver-mode=cl "$@"
+exec "${NURT_MSVC_CLANG:-/usr/bin/clang}" --driver-mode=cl "$@"
 
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
