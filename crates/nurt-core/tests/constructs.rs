@@ -155,7 +155,8 @@ fn volume_chain(root: &nurt_contracts::fs::AbsPath) -> String {
 #[test]
 fn the_directory_of_the_tests_is_on_a_volume_that_keeps_a_journal() {
     let world = world();
-    let root = nurt_contracts::fs::AbsPath::new(&world.root).unwrap();
+    let text = world.root.to_string_lossy();
+    let root = nurt_contracts::fs::AbsPath::new(text.trim_start_matches(r"\\?\")).unwrap();
     let written = world.run(&format!(
         "write \"{a}\" \"1\" mode: overwrite\n",
         a = world.at("a")
