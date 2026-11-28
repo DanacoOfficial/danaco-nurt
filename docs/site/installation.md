@@ -69,6 +69,46 @@ irm https://nurt.danaco-group.pl/install.ps1 | iex
 
 The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` of the machine. The variable `NURT_INSTALL_DIR` selects another directory for the executable.
 
+### Windows setup
+
+Every release carries a setup wizard for each Windows architecture, `nurt-<version>-<target>-setup.exe` with the target `x86_64-pc-windows-msvc` or `aarch64-pc-windows-msvc`. The file contains the program archive of the same release, so it needs no network. The wizard runs on Windows 10 version 1809 or later and on Windows 11; its interface is in English and it needs no web runtime.
+
+1. Download the file for the architecture of the computer and check its sum against `checksums.txt` of the release.
+2. Start the file. A short animation plays; a key or a click skips it.
+3. Welcome: the wizard checks the Windows version, the architecture and the free space.
+4. Licence: read `LICENSE` and `NOTICE` to the end; Next is enabled at the end of the text.
+5. Location: choose "Only for me" (`%LOCALAPPDATA%\Programs\Nurt`, no administrator rights) or "For all users of this PC" (`%ProgramFiles%\Nurt`; Windows asks for administrator approval when the installation starts), and the folder of `nurt.exe`.
+6. Options: add the folder to `PATH`, install the documentation, create Start menu, desktop and Quick Launch shortcuts, add a Windows Terminal profile (optionally as the default profile), add tab completion to PowerShell, and write a first `nurt.toml`.
+7. Review, then Install: the wizard verifies the SHA-256 sum of the embedded archive, copies the files and makes the changes. An error or Cancel undoes every change made so far.
+8. Finish: choose whether to open a terminal and start `nurt` and whether to show the documentation, then close the wizard.
+
+Every change is recorded in the journal `setup-journal.jsonl` in the installation folder (format `nurt-setup-journal/1`). The program is listed in "Installed apps"; its entry, the shortcut "Uninstall Danaco Nurt" and `uninstall.exe` in the installation folder reverse the journal and remove the program, its shortcuts, its `PATH` entry and its Windows Terminal profile. `nurt.toml` stays unless `--remove-config` is given. Starting the setup again on an installed computer offers Repair (or Update, when the setup carries another version) and Undo.
+
+The silent mode installs without a window:
+
+```text
+nurt-0.1.2-x86_64-pc-windows-msvc-setup.exe /S
+nurt-0.1.2-x86_64-pc-windows-msvc-setup.exe /S --scope machine --terminal-profile --completions
+nurt-0.1.2-x86_64-pc-windows-msvc-setup.exe /S --dir=D:\Tools\Nurt\bin --no-path
+nurt-0.1.2-x86_64-pc-windows-msvc-setup.exe /S --undo
+```
+
+| Switch | Effect |
+|---|---|
+| `/S`, `--silent` | No window; the exit code reports the result. |
+| `--scope user\|machine` | For the current user (default) or for all users. |
+| `--dir <path>`, `/D=<path>` | Folder of `nurt.exe`. |
+| `--no-path`, `--no-docs`, `--no-start-menu`, `--no-config` | Leave out `PATH`, the documentation, the Start menu shortcuts or `nurt.toml`. |
+| `--desktop`, `--quick-launch` | Create the desktop or the Quick Launch shortcut. |
+| `--terminal-profile`, `--terminal-default`, `--completions` | Add the Windows Terminal profile, make it the default profile, add tab completion to PowerShell. |
+| `--version <X.Y.Z>` | Fail unless the setup carries this version. |
+| `--repair`, `--undo`, `--remove-config` | Install again over an installation, reverse the journal, also remove `nurt.toml`. |
+| `--no-animation`, `--log <file>`, `-h` | Open the window without the animation, name the log file, print the usage. |
+
+Exit codes: 0 done, 1 failed and rolled back, 2 invalid arguments, 3 requirements not met, 4 administrator approval declined.
+
+The release signs `nurt.exe` and the setup files with Authenticode. The certificate is self-signed (`packaging/release/danaco-nurt-codesign.pem` in the repository), so Windows reports an unknown publisher until the certificate is trusted. `Get-AuthenticodeSignature` shows the signer `CN=Danaco Nurt`. The setup cannot pin `nurt` to the taskbar, because Windows has no supported interface for it; pin the Start menu shortcut by hand. The full description of the files, the journal and the build is in `packaging/windows-installer/README.md` of the repository.
+
 ### Administrator rights
 
 `nurt.exe` does not ask for elevation. Its manifest declares the execution level `asInvoker`, so the program runs with the rights of the terminal that starts it. Operations that need administrator rights, such as `nurt service install`, changes in the machine part of the registry and writes to system directories, work in a terminal that runs as administrator. The manifest also declares long path support and UTF-8 as the code page of the process.
@@ -79,6 +119,7 @@ The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` o
 |---|---|
 | Program, Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
 | Program, Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
+| Setup wizard, Windows, one file `nurt-<version>-<target>-setup.exe` | the Windows program archive and the wizard that installs it |
 | C library, Linux and macOS, directory `nurt-lib-<version>-<target>/` | `libnurt.so.1` or `libnurt.1.dylib`, `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
 | C library, Linux musl, directory `nurt-lib-<version>-<target>/` | `libnurt.a` (static), `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
 | C library, Windows, files at the top level | `nurt.dll`, `nurt.h`, `LICENSE`, `NOTICE` |

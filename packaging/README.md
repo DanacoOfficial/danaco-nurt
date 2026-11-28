@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Packaging. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Packaging
@@ -20,6 +20,7 @@ Danaco Nurt is a command shell and language where every change can be undone. Th
 | Debian, Ubuntu | `apt install nurt` (repository setup below) |
 | Fedora, RHEL | `dnf install nurt` |
 | macOS, Linux | `brew install DanacoOfficial/tap/nurt` |
+| Windows | `nurt-<version>-<target>-setup.exe` (setup wizard, section "Windows setup wizard" below) |
 | Windows | `winget install Danaco.Nurt` |
 | Windows | `scoop install nurt` |
 | Windows | `choco install nurt` |
@@ -66,6 +67,7 @@ The release job publishes the archives of every target and `checksums.txt` in th
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `nurt-<version>-<target>.tar.gz` | `install.sh` (preferred), the container images, the GitHub Action `setup-nurt` and the dev container feature; optional, a release without them is installed from the glibc archives by `install.sh` only |
 | `x86_64-apple-darwin`, `aarch64-apple-darwin` | `nurt-<version>-<target>.tar.gz`, `nurt-lib-<version>-<target>.tar.gz` | `install.sh`, Homebrew |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `nurt-<version>-<target>.zip`, `nurt-lib-<version>-<target>.zip` | winget, Scoop, Chocolatey, `install.ps1` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `nurt-<version>-<target>-setup.exe` | direct download; embeds the program archive of the same target |
 | source | `nurt-<version>-source.tar.gz` | Homebrew core formula |
 
 The placeholder `@SHA256:lib-<target>@` of `render.py` reads the digest of the library archive of a target.
@@ -108,6 +110,20 @@ The linker stays the default `cc`: `zig cc` as the linker adds a second C runtim
 
 Windows archives hold their files at the top level: the program archive `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/` and `doc/`; the library archive `nurt.dll`, `nurt.h`, `LICENSE` and `NOTICE`. The packages only deliver the service files; `nurt service install` installs the service.
 
+### Windows setup wizard
+
+`nurt-<version>-<target>-setup.exe` is built by `tools/release/build-release.sh` after the Windows program archive of the same target is packed. The wizard (`windows-installer/`) embeds that archive and its SHA-256 sum: the script passes the archive in `NURT_SETUP_PAYLOAD` and the sum computed by `sha256sum` in `NURT_SETUP_PAYLOAD_SHA256`, and the build stops when the file and the sum differ. The version of the package `nurt-setup` in `windows-installer/Cargo.toml` must equal the version of the release.
+
+The release directory then holds, for each Windows target:
+
+| File | Content | Listed in `checksums.txt` |
+|---|---|---|
+| `nurt-<version>-<target>.zip` | program archive (the same bytes that the wizard embeds) | yes |
+| `nurt-lib-<version>-<target>.zip` | library archive | yes |
+| `nurt-<version>-<target>-setup.exe` | setup wizard | yes |
+
+`checksums.txt` is written after every file exists, so the sums of the archives and of the setup files describe the files as they are published, and `checksums.txt.asc` signs all of them. With `--codesign` the script signs `nurt.exe` with Authenticode before the archive is packed and the setup file after it is built; the archive is never modified after its sum is computed. The manifests of winget, Scoop and Chocolatey keep the program archive (`.zip`) as their installer; `install.ps1` takes the same archive. The description of the steps, the switches, the journal and the signing is in `windows-installer/README.md`.
+
 ## Dependency check
 
 `tools/ci/check-dependencies.sh [--format elf|pe] FILE...` reads the dynamic section of every file (`readelf -d`, entries `NEEDED`) and fails when a file names a shared library outside the permitted list: `libc.so.6`, `libm.so.6`, `libgcc_s.so.1`, `ld-linux-x86-64.so.2`, `ld-linux-aarch64.so.1` and `linux-vdso.so.1`. A statically linked file passes. The format is taken from the first bytes of the file when `--format` is omitted. The environment variable `READELF` replaces the `readelf` program. The workflow `release.yml` runs the script on `nurt` and `libnurt.so.1` of both glibc archives before it signs the checksums. The check of Windows files (`check_pe`, list `WINDOWS_ALLOWED_DLLS`) is reserved in the script and not implemented. The tests are in `tests/test_check_dependencies.py`.
@@ -121,6 +137,7 @@ Windows archives hold their files at the top level: the program archive `nurt.ex
 | `rpm/` | `nurt.spec.in` for `nurt`, `libnurt`, `libnurt-devel` |
 | `apt-repo/` | `mkrepo.py`, `nurt.sources` |
 | `homebrew/` | `nurt.rb.in` (release archives), `core/nurt.rb.in` (source build) |
+| `windows-installer/` | the Windows setup wizard (Rust, egui), own `Cargo.lock`, outside the workspace |
 | `winget/` | manifests, schema version 1.6.0 |
 | `scoop/` | `nurt.json.in` with `checkver` and `autoupdate` |
 | `chocolatey/` | `nurt.nuspec.in`, `tools/chocolateyinstall.ps1.in` |

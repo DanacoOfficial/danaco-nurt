@@ -22,6 +22,22 @@ their own version numbers, described in the specification.
 
 ## [0.1.2] - 2026-11-28
 
+### Added
+
+- Windows setup wizard: the release publishes `nurt-<version>-<target>-setup.exe`
+  for `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`, one file that
+  carries the program archive. The window is drawn by the program (English,
+  without a web runtime) and guides through the requirements, the license, the
+  scope (current user or all users) and the integration (`PATH`, shortcuts,
+  Windows Terminal profile, PowerShell completion, first `nurt.toml`). Every
+  change is written to the journal `setup-journal.jsonl`; Repair, Update and
+  Undo (`uninstall.exe`, "Installed apps") reverse it, and `/S` with
+  `--scope`, `--dir` and further switches installs without a window.
+- `tools/release/build-release.sh` builds the setup wizard of each Windows
+  target after the archive is packed and lists it in `checksums.txt`
+  (`--no-setup` skips it). The option `--codesign <p12-file> <password-file>`
+  signs `nurt.exe` and the setup files with Authenticode.
+
 ### Fixed
 
 - Search and replace with a regular expression no longer take time quadratic in
