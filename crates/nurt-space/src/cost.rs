@@ -6,7 +6,7 @@
 // Responsibility:   Reclaim cost model and calibration.
 // Dependencies:     nurt_contracts, nurt_journal
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Reclaim cost model and calibration.
@@ -249,7 +249,7 @@ mod tests {
     use nurt_contracts::journal::{EntryState, OpId};
 
     use super::*;
-    use crate::measure::testing::{RealClock, TestVolume, path};
+    use crate::measure::testing::{TestVolume, path};
     use crate::reclaim::maintenance_scope;
 
     fn entry(bytes: u64, files: u64, directories: u64) -> EntrySummary {
@@ -343,12 +343,13 @@ mod tests {
     #[test]
     fn cost_calibration_two_thousand_files_within_budget() {
         let volume = TestVolume::new(1 << 30);
+        volume.set_per_file(Duration::from_micros(25));
         volume.put_file(&path("vol/j/reap/x"), 0);
-        let clock = RealClock::new();
         let scope = maintenance_scope();
         let root = path("vol/j/reap/calibration");
+        let clock = volume.clock.as_ref();
         let start = clock.monotonic();
-        let sample = calibrate(&volume, &clock, &scope, &root).expect("calibrate");
+        let sample = calibrate(&volume, clock, &scope, &root).expect("calibrate");
         let elapsed = clock.monotonic().saturating_sub(start);
         assert!(
             elapsed <= CALIBRATION_BUDGET,
