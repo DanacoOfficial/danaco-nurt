@@ -105,6 +105,17 @@ function inspect() {
     return { compact: header.classList.contains('is-compact'), overlap, button: getComputedStyle(document.querySelector('.site-header__menu-button')).display };
   });
   if (!translated.compact || translated.overlap || translated.button === 'none') report.push(`1280 /: header with long labels: ${JSON.stringify(translated)}`);
+  // A browser set to Polish that opens the English home page for the first time must land on the Polish home page, and must stay on the English page when it returns to it.
+  const context = await browser.createBrowserContext();
+  const visitor = await context.newPage();
+  await visitor.evaluateOnNewDocument(() => Object.defineProperty(navigator, 'language', { get: () => 'pl-PL' }));
+  await visitor.goto(`${base}/`, { waitUntil: 'load' });
+  await visitor.waitForFunction(() => location.pathname.startsWith('/pl/'), { timeout: 3000 }).catch(() => undefined);
+  const first = new URL(visitor.url()).pathname;
+  await visitor.goto(`${base}/`, { waitUntil: 'load' });
+  const second = new URL(visitor.url()).pathname;
+  if (first !== '/pl/' || second !== '/') report.push(`1280 /: Polish browser: first visit ${first}, return ${second}`);
+  await context.close();
   await browser.close();
   console.log(report.join('\n'));
   console.log(`pages=${list.length} widths=${widths.join(',')} with issues=${report.length}`);
