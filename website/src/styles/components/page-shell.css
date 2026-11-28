@@ -28,7 +28,7 @@
   max-width: min(100%, 64rem);
 }
 
-/* The navigation of the section stands left of the text on wide windows; narrower windows reach the same pages through the header and the pager. */
+/* The navigation of the section stands left of the text only where the window holds three columns without narrowing the text; narrower windows reach the same pages through the header and the pager. */
 .page-shell__nav {
   display: none;
 }
@@ -37,7 +37,7 @@
   padding-top: var(--space-3);
 }
 
-@media (min-width: 84rem) {
+@media (min-width: 108rem) {
   .page-shell.page-shell--with-nav {
     grid-template-columns: 15rem minmax(0, 1fr);
     gap: var(--space-8);

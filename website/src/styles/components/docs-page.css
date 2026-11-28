@@ -70,7 +70,8 @@
   }
 }
 
-@media (min-width: 84rem) {
+/* The table of contents joins the navigation and the text only where the window holds three columns without narrowing the text. */
+@media (min-width: 108rem) {
   .docs-page {
     grid-template-columns: 16rem minmax(0, 1fr) 14rem;
   }
@@ -92,7 +93,7 @@
 }
 
 /* A page without headings is an index of other pages: it has no table of contents, and its lists take the whole column. */
-@media (min-width: 84rem) {
+@media (min-width: 108rem) {
   .docs-page.docs-page--index {
     grid-template-columns: 16rem minmax(0, 1fr);
   }
