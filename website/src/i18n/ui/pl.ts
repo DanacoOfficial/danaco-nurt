@@ -197,6 +197,7 @@ export const pl: UiStrings = {
     loading: 'Wczytywanie indeksu',
     unavailable: 'Indeks wyszukiwania powstaje razem z witryną. Nie jest dostępny w serwerze deweloperskim.',
     clear: 'Wyczyść',
+    noScript: 'Wyszukiwarka działa w przeglądarce i wymaga JavaScriptu. Działy witryny są wymienione obok.',
   },
   notFound: {
     title: 'Nie znaleziono strony',

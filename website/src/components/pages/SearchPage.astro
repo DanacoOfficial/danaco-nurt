@@ -31,7 +31,7 @@ const indexPath = withBase(`/${search.outputDirectory}/`);
     <div class="split-page">
       <div class="search-panel">
         <div id="search" class="search" data-index={indexPath} data-results={search.resultsPerPage} data-min={search.minimumQueryLength} data-empty={ui.search.noResults} data-loading={ui.search.loading} data-unavailable={ui.search.unavailable} data-placeholder={ui.search.placeholder} data-label={ui.search.label} data-clear={ui.search.clear} data-locale={locale}></div>
-        <noscript><p>{ui.search.unavailable}</p></noscript>
+        <noscript><p>{ui.search.noScript}</p></noscript>
       </div>
       <SiteSections locale={locale} />
     </div>

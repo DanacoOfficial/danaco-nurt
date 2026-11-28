@@ -195,6 +195,7 @@ export const en = {
     loading: 'Loading the index',
     unavailable: 'The search index is built together with the site. It is not available in the development server.',
     clear: 'Clear',
+    noScript: 'The search runs in the browser and needs JavaScript. The sections of the site are listed beside this message.',
   },
   notFound: {
     title: 'Page not found',
