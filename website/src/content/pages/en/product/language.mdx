@@ -42,9 +42,9 @@ The [records specification](/docs/specification/records/) defines the value type
 Documents are addressed by key paths, which the binder converts before any command runs; a malformed key is reported as `E_KEY_SYNTAX`:
 
 ```nurt
-read "package.json" key: "scripts.test"
-set "package.json" key: "keywords[+]" value: "cli"
-read "users.json" key: "users[?age >= 18 and active].name"
+read "/home/user/app/package.json" key: "scripts.test"
+set "/home/user/app/package.json" key: "keywords[+]" value: "cli"
+read "/home/user/app/users.json" key: "users[?age >= 18 and active].name"
 ```
 
 The [key path specification](/docs/specification/keypath/) defines the syntax. Expressions in `filter`, `sort`, `select`, `assert` and `evaluate` use `== != < <= > >= ~ !~ in and or not + - * /`, where `~` matches a regular expression.

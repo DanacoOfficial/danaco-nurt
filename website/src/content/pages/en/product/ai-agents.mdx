@@ -98,7 +98,7 @@ The result of every run is the report `nurt-report/1`: a status (`ok`, `planned`
 Every read returns an `etag`. A change is applied when the file still has the content that was read; `if_match` makes the check explicit:
 
 ```nurt
-write "/srv/app/config.toml" "mode = 1\n" if_match: "a41f9c"
+write "/srv/app/config.toml" "mode = 1\n" mode: overwrite if_match: "a41f9c"
 ```
 
 A change to a file that another session modified fails with `E_STALE` and leaves the file unchanged; the agent reads again and decides. The call parameter `session` names the session, and `undo` reverts the current session, or every session with `all_sessions: true` ([multi-agent](/docs/guides/multi-agent/)).

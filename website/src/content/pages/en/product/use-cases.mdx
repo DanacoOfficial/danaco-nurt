@@ -44,7 +44,7 @@ All operations of the group `git` are built in and run on a machine that has no 
 
 ```nurt
 git.checkpoint "/srv/app" action: create label: "before-refactoring"
-git.review "/srv/app" scope: staged checks: ["conflict_markers", "secrets"]
+git.review "/srv/app" scope: staged checks: [conflict_markers, secrets]
 git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"]
 ```
 
@@ -66,8 +66,7 @@ logs level: error since: ago(1h) limit: 50
 steps {
     sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
     firewall.allow port: 8443 protocol: tcp privilege: elevated
-    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
-    assert r.exit_code == 0
+    run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated |> assert exit_code: 0
 }
 ```
 

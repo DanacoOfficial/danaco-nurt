@@ -42,9 +42,9 @@ Każdy etap przyjmuje rekordy i zwraca rekordy, pojedynczą wartość albo nic, 
 Dokumenty adresuje się ścieżkami kluczy, które wiązanie przekształca przed uruchomieniem jakiegokolwiek polecenia; niepoprawny klucz jest zgłaszany jako `E_KEY_SYNTAX`:
 
 ```nurt
-read "package.json" key: "scripts.test"
-set "package.json" key: "keywords[+]" value: "cli"
-read "users.json" key: "users[?age >= 18 and active].name"
+read "/home/user/app/package.json" key: "scripts.test"
+set "/home/user/app/package.json" key: "keywords[+]" value: "cli"
+read "/home/user/app/users.json" key: "users[?age >= 18 and active].name"
 ```
 
 [Specyfikacja ścieżek kluczy](/pl/docs/specification/keypath/) definiuje składnię. Wyrażenia w `filter`, `sort`, `select`, `assert` i `evaluate` używają `== != < <= > >= ~ !~ in and or not + - * /`, gdzie `~` dopasowuje wyrażenie regularne.

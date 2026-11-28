@@ -55,7 +55,7 @@ find "/home/user/app" |> group by: extension |> summarize
 `set`, `query` and `sql` work on documents by key path: JSON, JSONC, YAML, TOML, XML, INI, CSV, TSV, Java properties, environment files and property lists. `set` preserves the layout of the document, `query` takes a jq filter, and `sql` runs statements on an SQLite file. Since 0.1.1, `sql` accepts statements that change the database without `write: true`, journals the database file and its `-wal`, `-shm` and `-journal` files first, and keeps the call read-only with `write: false`. Ten `notebook.*` commands work on the cells of Jupyter notebooks. See the guides on [documents](/docs/guides/documents/) and [notebooks](/docs/guides/notebooks/).
 
 ```nurt
-set "deploy.yaml" key: "#1:spec.replicas" value: 3
+set "/home/user/app/deploy.yaml" key: "#1:spec.replicas" value: 3
 ```
 
 ### Source code

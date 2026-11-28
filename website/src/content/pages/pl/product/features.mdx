@@ -55,7 +55,7 @@ find "/home/user/app" |> group by: extension |> summarize
 `set`, `query` i `sql` pracują na dokumentach według ścieżek kluczy: JSON, JSONC, YAML, TOML, XML, INI, CSV, TSV, pliki właściwości Javy, pliki środowiska i listy właściwości. `set` zachowuje układ dokumentu, `query` przyjmuje filtr jq, a `sql` wykonuje instrukcje na pliku SQLite. Od wersji 0.1.1 `sql` przyjmuje instrukcje zmieniające bazę bez `write: true`, najpierw zapisuje w dzienniku plik bazy oraz pliki `-wal`, `-shm` i `-journal`, a wywołanie pozostaje tylko do odczytu przy `write: false`. Dziesięć poleceń `notebook.*` pracuje na komórkach notatników Jupyter. Zobacz przewodniki o [dokumentach](/pl/docs/guides/documents/) i [notatnikach](/pl/docs/guides/notebooks/).
 
 ```nurt
-set "deploy.yaml" key: "#1:spec.replicas" value: 3
+set "/home/user/app/deploy.yaml" key: "#1:spec.replicas" value: 3
 ```
 
 ### Kod źródłowy

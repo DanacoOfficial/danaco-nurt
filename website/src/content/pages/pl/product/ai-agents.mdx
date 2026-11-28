@@ -98,7 +98,7 @@ Wynikiem każdego uruchomienia jest raport `nurt-report/1`: stan (`ok`, `planned
 Każdy odczyt zwraca `etag`. Zmiana jest stosowana, gdy plik nadal ma zawartość, która została odczytana; `if_match` czyni to sprawdzenie jawnym:
 
 ```nurt
-write "/srv/app/config.toml" "mode = 1\n" if_match: "a41f9c"
+write "/srv/app/config.toml" "mode = 1\n" mode: overwrite if_match: "a41f9c"
 ```
 
 Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian; agent czyta ponownie i podejmuje decyzję. Parametr wywołania `session` nazywa sesję, a `undo` cofa bieżącą sesję albo wszystkie sesje z `all_sessions: true` ([wielu agentów](/pl/docs/guides/multi-agent/)).
