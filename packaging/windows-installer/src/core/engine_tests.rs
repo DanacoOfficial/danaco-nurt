@@ -14,7 +14,12 @@
 //! The tests change the real registry of the user (`HKCU`), so they run one at a time. Every
 //! test works in its own folder below the temporary directory and puts back what it changed.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "a failed step of a test has to stop the test with a message"
+)]
 #![allow(
     clippy::cognitive_complexity,
     reason = "a scenario test lists the state of the machine before and after one run"
@@ -283,7 +288,7 @@ fn install_writes_every_part_and_undo_removes_it() {
         "doc\\LICENSE",
         "doc\\NOTICE",
         "doc\\index.html",
-        "doc\\spec\\page.html",
+        "doc\\spec\\catalog.html",
         "doc\\completions\\_nurt.ps1",
         "uninstall.exe",
         "nurt.ico",
@@ -638,8 +643,22 @@ fn a_locked_file_leaves_the_earlier_installation_intact() {
     let exe_sum = payload::sha256_of_file(&fixture.bin().join("nurt.exe")).unwrap();
 
     let held = lock(&fixture.bin().join("nurt.exe"));
-    let failure = failure(install_plain(&fixture.full(), &fixture.user));
+    let outcome = install_plain(&fixture.full(), &fixture.user);
     drop(held);
+    let shown: Vec<String> = outcome
+        .events
+        .iter()
+        .flat_map(|event| event.log.iter())
+        .filter_map(|line| match line {
+            LogLine::Answer { text, .. } => Some(text.clone()),
+            LogLine::Command { .. } => None,
+        })
+        .collect();
+    assert!(
+        !shown.iter().any(|text| text.contains("create folder")),
+        "the folders of the earlier installation are not undone: {shown:?}"
+    );
+    let failure = failure(outcome);
     assert_eq!(failure.error.code, "in-use");
     assert!(failure.rolled_back);
     assert_eq!(

@@ -22,6 +22,11 @@ producer-header .github/PULL_REQUEST_TEMPLATE.md
 producer-header */LICENSE
 style */LICENSE
 
+# The license of the fonts embedded in the Windows setup (SIL Open Font License)
+# is kept verbatim, as the license requires.
+producer-header packaging/windows-installer/assets/fonts/OFL.txt
+style packaging/windows-installer/assets/fonts/OFL.txt
+
 # Tests of home directory recognition use the home directories of other
 # accounts as input.
 user-path crates/nurt-report/tests/rules_paths.rs

@@ -18,8 +18,7 @@
 use eframe::egui::{self, Align2, Key, Rect, Sense, pos2, vec2};
 
 use super::draw::{Canvas, Run};
-use super::shape::{self, bordered_cut, fill_cut, rect_xywh};
-use super::theme::{CUT_X, CUT_Y};
+use super::shape::{self, bordered_cut};
 use super::widgets::{self, ButtonKind};
 use super::{App, Maintenance, RunMode, Screen};
 use crate::model::{Issue, LogLine, Scope, StageState, Tone};
@@ -1449,18 +1448,6 @@ fn requirement_text(id: &str, found: &str, required: &str) -> String {
         }
         _ => "this setup was built without the program archive".to_string(),
     }
-}
-
-/// A rectangle helper for the tests of the layout.
-#[allow(dead_code)]
-fn unit_rect() -> Rect {
-    rect_xywh(0.0, 0.0, 1.0, 1.0)
-}
-
-/// Fills the cut rectangle of a selected segment (kept for the tests of the cut).
-#[allow(dead_code)]
-fn fill_unit(c: &Canvas<'_>) {
-    fill_cut(&c.painter, unit_rect(), CUT_X, CUT_Y, c.pal.gold);
 }
 
 #[cfg(test)]

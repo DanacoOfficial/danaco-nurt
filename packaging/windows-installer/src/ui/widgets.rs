@@ -334,7 +334,10 @@ impl Canvas<'_> {
 
 /// A check; the box is at `(x, y)` of the design and the text goes to its right. Returns the height of the
 /// row and whether it was pressed.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the position, the label and the state of a check are separate values of the design"
+)]
 pub(crate) fn check(
     c: &mut Canvas<'_>,
     id: &str,

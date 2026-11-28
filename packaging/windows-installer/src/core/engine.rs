@@ -263,6 +263,7 @@ struct Install<'a> {
     obsolete: Vec<PathBuf>,
     placed: Vec<(PathBuf, bool)>,
     inherited: Vec<Entry>,
+    inherited_dirs: usize,
     size: u64,
     log: Vec<LogLine>,
 }
@@ -297,6 +298,7 @@ pub(crate) fn install(env: &Env<'_>) -> Result<Summary, Failure> {
         obsolete: Vec::new(),
         placed: Vec::new(),
         inherited: Vec::new(),
+        inherited_dirs: 0,
         size: 0,
         log: Vec::new(),
     };
@@ -341,6 +343,7 @@ impl Install<'_> {
         });
         for entry in inherited_dirs(&self.layout.journal()) {
             self.journal.push(entry);
+            self.inherited_dirs += 1;
         }
         self.stage("verify", Self::verify)?;
         self.stage("extract", Self::extract)?;
@@ -1057,6 +1060,13 @@ impl Install<'_> {
         let mut undone = 0u64;
         while let Some(record) = records.pop() {
             if matches!(record.entry, Entry::Begin { .. }) {
+                continue;
+            }
+            // The folders of an earlier installation are not this run's to remove.
+            if matches!(record.entry, Entry::CreateDirs { .. })
+                && record.n >= 1
+                && record.n <= self.inherited_dirs as u64
+            {
                 continue;
             }
             done += 1;

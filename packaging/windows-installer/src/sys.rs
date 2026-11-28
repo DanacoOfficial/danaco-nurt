@@ -14,7 +14,10 @@
 //! Every function wraps one call and states why it is sound. Nothing else in
 //! the program uses `unsafe`.
 
-#![allow(unsafe_code)]
+#![allow(
+    unsafe_code,
+    reason = "this module is the only place of the program that calls the Windows interfaces"
+)]
 
 use std::ffi::OsStr;
 use std::fs::File;

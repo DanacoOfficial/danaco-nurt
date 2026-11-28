@@ -23,7 +23,10 @@
 //! information) with `llvm-rc` or `rc` and links the result into the executable.
 //! The compiler is the first of `NURT_RC`, `llvm-rc` and `rc` that is found.
 
-#![allow(clippy::print_stdout)]
+#![allow(
+    clippy::print_stdout,
+    reason = "a build script talks to cargo through lines on the standard output"
+)]
 
 use std::env;
 use std::fs;
