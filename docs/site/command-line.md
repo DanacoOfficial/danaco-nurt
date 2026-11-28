@@ -10,7 +10,7 @@ order: 5
 <!-- Responsibility:   Documents Command line. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Command line
 
@@ -30,7 +30,7 @@ nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<grou
 nurt catalog [command | group]
 nurt help [topic]
 nurt history|undo|redo [arguments]
-nurt serve --stdio | --socket <path>
+nurt serve --stdio
 nurt mcp [--stdio | --http <address>]
 nurt lsp
 nurt migrate <file.sh | file.ps1>

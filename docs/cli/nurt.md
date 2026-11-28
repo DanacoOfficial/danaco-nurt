@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents nurt. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # nurt
@@ -353,7 +353,7 @@ nurt serve --stdio | --socket <path> [--framing ndjson|content-length] [--stub <
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `--stdio` | flag | none | Serves one client on the standard input and output. |
-| `--socket <path>` | path | none | Serves a client on a local socket. Ends with exit code 3. |
+| `--socket <path>` | path | none | Reserved for a local socket transport. The option is recognised and ends with exit code 3 in release 0.1.2; connect with `--stdio`. |
 | `--framing` | `ndjson` or `content-length` | `ndjson` | Framing of the messages. |
 | `--stub <directory>` | path | none | Answers requests from recorded cases instead of the engine. Needs the `stub` feature; without it the command ends with exit code 3. |
 

@@ -6,16 +6,17 @@
 // Responsibility:   The `serve` subcommand: the protocol server on the standard streams.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The `serve` subcommand: the protocol server on the standard streams.
 //!
 //! The command line takes exactly one attachment, `--stdio` or
 //! `--socket <path>`, and the options `--framing ndjson|content-length` and
-//! `--stub <directory>`. Only `--stdio` is served; the other attachment and
-//! the recorded cases of `--stub` need a build that contains them and end with
-//! the error "not available in this build". Nothing but protocol messages is
+//! `--stub <directory>`. Only `--stdio` is served. `--socket` is reserved: no
+//! build contains a socket transport, so it ends with the error "not available
+//! in this build" (exit code 3). The recorded cases of `--stub` need a build
+//! that contains them and end with the same error. Nothing but protocol messages is
 //! written to the standard output.
 
 use std::io::{BufRead, Write};

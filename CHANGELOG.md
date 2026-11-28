@@ -134,6 +134,11 @@ their own version numbers, described in the specification.
   establish are listed with their reason in `PENDING_ROWS`), correction seeds of
   the new commands, and the placeholder of the identifier of a job in the exec
   and journal cases follows the record `job` (`report/job/fields/id/v`).
+- `nurt serve --socket <path>`: the documentation presented the option as
+  working or as available in some builds. No build contains a socket
+  transport; the option is recognised and ends with exit code 3. The integrator
+  guide, the pages of the site and the module comment now say that it is
+  reserved and that a host connects with `nurt serve --stdio`.
 
 ### Known issues
 
