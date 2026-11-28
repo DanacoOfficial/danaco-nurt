@@ -9,9 +9,8 @@
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHeader from '../sections/PageHeader.astro';
-import Ledger from '../content/Ledger.astro';
-import Button from '../base/Button.astro';
-import '../../styles/components/section-index.css';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
 import type { Locale } from '../../../config/i18n';
 import type { SectionKey } from '../../../config/sections';
 import { getSectionPages, pagePath } from '../../lib/pages';
@@ -28,20 +27,17 @@ const ui = useUi(locale);
 const entries = await getSectionPages(locale, section);
 const title = ui.section[section].title;
 const path = `/${section}/`;
-const [first, ...rest] = entries;
 ---
 
 <BaseLayout title={title} description={ui.section[section].lead} locale={locale} path={path} breadcrumbs={[{ label: title, path }]}>
   <PageHeader locale={locale} title={title} lead={ui.section[section].lead} eyebrow="Danaco Nurt" crumbs={[{ label: title }]} />
-  <div class="container section-index">
-    {first && (
-      <aside class="section-index__start">
-        <p class="eyebrow">{ui.docs.hub.startEyebrow}</p>
-        <h2>{first.data.title}</h2>
-        <p>{first.data.description}</p>
-        <Button href={localisedPath(pagePath(first), locale)} variant="primary" iconAfter="arrow-right">{ui.common.readMore}</Button>
-      </aside>
-    )}
-    <Ledger start={2} items={rest.map((entry) => ({ title: entry.data.title, text: entry.data.description, href: localisedPath(pagePath(entry), locale) }))} />
+  <div class="container">
+    <div class="page-shell">
+      <CardGrid columns={3}>
+        {entries.map((entry) => (
+          <Card title={entry.data.title} href={localisedPath(pagePath(entry), locale)}>{entry.data.description}</Card>
+        ))}
+      </CardGrid>
+    </div>
   </div>
 </BaseLayout>

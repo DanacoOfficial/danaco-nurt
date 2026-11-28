@@ -1,0 +1,28 @@
+---
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           website.src.components.motion.MarkScene
+// Responsibility:   The stage of the three-dimensional mark. The stage has no ground of its own: the mark stands directly on the page. It holds the flat mark of the identity, over which the live WebGL scene fades in when motion is allowed; without WebGL, without scripts or with reduced motion the flat mark stays.
+// Dependencies:     website.src.components.brand.Mark, website.src.scripts.motion.mark-scene, website.src.styles.components.mark-scene
+
+import '../../styles/components/mark-scene.css';
+import Mark from '../brand/Mark.astro';
+
+interface Props {
+  label: string;
+  caption?: string;
+}
+
+const { label, caption } = Astro.props;
+---
+
+<figure class="mark-scene" data-mark-scene>
+  <div class="mark-scene__stage">
+    <span class="mark-scene__shadow" aria-hidden="true"></span>
+    <Mark class="mark-scene__flat" size="58%" title={label} />
+    <canvas class="mark-scene__canvas" aria-hidden="true"></canvas>
+  </div>
+  {caption && <figcaption class="mark-scene__caption">{caption}</figcaption>}
+</figure>

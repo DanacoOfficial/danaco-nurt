@@ -44,24 +44,45 @@
   }
 }
 
-/* The card is a surface of the identity: the soft ground, a line of one pixel and a radius of 8 px. */
+/* The card is drawn as a frame: the element is filled with the line colour and clipped to the cut corners, and its ::before, one pixel inside, carries the fill under the same cut. The border therefore follows the diagonal of each cut corner. */
 .card {
+  --cut: 16px;
+  --card-line: var(--line);
+  --card-fill: var(--bg-raised);
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-5);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
-  background: var(--bg-raised);
+  background: var(--card-line);
   color: var(--text);
   text-decoration: none;
-  transition: border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  transition: background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.card::before {
+  --cut-x: calc(var(--cut) - 0.6px);
+  --cut-y: calc(var(--cut-x) * var(--stream-slope));
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--card-fill);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut-x)) 0,
+    100% var(--cut-y),
+    100% 100%,
+    var(--cut-x) 100%,
+    0 calc(100% - var(--cut-y))
+  );
+  transition: background var(--duration-base) var(--ease-out);
 }
 
 .card--link:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-raised));
+  --card-line: var(--accent);
+  --card-fill: color-mix(in srgb, var(--accent) 5%, var(--bg-raised));
   transform: translateY(-2px);
   color: var(--text);
 }

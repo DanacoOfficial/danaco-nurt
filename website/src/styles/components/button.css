@@ -8,17 +8,19 @@
  */
 
 .button {
+  --cut: 12px;
   --button-fill: var(--bg-raised);
   --button-line: var(--line-strong);
   --button-text: var(--text);
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: 0.75rem 1.4rem;
-  border: 1px solid var(--button-line);
-  border-radius: var(--radius-2);
-  background: var(--button-fill);
+  padding: 0.8rem 1.5rem;
+  border: 0;
+  background: var(--button-line);
   color: var(--button-text);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -26,7 +28,32 @@
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% calc(var(--cut) * 0.75),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut) * 0.75)
+  );
+  transition: transform var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out);
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--button-fill);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% calc(var(--cut) * 0.75),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut) * 0.75)
+  );
+  transition: background var(--duration-fast) var(--ease-out);
 }
 
 .button:hover {
@@ -35,7 +62,8 @@
 }
 
 .button:focus-visible {
-  outline-offset: 3px;
+  outline-offset: 4px;
+  clip-path: none;
 }
 
 .button--primary {
@@ -55,6 +83,7 @@
 }
 
 .button--small {
+  --cut: 9px;
   padding: 0.5rem 1rem;
   font-size: var(--text-xs);
 }
@@ -64,6 +93,11 @@
   --button-line: transparent;
   --button-text: var(--link);
   padding-inline: 0.5rem;
+  clip-path: none;
+}
+
+.button--quiet::before {
+  clip-path: none;
 }
 
 .button--quiet:hover {

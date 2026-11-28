@@ -20,28 +20,3 @@
 .page-shell__related h2 {
   font-size: var(--text-xl);
 }
-
-/* The page of a section: the pages of the section on the left, the text in the middle, the contents on the right. */
-.page-shell__nav {
-  display: none;
-}
-
-@media (min-width: 72rem) {
-  .page-shell.page-shell--with-nav {
-    grid-template-columns: 14rem minmax(0, 1fr);
-    gap: var(--space-8);
-  }
-
-  .page-shell.page-shell--with-nav.page-shell--with-toc {
-    grid-template-columns: 14rem minmax(0, 1fr) 14rem;
-  }
-
-  .page-shell__nav {
-    display: block;
-    position: sticky;
-    top: calc(var(--header-height) + var(--space-5));
-    align-self: start;
-    max-height: calc(100vh - var(--header-height) - var(--space-7));
-    overflow-y: auto;
-  }
-}

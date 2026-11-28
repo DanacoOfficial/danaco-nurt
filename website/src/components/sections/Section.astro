@@ -7,8 +7,6 @@
 // Responsibility:   A band of a page with its own heading: the eyebrow, the title, the lead and the content in the slot.
 // Dependencies:     website.src.styles.layout
 
-import '../../styles/components/ledger.css';
-
 interface Props {
   id?: string;
   eyebrow?: string;
@@ -16,23 +14,19 @@ interface Props {
   lead?: string;
   tone?: 'plain' | 'raised';
   tight?: boolean;
-  split?: boolean;
-  index?: number;
 }
-const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = false, index } = Astro.props;
+const { id, eyebrow, title, lead, tone = 'plain', tight = false } = Astro.props;
 ---
 
-<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised', split && 'section--split']} aria-labelledby={title && id ? `${id}-title` : undefined}>
+<section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised']} aria-labelledby={title && id ? `${id}-title` : undefined}>
   <div class="container">
-    <div class:list={[split && 'section__layout']}>
-      {(eyebrow || title || lead) && (
-        <div class="section__head stack" style={split ? '--stack-gap: var(--space-3);' : '--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;'}>
-          {eyebrow && <p class="eyebrow">{index !== undefined && <span class="eyebrow__num">{String(index).padStart(2, '0')}</span>}<span>{eyebrow}</span></p>}
-          {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
-          {lead && <p class="lead">{lead}</p>}
-        </div>
-      )}
-      <div class:list={[split && 'section__body']}><slot /></div>
-    </div>
+    {(eyebrow || title || lead) && (
+      <div class="section__head stack" style="--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;">
+        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+        {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
+        {lead && <p class="lead">{lead}</p>}
+      </div>
+    )}
+    <slot />
   </div>
 </section>

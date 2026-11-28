@@ -10,29 +10,7 @@
 .hero {
   padding-block: var(--space-8) var(--space-9);
   border-bottom: 1px solid var(--line);
-}
-
-/* The render of the mark made in Blender for the identity: brushed silver and polished gold on a transparent ground. */
-.hero__render {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.hero__render img {
-  width: min(100%, 34rem);
-  height: auto;
-  filter: drop-shadow(0 40px 60px rgb(0 0 0 / 0.45));
-}
-
-.hero__render figcaption {
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--bg-sunken), var(--bg) 80%);
 }
 
 .hero__inner {

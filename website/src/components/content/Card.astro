@@ -22,7 +22,7 @@ const link = href && href.startsWith('/') ? withBase(href) : href;
 const Tag = link ? 'a' : 'div';
 ---
 
-<Tag class:list={['card', link && 'card--link']} href={link}>
+<Tag class:list={['card', 'cut', link && 'card--link']} href={link}>
   {icon && <Icon name={icon} size={22} class="card__icon" />}
   {eyebrow && <p class="card__eyebrow">{eyebrow}</p>}
   <h3 class="card__title">{title}</h3>

@@ -17,19 +17,18 @@ interface Props {
   title: string;
   lead?: string;
   eyebrow?: string;
-  eyebrowIndex?: number;
   crumbs?: { label: string; path?: string }[];
   updated?: Date;
 }
 
-const { locale, title, lead, eyebrow, eyebrowIndex, crumbs = [], updated } = Astro.props;
+const { locale, title, lead, eyebrow, crumbs = [], updated } = Astro.props;
 const ui = useUi(locale);
 ---
 
-<header class="page-header">
+<header class="page-header stream-trace">
   <div class="container container--narrow-header">
     {crumbs.length > 0 && <Breadcrumbs locale={locale} items={crumbs} />}
-    {eyebrow && <p class="eyebrow page-header__eyebrow">{eyebrowIndex !== undefined && <span class="eyebrow__num">{String(eyebrowIndex).padStart(2, '0')}</span>}<span>{eyebrow}</span></p>}
+    {eyebrow && <p class="eyebrow page-header__eyebrow">{eyebrow}</p>}
     <h1 class="page-header__title">{title}</h1>
     {lead && <p class="lead page-header__lead">{lead}</p>}
     {updated && <p class="page-header__meta">{ui.common.lastUpdated}: <time datetime={updated.toISOString().slice(0, 10)}>{formatDate(updated, locale)}</time></p>}
