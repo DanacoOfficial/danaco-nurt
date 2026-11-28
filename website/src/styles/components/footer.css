@@ -136,6 +136,18 @@
     grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
     gap: var(--space-9);
   }
+
+  /* Seven columns stand in rows of four and three, so no column is left alone in a row. */
+  .site-footer__columns {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* A wide window holds the seven columns in one row. */
+@media (min-width: 120rem) {
+  .site-footer__columns {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
 }
 
 .site-footer__creator {
