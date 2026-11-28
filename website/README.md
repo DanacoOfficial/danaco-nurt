@@ -30,6 +30,14 @@ All commands run in the directory `website/`. Node.js 22.12 or later is required
 
 The build must run in `website/`: the import of the documentation and the counted numbers read the parent directory as the repository.
 
+Three review scripts open a served site in a headless browser. They need `puppeteer-core` and a browser from the environment (`PUPPETEER_EXECUTABLE_PATH`); neither is a dependency of the package.
+
+| Script | Effect |
+|---|---|
+| `node scripts/review-audit.cjs <base address> <widths> [address pattern]` | opens every page found in `dist/` at each width and reports layout defects (horizontal scroll, elements outside the window, empty bands beside the text, cut words in tables, English documentation text on Polish pages), then clicks through the menu, the theme, the language switch, the install tabs, the feature tour, the search, the copy button and the pages for a missing address |
+| `node scripts/review-contrast.cjs <base address> <addresses…>` | measures every visible text of the given pages against its solid ground in the light and in the dark theme and lists the texts below 4.5 : 1 (3 : 1 for large text) |
+| `node scripts/review-screens.cjs <base address> <directory> <width or WxH> <address> [screens]` | writes screenshots of one page, one per screen of the window; `REVIEW_THEME` chooses the theme and `REVIEW_CLICK` clicks a selector first |
+
 ## 2. Deployment address
 
 One build serves one address. The address is chosen by environment variables read in `config/site.ts`; no file has to be edited.
