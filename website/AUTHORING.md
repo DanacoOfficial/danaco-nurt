@@ -71,7 +71,7 @@ The components below are available in every page without an import.
 | `<CommandCatalog level={3} />` (with `locale="pl"` on a Polish page) | the index of every command with its summary, read from the command pages of the repository |
 | `<Downloads group="identity" />` or `<Downloads group="training" />` (with `locale="pl"` on a Polish page) | the downloads of the group with their sizes, licenses and SHA-256 sums, from `config/downloads.json` |
 | `<CardGrid columns={2|3|4}>` with `<Card title icon href eyebrow>` | linked cards; `icon` is a name from `config/icons.ts` |
-| `<Stats>` with `<Fact id="..." />` or `<Stat value label source href />` | a row of figures |
+| `<Stats>` with `<Fact id="..." />` or `<Stat value label source href />` | a row of figures; `<Fact id="..." inline />` inside a sentence gives the number alone |
 | `<Steps>` with `<Step title="...">` | a numbered procedure |
 | `<Facts items={[{ term, value, href }]} />` | a list of terms and values |
 | `<Timeline items={[{ label, title, text, href, current }]} />` | a sequence of releases or events |
