@@ -74,6 +74,15 @@ their own version numbers, described in the specification.
   `write` without `mode`, `undo paths:` without the operation, and `sort` with
   `order: desc`.
 
+### Changed
+
+- The archive `nurt-lib` of the musl targets is about four times smaller: the
+  static library `libnurt.a` no longer holds the debug information and the LLVM
+  bitcode that rustc embeds for link-time optimization. The library shrinks from
+  811 MB to 298 MB and the archive of `x86_64-unknown-linux-musl` from 235 MB to
+  63 MB. The exported functions are unchanged and a C program still links with
+  the library.
+
 ### Known issues
 
 - macOS: tests of the change tracking of `nurt-proc` (`track::tests`, for

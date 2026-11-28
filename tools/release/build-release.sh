@@ -19,7 +19,8 @@
 # MSVC, cross-built with cargo-xwin), generates the manual pages, the shell
 # completions and the documentation site, assembles the program archive and the
 # archive of nurt-lib of every target with packaging/release/pack.py (the
-# library of a musl target is the static library libnurt.a), writes
+# library of a musl target is the static library libnurt.a without the debug
+# information and the embedded bitcode), writes
 # checksums.txt, optionally signs it, and, for the target of the host only, runs
 # the executable of its archive and builds and runs examples/c/hello.c against
 # the library archive.
@@ -210,6 +211,31 @@ library_file() {
   esac
 }
 
+# Prints the objcopy of LLVM, which reads the archives of every target:
+# LLVM_OBJCOPY, llvm-objcopy in PATH, or rust-objcopy of the component
+# llvm-tools of the toolchain.
+llvm_objcopy() {
+  local tool
+  if [ -n "${LLVM_OBJCOPY:-}" ]; then echo "$LLVM_OBJCOPY"; return 0; fi
+  if command -v llvm-objcopy >/dev/null 2>&1; then command -v llvm-objcopy; return 0; fi
+  tool="$(rustc --print sysroot)/lib/rustlib/$host/bin/rust-objcopy"
+  if [ -x "$tool" ]; then echo "$tool"; return 0; fi
+  return 1
+}
+
+# Copies the static library $1 of a musl target to $2 without what a link does
+# not use: the debug information and the LLVM bitcode that rustc embeds in every
+# object for link-time optimization (the sections .llvmbc and .llvmcmd, more
+# than half of the file). The symbol tables stay, so the exported functions of
+# nurt.symbols remain defined.
+shrink_static_library() {
+  local source="$1" copy="$2" tool
+  tool="$(llvm_objcopy)" || die "llvm-objcopy is required to shrink the static library (set LLVM_OBJCOPY)"
+  cp "$source" "$copy"
+  "$tool" --strip-debug --remove-section=.llvmbc --remove-section=.llvmcmd "$copy"
+  log "static library: $(stat -c %s "$source") bytes, shrunk to $(stat -c %s "$copy") bytes"
+}
+
 log "documentation tools"
 cargo build --release --locked -p nurt-docgen
 docgen="$target_dir/release/nurt-docgen"
@@ -226,6 +252,13 @@ for target in "${targets[@]}"; do
   [ -f "$binary" ] || die "missing $binary"
   library="$(library_file "$target")"
   [ -f "$library" ] || die "missing $library"
+  case "$target" in
+    *-linux-musl)
+      mkdir -p "$work/library/$target"
+      shrink_static_library "$library" "$work/library/$target/libnurt_ffi.a"
+      library="$work/library/$target/libnurt_ffi.a"
+      ;;
+  esac
   library_args=(--library "$library")
   man_args=(--man "$work/man")
   case "$target" in *-windows-*) man_args=() ;; esac
