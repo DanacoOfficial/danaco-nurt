@@ -87,7 +87,7 @@ pub(super) fn describe(path: &AbsPath) -> FsResult<VolumeInfo> {
                 .map(|uuid| uuid_text(&uuid)),
             subvolume: 0,
         },
-        mount,
+        mount: visible_mount(&existing, mount, OP)?,
         kind: volume_kind(&fs_type, stat.f_flags, removable),
         features,
         rotational: false,
@@ -158,6 +158,20 @@ fn capabilities(stat: &StatFs) -> Option<crate::macos::VolumeCapabilities> {
 
 fn fs_type(stat: &StatFs) -> String {
     String::from_utf8_lossy(statfs_name(&c_bytes(&stat.f_fstypename))).into_owned()
+}
+
+/// Mount point as the paths of the volume show it.
+///
+/// The data volume of macOS is mounted at `/System/Volumes/Data` and entered
+/// through firmlinks (`/Users`, `/private`, `/Applications`), so no path of
+/// its files lies below that mount point. Such a volume reports the root of
+/// the name space, which holds every path that leads to it; the journal
+/// attributes a path to a volume by the prefix of the mount point.
+fn visible_mount(existing: &AbsPath, mount: AbsPath, op: &str) -> FsResult<AbsPath> {
+    if existing.starts_with(&mount) {
+        return Ok(mount);
+    }
+    AbsPath::new(Path::new("/")).map_err(|_| FsError::new(FsErrorKind::Io, op, None))
 }
 
 fn mount_point(stat: &StatFs, op: &str) -> FsResult<AbsPath> {
