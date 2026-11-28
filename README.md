@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Danaco Nurt. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 <picture>
@@ -27,12 +27,15 @@ structured report of its effects.
 
 ## Status
 
-Version 0.1.0 is the first release. The language front end, the engine, the
-command catalog, the undo journal, the command line program, the Model Context
-Protocol server, the language server and the C interface are implemented and
-work together. The release is not stable: the language, the syntax tree, the
-command catalog, the report format and the library interfaces may change
-between 0.x versions. The known limitations are listed in the
+The current version is 0.1.2; the first release was 0.1.0. The language front
+end, the engine, the command catalog, the undo journal, the command line
+program, the Model Context Protocol server, the language server and the C
+interface are implemented and work together. Release 0.1.2 provides archives
+for Linux (glibc and musl, x86_64 and aarch64) and Windows (MSVC, x86_64 and
+aarch64); there is no macOS archive, and macOS is built from source. The
+release is not stable: the language, the syntax tree, the command catalog, the
+report format and the library interfaces may change between 0.x versions. The
+changes of each release and the known issues are listed in the
 [changelog](CHANGELOG.md).
 
 ## Design
