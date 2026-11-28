@@ -63,9 +63,11 @@ const NTFS_DIRECTORY_STREAM: &str = ":$index_allocation";
 /// use std::path::Path;
 /// use nurt_git::repo::pathspec::relative_path;
 ///
-/// let root = Path::new("/work/app");
+/// # let drive = if cfg!(windows) { "C:" } else { "" };
+/// let root_text = format!("{drive}/work/app");
+/// let root = Path::new(&root_text);
 /// assert_eq!(relative_path(root, "src/./main.rs").unwrap(), "src/main.rs");
-/// assert_eq!(relative_path(root, "/work/app/docs/").unwrap(), "docs");
+/// assert_eq!(relative_path(root, &format!("{drive}/work/app/docs/")).unwrap(), "docs");
 /// assert!(relative_path(root, "../other").is_err());
 /// ```
 pub fn relative_path(root: &Path, path: &str) -> Result<BString, Error> {

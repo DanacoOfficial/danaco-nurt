@@ -25,7 +25,8 @@
 //! use nurt_lspclient::sync::DocumentSet;
 //!
 //! let mut documents = DocumentSet::new();
-//! let path = Path::new("/project/main.py");
+//! # let file = if cfg!(windows) { "C:/project/main.py" } else { "/project/main.py" };
+//! let path = Path::new(file);
 //! assert!(documents.sync(path, "python", "x = 1\n", None).is_some());
 //! assert!(documents.sync(path, "python", "x = 1\n", None).is_none());
 //! assert_eq!(documents.version(path), Some(1));

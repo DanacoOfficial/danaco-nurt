@@ -97,7 +97,7 @@ fn classify(volume: &VolumeInfo) -> VolumeClass {
 ///
 /// let volume = VolumeInfo {
 ///     id: VolumeId { dev: 41, uuid: None, subvolume: 0 },
-///     mount: AbsPath::new("/tmp").unwrap(),
+///     mount: AbsPath::new(if cfg!(windows) { "C:/tmp" } else { "/tmp" }).unwrap(),
 ///     fs_type: "tmpfs".to_owned(),
 ///     kind: VolumeKind::Memory,
 ///     features: FsFeatures { durable_metadata: true, ..FsFeatures::default() },

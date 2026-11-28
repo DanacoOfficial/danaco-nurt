@@ -110,7 +110,8 @@ fn code_units(count: usize) -> u32 {
 /// use nurt_lspclient::rename::{PositionUnit, workspace_change};
 /// use serde_json::json;
 ///
-/// let edit = json!({"changes": {"file:///work/a.py": [{
+/// # let uri = if cfg!(windows) { "file:///C:/work/a.py" } else { "file:///work/a.py" };
+/// let edit = json!({"changes": {uri: [{
 ///     "range": {"start": {"line": 0, "character": 4}, "end": {"line": 0, "character": 7}},
 ///     "newText": "total"
 /// }]}});

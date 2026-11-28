@@ -51,7 +51,8 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let fs = MemFs::new()?;
-//! let path = AbsPath::new("/data/note.txt")?;
+//! # let root = if cfg!(windows) { "C:" } else { "" };
+//! let path = AbsPath::new(format!("{root}/data/note.txt"))?;
 //! fs.seed_file(&path, b"hello")?;
 //! let mut text = String::new();
 //! fs.open_read(&path)?.read_to_string(&mut text)?;

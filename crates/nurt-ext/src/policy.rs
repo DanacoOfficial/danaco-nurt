@@ -89,14 +89,16 @@ impl PlaceholderRoots {
 ///     write: vec!["${project}/out".to_owned()],
 ///     network: Vec::new(),
 /// };
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// # let at = |path: &str| std::path::PathBuf::from(format!("{root}{path}"));
 /// let roots = PlaceholderRoots {
-///     project: Some("/srv/app".into()),
+///     project: Some(at("/srv/app")),
 ///     ..PlaceholderRoots::default()
 /// };
 /// let policy = PathPolicy::new("acme", &permissions, &roots);
-/// assert!(policy.grants_read(std::path::Path::new("/srv/app/src/main.rs")));
-/// assert!(!policy.grants_write(std::path::Path::new("/srv/app/src/main.rs")));
-/// assert!(!policy.grants_read(std::path::Path::new("/etc/passwd")));
+/// assert!(policy.grants_read(&at("/srv/app/src/main.rs")));
+/// assert!(!policy.grants_write(&at("/srv/app/src/main.rs")));
+/// assert!(!policy.grants_read(&at("/etc/passwd")));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathPolicy {

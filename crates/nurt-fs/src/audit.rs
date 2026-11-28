@@ -162,7 +162,8 @@ fn reject(method: &str, targets: &str, scope: &TxScope, state: Option<EntryState
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let oracle = |_: OpId| Some(EntryState::Committed);
 /// let audited = AuditFs::new(Arc::new(MemFs::new()?), Arc::new(oracle));
-/// audited.add_internal_root(AbsPath::new("/state")?);
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// audited.add_internal_root(AbsPath::new(format!("{root}/state"))?);
 /// assert!(audited.recorded().is_empty());
 /// # Ok(())
 /// # }

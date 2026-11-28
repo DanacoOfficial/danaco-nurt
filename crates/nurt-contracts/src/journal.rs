@@ -873,7 +873,8 @@ pub trait MutationTx: Send + Sync {
 /// use nurt_contracts::fs::AbsPath;
 /// use nurt_contracts::journal::{Expect, FileOp, Mutation, TargetAction};
 ///
-/// let path = AbsPath::new("/home/user/notes.txt").unwrap();
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// let path = AbsPath::new(format!("{root}/home/user/notes.txt")).unwrap();
 /// let op = FileOp::write(path, b"new text".to_vec()).expect(Expect::Absent);
 /// assert_eq!(op.target.action, TargetAction::Modify);
 /// assert_eq!(op.target.expect, Expect::Absent);

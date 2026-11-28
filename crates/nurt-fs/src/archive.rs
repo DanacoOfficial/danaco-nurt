@@ -101,8 +101,10 @@ impl ArchiveAddress {
     /// use nurt_fs::archive::ArchiveAddress;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let address = ArchiveAddress::parse("archive:/srv/a.zip!/dir/file.txt")?;
-    /// assert_eq!(address.archive.as_path(), std::path::Path::new("/srv/a.zip"));
+    /// # let root = if cfg!(windows) { "C:" } else { "" };
+    /// let address = ArchiveAddress::parse(&format!("archive:{root}/srv/a.zip!/dir/file.txt"))?;
+    /// let archive = format!("{root}/srv/a.zip");
+    /// assert_eq!(address.archive.as_path(), std::path::Path::new(&archive));
     /// assert_eq!(address.inner, ["dir", "file.txt"]);
     /// # Ok(())
     /// # }

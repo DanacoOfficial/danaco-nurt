@@ -51,7 +51,8 @@ struct State {
 /// use nurt_contracts::journal::{Expect, Mutation, OpKind, TargetAction, TargetIndex, TargetPath, TargetSpec};
 /// use nurt_doc::testing::MemoryJournal;
 ///
-/// let path = AbsPath::new("/srv/app/config.json")?;
+/// # let root = if cfg!(windows) { "C:" } else { "" };
+/// let path = AbsPath::new(format!("{root}/srv/app/config.json"))?;
 /// let journal = MemoryJournal::new().with_file(path.as_path(), b"{}".to_vec());
 /// let mut tx = journal.begin(OpKind::command("set"));
 /// tx.preserve(&[TargetSpec {
