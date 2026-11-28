@@ -100,3 +100,20 @@
     gap: var(--space-8);
   }
 }
+
+/* The head of a section: the title with its eyebrow and the lead. On a wide window the lead stands right of the title, so the head fills the width of the section. */
+.section__head {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 46rem;
+  margin-bottom: var(--space-7);
+}
+
+@media (min-width: 64rem) {
+  .section__head--split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-8);
+    align-items: end;
+    max-width: none;
+  }
+}

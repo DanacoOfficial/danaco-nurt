@@ -14,16 +14,20 @@ interface Props {
   lead?: string;
   tone?: 'plain' | 'raised';
   tight?: boolean;
+  /** On a wide window the lead stands right of the title instead of under it. */
+  split?: boolean;
 }
-const { id, eyebrow, title, lead, tone = 'plain', tight = false } = Astro.props;
+const { id, eyebrow, title, lead, tone = 'plain', tight = false, split = true } = Astro.props;
 ---
 
 <section id={id} class:list={['section', tight && 'section--tight', tone === 'raised' && 'section--raised']} aria-labelledby={title && id ? `${id}-title` : undefined}>
   <div class="container">
     {(eyebrow || title || lead) && (
-      <div class="section__head stack" style="--stack-gap: var(--space-3); margin-bottom: var(--space-7); max-width: 46rem;">
-        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
-        {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
+      <div class:list={['section__head', split && lead && 'section__head--split']}>
+        <div class="section__title stack" style="--stack-gap: var(--space-3);">
+          {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+          {title && <h2 id={id ? `${id}-title` : undefined}>{title}</h2>}
+        </div>
         {lead && <p class="lead">{lead}</p>}
       </div>
     )}

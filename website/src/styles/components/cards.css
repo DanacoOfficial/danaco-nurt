@@ -111,3 +111,65 @@
 .card--link:hover .card__arrow {
   transform: translateX(4px);
 }
+
+/* A card is a linked row under a rule, without a box: the icon on the left, the title and the text beside it and the arrow on the right. A grid of cards is therefore a list of rows in columns, not a wall of tiles. */
+.card-grid {
+  gap: 0 var(--space-7);
+}
+
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+  align-content: start;
+  padding: var(--space-4) var(--space-2) var(--space-4) 0;
+  border-top: 1px solid var(--line-strong);
+  background: none;
+  clip-path: none;
+  transform: none !important;
+  transition: background var(--duration-base) var(--ease-out), padding-left var(--duration-base) var(--ease-out);
+}
+
+.card::before {
+  display: none;
+}
+
+.card > :is(.card__eyebrow, .card__title, .card__body) {
+  grid-column: 1;
+}
+
+.card__arrow {
+  grid-column: 2;
+  grid-row: 1;
+  margin-top: 0.3rem;
+  padding-top: 0;
+  color: var(--text-faint);
+}
+
+.card:has(> .card__icon) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.card:has(> .card__icon) > .card__icon {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  margin-top: 0.2rem;
+}
+
+.card:has(> .card__icon) > :is(.card__eyebrow, .card__title, .card__body) {
+  grid-column: 2;
+}
+
+.card:has(> .card__icon) > .card__arrow {
+  grid-column: 3;
+}
+
+.card--link:hover {
+  padding-left: var(--space-3);
+  background: var(--accent-soft);
+}
+
+.card--link:hover .card__arrow {
+  color: var(--accent-strong);
+}

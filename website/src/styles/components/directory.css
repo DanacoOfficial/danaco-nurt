@@ -179,3 +179,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Rows that share a line of the grid have one height, so their rules stay on one line. */
+.directory__list--pairs > li,
+.section-index__list > li {
+  display: grid;
+}
