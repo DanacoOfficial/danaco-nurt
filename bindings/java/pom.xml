@@ -7,7 +7,7 @@
 <!-- Responsibility:   Source file bindings/java/pom.xml. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -16,7 +16,7 @@
 
   <groupId>pl.danaco-group</groupId>
   <artifactId>nurt-parent</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.2</version>
   <packaging>pom</packaging>
 
   <name>Danaco Nurt for Java (parent)</name>

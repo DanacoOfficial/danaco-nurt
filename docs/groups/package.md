@@ -10,7 +10,7 @@ summary: System package managers.
 <!-- Responsibility:   Documents Group package. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Group package
@@ -40,9 +40,9 @@ package manager.
 |---|---|---|---|---|
 | `package.list` | source | none to `package` | read | [package.list](../commands/package.list.md) |
 | `package.search` | source | none to `package` | read | [package.search](../commands/package.search.md) |
-| `package.install` | change | none to `effect` | irreversible | [package.install](../commands/package.install.md) |
-| `package.remove` | change | none to `effect` | irreversible | [package.remove](../commands/package.remove.md) |
-| `package.upgrade` | change | none to `effect` | irreversible | [package.upgrade](../commands/package.upgrade.md) |
+| `package.install` | change | none to `effect` | reversible_if_preserved | [package.install](../commands/package.install.md) |
+| `package.remove` | change | none to `effect` | reversible_if_preserved | [package.remove](../commands/package.remove.md) |
+| `package.upgrade` | change | none to `effect` | reversible_if_preserved | [package.upgrade](../commands/package.upgrade.md) |
 
 ## Records
 
@@ -78,8 +78,13 @@ that the manager reports with another origin. A value of `manager` that the
 host does not have fails with `E_EXTERNAL_MISSING`.
 
 Installation, removal and upgrade change the system outside the file system.
-The operation journal records them as irreversible: `undo` does not restore a
-removed package and does not remove an installed one.
+The operation journal records the state before and after of every package, and
+`undo` runs the inverse operation: `package.remove` for a package that was
+installed by the command, `package.install` of the recorded version for a
+removed or upgraded package. A version that the repository no longer offers
+stays irreversible. The catalog classifies the three commands as
+`reversible_if_preserved`; the classification names the condition, and the
+inverse operation is what `undo` runs.
 ## Platform differences
 
 | Aspect | Linux | macOS | Windows |

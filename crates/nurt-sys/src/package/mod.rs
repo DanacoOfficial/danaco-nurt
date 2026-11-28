@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::package
-// Responsibility:   Package managers.
+// Responsibility:   The package commands: listing and search in the manager databases, install, remove and upgrade through the manager program.
 // Dependencies:     detect, exec, index, installed, nurt_contracts, nurt_programs, root, version
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Package managers.
@@ -14,8 +14,12 @@
 //! `package.list` and `package.search` read the databases and repository
 //! indexes of the managers and start no program. `package.install`,
 //! `package.remove` and `package.upgrade` start the program of the manager
-//! through the process host of the execution context; the change is marked
-//! in the journal as irreversible (`package_changed`).
+//! through the process host of the execution context. The command marks the
+//! change in the journal as irreversible (`package_changed`) because the
+//! journal keeps no file content for it; after the change the engine derives
+//! the inverse operation from the recorded states (`nurt_core::inverse`) and
+//! drops the marker, unless the repository no longer offers a recorded
+//! version. `undo` runs the inverse operation.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -56,7 +60,7 @@ use root::{HostEnv, SysPaths};
 pub use version::VersionScheme;
 
 const SOURCE_NAME: &str = "package";
-const STDERR_TAIL_BYTES: usize = 400;
+const OUTPUT_TAIL_BYTES: usize = 400;
 const PHASED_COMPLETE: u8 = 100;
 const ARCHITECTURE_ALL: &str = "all";
 
@@ -807,13 +811,22 @@ fn effect_record(
     }
 }
 
+/// Error of a manager that did not end with code 0, with the end of its
+/// standard error, or of its standard output when the standard error is
+/// empty: winget, Chocolatey and Scoop report a failure on standard output.
 fn call_failure(call: &Invocation, outcome: &ProgramOutcome) -> Error {
     let stderr = String::from_utf8_lossy(&outcome.stderr);
-    let mut tail_start = stderr.len().saturating_sub(STDERR_TAIL_BYTES);
-    while !stderr.is_char_boundary(tail_start) {
+    let stdout = String::from_utf8_lossy(&outcome.stdout);
+    let text = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    let mut tail_start = text.len().saturating_sub(OUTPUT_TAIL_BYTES);
+    while !text.is_char_boundary(tail_start) {
         tail_start += 1;
     }
-    let tail = stderr[tail_start..].trim();
+    let tail = text[tail_start..].trim();
     let status = outcome.exit_code.map_or_else(
         || "was stopped".to_owned(),
         |code| format!("exited with code {code}"),

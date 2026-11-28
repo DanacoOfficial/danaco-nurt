@@ -6,7 +6,7 @@
 // Responsibility:   Installation, removal and listing of extensions.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Installation, removal and listing of extensions.
@@ -39,6 +39,46 @@ const PREVIOUS_SUFFIX: &str = ".previous";
 /// Number of the next installation of this process; it keeps the temporary
 /// directories of concurrent installations of one extension apart.
 static INSTALLATIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Byte order mark of UTF-8.
+const UTF8_MARK: [u8; 3] = [0xEF, 0xBB, 0xBF];
+/// Byte order mark of UTF-16 with the low byte first.
+const UTF16_LE_MARK: [u8; 2] = [0xFF, 0xFE];
+/// Byte order mark of UTF-16 with the high byte first.
+const UTF16_BE_MARK: [u8; 2] = [0xFE, 0xFF];
+
+fn invalid_text(error: impl std::error::Error + Send + Sync + 'static) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, error)
+}
+
+/// Text of a manifest file: UTF-8 with or without a byte order mark, or
+/// UTF-16 with one, which is how PowerShell 5.1 and Notepad write a file on
+/// Windows.
+fn read_manifest_text(path: &Path) -> std::io::Result<String> {
+    let bytes = fs::read(path)?;
+    if let Some(rest) = bytes.strip_prefix(&UTF8_MARK) {
+        return String::from_utf8(rest.to_vec()).map_err(invalid_text);
+    }
+    let little = bytes.starts_with(&UTF16_LE_MARK);
+    if little || bytes.starts_with(&UTF16_BE_MARK) {
+        let units: Vec<u16> = bytes
+            .get(2..)
+            .unwrap_or_default()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| {
+                if little {
+                    u16::from_le_bytes(*pair)
+                } else {
+                    u16::from_be_bytes(*pair)
+                }
+            })
+            .collect();
+        return String::from_utf16(&units).map_err(invalid_text);
+    }
+    String::from_utf8(bytes).map_err(invalid_text)
+}
 
 /// An extension directory with a manifest accepted by the host.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,7 +191,7 @@ impl ExtStore {
     /// allowed.
     pub fn inspect(&self, dir: &Path) -> Result<InstalledExt> {
         let path = dir.join(MANIFEST_FILE);
-        let text = fs::read_to_string(&path).map_err(|source| io_error("read", &path, &source))?;
+        let text = read_manifest_text(&path).map_err(|source| io_error("read", &path, &source))?;
         let manifest = Manifest::parse(&text)?;
         manifest.validate(self.host_api, &self.core_names)?;
         let extension = InstalledExt {
@@ -633,6 +673,33 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    #[test]
+    fn a_manifest_written_by_a_windows_editor_is_read() {
+        let temp = tempfile::tempdir().unwrap();
+        let text = manifest("acme", "1.0.0");
+        let units: Vec<u16> = text.encode_utf16().collect();
+        let mut utf8_marked = vec![0xEF, 0xBB, 0xBF];
+        utf8_marked.extend_from_slice(text.as_bytes());
+        let mut little = vec![0xFF, 0xFE];
+        little.extend(units.iter().flat_map(|unit| unit.to_le_bytes()));
+        let mut big = vec![0xFE, 0xFF];
+        big.extend(units.iter().flat_map(|unit| unit.to_be_bytes()));
+        let path = temp.path().join(MANIFEST_FILE);
+        for bytes in [text.as_bytes(), &utf8_marked, &little, &big] {
+            fs::write(&path, bytes).unwrap();
+            assert_eq!(super::read_manifest_text(&path).unwrap(), text);
+        }
+        fs::write(&path, [0xFF, 0xFE, 0x00, 0xD8]).unwrap();
+        assert!(super::read_manifest_text(&path).is_err());
+
+        let source = source(temp.path(), "acme", "1.0.0");
+        fs::write(source.join(MANIFEST_FILE), &little).unwrap();
+        let store = store(temp.path());
+        let installed = store.install(&source, false).unwrap();
+        assert_eq!(installed.manifest.ext.name, "acme");
+        assert_eq!(store.installed().unwrap().len(), 1);
     }
 
     #[test]

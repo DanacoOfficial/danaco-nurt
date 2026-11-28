@@ -1,0 +1,87 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/windows-installer/Cargo.toml
+# Responsibility:   Package of the Windows setup wizard of Danaco Nurt: a drawn interface (egui) around the installation engine.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.2, 2026-11-28
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+[package]
+name = "nurt-setup"
+version = "0.1.2"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+authors = ["Danaco Holding Group Sp. z o.o."]
+description = "Setup wizard of Danaco Nurt for Windows"
+repository = "https://github.com/DanacoOfficial/danaco-nurt"
+homepage = "https://github.com/DanacoOfficial/danaco-nurt"
+publish = false
+build = "build.rs"
+
+[[bin]]
+name = "nurt-setup"
+path = "src/main.rs"
+
+[build-dependencies]
+sha2 = "0.10"
+
+[dependencies]
+# The window is drawn by egui on wgpu (Direct3D 12); the tree of UI Automation comes from AccessKit.
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "wgpu_no_default_features", "clipboard"] }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "wgsl"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Console",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Accessibility",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+todo = "warn"
+unimplemented = "warn"
+cognitive_complexity = "warn"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

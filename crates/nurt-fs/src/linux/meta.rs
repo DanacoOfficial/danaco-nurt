@@ -6,7 +6,7 @@
 // Responsibility:   Metadata of entries: `statx`, extended attributes, inode flags and the transfer of complete metadata to another entry.
 // Dependencies:     nurt_contracts, rustix, tempfile
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Metadata of entries: `statx`, extended attributes, inode flags and the
@@ -53,7 +53,7 @@ const PRIVILEGED_XATTR_PREFIXES: &[&[u8]] = &[b"security.capability", b"trusted.
 const BLOCKING_FLAGS: IFlags = IFlags::IMMUTABLE.union(IFlags::APPEND);
 
 /// Basic metadata of `path` relative to `dir`.
-pub(super) fn stat_at(
+pub(crate) fn stat_at(
     dir: BorrowedFd<'_>,
     path: &Path,
     follow: Follow,
@@ -74,7 +74,7 @@ pub(super) fn stat_at(
 }
 
 /// Basic metadata of an open file.
-pub(super) fn stat_fd(fd: BorrowedFd<'_>, op: &str, report: &Path) -> FsResult<FileMeta> {
+pub(crate) fn stat_fd(fd: BorrowedFd<'_>, op: &str, report: &Path) -> FsResult<FileMeta> {
     match retry(|| rustix::fs::statx(fd, "", AtFlags::EMPTY_PATH, STATX_MASK)) {
         Ok(stat) => Ok(meta_from_statx(&stat)),
         Err(Errno::NOSYS) => retry(|| rustix::fs::fstat(fd))
@@ -505,6 +505,32 @@ impl Transfer<'_> {
         }
         Ok(())
     }
+}
+
+/// Applies a metadata change requested by a command; the first refused
+/// element fails the call.
+pub(crate) fn set_meta_fd(
+    fd: BorrowedFd<'_>,
+    change: &nurt_contracts::fs::MetaChange,
+    report: &Path,
+) -> FsResult<()> {
+    set_meta(Target::Fd(fd), change, report)
+}
+
+/// Transfers complete metadata to an open file or directory and lists the
+/// elements that could not be transferred.
+pub(crate) fn restore_meta_fd(
+    fd: BorrowedFd<'_>,
+    meta: &ExtendedMeta,
+    report: &Path,
+) -> FsResult<MetaTransferReport> {
+    Transfer {
+        target: Target::Fd(fd),
+        flags_fd: Some(fd),
+        symlink: false,
+        report,
+    }
+    .apply(meta)
 }
 
 /// Applies a metadata change requested by a command; the first refused

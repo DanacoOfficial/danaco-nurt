@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Container images. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Container images
@@ -56,7 +56,7 @@ docker buildx build \
   <context>
 ```
 
-`ci/containers.yml` stages the context from the Linux archives of a release after verifying `checksums.txt`, builds the three images, publishes them with an SBOM and provenance attestation, signs them with `cosign` (keyless) and runs `tests/smoke.sh`.
+The workflow `.github/workflows/integrations-containers.yml` (its copy in this directory is `ci/containers.yml`) stages the context from the Linux archives of a release after verifying `checksums.txt`, builds the three images, publishes them with an SBOM and provenance attestation, signs them with `cosign` (keyless) and runs `tests/smoke.sh`.
 
 ## Tests
 

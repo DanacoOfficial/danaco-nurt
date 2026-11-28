@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-syslog::query
-// Responsibility:   Log queries.
+// Responsibility:   The validated parameters of the logs command and the stores that answer them with a stream of events and notices.
 // Dependencies:     globset, nurt_contracts, regex
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Log queries.

@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or catalog data of catalog/package.toml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog/1"
@@ -68,12 +68,13 @@ summary = "Package manager; auto selects the manager of the system."
 [[command]]
 name = "package.install"
 category = "change"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "package_manager"
 input = ["none"]
 output = ["effect"]
 summary = "Install packages."
+reversibility_note = "Undo runs the inverse operation: package.remove for a package that was not installed before, or the install of the recorded version for a package whose version the command changed; a version that the repository no longer offers stays irreversible."
 
 [[command.param]]
 name = "names"
@@ -98,12 +99,13 @@ summary = "Package manager; auto selects the manager of the system."
 [[command]]
 name = "package.remove"
 category = "change"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "package_manager"
 input = ["none"]
 output = ["effect"]
 summary = "Remove installed packages."
+reversibility_note = "Undo runs the inverse operation: package.install of the recorded version; a version that the repository no longer offers stays irreversible."
 
 [[command.param]]
 name = "names"
@@ -123,12 +125,13 @@ summary = "Package manager; auto selects the manager of the system."
 [[command]]
 name = "package.upgrade"
 category = "change"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "package_manager"
 input = ["none"]
 output = ["effect"]
 summary = "Upgrade installed packages to their newest versions."
+reversibility_note = "Undo runs the inverse operation: package.install of the recorded versions; a version that the repository no longer offers stays irreversible."
 
 [[command.param]]
 name = "names"

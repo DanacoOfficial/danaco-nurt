@@ -10,7 +10,7 @@ title: Journal, undo and safety
 <!-- Responsibility:   Documents Journal, undo and safety. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Journal, undo and safety
 
@@ -55,7 +55,7 @@ undo 18 on_conflict: include_later
 Undo the changes of one file made since an operation.
 
 ```nurt example
-undo since: 18 paths: ["/home/user/app/src/a.go"]
+undo file: "/home/user/app/src/a.go" since: 18
 ```
 
 ```text expected

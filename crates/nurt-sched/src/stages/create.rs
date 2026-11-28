@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sched::stages::create
-// Responsibility:   `schedule.create`.
+// Responsibility:   The stage schedule.create: checks the trigger and the action of a new schedule and stores it through the journal.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! `schedule.create`.

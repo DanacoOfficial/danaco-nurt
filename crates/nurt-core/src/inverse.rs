@@ -6,7 +6,7 @@
 // Responsibility:   Inverse operations of changes outside the file system.
 // Dependencies:     nurt_contracts, nurt_sys, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Inverse operations of changes outside the file system.
@@ -18,6 +18,9 @@
 //! journal entry, in the file `inverse-operations.jsonl` of its state
 //! directory. `undo` of the entry runs the programs through the same engine,
 //! so an elevated entry is undone by the elevated process that wrote it.
+//! `undo` without a number runs them for the entry that the journal chooses.
+//! An entry that the programs wrote is itself an undo: it is undone only by
+//! its number.
 //!
 //! | Operation | Recorded state | Undo |
 //! |---|---|---|
@@ -44,12 +47,47 @@ use serde::{Deserialize, Serialize};
 use crate::elevated::entry_id;
 use crate::engine::{Engine, Prepared};
 
+/// Options with which `winget show --id <package>` lists the versions of the
+/// package without a question to the user.
+const WINGET_VERSIONS: [&str; 4] = [
+    "--exact",
+    "--versions",
+    "--disable-interactivity",
+    "--accept-source-agreements",
+];
+/// Options with which `choco search <package>` lists the versions of the
+/// package, one line `name|version` each.
+const CHOCO_VERSIONS: [&str; 3] = ["--exact", "--all-versions", "--limit-output"];
+
+/// Whether a listing of the versions of a package, as a package manager
+/// prints it, names `version`.
+///
+/// A version stands in the listing as a word of its own: between spaces
+/// (`apt-cache madison`, `dnf list`, `winget show --versions`) or after the
+/// bar that follows the name (`choco search --limit-output`).
+fn lists_version(listing: &str, version: &str) -> bool {
+    listing.lines().any(|line| {
+        line.split(|c: char| c.is_whitespace() || c == '|')
+            .any(|word| word == version)
+    })
+}
+
 /// Whether the package manager `manager` still offers `version` of
 /// `package`; true only when the manager was asked and said so.
 fn repository_offers(manager: &str, package: &str, version: &str) -> bool {
     let (program, args): (&str, Vec<&str>) = match manager {
         "apt" => ("apt-cache", vec!["madison", package]),
         "dnf" => ("dnf", vec!["-q", "list", "--showduplicates", package]),
+        "winget" => {
+            let mut args = vec!["show", "--id", package];
+            args.extend(WINGET_VERSIONS);
+            ("winget", args)
+        }
+        "choco" => {
+            let mut args = vec!["search", package];
+            args.extend(CHOCO_VERSIONS);
+            ("choco", args)
+        }
         _ => return false,
     };
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -67,11 +105,7 @@ fn repository_offers(manager: &str, package: &str, version: &str) -> bool {
         .recv_timeout(std::time::Duration::from_secs(10))
         .ok()
         .and_then(Result::ok)
-        .is_some_and(|output| {
-            String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .any(|line| line.split_whitespace().any(|word| word == version))
-        })
+        .is_some_and(|output| lists_version(&String::from_utf8_lossy(&output.stdout), version))
 }
 
 /// File of the inverse operations in the state directory.
@@ -96,6 +130,10 @@ pub struct InverseOperation {
     /// programs do too.
     #[serde(default)]
     pub elevated: bool,
+    /// Number of the entry whose inverse programs wrote this entry, which
+    /// makes this entry an undo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restores: Option<u64>,
 }
 
 /// What the report of a change leaves to undo.
@@ -396,6 +434,7 @@ impl Engine {
             programs,
             undone: false,
             elevated: report.elevated,
+            restores: None,
         };
         if log.append(&entry).is_ok() {
             report
@@ -412,6 +451,11 @@ impl Engine {
     /// Runs the programs that undo the entry named by an `undo` of the
     /// program, when the engine kept them; the response is that of the last
     /// program, or of the first that failed.
+    ///
+    /// An `undo` without a number names the entry that the journal chooses.
+    /// It leaves to the journal an entry that inverse programs wrote, as the
+    /// journal skips its own undo entries, and an elevated entry, which is
+    /// undone by its number.
     pub(crate) fn undo_by_inverse(
         &self,
         request: &Request,
@@ -421,8 +465,12 @@ impl Engine {
         events: Option<Arc<dyn EventSink>>,
     ) -> Option<Response> {
         let log = self.inner.inverses.as_ref()?;
-        let op = entry_id(bound)?;
-        let entry = log.find(op)?;
+        let named = entry_id(bound);
+        let op = named.or_else(|| self.bare_undo_target(bound, prepared.session.as_ref()))?;
+        let entry = log.find(op).filter(|entry| {
+            named.is_some()
+                || (entry.restores.is_none() && !(entry.elevated && prepared.elevation.is_none()))
+        })?;
         let mut last = None;
         for program in &entry.programs {
             let mut inner = Request::program(program.clone()).with_options(request.options.clone());
@@ -442,6 +490,15 @@ impl Engine {
                 && response.report.status != ReportStatus::Planned
             {
                 return Some(response);
+            }
+            if !prepared.options.preview()
+                && let Some(written) = response.report.op
+                && let Some(kept) = log.find(written)
+            {
+                let _ = log.append(&InverseOperation {
+                    restores: Some(op),
+                    ..kept
+                });
             }
             last = Some(response);
         }
@@ -543,6 +600,22 @@ mod tests {
             })),
             ["package.install [\"jq\"] version: \"1.7\" manager: apt"]
         );
+    }
+
+    #[test]
+    fn a_version_is_found_in_the_listing_of_each_package_manager() {
+        let apt = " jq | 1.7.1-3 | http://archive.example/ubuntu noble/main amd64 Packages\n";
+        assert!(lists_version(apt, "1.7.1-3"));
+        assert!(!lists_version(apt, "1.7.1"));
+        let dnf = "Available Packages\njq.x86_64    1.6-17.el9    appstream\n";
+        assert!(lists_version(dnf, "1.6-17.el9"));
+        let winget = "Found jq [jqlang.jq]\nVersion\n-------\n1.7.1\n1.7\n1.6\n";
+        assert!(lists_version(winget, "1.7"));
+        assert!(!lists_version(winget, "1.5"));
+        let choco = "jq|1.7.1\njq|1.6\n";
+        assert!(lists_version(choco, "1.6"));
+        assert!(!lists_version(choco, "1.7"));
+        assert!(!lists_version("", "1.7"));
     }
 
     #[test]
@@ -749,6 +822,7 @@ mod tests {
             programs: programs.iter().map(|p| (*p).to_owned()).collect(),
             undone,
             elevated: false,
+            restores: None,
         };
         assert!(log.find(4).is_none());
         log.append(&entry(&["a"], false)).unwrap();

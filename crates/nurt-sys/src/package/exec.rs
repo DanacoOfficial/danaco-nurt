@@ -6,7 +6,7 @@
 // Responsibility:   Package changes through the program of the manager.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Package changes through the program of the manager.
@@ -91,6 +91,16 @@ const APT_ENV: [(&str, &str); 2] = [
 const BREW_ENV: [(&str, &str); 2] = [("HOMEBREW_NO_AUTO_UPDATE", "1"), ("NONINTERACTIVE", "1")];
 const WINGET_QUIET: [&str; 2] = ["--silent", "--disable-interactivity"];
 const WINGET_AGREEMENTS: [&str; 2] = ["--accept-package-agreements", "--accept-source-agreements"];
+/// Option of `apt-get install` that admits a version earlier than the installed one.
+const APT_EARLIER_VERSION: &str = "--allow-downgrades";
+/// Option of `zypper install` that admits a version earlier than the installed one.
+const ZYPPER_EARLIER_VERSION: &str = "--oldpackage";
+/// Option of `choco install` that admits a version earlier than the installed one.
+const CHOCO_EARLIER_VERSION: &str = "--allow-downgrade";
+/// Option of `winget install` that admits a version earlier than the installed
+/// one; without it winget tries an upgrade and ends with the report that no
+/// newer version is available.
+const WINGET_EARLIER_VERSION: &str = "--force";
 
 /// Rejects a package name or version that a manager would read as an option
 /// or that cannot be passed as one argument.
@@ -144,9 +154,8 @@ pub fn build(
         ));
     }
     let invocations = match (manager, action) {
-        (PackageManager::Apt, Action::Install) => vec![invocation(
-            "apt-get",
-            &[
+        (PackageManager::Apt, Action::Install) => {
+            let mut args = vec![
                 "install",
                 "-y",
                 "-q",
@@ -154,10 +163,12 @@ pub fn build(
                 "Dpkg::Options::=--force-confdef",
                 "-o",
                 "Dpkg::Options::=--force-confold",
-            ],
-            &pinned("="),
-            &APT_ENV,
-        )],
+            ];
+            if version.is_some() {
+                args.push(APT_EARLIER_VERSION);
+            }
+            vec![invocation("apt-get", &args, &pinned("="), &APT_ENV)]
+        }
         (PackageManager::Apt, Action::Remove) => {
             vec![invocation(
                 "apt-get",
@@ -213,12 +224,13 @@ pub fn build(
             );
             vec![invocation("pacman", &["-S", "--noconfirm"], names, &[])]
         }
-        (PackageManager::Zypper, Action::Install) => vec![invocation(
-            "zypper",
-            &["--non-interactive", "install"],
-            &pinned("="),
-            &[],
-        )],
+        (PackageManager::Zypper, Action::Install) => {
+            let mut args = vec!["--non-interactive", "install"];
+            if version.is_some() {
+                args.push(ZYPPER_EARLIER_VERSION);
+            }
+            vec![invocation("zypper", &args, &pinned("="), &[])]
+        }
         (PackageManager::Zypper, Action::Remove) => vec![invocation(
             "zypper",
             &["--non-interactive", "remove"],
@@ -246,9 +258,11 @@ pub fn build(
                 .args
                 .extend(["-y", "--no-progress"].map(str::to_owned));
             if let Some(version) = version {
-                built
-                    .args
-                    .extend(["--version".to_owned(), version.to_owned()]);
+                built.args.extend([
+                    "--version".to_owned(),
+                    version.to_owned(),
+                    CHOCO_EARLIER_VERSION.to_owned(),
+                ]);
             }
             vec![built]
         }
@@ -306,6 +320,9 @@ pub fn build(
                 }
                 if let Some(version) = version {
                     args.extend(["--version", version]);
+                    if action == Action::Install {
+                        args.push(WINGET_EARLIER_VERSION);
+                    }
                 }
                 invocation("winget", &args, &[], &[])
             })
@@ -438,7 +455,8 @@ mod tests {
         let call = &plan.invocations[0];
         assert_eq!(call.program, "apt-get");
         assert_eq!(call.args[..3], ["install", "-y", "-q"]);
-        assert_eq!(call.args[7..], ["curl=1.0", "jq=1.0"]);
+        let pinned = ["--allow-downgrades", "curl=1.0", "jq=1.0"];
+        assert_eq!(call.args[7..], pinned);
         assert!(
             call.env
                 .contains(&("DEBIAN_FRONTEND".to_owned(), "noninteractive".to_owned()))
@@ -471,7 +489,7 @@ mod tests {
         );
         assert_eq!(
             line(PackageManager::Zypper, Action::Install, Some("2")),
-            "zypper --non-interactive install tool=2"
+            "zypper --non-interactive install --oldpackage tool=2"
         );
         assert_eq!(
             line(PackageManager::Zypper, Action::Upgrade, None),
@@ -487,7 +505,7 @@ mod tests {
         );
         assert_eq!(
             line(PackageManager::Choco, Action::Install, Some("2")),
-            "choco install tool -y --no-progress --version 2"
+            "choco install tool -y --no-progress --version 2 --allow-downgrade"
         );
         assert_eq!(
             line(PackageManager::Choco, Action::Remove, None),
@@ -504,6 +522,10 @@ mod tests {
         assert_eq!(
             line(PackageManager::Winget, Action::Install, None),
             "winget install --id tool --exact --silent --disable-interactivity --accept-package-agreements --accept-source-agreements"
+        );
+        assert_eq!(
+            line(PackageManager::Winget, Action::Install, Some("2")),
+            "winget install --id tool --exact --silent --disable-interactivity --accept-package-agreements --accept-source-agreements --version 2 --force"
         );
         let brew = build(PackageManager::Brew, Action::Install, &one, None).expect("plan");
         assert!(

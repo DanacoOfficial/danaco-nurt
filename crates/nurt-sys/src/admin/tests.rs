@@ -6,7 +6,7 @@
 // Responsibility:   Tests of the administration commands on the in-memory system: the plan, the programs, the recorded states and the undo of every command.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests of the administration commands on the in-memory system: the plan,
@@ -1150,6 +1150,27 @@ fn outputs_of_the_system_programs_are_parsed() {
     assert_eq!(
         (listed.device.as_str(), listed.options.len()),
         ("/dev/disk3s1", 2)
+    );
+}
+
+#[test]
+fn outputs_of_windows_in_another_display_language_are_parsed() {
+    use super::accounts::parse_account_lines;
+    use super::groups::parse_net_localgroup;
+    let listed = parse_account_lines(
+        "\u{feff}comment=Ann Smith\r\nhome=D:\\homes\\ann\r\ndisabled=1\r\n\
+         users=BUILTIN\\U\u{17c}ytkownicy\r\ngroup=U\u{17c}ytkownicy\r\ngroup=Administratorzy\r\n",
+    );
+    assert_eq!(listed.comment, "Ann Smith");
+    assert_eq!(listed.home.as_deref(), Some("D:\\homes\\ann"));
+    assert!(listed.locked);
+    assert_eq!(listed.groups, ["Administratorzy"]);
+    assert_eq!(
+        parse_net_localgroup(
+            "Nazwa aliasu  ops\n\nCz\u{142}onkowie\n\n-----\nann\nPolecenie zosta\u{142}o wykonane.\n\n"
+        )
+        .members,
+        ["ann"]
     );
 }
 

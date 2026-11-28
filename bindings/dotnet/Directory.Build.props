@@ -6,7 +6,7 @@
 <!-- Responsibility:   Source file bindings/dotnet/Directory.Build.props. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 <Project>
@@ -23,7 +23,7 @@
     <Company>Danaco Holding Group Sp. z o.o.</Company>
     <Product>Danaco Nurt</Product>
     <Copyright>Copyright 2026 Danaco Holding Group Sp. z o.o.</Copyright>
-    <Version Condition="'$(Version)' == ''">0.1.1</Version>
+    <Version Condition="'$(Version)' == ''">0.1.2</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">

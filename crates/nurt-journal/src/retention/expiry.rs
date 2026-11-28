@@ -6,7 +6,7 @@
 // Responsibility:   Expiry passes and removal order.
 // Dependencies:     nurt_contracts, nurt_fs, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Expiry passes and removal order.
@@ -36,7 +36,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use nurt_contracts::config::{AgeLimit, ByteLimit, Oversize, Resolved, StepLimit, resolve};
 use nurt_contracts::env::ClockStamp;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::AbsPath;
+use nurt_contracts::fs::{AbsPath, FileLock};
 use nurt_contracts::journal::{
     EffectiveRetention, EntryState, ExpiredEntry, ExpiryReason, JournalNotable, OpId, PurgeOutcome,
     PurgeRequest, PurgeSelector, SweepReport,
@@ -364,12 +364,36 @@ impl Snapshot {
         store: &dyn RetentionStore,
         plan: &[ExpiredEntry],
     ) -> Result<u64> {
+        Ok(self.reclaim(store, plan, Busy::Fail)?.bytes)
+    }
+
+    /// Expires the planned entries that no other holder keeps locked and
+    /// records the clock observation. An entry whose lock is held is left
+    /// for a later pass and named in the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_IO` when an entry cannot be reclaimed.
+    pub(crate) fn execute_free(
+        &mut self,
+        store: &dyn RetentionStore,
+        plan: &[ExpiredEntry],
+    ) -> Result<Reclaimed> {
+        self.reclaim(store, plan, Busy::Skip)
+    }
+
+    fn reclaim(
+        &mut self,
+        store: &dyn RetentionStore,
+        plan: &[ExpiredEntry],
+        busy: Busy,
+    ) -> Result<Reclaimed> {
         let history_keep = self.resolved.config.journal.history_keep;
         discard_rolled_back(store, &self.entries, history_keep)?;
-        let bytes = execute(store, &self.entries, plan, history_keep)?;
+        let reclaimed = execute(store, &self.entries, plan, history_keep, busy)?;
         self.age.observe(&self.now);
         store.write_file(Area::State, AGE_STATE_FILE, &self.age.encode()?)?;
-        Ok(bytes)
+        Ok(reclaimed)
     }
 }
 
@@ -409,27 +433,73 @@ pub(crate) fn select_volumes<'a>(
         })
 }
 
+/// What a reclaim does with an entry whose lock another holder keeps beyond
+/// the lock timeout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Busy {
+    /// The reclaim ends with `E_IN_USE`.
+    Fail,
+    /// The entry is left for a later pass.
+    Skip,
+}
+
+/// Result of a reclaim.
+#[derive(Debug, Default)]
+pub(crate) struct Reclaimed {
+    /// Logical bytes released.
+    pub(crate) bytes: u64,
+    /// Entries left alone because another holder kept their lock.
+    pub(crate) skipped: BTreeSet<OpId>,
+}
+
+/// Takes the lock of every part of an entry; `None` when another holder
+/// keeps one of the locks beyond the lock timeout and `busy` allows the
+/// entry to be skipped.
+fn lock_parts(
+    store: &dyn RetentionStore,
+    parts: &[&EntryFacts],
+    busy: Busy,
+) -> Result<Option<Vec<Box<dyn FileLock>>>> {
+    let mut locks = Vec::with_capacity(parts.len());
+    for part in parts {
+        match store.lock_entry(&part.volume, part.op) {
+            Ok(lock) => locks.push(lock),
+            Err(error) if busy == Busy::Skip && error.code() == ErrorCode::InUse => {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(Some(locks))
+}
+
 /// Reclaims the planned entries: every part is moved to `reap/`, then
 /// tombstones are written and the data is removed. Returns the logical
-/// bytes released.
+/// bytes released and the entries skipped under [`Busy::Skip`].
 fn execute(
     store: &dyn RetentionStore,
     entries: &[EntryFacts],
     plan: &[ExpiredEntry],
     history_keep: u32,
-) -> Result<u64> {
+    busy: Busy,
+) -> Result<Reclaimed> {
     let groups = grouped(entries.iter());
     let mut bytes: u64 = 0;
+    let mut skipped = BTreeSet::new();
     let mut touched = BTreeSet::new();
     for expired in plan {
         let parts = groups
             .get(&expired.op)
             .map(Vec::as_slice)
             .unwrap_or_default();
-        let mut locks = Vec::with_capacity(parts.len());
+        // A holder of the lock of a part is reclaiming the entry or still
+        // uses it: the entry is left to that holder or to a later pass.
+        let Some(locks) = lock_parts(store, parts, busy)? else {
+            skipped.insert(expired.op);
+            continue;
+        };
         let mut moved = Vec::with_capacity(parts.len());
         for part in parts {
-            locks.push(store.lock_entry(&part.volume, part.op)?);
             match store.begin_reap(&part.volume, part.op, expired.reason) {
                 Ok(()) => moved.push(part),
                 // Another process reclaimed the entry after the plan was made:
@@ -449,7 +519,7 @@ fn execute(
     for volume in touched {
         tomb::prune(store, volume, history_keep)?;
     }
-    Ok(bytes)
+    Ok(Reclaimed { bytes, skipped })
 }
 
 /// Removes what entries rolled back before their commit left behind. They
@@ -471,7 +541,7 @@ fn discard_rolled_back(
     if plan.is_empty() {
         return Ok(());
     }
-    execute(store, entries, &plan, history_keep)?;
+    execute(store, entries, &plan, history_keep, Busy::Skip)?;
     Ok(())
 }
 
@@ -491,9 +561,13 @@ fn finish(store: &dyn RetentionStore, part: &EntryFacts, reason: ExpiryReason) -
 pub(crate) fn sweep_store(store: &dyn RetentionStore) -> Result<SweepReport> {
     let mut snapshot = Snapshot::load(store)?;
     let limits = snapshot.limits();
-    let expired = snapshot.plan(&limits);
-    let bytes = snapshot.execute(store, &expired)?;
-    Ok(SweepReport { expired, bytes })
+    let mut expired = snapshot.plan(&limits);
+    let reclaimed = snapshot.execute_free(store, &expired)?;
+    expired.retain(|entry| !reclaimed.skipped.contains(&entry.op));
+    Ok(SweepReport {
+        expired,
+        bytes: reclaimed.bytes,
+    })
 }
 
 /// Releases the selected entries immediately, pinned entries included.
@@ -766,7 +840,7 @@ pub(crate) fn admit_size(
             })
             .collect();
         let history_keep = resolve_config(&store)?.config.journal.history_keep;
-        execute(&store, &entries, &plan, history_keep)?;
+        execute(&store, &entries, &plan, history_keep, Busy::Fail)?;
     }
     Ok(admission)
 }
@@ -838,6 +912,37 @@ mod tests {
                 .is_some()
         );
         assert!(sweep_store(&store).unwrap().expired.is_empty());
+    }
+
+    #[test]
+    fn the_sweep_leaves_an_entry_whose_lock_another_process_holds() {
+        let store = store();
+        store.commit("/home", 1..=32);
+        store.set_clock(40);
+        store.hold_lock(OpId(1));
+        let report = sweep_store(&store).unwrap();
+        assert_eq!(expired(&report), [(2, ExpiryReason::Ops)]);
+        assert_eq!(report.bytes, MIB);
+        assert_eq!(store.live("/home")[0], 1);
+        assert!(
+            tomb::read(&store, &mount("/home"), OpId(1))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_purge_of_an_entry_whose_lock_is_held_ends_with_in_use() {
+        let store = store();
+        store.commit("/home", 1..=3);
+        store.hold_lock(OpId(2));
+        let request = PurgeRequest {
+            volume: None,
+            selector: PurgeSelector::Ids(vec![OpId(2)]),
+        };
+        let error = purge_store(&store, &request).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InUse);
+        assert!(store.live("/home").contains(&2));
     }
 
     #[test]

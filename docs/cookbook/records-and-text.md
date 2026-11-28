@@ -10,7 +10,7 @@ title: Records and text processing
 <!-- Responsibility:   Documents Records and text processing. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Records and text processing
 
@@ -280,7 +280,7 @@ size
 Split lines of a semicolon separated file and keep two columns.
 
 ```nurt example
-lines "/home/user/data.csv" |> skip 1 |> split ";" names: ["id", "name", "city"] |> select id name
+lines "/home/user/data.csv" |> skip 1 |> split ";" names: ["id", "name", "city"] |> select cells.id cells.name
 ```
 
 ```text expected

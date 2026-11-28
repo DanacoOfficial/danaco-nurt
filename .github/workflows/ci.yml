@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or workflow definition of .github/workflows/ci.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: CI
@@ -34,6 +34,10 @@ env:
   CARGO_NET_RETRY: "10"
   RUST_BACKTRACE: "1"
   RUSTUP_MAX_RETRIES: "10"
+  # The interface tests of nurt-ffi compile C programs with clang; a missing
+  # compiler fails them instead of skipping them. The runners of Linux and
+  # macOS provide clang; the tests do not exist on Windows.
+  NURT_REQUIRE_C_TOOLCHAIN: "1"
   # Minimum line coverage of the workspace and of the critical crates.
   COVERAGE_MIN_WORKSPACE: "80"
   COVERAGE_MIN_CRITICAL: "90"
@@ -123,11 +127,20 @@ jobs:
           key: test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
+      - name: Install the C compiler
+        if: runner.os == 'Linux'
+        run: sudo apt-get install --yes --no-install-recommends clang
+      - name: Check the C compiler
+        if: runner.os != 'Windows'
+        run: clang --version
       - name: Install cargo-nextest
         uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         continue-on-error: true
         with:
           tool: cargo-nextest
+      - name: Install mandoc
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends mandoc
       - name: Build
         run: cargo build --workspace --all-targets --locked
       - name: Run tests
@@ -135,6 +148,9 @@ jobs:
           # The scheduled (nightly) run generates the full number of cases of
           # the property tests; other runs use the small default.
           NURT_PROPTEST_FULL: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          # On Linux the lint of the manual pages must run: mandoc is installed
+          # above, so a missing mandoc fails the test instead of skipping it.
+          NURT_REQUIRE_MANDOC: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: |
           if cargo nextest --version >/dev/null 2>&1; then
             cargo nextest run --workspace --locked --no-fail-fast --no-tests=fail
@@ -174,6 +190,10 @@ jobs:
           key: coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
+      - name: Install the C compiler
+        run: sudo apt-get install --yes --no-install-recommends clang
+      - name: Check the C compiler
+        run: clang --version
       - name: Install cargo-llvm-cov and cargo-nextest
         uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         with:

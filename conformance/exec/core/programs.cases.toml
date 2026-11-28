@@ -135,7 +135,7 @@ program = 'run ["sh", "-c", "echo done"] cwd: "${base}" background: true'
 expect = { report = { status = "running" } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s view: result'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s view: result'
 expect = { report = { status = "ok", kind = "jobs", records = { type = "job", rows = [
   { kind = "job", fields = { state = { t = "enum", v = "exited" }, exit_code = { t = "int", v = 0 } } },
 ] } } }
@@ -151,7 +151,7 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "printf \"1\\n2\\n3\\n\""] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s tail: 1 view: output'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s tail: 1 view: output'
 expect = { report = { status = "ok", records = { rows = [{ kind = "job", fields = { stdout = { t = "text", v = "3\n" } } }] } } }
 
 [[case]]
@@ -188,11 +188,11 @@ program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
 expect = { report = { status = "running" } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> stop'
+program = 'jobs "${step1/report/job/fields/id/v}" |> stop'
 expect = { report = { status = "ok", kind = "stop", irreversible = [{ reason = "process_stopped" }] } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}"'
+program = 'jobs "${step1/report/job/fields/id/v}"'
 expect = { report = { records = { rows = [{ kind = "job", fields = { state = { t = "enum", v = "stopped" } } }] } } }
 
 [[case]]
@@ -206,7 +206,7 @@ fs_before = { entries = [] }
 program = '''run ["sh", "-c", "trap '' TERM; sleep 30"] cwd: "${base}" background: true'''
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> stop signal: kill'
+program = 'jobs "${step1/report/job/fields/id/v}" |> stop signal: kill'
 expect = { report = { status = "ok" } }
 
 [[case]]
@@ -220,10 +220,10 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "true"] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> stop'
+program = 'jobs "${step1/report/job/fields/id/v}" |> stop'
 expect = { report = { status = "failed", error = { code = "E_JOB_STATE" } } }
 
 [[case]]
@@ -237,10 +237,10 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "echo x >> log.txt"] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> retry wait: forever'
+program = 'jobs "${step1/report/job/fields/id/v}" |> retry wait: forever'
 expect = { report = { status = "ok", kind = "retry" } }
 fs_after = { entries = [{ path = "log.txt", type = "file", content_utf8 = "x\nx\n" }] }
 
@@ -255,10 +255,10 @@ fs_before = { entries = [] }
 program = 'run ["sh", "-c", "sleep 1"] cwd: "${base}" background: true'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s'
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> retry timeout: 100ms wait: forever'
+program = 'jobs "${step1/report/job/fields/id/v}" |> retry timeout: 100ms wait: forever'
 expect = { report = { status = "failed", error = { code = "E_TIMEOUT" } } }
 
 [[case]]

@@ -6,7 +6,7 @@
 // Responsibility:   Linux back end.
 // Dependencies:     errno, fs, mountinfo, nurt_contracts, quota, table
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Linux back end.
@@ -39,6 +39,8 @@ mod handle;
 mod holders;
 #[cfg(target_os = "linux")]
 mod meta;
+#[cfg(target_os = "linux")]
+pub(crate) use meta::{restore_meta_fd, set_meta_fd, stat_at, stat_fd};
 #[cfg(target_os = "linux")]
 mod remove;
 #[cfg(target_os = "linux")]

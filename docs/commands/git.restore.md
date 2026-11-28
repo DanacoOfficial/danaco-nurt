@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.restore. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.restore
@@ -84,36 +84,36 @@ restoration of both sides cannot be combined with `hunks`.
 Discard the local changes of one file.
 
 ```nurt example
-git.restore "/home/user/repo" paths: ["src/main.rs"]
+git.restore "/home/user/repo" paths: ["/home/user/repo/src/main.rs"]
 ```
 
 ```text expected
-effect git.restore written: src/main.rs
+effect git.restore written: /home/user/repo/src/main.rs
 ```
 
 Unstage every change below a directory, keeping the working tree.
 
 ```nurt example
-git.restore "/home/user/repo" paths: ["docs"] staged: true worktree: false
+git.restore "/home/user/repo" paths: ["/home/user/repo/docs"] staged: true worktree: false
 ```
 
 Take the files of a directory from an older commit into the index and the
 working tree.
 
 ```nurt example
-git.restore "/home/user/repo" paths: ["config"] source: "HEAD~2" staged: true worktree: true
+git.restore "/home/user/repo" paths: ["/home/user/repo/config"] source: "HEAD~2" staged: true worktree: true
 ```
 
 Take back the second hunk of a file, keeping its other local changes.
 
 ```nurt example
-git.restore "/home/user/repo" paths: ["src/main.rs"] hunks: ["src/main.rs#2"]
+git.restore "/home/user/repo" paths: ["/home/user/repo/src/main.rs"] hunks: ["src/main.rs#2"]
 ```
 
 Unstage one hunk and keep a checkpoint of the state before it.
 
 ```nurt example
-git.restore "/home/user/repo" paths: ["src/lib.rs"] hunks: ["src/lib.rs#1"] staged: true worktree: false checkpoint: true
+git.restore "/home/user/repo" paths: ["/home/user/repo/src/lib.rs"] hunks: ["src/lib.rs#1"] staged: true worktree: false checkpoint: true
 ```
 
 ## Errors

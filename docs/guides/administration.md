@@ -11,7 +11,7 @@ commands: [services, logs, processes, ports, disks, host, environment, accounts,
 <!-- Responsibility:   Documents administration. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # administration
@@ -42,6 +42,8 @@ Changes outside the file system are undone by inverse operations that the engine
 
 `enable` and `disable` are undone only for the start types `disabled` and `automatic`; other start types make the entry irreversible, with the reason in the report. A package version that the repository no longer offers makes only that package irreversible.
 
+`undo N` runs the inverse operations of entry `N`; `undo` without a number runs them for the entry that the journal chooses, the newest entry of the session that is not an undo. The inverse operations write entries of their own. Such an entry is an undo: `undo` without a number does not undo it and ends with `E_JOURNAL_NOOP`, and `undo` with its number brings back the state before the undo.
+
 Irreversible are `restart`, `stop` of a process, and `run`: files changed by a program started with `run` and `privilege: elevated` are not preserved, and the report states it.
 
 ## Services
@@ -49,7 +51,7 @@ Irreversible are `restart`, `stop` of a process, and `run`: files changed by a p
 `services` lists services with their state and start type. `state` narrows the list and `scope` selects system or user services. `start`, `restart`, `enable` and `disable` take services from the input, and `stop` ends services, processes and jobs.
 
 ```nurt
-services state: running
+services state: "running"
 services name: "nginx" |> restart
 ```
 
@@ -130,8 +132,7 @@ A change of a system rarely is one command. `steps` runs several changing pipeli
 steps {
     sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
     firewall.allow port: 8443 protocol: tcp privilege: elevated
-    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
-    assert r.exit_code == 0
+    run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated |> assert exit_code: 0
 }
 ```
 

@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::ini::profile
-// Responsibility:   INI dialects.
+// Responsibility:   Dialect profiles of INI documents with their separators, comment rules, quoting, continuations and handling of repeated keys.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! INI dialects.

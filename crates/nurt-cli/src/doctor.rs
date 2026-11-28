@@ -6,7 +6,7 @@
 // Responsibility:   The `doctor` subcommand: a table of checks of the installation.
 // Dependencies:     comfy_table, nurt_contracts, nurt_core
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The `doctor` subcommand: a table of checks of the installation.
@@ -158,7 +158,18 @@ fn gather(context: &Context, source: &dyn EngineSource) -> Vec<Check> {
             info.services.join(", ")
         },
     ));
-    checks.push(component("journal", engine.space(None).map(|_| ())));
+    checks.push(match engine.journal_problem() {
+        Some(problem) => {
+            let mut detail = format!("the journal did not start: {problem}");
+            let causes = crate::repl::recovery_causes(problem);
+            if !causes.is_empty() {
+                detail.push_str("; causes: ");
+                detail.push_str(&causes.join("; "));
+            }
+            check("journal", Verdict::Unavailable, detail)
+        }
+        None => component("journal", engine.space(None).map(|_| ())),
+    });
     checks.push(component(
         "language front end",
         engine.describe("core", None).map(|_| ()),

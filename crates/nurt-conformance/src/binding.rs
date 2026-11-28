@@ -6,7 +6,7 @@
 // Responsibility:   Binding cases `nurt-binding-cases/1`.
 // Dependencies:     nurt_contracts, serde, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Binding cases `nurt-binding-cases/1`.
@@ -388,6 +388,7 @@ impl BindingExpect {
 fn required_members(call: &str) -> Vec<(&'static str, Value)> {
     match call {
         "parse" | "check" => vec![(member::DIAGNOSTICS, json!([]))],
+        "correct" => vec![(member::AST, empty_tree())],
         "history" => vec![("operations", json!([]))],
         "space" => vec![("volumes", json!([]))],
         _ => Vec::new(),
@@ -405,11 +406,20 @@ fn engine_description(raw: &mut Value) {
     members.insert("description".to_owned(), json!({member::TEXT: text}));
 }
 
+/// Syntax tree `nurt-ast/1` without statements, the neutral value of the
+/// member `ast` of the result of `correct`.
+fn empty_tree() -> Value {
+    json!({"nurt": "1.1", "program": {"statements": []}})
+}
+
 /// Value of a member that an expectation requires without naming a value:
-/// the position of an error is an object, everything else is text.
+/// the position of an error is an object, the tree of `correct` is a syntax
+/// tree, everything else is text.
 fn present_value(raw_pointer: &str) -> Value {
     if raw_pointer.ends_with("/error/at") {
         json!({"line": 1, "column": 1})
+    } else if raw_pointer == "/ast" {
+        empty_tree()
     } else {
         json!("present")
     }
@@ -548,6 +558,22 @@ mod tests {
         assert_eq!(
             text.answer("print", View::Text),
             Answer::Result(json!({"text": "count\n"}))
+        );
+        let corrected: BindingExpect = serde_json::from_value(
+            json!({"outcome": "ok", "fields": {"/value/ran": "count"}, "present": ["/value/ast"]}),
+        )
+        .unwrap();
+        assert_eq!(
+            corrected.answer("correct", View::Object),
+            Answer::Result(json!({
+                "ran": "count",
+                "ast": {"nurt": "1.1", "program": {"statements": []}}
+            }))
+        );
+        let uncorrected: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
+        assert_eq!(
+            uncorrected.answer("correct", View::Object),
+            Answer::Result(json!({"ast": {"nurt": "1.1", "program": {"statements": []}}}))
         );
         let described: BindingExpect =
             serde_json::from_value(json!({"outcome": "ok", "fields": {"/value": "Danaco Nurt"}}))

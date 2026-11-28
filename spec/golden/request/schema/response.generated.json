@@ -767,6 +767,15 @@
             "type": "string"
           }
         },
+        "similarity": {
+          "description": "Similarity of a rename in percent.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "encoding_before": {
           "description": "Encoding before.",
           "type": [

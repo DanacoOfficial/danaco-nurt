@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::test::frameworks::jest
-// Responsibility:   Jest.
+// Responsibility:   The command plan of a test run of Jest and the parsing of its JSON report.
 // Dependencies:     nurt_contracts, regex, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Jest.

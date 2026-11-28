@@ -3,7 +3,7 @@
     "image": "mcr.microsoft.com/devcontainers/base:bookworm",
     "features": {
       "nurt": {
-        "version": "1"
+        "version": "0"
       }
     }
   },

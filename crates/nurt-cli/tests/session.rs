@@ -6,7 +6,7 @@
 // Responsibility:   Invocations of the command line on an engine with a front end of recorded trees and virtual components.
 // Dependencies:     nurt_contracts, nurt_core, nurt_testkit
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Invocations of the command line on an engine with a front end of recorded
@@ -442,6 +442,70 @@ fn interrupted_lines_do_not_end_the_session() {
     assert!(out.is_empty());
     assert_eq!(session.last_exit_code(), 0);
     assert_eq!(lines.0.len(), 1);
+}
+
+struct Failing;
+
+impl LineSource for Failing {
+    fn read_line(&mut self) -> Input {
+        Input::End
+    }
+
+    fn failure(&self) -> Option<String> {
+        Some("the terminal size cannot be read".to_owned())
+    }
+}
+
+#[test]
+fn a_failure_of_the_line_source_is_reported_on_the_error_output() {
+    let temp = tempfile::tempdir().unwrap();
+    let engine = source(&temp).open().unwrap();
+    let mut session = Session::new(&engine, nurt_cli::output::Style::plain());
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    session.run(&mut Failing, &mut out, &mut err).unwrap();
+    assert!(out.is_empty());
+    assert_eq!(
+        String::from_utf8(err).unwrap(),
+        "nurt: the line editor stopped: the terminal size cannot be read\n"
+    );
+}
+
+#[test]
+fn a_session_goes_on_with_plain_input_when_the_line_editor_fails() {
+    let temp = tempfile::tempdir().unwrap();
+    let engine = source(&temp).open().unwrap();
+    let mut session = Session::new(&engine, nurt_cli::output::Style::plain());
+    let mut plain = Scripted(vec![
+        Input::Line("help".to_owned()),
+        Input::Line("exit".to_owned()),
+        Input::Line("help".to_owned()),
+    ]);
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    session
+        .run_with_plain_input(&mut Failing, &mut plain, &mut out, &mut err)
+        .unwrap();
+    assert!(!out.is_empty());
+    assert_eq!(plain.0.len(), 1);
+    let err = String::from_utf8(err).unwrap();
+    let stopped = "nurt: the line editor stopped: the terminal size cannot be read\n";
+    assert!(err.starts_with(stopped));
+    assert!(err.contains("the session continues without the line editor"));
+}
+
+#[test]
+fn plain_input_is_not_read_when_the_line_editor_ends_without_a_failure() {
+    let temp = tempfile::tempdir().unwrap();
+    let engine = source(&temp).open().unwrap();
+    let mut session = Session::new(&engine, nurt_cli::output::Style::plain());
+    let mut editor = Scripted(vec![Input::Line("exit".to_owned())]);
+    let mut plain = Scripted(vec![Input::Line("help".to_owned())]);
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    session
+        .run_with_plain_input(&mut editor, &mut plain, &mut out, &mut err)
+        .unwrap();
+    assert!(out.is_empty());
+    assert!(err.is_empty());
+    assert_eq!(plain.0.len(), 1);
 }
 
 #[test]

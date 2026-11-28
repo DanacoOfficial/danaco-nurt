@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.rebase. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.rebase
@@ -119,7 +119,7 @@ git.rebase "/home/user/project" onto: "origin/main"
 Continue a rebase after the conflicts were resolved and staged.
 
 ```nurt example
-git.stage "/home/user/project" action: add paths: ["src/main.rs"]
+git.stage "/home/user/project" action: add paths: ["/home/user/project/src/main.rs"]
 git.rebase "/home/user/project" action: continue
 ```
 

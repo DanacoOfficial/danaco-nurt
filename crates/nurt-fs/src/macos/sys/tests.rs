@@ -6,7 +6,7 @@
 // Responsibility:   ACL text with one deny entry for the `everyone` group (gid 12), whose UUID is fixed on every macOS installation.
 // Dependencies:     nurt_contracts, tempfile
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 use std::ffi::{CString, OsString};

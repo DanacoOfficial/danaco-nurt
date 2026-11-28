@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::services::macos
-// Responsibility:   Launchd backend.
+// Responsibility:   The launchd backend of the service commands: definitions from property lists, state and changes through launchctl.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! launchd backend.

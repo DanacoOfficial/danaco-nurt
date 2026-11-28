@@ -316,6 +316,97 @@ program = 'find "/home/user/app" glob: "*.go" view: flat'
 corrections = [{ rule = 'V01', class = 'F', from = 'falt', to = 'flat' }]
 
 [[case]]
+id = 'correction/generated/value-typos/firewall-allow/direction-ibnound'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ibnound of direction is within the distance threshold of inbound only.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp direction: ibnound'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'V01', class = 'F', from = 'ibnound', to = 'inbound' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-allow/backend-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of backend is within the distance threshold of auto only.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp backend: atuo'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-deny/direction-ibnound'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ibnound of direction is within the distance threshold of inbound only.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp direction: ibnound'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'V01', class = 'F', from = 'ibnound', to = 'inbound' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-deny/backend-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of backend is within the distance threshold of auto only.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp backend: atuo'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-remove/direction-ibnound'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ibnound of direction is within the distance threshold of inbound only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp direction: ibnound'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'V01', class = 'F', from = 'ibnound', to = 'inbound' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-remove/backend-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of backend is within the distance threshold of auto only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp backend: atuo'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/firewall-rules/backend-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of backend is within the distance threshold of auto only.'
+method = "correct"
+program = 'firewall.rules backend: atuo'
+
+[case.expect]
+program = 'firewall.rules backend: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
 id = 'correction/generated/value-typos/git-merge/action-satrt'
 kind = "correction"
 class = "mandatory"

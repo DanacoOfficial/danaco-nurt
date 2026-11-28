@@ -6,7 +6,7 @@
 // Responsibility:   Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications and macOS application bundles, read from synthetic trees below a temporary root.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Providers of Homebrew, winget, Scoop, Chocolatey, Windows applications
@@ -337,6 +337,165 @@ fn winget_links_registry_and_tracking_database() {
     }
     let first = source.fingerprint(&env).unwrap();
     assert_eq!(first, source.fingerprint(&env).unwrap());
+}
+
+/// Tracking database as the package manager leaves it after `jqlang.jq` was
+/// installed in two versions: both rows stay, also when the package is
+/// removed. The row of the SDK carries the product code of the installer that
+/// the package manager ran and the name recorded for the comparison.
+fn tracking_db_with_product_codes(root: &Path) {
+    let db_dir = root.join(format!(
+        "c/Users/user/AppData/Local/{}",
+        winget::TRACKING_DIR.replace('\\', "/")
+    ));
+    std::fs::create_dir_all(&db_dir).unwrap();
+    let connection = rusqlite::Connection::open(db_dir.join(winget::TRACKING_DB)).unwrap();
+    connection
+        .execute_batch(
+            "CREATE TABLE ids(id TEXT);
+             CREATE TABLE names(name TEXT);
+             CREATE TABLE versions(version TEXT);
+             CREATE TABLE monikers(moniker TEXT);
+             CREATE TABLE manifest(id INTEGER, name INTEGER, version INTEGER, moniker INTEGER);
+             CREATE TABLE productcodes(productcode TEXT);
+             CREATE TABLE productcodes_map(manifest INTEGER, productcode INTEGER);
+             CREATE TABLE norm_names(norm_name TEXT);
+             CREATE TABLE norm_names_map(manifest INTEGER, norm_name INTEGER);
+             INSERT INTO ids(rowid, id)
+                 VALUES (1, 'Git.Git'), (2, 'jqlang.jq'), (3, 'Microsoft.DotNet.SDK.10');
+             INSERT INTO names(rowid, name)
+                 VALUES (1, 'Git'), (2, 'jq'), (3, 'Microsoft .NET SDK 10.0');
+             INSERT INTO versions(rowid, version)
+                 VALUES (1, '2.47.0'), (2, '1.7.1'), (3, '1.8.2'), (4, '10.0.401');
+             INSERT INTO manifest(rowid, id, name, version, moniker)
+                 VALUES (1, 1, 1, 1, NULL), (2, 2, 2, 2, NULL), (3, 2, 2, 3, NULL),
+                        (4, 3, 3, 4, NULL);
+             INSERT INTO productcodes(rowid, productcode)
+                 VALUES (1, 'git_is1'), (2, 'jqlang.jq_microsoft.winget.source_8wekyb3d8bbwe'),
+                        (3, '{106c9c71-2390-4214-9e7e-7ba47ffb1fab}');
+             INSERT INTO productcodes_map(manifest, productcode)
+                 VALUES (1, 1), (2, 2), (3, 2), (4, 3);
+             INSERT INTO norm_names(rowid, norm_name)
+                 VALUES (1, 'git'), (2, 'jq'), (3, 'microsoftnetsdk'), (4, 'microsoftnetsdk(X64)');
+             INSERT INTO norm_names_map(manifest, norm_name)
+                 VALUES (1, 1), (2, 2), (3, 2), (4, 3), (4, 4);",
+        )
+        .unwrap();
+}
+
+/// Registry with the uninstall entry of Git and, when `jq` names a version,
+/// the entry that the package manager writes for the portable package.
+fn uninstall_registry(jq: Option<&str>) -> MemoryRegistry {
+    let mut registry = MemoryRegistry::new();
+    registry.insert_value(
+        RegistryHive::LocalMachine,
+        RegistryView::Native,
+        &format!("{UNINSTALL}\\Git_is1"),
+        "DisplayVersion",
+        RegistryValue::String("2.47.0".to_owned()),
+    );
+    if let Some(version) = jq {
+        let key = format!("{UNINSTALL}\\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe");
+        for (name, value) in [
+            ("WinGetPackageIdentifier", "jqlang.jq"),
+            ("DisplayVersion", version),
+        ] {
+            registry.insert_value(
+                RegistryHive::CurrentUser,
+                RegistryView::Native,
+                &key,
+                name,
+                RegistryValue::String(value.to_owned()),
+            );
+        }
+    }
+    registry
+}
+
+fn version_of<'a>(data: &'a SourceData, name: &str) -> Option<&'a str> {
+    data.packages
+        .iter()
+        .find(|package| package.name == name)
+        .map(|package| package.version.as_deref().unwrap_or_default())
+}
+
+#[test]
+fn winget_package_removed_from_the_system_is_not_reported() {
+    let dir = tempfile::tempdir().unwrap();
+    tracking_db_with_product_codes(dir.path());
+    let env = windows_env(dir.path()).with_registry(Arc::new(uninstall_registry(None)));
+    let data = load(&WingetSource::new(), &env);
+    assert_eq!(version_of(&data, "Git.Git"), Some("2.47.0"));
+    assert_eq!(version_of(&data, "jqlang.jq"), None);
+}
+
+#[test]
+fn winget_reports_the_version_that_the_uninstall_entry_shows() {
+    let dir = tempfile::tempdir().unwrap();
+    tracking_db_with_product_codes(dir.path());
+    for installed in ["1.7.1", "1.8.2"] {
+        let registry = uninstall_registry(Some(installed));
+        let env = windows_env(dir.path()).with_registry(Arc::new(registry));
+        let data = load(&WingetSource::new(), &env);
+        assert_eq!(version_of(&data, "jqlang.jq"), Some(installed));
+        assert_eq!(version_of(&data, "Git.Git"), Some("2.47.0"));
+    }
+}
+
+#[test]
+fn winget_reports_a_package_that_its_installer_updated_under_a_new_product_code() {
+    let dir = tempfile::tempdir().unwrap();
+    tracking_db_with_product_codes(dir.path());
+    let env = windows_env(dir.path()).with_registry(Arc::new(uninstall_registry(None)));
+    assert_eq!(
+        version_of(&load(&WingetSource::new(), &env), "Microsoft.DotNet.SDK.10"),
+        None,
+        "no uninstall entry carries the product code or the name"
+    );
+    let mut registry = uninstall_registry(None);
+    registry.insert_value(
+        RegistryHive::LocalMachine,
+        RegistryView::Wow32,
+        &format!("{UNINSTALL}\\{{5C2F1A7E-0000-4000-8000-000000000402}}"),
+        "DisplayName",
+        RegistryValue::String("Microsoft .NET SDK 10.0.402 (x64)".to_owned()),
+    );
+    let env = windows_env(dir.path()).with_registry(Arc::new(registry));
+    let data = load(&WingetSource::new(), &env);
+    assert_eq!(
+        version_of(&data, "Microsoft.DotNet.SDK.10"),
+        Some("10.0.401")
+    );
+    assert_eq!(version_of(&data, "jqlang.jq"), None);
+}
+
+#[test]
+fn winget_comparison_names_drop_versions_architectures_and_brackets() {
+    for (name, reduced) in [
+        ("Git", "git"),
+        ("Node.js", "nodejs"),
+        ("Python 3.13.15 (64-bit)", "python"),
+        ("python(X64)", "python"),
+        ("Nullsoft Install System", "nullsoftinstallsystem"),
+        ("Microsoft .NET SDK 10.0.401 (x64)", "microsoftnetsdk"),
+        ("PowerShell 7-x64", "powershell"),
+        ("7-Zip 26.04 (x64 edition)", "7zip"),
+        ("Tool v2 x64", "tool"),
+        ("v8x64", "v"),
+        ("2048", ""),
+        ("", ""),
+    ] {
+        assert_eq!(winget::comparison_name(name), reduced, "{name}");
+    }
+}
+
+#[test]
+fn winget_without_a_registry_reports_every_tracked_package() {
+    let dir = tempfile::tempdir().unwrap();
+    tracking_db_with_product_codes(dir.path());
+    let data = load(&WingetSource::new(), &windows_env(dir.path()));
+    assert_eq!(version_of(&data, "Git.Git"), Some("2.47.0"));
+    assert_eq!(version_of(&data, "jqlang.jq"), Some("1.8.2"));
 }
 
 #[test]

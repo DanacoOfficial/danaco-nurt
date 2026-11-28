@@ -6,7 +6,7 @@
 # Responsibility:   Script generate_correction.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Generates the mutation and adversarial corpora of the correction suite.
@@ -183,6 +183,35 @@ SEEDS: dict[str, str] = {
     "analyze.show": "{cmd}",
     "analyze.format": '{cmd} "/home/user/app/src"',
     "analyze.tools": '{cmd} "/home/user/app"',
+    "next": "{cmd}",
+    "accounts.create": '{cmd} "deploy" shell: "/bin/sh"',
+    "accounts.modify": '{cmd} "deploy" shell: "/bin/sh"',
+    "accounts.password": '{cmd} "deploy" "s3cret"',
+    "accounts.remove": '{cmd} "deploy" keep_home: true',
+    "groups.create": '{cmd} "staff2"',
+    "groups.remove": '{cmd} "staff2"',
+    "groups.add_member": '{cmd} "staff2" "deploy"',
+    "groups.remove_member": '{cmd} "staff2" "deploy"',
+    "clock.ntp": "{cmd} on",
+    "clock.set": '{cmd} "2030-01-01T00:00:00Z"',
+    "clock.timezone_set": '{cmd} "Europe/Warsaw"',
+    "disks.format": '{cmd} "/dev/sdb1" fs: ext4 label: "data"',
+    "disks.partition": '{cmd} "/dev/sdb" action: create size: 10gb',
+    "firewall.rules": "{cmd}",
+    "firewall.allow": "{cmd} 8080 protocol: tcp",
+    "firewall.deny": "{cmd} 8080 protocol: tcp",
+    "firewall.remove": "{cmd} 8080 protocol: tcp",
+    "modules.load": '{cmd} "dummy"',
+    "modules.unload": '{cmd} "dummy"',
+    "mount": '{cmd} "/dev/sdb1" "/mnt/data"',
+    "unmount": '{cmd} "/mnt/data"',
+    "network.dns_set": '{cmd} ["1.1.1.1"]',
+    "network.route_add": '{cmd} "198.51.100.0/24" gateway: "192.0.2.1"',
+    "network.route_remove": '{cmd} "198.51.100.0/24" gateway: "192.0.2.1"',
+    "power.cancel": "{cmd}",
+    "power.restart": "{cmd} delay: 5m",
+    "power.shutdown": "{cmd} delay: 5m",
+    "sysctl.set": '{cmd} "net.ipv4.ip_forward" 1',
 }
 """Valid seed program of every command; `{cmd}` marks the stage under test, which is last."""
 

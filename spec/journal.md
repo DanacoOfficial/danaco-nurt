@@ -203,6 +203,7 @@ not repeat the `stat`.
 | After `committed` | The entry is complete and can be undone. |
 | During reclaim (`expiring`) | The removal of the entry data is completed. |
 | Manifest fails its integrity check | The entry becomes `corrupt`; its data is kept for manual salvage. |
+| The rollback cannot be made: the previous content of a target cannot be located, or the directory that held a target no longer exists | Nothing is changed; the entry becomes `corrupt`, and its data is kept for manual salvage. The entry is not tried again. |
 
 The manifest of an operation with at least 256 targets has format version 2:
 the target records are packed (`targets_z`: the JSON array compressed with
@@ -256,7 +257,7 @@ the report shows `hardlink_set_preserved`.
 | `undone` | `undone` | Undone completely; cause `undo`, `rolled_back`, `crash`, `verify_failed` or `validate_failed`. |
 | `expiring` | `expired` | Being reclaimed. |
 | `expired` | `expired` | Only a tombstone remains for `history`. |
-| `corrupt` | `expired` | Failed its integrity check. |
+| `corrupt` | `expired` | Failed its integrity check, or could not be rolled back after a crash. |
 
 ## 7. Admission and space priority
 

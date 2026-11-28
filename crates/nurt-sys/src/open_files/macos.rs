@@ -6,7 +6,7 @@
 // Responsibility:   Holders of files on macOS, from the process information interface of the kernel.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Holders of files on macOS, from the process information interface of

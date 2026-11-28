@@ -6,15 +6,16 @@
 # Responsibility:   Configuration or catalog data of Cargo.toml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["packaging/windows-installer"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
@@ -47,51 +48,51 @@ private_intra_doc_links = "warn"
 
 [workspace.dependencies]
 # Workspace crates.
-nurt-contracts = { path = "crates/nurt-contracts", version = "0.1.1" }
-nurt-types = { path = "crates/nurt-types", version = "0.1.1" }
-nurt-catalog = { path = "crates/nurt-catalog", version = "0.1.1" }
-nurt-syntax = { path = "crates/nurt-syntax", version = "0.1.1" }
-nurt-correct = { path = "crates/nurt-correct", version = "0.1.1" }
-nurt-bind = { path = "crates/nurt-bind", version = "0.1.1" }
-nurt-help = { path = "crates/nurt-help", version = "0.1.1" }
-nurt-langserver = { path = "crates/nurt-langserver", version = "0.1.1" }
-nurt-migrate = { path = "crates/nurt-migrate", version = "0.1.1" }
-nurt-fs = { path = "crates/nurt-fs", version = "0.1.1" }
-nurt-journal = { path = "crates/nurt-journal", version = "0.1.1" }
-nurt-space = { path = "crates/nurt-space", version = "0.1.1" }
-nurt-plan = { path = "crates/nurt-plan", version = "0.1.1" }
-nurt-exec = { path = "crates/nurt-exec", version = "0.1.1" }
-nurt-report = { path = "crates/nurt-report", version = "0.1.1" }
-nurt-core = { path = "crates/nurt-core", version = "0.1.1" }
-nurt-ffi = { path = "crates/nurt-ffi", version = "0.1.1" }
-nurt-cli = { path = "crates/nurt-cli", version = "0.1.1" }
-nurt-ext = { path = "crates/nurt-ext", version = "0.1.1" }
-nurt-testkit = { path = "crates/nurt-testkit", version = "0.1.1" }
-nurt-files = { path = "crates/nurt-files", version = "0.1.1" }
-nurt-text = { path = "crates/nurt-text", version = "0.1.1" }
-nurt-archive = { path = "crates/nurt-archive", version = "0.1.1" }
-nurt-notebook = { path = "crates/nurt-notebook", version = "0.1.1" }
-nurt-doc = { path = "crates/nurt-doc", version = "0.1.1" }
-nurt-code = { path = "crates/nurt-code", version = "0.1.1" }
-nurt-lspclient = { path = "crates/nurt-lspclient", version = "0.1.1" }
-nurt-git = { path = "crates/nurt-git", version = "0.1.1" }
-nurt-git-ops = { path = "crates/nurt-git-ops", version = "0.1.1" }
-nurt-git-transport = { path = "crates/nurt-git-transport", version = "0.1.1" }
-nurt-git-difftest = { path = "crates/nurt-git-difftest", version = "0.1.1" }
-nurt-proc = { path = "crates/nurt-proc", version = "0.1.1" }
-nurt-verify = { path = "crates/nurt-verify", version = "0.1.1" }
-nurt-sys = { path = "crates/nurt-sys", version = "0.1.1" }
-nurt-syslog = { path = "crates/nurt-syslog", version = "0.1.1" }
-nurt-net = { path = "crates/nurt-net", version = "0.1.1" }
-nurt-sched = { path = "crates/nurt-sched", version = "0.1.1" }
-nurt-programs = { path = "crates/nurt-programs", version = "0.1.1" }
-nurt-service = { path = "crates/nurt-service", version = "0.1.1" }
-nurt-mcp = { path = "crates/nurt-mcp", version = "0.1.1" }
-nurt-conformance = { path = "crates/nurt-conformance", version = "0.1.1" }
-nurt-bench = { path = "crates/nurt-bench", version = "0.1.1" }
-nurt-tooldef = { path = "crates/nurt-tooldef", version = "0.1.1" }
-nurt-docgen = { path = "crates/nurt-docgen", version = "0.1.1" }
-nurt = { path = "crates/nurt", version = "0.1.1" }
+nurt-contracts = { path = "crates/nurt-contracts", version = "0.1.2" }
+nurt-types = { path = "crates/nurt-types", version = "0.1.2" }
+nurt-catalog = { path = "crates/nurt-catalog", version = "0.1.2" }
+nurt-syntax = { path = "crates/nurt-syntax", version = "0.1.2" }
+nurt-correct = { path = "crates/nurt-correct", version = "0.1.2" }
+nurt-bind = { path = "crates/nurt-bind", version = "0.1.2" }
+nurt-help = { path = "crates/nurt-help", version = "0.1.2" }
+nurt-langserver = { path = "crates/nurt-langserver", version = "0.1.2" }
+nurt-migrate = { path = "crates/nurt-migrate", version = "0.1.2" }
+nurt-fs = { path = "crates/nurt-fs", version = "0.1.2" }
+nurt-journal = { path = "crates/nurt-journal", version = "0.1.2" }
+nurt-space = { path = "crates/nurt-space", version = "0.1.2" }
+nurt-plan = { path = "crates/nurt-plan", version = "0.1.2" }
+nurt-exec = { path = "crates/nurt-exec", version = "0.1.2" }
+nurt-report = { path = "crates/nurt-report", version = "0.1.2" }
+nurt-core = { path = "crates/nurt-core", version = "0.1.2" }
+nurt-ffi = { path = "crates/nurt-ffi", version = "0.1.2" }
+nurt-cli = { path = "crates/nurt-cli", version = "0.1.2" }
+nurt-ext = { path = "crates/nurt-ext", version = "0.1.2" }
+nurt-testkit = { path = "crates/nurt-testkit", version = "0.1.2" }
+nurt-files = { path = "crates/nurt-files", version = "0.1.2" }
+nurt-text = { path = "crates/nurt-text", version = "0.1.2" }
+nurt-archive = { path = "crates/nurt-archive", version = "0.1.2" }
+nurt-notebook = { path = "crates/nurt-notebook", version = "0.1.2" }
+nurt-doc = { path = "crates/nurt-doc", version = "0.1.2" }
+nurt-code = { path = "crates/nurt-code", version = "0.1.2" }
+nurt-lspclient = { path = "crates/nurt-lspclient", version = "0.1.2" }
+nurt-git = { path = "crates/nurt-git", version = "0.1.2" }
+nurt-git-ops = { path = "crates/nurt-git-ops", version = "0.1.2" }
+nurt-git-transport = { path = "crates/nurt-git-transport", version = "0.1.2" }
+nurt-git-difftest = { path = "crates/nurt-git-difftest", version = "0.1.2" }
+nurt-proc = { path = "crates/nurt-proc", version = "0.1.2" }
+nurt-verify = { path = "crates/nurt-verify", version = "0.1.2" }
+nurt-sys = { path = "crates/nurt-sys", version = "0.1.2" }
+nurt-syslog = { path = "crates/nurt-syslog", version = "0.1.2" }
+nurt-net = { path = "crates/nurt-net", version = "0.1.2" }
+nurt-sched = { path = "crates/nurt-sched", version = "0.1.2" }
+nurt-programs = { path = "crates/nurt-programs", version = "0.1.2" }
+nurt-service = { path = "crates/nurt-service", version = "0.1.2" }
+nurt-mcp = { path = "crates/nurt-mcp", version = "0.1.2" }
+nurt-conformance = { path = "crates/nurt-conformance", version = "0.1.2" }
+nurt-bench = { path = "crates/nurt-bench", version = "0.1.2" }
+nurt-tooldef = { path = "crates/nurt-tooldef", version = "0.1.2" }
+nurt-docgen = { path = "crates/nurt-docgen", version = "0.1.2" }
+nurt = { path = "crates/nurt", version = "0.1.2" }
 
 # Text, search and encodings.
 regex = "1.13.2"

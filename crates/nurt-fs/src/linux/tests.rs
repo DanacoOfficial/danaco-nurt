@@ -6,7 +6,7 @@
 // Responsibility:   Tests of the Linux back end on the file systems of the test host.
 // Dependencies:     nurt_contracts, rustix, tempfile
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests of the Linux back end on the file systems of the test host.

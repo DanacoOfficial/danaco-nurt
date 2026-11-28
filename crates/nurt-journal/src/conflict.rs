@@ -6,7 +6,7 @@
 // Responsibility:   Undo check: comparison of the current state of items with the journal.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Undo check: comparison of the current state of items with the journal.
@@ -561,6 +561,16 @@ pub(crate) fn partial_error(
         [single] => error.with_detail("op", Value::from(*single)),
         _ => error.with_detail("ops", Value::from(numbers)),
     }
+}
+
+/// `E_IO` for an undo or redo that the journal cannot record: the journal did
+/// not start, or it assigned no entry to the restoring operation.
+pub(crate) fn unrecorded_error() -> Error {
+    Error::new(
+        ErrorCode::Io,
+        "the journal is not available, so the restoration cannot be recorded; nothing changed, run doctor for the cause",
+    )
+    .with_problem("journal_unavailable")
 }
 
 /// `E_ROLLBACK_FAILED` listing the items that were not restored.

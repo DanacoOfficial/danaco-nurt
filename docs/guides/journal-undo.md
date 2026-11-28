@@ -11,7 +11,7 @@ commands: [history, undo, redo, journal.status, journal.space, journal.limits, j
 <!-- Responsibility:   Documents journal-undo. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # journal-undo
@@ -30,7 +30,7 @@ history path: "/srv/app/main.go"
 `undo` reverts the last operation, or the operation named by `id`. `to` and `since` revert several operations, newest first, and `paths` restores only the named paths of an operation. `redo` applies an undone operation again. Undo repairs a mistake that is visible in the result; checking with `preview: true` or `assert` before the change is still the safer course.
 
 ```nurt
-undo paths: ["/srv/app/main.go"]
+undo 18 paths: ["/srv/app/main.go"]
 redo
 ```
 

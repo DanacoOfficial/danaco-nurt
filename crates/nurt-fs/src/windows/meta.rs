@@ -6,7 +6,7 @@
 // Responsibility:   Conversion of Windows file information to the portable metadata model.
 // Dependencies:     attributes, nurt_contracts, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Conversion of Windows file information to the portable metadata model.
@@ -222,11 +222,28 @@ pub fn classify_kind(attributes: u32, reparse_tag: u32) -> FileKind {
     }
 }
 
-/// Whether recursive operations must treat the entry as a leaf: every reparse
-/// point is removed itself and never entered.
+/// Reparse tag of the placeholders of the cloud file providers (OneDrive files
+/// on demand and others), without the provider number in bits 12 to 15.
+const CLOUD_TAG: u32 = 0x9000_001A;
+
+/// Bits of a reparse tag that stay when the provider number is cleared.
+const CLOUD_TAG_MASK: u32 = 0xFFFF_0FFF;
+
+/// Whether the reparse tag is that of a cloud placeholder.
 #[must_use]
-pub fn is_leaf_for_recursion(attributes: u32) -> bool {
-    attributes & DIRECTORY == 0 || attributes & REPARSE_POINT != 0
+pub fn is_cloud_placeholder_tag(reparse_tag: u32) -> bool {
+    reparse_tag & CLOUD_TAG_MASK == CLOUD_TAG
+}
+
+/// Whether recursive operations must treat the entry as a leaf: a reparse
+/// point is removed itself and never entered, except the directory placeholder
+/// of a cloud provider, which is an ordinary directory whose content is listed
+/// and removed entry by entry (a link, a junction or a network link of a
+/// distributed file system would lead outside the tree).
+#[must_use]
+pub fn is_leaf_for_recursion(attributes: u32, reparse_tag: u32) -> bool {
+    attributes & DIRECTORY == 0
+        || (attributes & REPARSE_POINT != 0 && !is_cloud_placeholder_tag(reparse_tag))
 }
 
 /// File identity from the volume serial number and the 128-bit file id of
@@ -471,10 +488,35 @@ mod tests {
 
     #[test]
     fn never_enters_reparse_points() {
-        assert!(!is_leaf_for_recursion(DIRECTORY));
-        assert!(is_leaf_for_recursion(DIRECTORY | REPARSE_POINT));
-        assert!(is_leaf_for_recursion(0));
-        assert!(is_leaf_for_recursion(REPARSE_POINT));
+        assert!(!is_leaf_for_recursion(DIRECTORY, 0));
+        assert!(is_leaf_for_recursion(DIRECTORY | REPARSE_POINT, 0));
+        assert!(is_leaf_for_recursion(
+            DIRECTORY | REPARSE_POINT,
+            reparse_tags::SYMLINK
+        ));
+        assert!(is_leaf_for_recursion(
+            DIRECTORY | REPARSE_POINT,
+            reparse_tags::MOUNT_POINT
+        ));
+        assert!(is_leaf_for_recursion(0, 0));
+        assert!(is_leaf_for_recursion(REPARSE_POINT, 0));
+    }
+
+    #[test]
+    fn enters_the_directory_placeholders_of_cloud_providers() {
+        for tag in [0x9000_001A, 0x9000_101A, 0x9000_F01A] {
+            assert!(is_cloud_placeholder_tag(tag), "{tag:#x}");
+            assert!(!is_leaf_for_recursion(DIRECTORY | REPARSE_POINT, tag));
+            assert!(is_leaf_for_recursion(REPARSE_POINT, tag));
+        }
+        for tag in [
+            0,
+            reparse_tags::SYMLINK,
+            reparse_tags::MOUNT_POINT,
+            0x8000_000A,
+        ] {
+            assert!(!is_cloud_placeholder_tag(tag), "{tag:#x}");
+        }
     }
 
     #[test]

@@ -6,7 +6,7 @@
 // Responsibility:   Recursive removal that never enters reparse points.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Recursive removal that never enters reparse points.
@@ -22,6 +22,7 @@ use nurt_contracts::fs::{
 
 use super::WindowsFs;
 use super::handle::{RawEntry, WidePath, list_dir};
+use crate::windows::meta::attributes::REPARSE_POINT;
 use crate::windows::meta::{classify_kind, is_leaf_for_recursion};
 
 const OP: &str = "remove_tree";
@@ -56,7 +57,7 @@ impl WindowsFs {
         for entry in entries {
             let entry = entry.map_err(|code| Self::error(code, OP, dir, &[]))?;
             let path = child(dir, &entry)?;
-            if is_leaf_for_recursion(entry.attributes) {
+            if is_leaf_for_recursion(entry.attributes, entry.reparse_tag) {
                 self.delete(&path, OP)?;
                 let kind = classify_kind(entry.attributes, entry.reparse_tag);
                 add(stats, leaf_stats(kind, entry.size));
@@ -96,7 +97,12 @@ impl WindowsFs {
         parallelism: usize,
     ) -> FsResult<RemoveStats> {
         let meta = self.metadata(path, Follow::NoFollow)?;
-        if is_leaf_for_recursion(meta.windows_attributes) {
+        let reparse_tag = if meta.windows_attributes & REPARSE_POINT == 0 {
+            0
+        } else {
+            self.reparse_tag_of(path)?
+        };
+        if is_leaf_for_recursion(meta.windows_attributes, reparse_tag) {
             self.delete(path, OP)?;
             return Ok(leaf_stats(meta.kind, meta.size));
         }

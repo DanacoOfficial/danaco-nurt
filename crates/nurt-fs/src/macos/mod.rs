@@ -6,7 +6,7 @@
 // Responsibility:   MacOS back end.
 // Dependencies:     acl, attrlist, errno, meta, names, space, sys, volume
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! macOS back end.
@@ -38,6 +38,8 @@ mod volume;
 
 #[cfg(target_os = "macos")]
 pub use sys::MacosFs;
+#[cfg(target_os = "macos")]
+pub(crate) use sys::{entry_meta, fd_meta, restore_meta_file, set_meta_file};
 
 pub use acl::{ACL_TEXT_HEADER, AclTextError, acl_from_system_text, acl_text_for_system};
 pub use attrlist::{

@@ -7,7 +7,7 @@
 # Responsibility:   Prepares the images that the mockup scenes of mockups.py need from the sources of the identity.
 # Dependencies:     argparse, importlib.util, subprocess, sys, tempfile, pathlib, PIL
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Prepare the images that the mockup scenes of mockups.py need.

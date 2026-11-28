@@ -7,7 +7,7 @@
 # Responsibility:   Prepares the file-backed volumes that the ignored volume tests of the repository mount.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 #
@@ -24,9 +24,11 @@
 #   NURT_TEST_QUOTA_DIR          ext4, 128 MiB, mounted with user quota
 #   NURT_TEST_OVERLAY_DIR        overlay, upper layer on ext4 of 256 MiB, directory
 #                                "lower" of 8 MiB from the lower layer
-#   NURT_TEST_OVERLAY_SMALL_DIR  overlay, upper layer on ext4 of 48 MiB (about 38 MiB
-#                                free), directory "lower" of 48 MiB from the lower
-#                                layer, so that a copy of "lower" does not fit
+#   NURT_TEST_OVERLAY_SMALL_DIR  overlay, upper layer on ext4 of 48 MiB without
+#                                blocks reserved for root (about 40 MiB free),
+#                                directory "lower" of 48 MiB from the lower layer,
+#                                so that a copy of "lower" does not fit, also for
+#                                a test that runs as root
 #   NURT_TEST_TMPFS_DIR          tmpfs, 64 MiB
 #
 # Usage: tools/ci/prepare-test-volumes.sh up <work-dir>
@@ -117,7 +119,7 @@ up() {
   format_mount overlay-upper "$device" ext4 defaults -F
   overlay overlay overlay-upper 8
   device=$(attach overlay-small-upper 48)
-  format_mount overlay-small-upper "$device" ext4 defaults -F
+  format_mount overlay-small-upper "$device" ext4 defaults -F -m 0
   overlay overlay-small overlay-small-upper 48
 
   mkdir -p "$mnt/tmpfs"

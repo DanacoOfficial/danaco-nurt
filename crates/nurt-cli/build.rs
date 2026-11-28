@@ -6,7 +6,7 @@
 // Responsibility:   Build script of the command line program.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Build script of the command line program.
@@ -17,6 +17,11 @@
 //! execution level `asInvoker` (the program runs with the rights of the
 //! terminal that starts it, so an elevated terminal gives it administrator
 //! rights), long path support and the UTF-8 code page.
+//!
+//! The same target reserves 8 MiB for the stack of the main thread. The linker
+//! of the MSVC toolchain reserves 1 MiB by default, an eighth of the stack of
+//! the main thread on Linux, on which the depth limits of the program were
+//! set.
 //!
 //! The resource compiler is `llvm-rc` or `rc.exe`; the variable `NURT_RC`
 //! names a different one. When no compiler is found the build continues
@@ -31,6 +36,9 @@ use std::process::Command;
 
 /// Name of the resource compiler that is searched when `NURT_RC` is not set.
 const COMPILERS: [&str; 2] = ["llvm-rc", "rc"];
+/// Bytes that the linker reserves for the stack of the main thread of
+/// `nurt.exe`: 8 MiB, the size of the stack of the main thread on Linux.
+const MAIN_STACK_BYTES: u32 = 8 * 1024 * 1024;
 
 fn main() -> Result<(), String> {
     let mut out = std::io::stdout();
@@ -48,6 +56,9 @@ fn main() -> Result<(), String> {
     if target_os != "windows" || target_env != "msvc" {
         return Ok(());
     }
+
+    writeln!(out, "cargo:rustc-link-arg-bins=/STACK:{MAIN_STACK_BYTES}")
+        .map_err(|error| error.to_string())?;
 
     let required = env::var("NURT_REQUIRE_RESOURCES").is_ok_and(|value| value == "1");
     match compile_resources() {
@@ -126,7 +137,10 @@ fn compile_resources() -> Result<PathBuf, String> {
     ] {
         let text = fs::read_to_string(source.join(template))
             .map_err(|error| format!("{template}: {error}"))?;
-        let text = version.fill(&text).replace("@ICON@", icon_line);
+        let mut text = version.fill(&text).replace("@ICON@", icon_line);
+        if name == "nurt.manifest" {
+            text = strip_xml_comments(&text);
+        }
         fs::write(out_dir.join(name), text).map_err(|error| format!("{name}: {error}"))?;
     }
 
@@ -136,6 +150,35 @@ fn compile_resources() -> Result<PathBuf, String> {
     let resource = out_dir.join("nurt.res");
     run_compiler(&compiler, &out_dir, &resource)?;
     Ok(resource)
+}
+
+/// The XML text without its comments and without the empty lines they leave.
+///
+/// The header and the footer of the template of the manifest are comments. The
+/// loader of Windows reads the manifest of an executable more strictly than a
+/// general XML parser and refuses a manifest it cannot read ("the side-by-side
+/// configuration is incorrect"), so the embedded copy keeps the declaration
+/// and the elements only.
+fn strip_xml_comments(text: &str) -> String {
+    let mut stripped = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("<!--") {
+        stripped.push_str(&rest[..start]);
+        match rest[start..].find("-->") {
+            Some(end) => rest = &rest[start + end + "-->".len()..],
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    stripped.push_str(rest);
+    let mut lines: Vec<&str> = stripped
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    lines.push("");
+    lines.join("\n")
 }
 
 /// Resource compiler named by `NURT_RC` or the first one found in `PATH`.

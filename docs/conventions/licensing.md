@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Licensing conventions. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Licensing conventions
@@ -126,7 +126,7 @@ The following crates are banned in `deny.toml`:
 | `sequoia-openpgp` | LGPL-2.0-or-later | GnuPG, started as a program |
 | `openssl`, `openssl-sys` | system OpenSSL library | `rustls` |
 | `git2`, `libgit2-sys` | libgit2 (GPL-2.0 with a linking exception) | `gix` |
-| `serde_yaml` | deprecated and unmaintained | `yaml-edit`, `saphyr` |
+| `serde_yaml` | deprecated and unmaintained | `saphyr`, `saphyr-parser` |
 | `ini` | dual licensed with LGPL-3.0-or-later | `rust-ini` and an own parser |
 | `libsystemd-sys` | libsystemd (LGPL-2.1) | `zbus`; native reader of journal files |
 | `unrar`, `unrar_sys` | the UnRAR license forbids creating a RAR compressor | none |

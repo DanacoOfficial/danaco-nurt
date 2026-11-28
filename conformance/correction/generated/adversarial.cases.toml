@@ -52,6 +52,250 @@ program = "write \"/home/user/notes/acocunts.txt\" \"acocunts\\n\" mode: create"
 program = "write \"/home/user/notes/acocunts.txt\" \"acocunts\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/first-character/accounts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qccounts.create differs from accounts.create in the first character, which is never corrected.'
+method = "correct"
+program = 'qccounts.create "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/accounts-create-acocnuts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocnuts.create is two edits from the changing command accounts.create; the correction is offered, not applied.'
+method = "correct"
+program = 'acocnuts.create "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.create "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-acocunts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.create inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/acocunts-create.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/acocunts-create.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-acocunts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.create inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "acocunts.create" "/home/user/app"'
+
+[case.expect]
+program = 'search "acocunts.create" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-acocunts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.create inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/acocunts-create.txt\" \"acocunts.create\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/acocunts-create.txt\" \"acocunts.create\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/accounts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qccounts.modify differs from accounts.modify in the first character, which is never corrected.'
+method = "correct"
+program = 'qccounts.modify "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/accounts-modify-acocnuts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocnuts.modify is two edits from the changing command accounts.modify; the correction is offered, not applied.'
+method = "correct"
+program = 'acocnuts.modify "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.modify "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-acocunts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.modify inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/acocunts-modify.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/acocunts-modify.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-acocunts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.modify inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "acocunts.modify" "/home/user/app"'
+
+[case.expect]
+program = 'search "acocunts.modify" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-acocunts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.modify inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/acocunts-modify.txt\" \"acocunts.modify\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/acocunts-modify.txt\" \"acocunts.modify\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/accounts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qccounts.password differs from accounts.password in the first character, which is never corrected.'
+method = "correct"
+program = 'qccounts.password "deploy" "s3cret"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/accounts-password-acocnuts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocnuts.password is two edits from the changing command accounts.password; the correction is offered, not applied.'
+method = "correct"
+program = 'acocnuts.password "deploy" "s3cret"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.password "deploy" "s3cret"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-acocunts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.password inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/acocunts-password.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/acocunts-password.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-acocunts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.password inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "acocunts.password" "/home/user/app"'
+
+[case.expect]
+program = 'search "acocunts.password" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-acocunts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.password inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/acocunts-password.txt\" \"acocunts.password\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/acocunts-password.txt\" \"acocunts.password\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/accounts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qccounts.remove differs from accounts.remove in the first character, which is never corrected.'
+method = "correct"
+program = 'qccounts.remove "deploy" keep_home: true'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/accounts-remove-acocnuts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocnuts.remove is two edits from the changing command accounts.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'acocnuts.remove "deploy" keep_home: true'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.remove "deploy" keep_home: true' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-acocunts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/acocunts-remove.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/acocunts-remove.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-acocunts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "acocunts.remove" "/home/user/app"'
+
+[case.expect]
+program = 'search "acocunts.remove" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-acocunts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name acocunts.remove inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/acocunts-remove.txt\" \"acocunts.remove\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/acocunts-remove.txt\" \"acocunts.remove\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/first-character/analyze-check'
 kind = "correction"
 class = "mandatory"
@@ -559,6 +803,189 @@ program = "write \"/home/user/notes/atrtibutes.txt\" \"atrtibutes\\n\" mode: cre
 
 [case.expect]
 program = "write \"/home/user/notes/atrtibutes.txt\" \"atrtibutes\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/clock-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qlock.ntp differs from clock.ntp in the first character, which is never corrected.'
+method = "correct"
+program = 'qlock.ntp on'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/clock-ntp-colkc-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colkc.ntp is two edits from the changing command clock.ntp; the correction is offered, not applied.'
+method = "correct"
+program = 'colkc.ntp on'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.ntp on' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-colck-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.ntp inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/colck-ntp.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/colck-ntp.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-colck-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.ntp inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "colck.ntp" "/home/user/app"'
+
+[case.expect]
+program = 'search "colck.ntp" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-colck-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.ntp inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/colck-ntp.txt\" \"colck.ntp\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/colck-ntp.txt\" \"colck.ntp\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/clock-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qlock.set differs from clock.set in the first character, which is never corrected.'
+method = "correct"
+program = 'qlock.set "2030-01-01T00:00:00Z"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/clock-set-colkc-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colkc.set is two edits from the changing command clock.set; the correction is offered, not applied.'
+method = "correct"
+program = 'colkc.set "2030-01-01T00:00:00Z"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.set "2030-01-01T00:00:00Z"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-colck-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.set inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/colck-set.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/colck-set.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-colck-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.set inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "colck.set" "/home/user/app"'
+
+[case.expect]
+program = 'search "colck.set" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-colck-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.set inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/colck-set.txt\" \"colck.set\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/colck-set.txt\" \"colck.set\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/clock-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qlock.timezone_set differs from clock.timezone_set in the first character, which is never corrected.'
+method = "correct"
+program = 'qlock.timezone_set "Europe/Warsaw"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/clock-timezone-set-colkc-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colkc.timezone_set is two edits from the changing command clock.timezone_set; the correction is offered, not applied.'
+method = "correct"
+program = 'colkc.timezone_set "Europe/Warsaw"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.timezone_set "Europe/Warsaw"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-colck-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.timezone_set inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/colck-timezone_set.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/colck-timezone_set.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-colck-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.timezone_set inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "colck.timezone_set" "/home/user/app"'
+
+[case.expect]
+program = 'search "colck.timezone_set" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-colck-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name colck.timezone_set inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/colck-timezone_set.txt\" \"colck.timezone_set\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/colck-timezone_set.txt\" \"colck.timezone_set\\n\" mode: create"
 
 [[case]]
 id = 'correction/generated/adversarial/first-character/code-actions'
@@ -1367,18 +1794,6 @@ program = "write \"/home/user/notes/cpoy.txt\" \"cpoy\\n\" mode: create"
 program = "write \"/home/user/notes/cpoy.txt\" \"cpoy\\n\" mode: create"
 
 [[case]]
-id = 'correction/generated/adversarial/first-character/count'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The name qount differs from count in the first character, which is never corrected.'
-method = "correct"
-program = 'find "/home/user/app" |> qount'
-
-[case.expect.error]
-code = 'E_UNKNOWN_COMMAND'
-
-[[case]]
 id = 'correction/generated/adversarial/literal/path-cuont'
 kind = "correction"
 class = "mandatory"
@@ -1764,6 +2179,128 @@ program = "write \"/home/user/notes/dsiks.txt\" \"dsiks\\n\" mode: create"
 program = "write \"/home/user/notes/dsiks.txt\" \"dsiks\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/first-character/disks-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qisks.format differs from disks.format in the first character, which is never corrected.'
+method = "correct"
+program = 'qisks.format "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/disks-format-dsisk-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsisk.format is two edits from the changing command disks.format; the correction is offered, not applied.'
+method = "correct"
+program = 'dsisk.format "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.format "/dev/sdb1" fs: ext4 label: "data"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-dsiks-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.format inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/dsiks-format.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/dsiks-format.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-dsiks-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.format inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "dsiks.format" "/home/user/app"'
+
+[case.expect]
+program = 'search "dsiks.format" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-dsiks-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.format inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/dsiks-format.txt\" \"dsiks.format\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/dsiks-format.txt\" \"dsiks.format\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/disks-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qisks.partition differs from disks.partition in the first character, which is never corrected.'
+method = "correct"
+program = 'qisks.partition "/dev/sdb" action: create size: 10gb'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/disks-partition-dsisk-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsisk.partition is two edits from the changing command disks.partition; the correction is offered, not applied.'
+method = "correct"
+program = 'dsisk.partition "/dev/sdb" action: create size: 10gb'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.partition "/dev/sdb" action: create size: 10gb' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-dsiks-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.partition inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/dsiks-partition.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/dsiks-partition.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-dsiks-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.partition inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "dsiks.partition" "/home/user/app"'
+
+[case.expect]
+program = 'search "dsiks.partition" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-dsiks-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name dsiks.partition inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/dsiks-partition.txt\" \"dsiks.partition\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/dsiks-partition.txt\" \"dsiks.partition\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/first-character/distinct'
 kind = "correction"
 class = "mandatory"
@@ -2122,6 +2659,237 @@ program = "write \"/home/user/notes/fnid.txt\" \"fnid\\n\" mode: create"
 
 [case.expect]
 program = "write \"/home/user/notes/fnid.txt\" \"fnid\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/firewall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qirewall.allow differs from firewall.allow in the first character, which is never corrected.'
+method = "correct"
+program = 'qirewall.allow 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/firewall-allow-friweall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friweall.allow is two edits from the changing command firewall.allow; the correction is offered, not applied.'
+method = "correct"
+program = 'friweall.allow 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.allow 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-friewall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.allow inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/friewall-allow.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/friewall-allow.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-friewall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.allow inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "friewall.allow" "/home/user/app"'
+
+[case.expect]
+program = 'search "friewall.allow" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-friewall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.allow inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/friewall-allow.txt\" \"friewall.allow\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/friewall-allow.txt\" \"friewall.allow\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/firewall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qirewall.deny differs from firewall.deny in the first character, which is never corrected.'
+method = "correct"
+program = 'qirewall.deny 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/firewall-deny-friweall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friweall.deny is two edits from the changing command firewall.deny; the correction is offered, not applied.'
+method = "correct"
+program = 'friweall.deny 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.deny 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-friewall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.deny inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/friewall-deny.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/friewall-deny.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-friewall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.deny inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "friewall.deny" "/home/user/app"'
+
+[case.expect]
+program = 'search "friewall.deny" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-friewall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.deny inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/friewall-deny.txt\" \"friewall.deny\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/friewall-deny.txt\" \"friewall.deny\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/firewall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qirewall.remove differs from firewall.remove in the first character, which is never corrected.'
+method = "correct"
+program = 'qirewall.remove 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/firewall-remove-friweall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friweall.remove is two edits from the changing command firewall.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'friweall.remove 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.remove 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-friewall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/friewall-remove.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/friewall-remove.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-friewall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "friewall.remove" "/home/user/app"'
+
+[case.expect]
+program = 'search "friewall.remove" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-friewall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.remove inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/friewall-remove.txt\" \"friewall.remove\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/friewall-remove.txt\" \"friewall.remove\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/firewall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qirewall.rules differs from firewall.rules in the first character, which is never corrected.'
+method = "correct"
+program = 'qirewall.rules'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-friewall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.rules inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/friewall-rules.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/friewall-rules.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-friewall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.rules inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "friewall.rules" "/home/user/app"'
+
+[case.expect]
+program = 'search "friewall.rules" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-friewall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name friewall.rules inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/friewall-rules.txt\" \"friewall.rules\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/friewall-rules.txt\" \"friewall.rules\\n\" mode: create"
 
 [[case]]
 id = 'correction/generated/adversarial/tie/first-fist'
@@ -3543,6 +4311,250 @@ program = "write \"/home/user/notes/gorup.txt\" \"gorup\\n\" mode: create"
 program = "write \"/home/user/notes/gorup.txt\" \"gorup\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/first-character/groups-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qroups.add_member differs from groups.add_member in the first character, which is never corrected.'
+method = "correct"
+program = 'qroups.add_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/groups-add-member-gorpus-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorpus.add_member is two edits from the changing command groups.add_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gorpus.add_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.add_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-gorups-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.add_member inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/gorups-add_member.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/gorups-add_member.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-gorups-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.add_member inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "gorups.add_member" "/home/user/app"'
+
+[case.expect]
+program = 'search "gorups.add_member" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-gorups-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.add_member inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/gorups-add_member.txt\" \"gorups.add_member\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/gorups-add_member.txt\" \"gorups.add_member\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/groups-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qroups.create differs from groups.create in the first character, which is never corrected.'
+method = "correct"
+program = 'qroups.create "staff2"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/groups-create-gorpus-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorpus.create is two edits from the changing command groups.create; the correction is offered, not applied.'
+method = "correct"
+program = 'gorpus.create "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.create "staff2"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-gorups-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.create inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/gorups-create.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/gorups-create.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-gorups-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.create inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "gorups.create" "/home/user/app"'
+
+[case.expect]
+program = 'search "gorups.create" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-gorups-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.create inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/gorups-create.txt\" \"gorups.create\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/gorups-create.txt\" \"gorups.create\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/groups-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qroups.remove differs from groups.remove in the first character, which is never corrected.'
+method = "correct"
+program = 'qroups.remove "staff2"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/groups-remove-gorpus-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorpus.remove is two edits from the changing command groups.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'gorpus.remove "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove "staff2"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-gorups-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/gorups-remove.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/gorups-remove.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-gorups-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "gorups.remove" "/home/user/app"'
+
+[case.expect]
+program = 'search "gorups.remove" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-gorups-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/gorups-remove.txt\" \"gorups.remove\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/gorups-remove.txt\" \"gorups.remove\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/groups-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qroups.remove_member differs from groups.remove_member in the first character, which is never corrected.'
+method = "correct"
+program = 'qroups.remove_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/groups-remove-member-gorpus-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorpus.remove_member is two edits from the changing command groups.remove_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gorpus.remove_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-gorups-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove_member inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/gorups-remove_member.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/gorups-remove_member.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-gorups-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove_member inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "gorups.remove_member" "/home/user/app"'
+
+[case.expect]
+program = 'search "gorups.remove_member" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-gorups-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name gorups.remove_member inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/gorups-remove_member.txt\" \"gorups.remove_member\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/gorups-remove_member.txt\" \"gorups.remove_member\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/first-character/hash'
 kind = "correction"
 class = "mandatory"
@@ -4568,6 +5580,206 @@ program = "write \"/home/user/notes/lgos.txt\" \"lgos\\n\" mode: create"
 program = "write \"/home/user/notes/lgos.txt\" \"lgos\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/first-character/modules-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name qodules.load differs from modules.load in the first character, which is never corrected.'
+method = "correct"
+program = 'qodules.load "dummy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/modules-load-mdolues-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name mdolues.load is two edits from the changing command modules.load; the correction is offered, not applied.'
+method = "correct"
+program = 'mdolues.load "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.load "dummy"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-mdoules-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.load inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/mdoules-load.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/mdoules-load.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-mdoules-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.load inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "mdoules.load" "/home/user/app"'
+
+[case.expect]
+program = 'search "mdoules.load" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-mdoules-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.load inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/mdoules-load.txt\" \"mdoules.load\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/mdoules-load.txt\" \"mdoules.load\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/tie/modules-unload-modules-nload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name modules.nload is equally close to modules.unload and modules.load; no command is chosen.'
+method = "correct"
+program = 'modules.nload "dummy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/tie/modules-unload-modules-uload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name modules.uload is equally close to modules.unload and modules.load; no command is chosen.'
+method = "correct"
+program = 'modules.uload "dummy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/modules-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name qodules.unload differs from modules.unload in the first character, which is never corrected.'
+method = "correct"
+program = 'qodules.unload "dummy"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/modules-unload-mdolues-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The name mdolues.unload is two edits from the changing command modules.unload; the correction is offered, not applied.'
+method = "correct"
+program = 'mdolues.unload "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.unload "dummy"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-mdoules-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.unload inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/mdoules-unload.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/mdoules-unload.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-mdoules-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.unload inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "mdoules.unload" "/home/user/app"'
+
+[case.expect]
+program = 'search "mdoules.unload" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-mdoules-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name mdoules.unload inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/mdoules-unload.txt\" \"mdoules.unload\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/mdoules-unload.txt\" \"mdoules.unload\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/threshold/mount-muotn'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name muotn is two edits from mount, beyond the threshold of a name of 5 characters.'
+method = "correct"
+program = 'muotn "/dev/sdb1" "/mnt/data"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-muont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name muont inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/muont.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/muont.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-muont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name muont inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "muont" "/home/user/app"'
+
+[case.expect]
+program = 'search "muont" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-muont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name muont inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/muont.txt\" \"muont\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/muont.txt\" \"muont\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/first-character/move'
 kind = "correction"
 class = "mandatory"
@@ -4614,6 +5826,67 @@ program = "write \"/home/user/notes/mvoe.txt\" \"mvoe\\n\" mode: create"
 
 [case.expect]
 program = "write \"/home/user/notes/mvoe.txt\" \"mvoe\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/network-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qetwork.dns_set differs from network.dns_set in the first character, which is never corrected.'
+method = "correct"
+program = 'qetwork.dns_set ["1.1.1.1"]'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/network-dns-set-nteowrk-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nteowrk.dns_set is two edits from the changing command network.dns_set; the correction is offered, not applied.'
+method = "correct"
+program = 'nteowrk.dns_set ["1.1.1.1"]'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.dns_set ["1.1.1.1"]' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-ntework-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.dns_set inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/ntework-dns_set.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/ntework-dns_set.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-ntework-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.dns_set inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "ntework.dns_set" "/home/user/app"'
+
+[case.expect]
+program = 'search "ntework.dns_set" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-ntework-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.dns_set inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/ntework-dns_set.txt\" \"ntework.dns_set\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/ntework-dns_set.txt\" \"ntework.dns_set\\n\" mode: create"
 
 [[case]]
 id = 'correction/generated/adversarial/first-character/network-interfaces'
@@ -4758,6 +6031,188 @@ program = "write \"/home/user/notes/ntework-resolve.txt\" \"ntework.resolve\\n\"
 
 [case.expect]
 program = "write \"/home/user/notes/ntework-resolve.txt\" \"ntework.resolve\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/network-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qetwork.route_add differs from network.route_add in the first character, which is never corrected.'
+method = "correct"
+program = 'qetwork.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/network-route-add-nteowrk-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nteowrk.route_add is two edits from the changing command network.route_add; the correction is offered, not applied.'
+method = "correct"
+program = 'nteowrk.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-ntework-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_add inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/ntework-route_add.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/ntework-route_add.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-ntework-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_add inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "ntework.route_add" "/home/user/app"'
+
+[case.expect]
+program = 'search "ntework.route_add" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-ntework-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_add inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/ntework-route_add.txt\" \"ntework.route_add\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/ntework-route_add.txt\" \"ntework.route_add\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/network-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qetwork.route_remove differs from network.route_remove in the first character, which is never corrected.'
+method = "correct"
+program = 'qetwork.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/network-route-remove-nteowrk-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nteowrk.route_remove is two edits from the changing command network.route_remove; the correction is offered, not applied.'
+method = "correct"
+program = 'nteowrk.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-ntework-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/ntework-route_remove.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/ntework-route_remove.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-ntework-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_remove inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "ntework.route_remove" "/home/user/app"'
+
+[case.expect]
+program = 'search "ntework.route_remove" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-ntework-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ntework.route_remove inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/ntework-route_remove.txt\" \"ntework.route_remove\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/ntework-route_remove.txt\" \"ntework.route_remove\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/tie/next-net'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name net is equally close to next and set; no command is chosen.'
+method = "correct"
+program = 'net'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/next'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qext differs from next in the first character, which is never corrected.'
+method = "correct"
+program = 'qext'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-nxet'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nxet inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/nxet.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/nxet.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-nxet'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nxet inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "nxet" "/home/user/app"'
+
+[case.expect]
+program = 'search "nxet" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-nxet'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name nxet inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/nxet.txt\" \"nxet\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/nxet.txt\" \"nxet\\n\" mode: create"
 
 [[case]]
 id = 'correction/generated/adversarial/first-character/notebook-cells'
@@ -5886,6 +7341,189 @@ program = "write \"/home/user/notes/prots.txt\" \"prots\\n\" mode: create"
 
 [case.expect]
 program = "write \"/home/user/notes/prots.txt\" \"prots\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/power-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qower.cancel differs from power.cancel in the first character, which is never corrected.'
+method = "correct"
+program = 'qower.cancel'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/power-cancel-pwore-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwore.cancel is two edits from the changing command power.cancel; the correction is offered, not applied.'
+method = "correct"
+program = 'pwore.cancel'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.cancel' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-pwoer-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.cancel inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/pwoer-cancel.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/pwoer-cancel.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-pwoer-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.cancel inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "pwoer.cancel" "/home/user/app"'
+
+[case.expect]
+program = 'search "pwoer.cancel" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-pwoer-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.cancel inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/pwoer-cancel.txt\" \"pwoer.cancel\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/pwoer-cancel.txt\" \"pwoer.cancel\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/power-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qower.restart differs from power.restart in the first character, which is never corrected.'
+method = "correct"
+program = 'qower.restart delay: 5m'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/power-restart-pwore-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwore.restart is two edits from the changing command power.restart; the correction is offered, not applied.'
+method = "correct"
+program = 'pwore.restart delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.restart delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-pwoer-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.restart inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/pwoer-restart.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/pwoer-restart.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-pwoer-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.restart inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "pwoer.restart" "/home/user/app"'
+
+[case.expect]
+program = 'search "pwoer.restart" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-pwoer-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.restart inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/pwoer-restart.txt\" \"pwoer.restart\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/pwoer-restart.txt\" \"pwoer.restart\\n\" mode: create"
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/power-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qower.shutdown differs from power.shutdown in the first character, which is never corrected.'
+method = "correct"
+program = 'qower.shutdown delay: 5m'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/power-shutdown-pwore-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwore.shutdown is two edits from the changing command power.shutdown; the correction is offered, not applied.'
+method = "correct"
+program = 'pwore.shutdown delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.shutdown delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-pwoer-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.shutdown inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/pwoer-shutdown.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/pwoer-shutdown.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-pwoer-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.shutdown inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "pwoer.shutdown" "/home/user/app"'
+
+[case.expect]
+program = 'search "pwoer.shutdown" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-pwoer-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name pwoer.shutdown inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/pwoer-shutdown.txt\" \"pwoer.shutdown\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/pwoer-shutdown.txt\" \"pwoer.shutdown\\n\" mode: create"
 
 [[case]]
 id = 'correction/generated/adversarial/first-character/processes'
@@ -7801,6 +9439,69 @@ program = "write \"/home/user/notes/ssupend.txt\" \"ssupend\\n\" mode: create"
 program = "write \"/home/user/notes/ssupend.txt\" \"ssupend\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/first-character/sysctl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The name qysctl.set differs from sysctl.set in the first character, which is never corrected.'
+method = "correct"
+program = 'qysctl.set "net.ipv4.ip_forward" 1'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/sysctl-set-ssytcl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The name ssytcl.set is two edits from the changing command sysctl.set; the correction is offered, not applied.'
+method = "correct"
+program = 'ssytcl.set "net.ipv4.ip_forward" 1'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sysctl.set "net.ipv4.ip_forward" 1' }]
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-ssyctl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ssyctl.set inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/ssyctl-set.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/ssyctl-set.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-ssyctl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ssyctl.set inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "ssyctl.set" "/home/user/app"'
+
+[case.expect]
+program = 'search "ssyctl.set" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-ssyctl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name ssyctl.set inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/ssyctl-set.txt\" \"ssyctl.set\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/ssyctl-set.txt\" \"ssyctl.set\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/first-character/test-failed'
 kind = "correction"
 class = "mandatory"
@@ -8079,6 +9780,78 @@ program = "write \"/home/user/notes/udno.txt\" \"udno\\n\" mode: create"
 program = "write \"/home/user/notes/udno.txt\" \"udno\\n\" mode: create"
 
 [[case]]
+id = 'correction/generated/adversarial/tie/unmount-umount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name umount is equally close to unmount and mount; no command is chosen.'
+method = "correct"
+program = 'umount "/mnt/data"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/threshold/unmount-umnuont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name umnuont is two edits from unmount, beyond the threshold of a name of 7 characters.'
+method = "correct"
+program = 'umnuont "/mnt/data"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/first-character/unmount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name qnmount differs from unmount in the first character, which is never corrected.'
+method = "correct"
+program = 'qnmount "/mnt/data"'
+
+[case.expect.error]
+code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/path-umnount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name umnount inside a literal is content and stays as written.'
+method = "correct"
+program = 'read "/home/user/notes/umnount.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/umnount.txt"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/text-umnount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name umnount inside a literal is content and stays as written.'
+method = "correct"
+program = 'search "umnount" "/home/user/app"'
+
+[case.expect]
+program = 'search "umnount" "/home/user/app"'
+
+[[case]]
+id = 'correction/generated/adversarial/literal/write-umnount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The name umnount inside a literal is content and stays as written.'
+method = "correct"
+program = "write \"/home/user/notes/umnount.txt\" \"umnount\\n\" mode: create"
+
+[case.expect]
+program = "write \"/home/user/notes/umnount.txt\" \"umnount\\n\" mode: create"
+
+[[case]]
 id = 'correction/generated/adversarial/threshold/verify-vrefiy'
 kind = "correction"
 class = "mandatory"
@@ -8150,6 +9923,20 @@ program = 'qindows.cim "Win32_OperatingSystem"'
 
 [case.expect.error]
 code = 'E_UNKNOWN_COMMAND'
+
+[[case]]
+id = 'correction/generated/adversarial/changing-distance-two/windows-cim-wniodws-cim'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:windows']
+summary = 'The name wniodws.cim is two edits from the changing command windows.cim; the correction is offered, not applied.'
+method = "correct"
+program = 'wniodws.cim "Win32_OperatingSystem"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'windows.cim "Win32_OperatingSystem"' }]
 
 [[case]]
 id = 'correction/generated/adversarial/literal/path-wnidows-cim'

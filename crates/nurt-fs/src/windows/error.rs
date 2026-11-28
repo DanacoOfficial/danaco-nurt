@@ -6,7 +6,7 @@
 // Responsibility:   Classification of Win32 error codes.
 // Dependencies:     codes, nurt_contracts, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Classification of Win32 error codes.
@@ -88,6 +88,9 @@ pub mod codes {
     /// `ReplaceFileW`: the replacement file could not be moved; the replaced
     /// file exists under the backup name.
     pub const ERROR_UNABLE_TO_MOVE_REPLACEMENT_2: u32 = 1177;
+    /// The file has a section mapped by a program, for example the file of a
+    /// running program; its content cannot be cut or replaced in place.
+    pub const ERROR_USER_MAPPED_FILE: u32 = 1224;
     /// The disk quota of the account is exceeded.
     pub const ERROR_DISK_QUOTA_EXCEEDED: u32 = 1295;
     /// The security identifier may not be assigned as the account of the
@@ -114,7 +117,9 @@ use codes::*;
 /// file is reported as [`FsErrorKind::PermissionDenied`] until the last handle
 /// closes. Sharing and lock violations are classified as
 /// [`FsErrorKind::InUse`]; the back end returns them only after the retry
-/// period. Codes without a specific kind map to [`FsErrorKind::Io`].
+/// period. A file with a mapped section is [`FsErrorKind::InUse`] as well and
+/// is not retried, because the section lasts as long as the program that
+/// mapped it. Codes without a specific kind map to [`FsErrorKind::Io`].
 #[must_use]
 pub fn error_kind(code: u32) -> FsErrorKind {
     match code {
@@ -125,7 +130,9 @@ pub fn error_kind(code: u32) -> FsErrorKind {
         }
         ERROR_PRIVILEGE_NOT_HELD => FsErrorKind::Privilege,
         ERROR_ALREADY_EXISTS | ERROR_FILE_EXISTS => FsErrorKind::Exists,
-        ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION => FsErrorKind::InUse,
+        ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION | ERROR_USER_MAPPED_FILE => {
+            FsErrorKind::InUse
+        }
         ERROR_DISK_FULL | ERROR_HANDLE_DISK_FULL => FsErrorKind::NoSpace,
         ERROR_DISK_QUOTA_EXCEEDED => FsErrorKind::QuotaExceeded,
         ERROR_NOT_SAME_DEVICE => FsErrorKind::CrossDevice,
@@ -254,6 +261,7 @@ mod verify {
         ERROR_UNABLE_TO_REMOVE_REPLACED,
         ERROR_UNABLE_TO_MOVE_REPLACEMENT,
         ERROR_UNABLE_TO_MOVE_REPLACEMENT_2,
+        ERROR_USER_MAPPED_FILE,
         ERROR_DISK_QUOTA_EXCEEDED,
         ERROR_INVALID_OWNER,
         ERROR_PRIVILEGE_NOT_HELD,
@@ -282,6 +290,7 @@ mod tests {
             (ERROR_FILE_EXISTS, FsErrorKind::Exists),
             (ERROR_SHARING_VIOLATION, FsErrorKind::InUse),
             (ERROR_LOCK_VIOLATION, FsErrorKind::InUse),
+            (ERROR_USER_MAPPED_FILE, FsErrorKind::InUse),
             (ERROR_DISK_FULL, FsErrorKind::NoSpace),
             (ERROR_HANDLE_DISK_FULL, FsErrorKind::NoSpace),
             (ERROR_DISK_QUOTA_EXCEEDED, FsErrorKind::QuotaExceeded),
@@ -325,6 +334,7 @@ mod tests {
         assert!(is_sharing_conflict(ERROR_SHARING_VIOLATION));
         assert!(is_sharing_conflict(ERROR_LOCK_VIOLATION));
         assert!(!is_sharing_conflict(ERROR_ACCESS_DENIED));
+        assert!(!is_sharing_conflict(ERROR_USER_MAPPED_FILE));
         assert!(is_unsupported_request(ERROR_INVALID_PARAMETER));
         assert!(is_unsupported_request(ERROR_NOT_SUPPORTED));
         assert!(is_unsupported_request(ERROR_INVALID_FUNCTION));

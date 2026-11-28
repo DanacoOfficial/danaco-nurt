@@ -10,7 +10,7 @@ summary: Read and change Git repositories in process, without an external progra
 <!-- Responsibility:   Documents Group git. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Group git
@@ -189,7 +189,7 @@ git.log "/work/app" revision: "main@{1}" count: 1
 Staging a directory without lock files:
 
 ```nurt
-git.stage "/work/app" action: add paths: ["docs"] exclude: ["*.lock"]
+git.stage "/work/app" action: add paths: ["/work/app/docs"] exclude: ["*.lock"]
 ```
 
 History of the upstream of the current branch:

@@ -6,7 +6,7 @@
 // Responsibility:   System layer of the Windows back end.
 // Dependencies:     nurt_contracts, sha2, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! System layer of the Windows back end.
@@ -200,6 +200,21 @@ impl WindowsFs {
         raw_info(file)
             .map(|raw| raw.to_meta())
             .map_err(|code| Self::error(code, op, path, &[]))
+    }
+
+    /// Reparse tag of the entry `path` itself, not of its target; `0` when the
+    /// back end reports none.
+    fn reparse_tag_of(&self, path: &AbsPath) -> FsResult<u32> {
+        let file = self.open(
+            path,
+            "metadata",
+            FILE_READ_ATTRIBUTES,
+            OPEN_EXISTING,
+            follow_flags(Follow::NoFollow),
+        )?;
+        raw_info(&file)
+            .map(|raw| raw.reparse_tag)
+            .map_err(|code| Self::error(code, "metadata", path, &[]))
     }
 
     /// Refuses a handle opened on a symbolic link or a junction, as the

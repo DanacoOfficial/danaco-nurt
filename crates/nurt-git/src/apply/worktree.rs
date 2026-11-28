@@ -6,7 +6,7 @@
 // Responsibility:   Observation of the working tree: entry kinds, expected states, the up-to-date check of tracked files and the classification of untracked files.
 // Dependencies:     bstr, gix_index, nurt_contracts, sha2
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Observation of the working tree: entry kinds, expected states, the
@@ -312,6 +312,52 @@ impl<'r> Worktree<'r> {
         }
     }
 
+    /// Whether `entry` names a file or link of the working tree whose
+    /// statistics may hide a change made within the time granularity of the
+    /// index write.
+    fn may_be_racily_clean(&self, entry: &gix_index::Entry) -> bool {
+        use gix_index::entry::Flags;
+        entry.stage_raw() == 0
+            && matches!(
+                entry.mode,
+                Mode::FILE | Mode::FILE_EXECUTABLE | Mode::SYMLINK
+            )
+            && !entry
+                .flags
+                .intersects(Flags::SKIP_WORKTREE | Flags::INTENT_TO_ADD)
+            && entry.stat.size != 0
+            && self.is_racy(&entry.stat)
+    }
+
+    /// Whether the working tree entry at `rela` has the statistics of `entry`
+    /// and another content. An entry whose file is absent or of another kind
+    /// is left as it is, because its statistics already differ; a file that
+    /// has the statistics of the entry and cannot be read counts as changed,
+    /// as it does for `git`.
+    fn is_racily_modified(
+        &mut self,
+        entry: &gix_index::Entry,
+        rela: &BStr,
+        index: &gix_index::State,
+    ) -> Result<bool> {
+        let Ok(observation) = self.observe(rela) else {
+            return Ok(false);
+        };
+        if !observation.node.exists() || !self.kind_matches(entry.mode, observation.node) {
+            return Ok(false);
+        }
+        let Ok(stat) = stat_of(&self.path(rela)?) else {
+            return Ok(false);
+        };
+        if !entry.stat.matches(&stat, self.stat_options) {
+            return Ok(false);
+        }
+        Ok(match self.hash_worktree(rela, observation.node, index) {
+            Ok(id) => id != entry.id,
+            Err(_) => true,
+        })
+    }
+
     fn kind_matches(&self, mode: Mode, node: Node) -> bool {
         match (mode, node) {
             (Mode::SYMLINK, Node::Symlink) => true,
@@ -397,6 +443,53 @@ pub(crate) fn stat_of(path: &Path) -> Result<Stat> {
     let meta =
         gix_index::fs::Metadata::from_path_no_follow(path).map_err(|err| io_error(&err, path))?;
     Stat::from_fs(&meta).map_err(|err| repo_error(err, "read file times"))
+}
+
+/// Marks the entries of `index` that `git` calls racily clean and that the
+/// working tree no longer agrees with, before `index` replaces the index
+/// file that was read at the time `read_at` (seconds and nanoseconds).
+///
+/// A file changed in the second in which the index was written, without a
+/// change of its size, has the statistics of its entry. A reader tells such
+/// an entry apart by content as long as the index file is not younger than
+/// the entry. The index written now is younger, so the entry would be
+/// trusted by its statistics alone and the change would be invisible to
+/// `git status`, `git diff` and `git add`. `git` stores size 0 for such an
+/// entry when it writes an index, which makes every later reader compare the
+/// content; this function does the same. Paths for which `skip` returns true
+/// are left out: the caller wrote them from the entry in the same call. An index
+/// that replaces no file (`read_at` of zero seconds) has no such entries.
+///
+/// # Errors
+///
+/// Fails when the settings or the filters of the repository cannot be read.
+pub(crate) fn smudge_racily_clean(
+    repo: &gix::Repository,
+    root: &Path,
+    read_at: (i64, u32),
+    index: &mut gix_index::State,
+    skip: &dyn Fn(&BStr) -> bool,
+) -> Result<()> {
+    if read_at.0 == 0 {
+        return Ok(());
+    }
+    let mut worktree = Worktree::new(repo, root.to_path_buf(), index)?;
+    worktree.index_timestamp = read_at;
+    let candidates: Vec<(usize, BString)> = index
+        .entries()
+        .iter()
+        .enumerate()
+        .filter(|(_, entry)| worktree.may_be_racily_clean(entry))
+        .map(|(position, entry)| (position, entry.path(index).to_owned()))
+        .filter(|(_, path)| !skip(path.as_bstr()))
+        .collect();
+    for (position, path) in candidates {
+        let entry = index.entries()[position].clone();
+        if worktree.is_racily_modified(&entry, path.as_bstr(), index)? {
+            index.entries_mut()[position].stat.size = 0;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(all(test, unix))]

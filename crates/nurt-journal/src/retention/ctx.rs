@@ -6,7 +6,7 @@
 // Responsibility:   Retention over the shared context of the journal store.
 // Dependencies:     nurt_contracts, nurt_fs, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Retention over the shared context of the journal store.
@@ -1072,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn sweep_fails_without_change_while_the_entry_lock_is_held() {
+    fn sweep_leaves_the_entry_unchanged_while_its_lock_is_held() {
         let env = Env::new(json!({}));
         env.commit_all(HOME, 1..=31);
         let journal = journal_of(HOME);
@@ -1082,7 +1082,7 @@ mod tests {
             .lock_exclusive(&journal.entry_lock(OpId(1)).unwrap(), LOCK_TIMEOUT)
             .unwrap();
         let ctx = env.ctx();
-        assert!(sweep(&ctx).is_err());
+        assert!(sweep(&ctx).unwrap().expired.is_empty());
         assert_eq!(env.live(HOME).len(), 31);
         assert!(!env.exists(journal.reaped(OpId(1)).unwrap().dir()));
         drop(lock);

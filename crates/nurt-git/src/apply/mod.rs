@@ -6,7 +6,7 @@
 // Responsibility:   Working tree update engine: plans changes of the working tree and the index and applies them through a mutation transaction.
 // Dependencies:     context, error, exec, nurt_contracts, oneway, paths, plan, refs, twoway
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Working tree update engine: plans changes of the working tree and the
@@ -64,6 +64,7 @@ pub use plan::{
 };
 pub use refs::{keeps_log, log_path, ref_path};
 pub use twoway::plan_two_way;
+pub(crate) use worktree::smudge_racily_clean;
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl

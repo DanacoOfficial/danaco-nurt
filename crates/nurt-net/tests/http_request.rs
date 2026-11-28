@@ -6,7 +6,7 @@
 // Responsibility:   Tests of `http.request` against a test server on the loopback interface.
 // Dependencies:     flate2, http_server, indexmap, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests of `http.request` against a test server on the loopback interface.
@@ -1140,21 +1140,29 @@ fn tf_21_timeout_and_cancellation() {
     assert!(started.elapsed() < Duration::from_secs(4));
 
     let stalled = TestServer::start(|_: &Request| {
-        Reply::body(200, "text/plain", vec![b'x'; 64 * 1024]).stalled(16, Duration::from_secs(5))
+        Reply::body(200, "text/plain", vec![b'x'; 64 * 1024]).stalled(16, Duration::from_secs(30))
     });
     let cancel = CancelToken::new();
     let harness = Harness::with(Setup {
         cancel: Some(cancel.clone()),
         ..Setup::default()
     });
-    let stopper = thread::spawn(move || {
-        thread::sleep(Duration::from_millis(300));
-        cancel.cancel(CancelReason::Requested);
+    // The cancellation starts 300 ms after the server received the request,
+    // not after a fixed time from the start, so that a slow connection set-up
+    // on a loaded runner cannot cancel the transfer before it begins.
+    let error = thread::scope(|scope| {
+        scope.spawn(|| {
+            let deadline = Instant::now() + Duration::from_secs(30);
+            while stalled.request_count() == 0 && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(10));
+            }
+            thread::sleep(Duration::from_millis(300));
+            cancel.cancel(CancelReason::Requested);
+        });
+        harness.fail(&[("url", text(&stalled.url("/")))])
     });
-    let error = harness.fail(&[("url", text(&stalled.url("/")))]);
-    stopper.join().unwrap();
     assert_eq!(error.code(), ErrorCode::Cancelled);
-    assert!(stalled.wait_aborted(1, Duration::from_secs(3)));
+    assert!(stalled.wait_aborted(1, Duration::from_secs(20)));
 }
 
 #[test]

@@ -10,7 +10,7 @@ title: Running programs and background jobs
 <!-- Responsibility:   Documents Running programs and background jobs. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Running programs and background jobs
 
@@ -203,7 +203,7 @@ test_run
 Run a program with the content of a file as its standard input.
 
 ```nurt example
-run ["sort", "-u"] stdin: "/home/user/app/names.txt"
+run ["sort", "-u"] stdin: "/home/user/app/names.txt" cwd: "/home/user/app"
 ```
 
 ```text expected
@@ -247,7 +247,7 @@ make 2>&1 | grep -E -C 2 'warning|error'
 Run a program without the environment of the session and with one variable.
 
 ```nurt example
-run ["env"] inherit_env: none env: {"LANG": "C"}
+run ["env"] inherit_env: none env: {"LANG": "C"} cwd: "/home/user/app"
 ```
 
 ```text expected
@@ -279,7 +279,7 @@ nice -n 19 make -j4
 Run an image optimizer on every PNG file, four at a time, 8 files per call.
 
 ```nurt example
-find "/home/user/app/img" glob: "**/*.png" |> run ["optipng", "-o2"] parallel: 4 batch: 8
+find "/home/user/app/img" glob: "**/*.png" |> run ["optipng", "-o2"] parallel: 4 batch: 8 cwd: "/home/user/app/img"
 ```
 
 ```text expected

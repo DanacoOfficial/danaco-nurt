@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents package.remove. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # package.remove
@@ -62,8 +62,9 @@ The record of each package has `target` `package:<name>`, `action`, `before` (in
 |---|---|
 | Category | `change` |
 | Effect | `external` |
-| Reversibility | `irreversible` |
+| Reversibility | `reversible_if_preserved` |
 | Implementation | `package_manager` |
+| Reversibility conditions | Undo runs the inverse operation: package.install of the recorded version; a version that the repository no longer offers stays irreversible. |
 
 ## Examples
 

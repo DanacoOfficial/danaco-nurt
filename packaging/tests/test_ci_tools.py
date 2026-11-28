@@ -6,7 +6,7 @@
 # Responsibility:   Script test_ci_tools.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Tests of tools/ci/check-commits.sh and tools/ci/repo-hygiene.sh."""
@@ -191,13 +191,19 @@ class CheckCommitsTest(unittest.TestCase):
 
 class WorkflowCopiesTest(unittest.TestCase):
     def test_installed_workflows_match_their_sources_in_the_packaging_directory(self):
+        # The header of each copy names its own path in the fields Module and
+        # Responsibility; every other line is equal.
         workflows = support.PACKAGING.parent / ".github" / "workflows"
         for name in ("packaging.yml", "release.yml"):
             source = support.PACKAGING / "ci" / name
             installed = workflows / name
             self.assertEqual(
-                source.read_text(encoding="utf-8"), installed.read_text(encoding="utf-8"), name
+                support.without_path_fields(source.read_text(encoding="utf-8")),
+                support.without_path_fields(installed.read_text(encoding="utf-8")),
+                name,
             )
+            self.assertIn(f"# Module:           packaging/ci/{name}\n", source.read_text(encoding="utf-8"))
+            self.assertIn(f"# Module:           .github/workflows/{name}\n", installed.read_text(encoding="utf-8"))
 
     def test_release_jobs_that_commit_to_a_repository_can_be_run_again(self):
         lines = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8").splitlines()

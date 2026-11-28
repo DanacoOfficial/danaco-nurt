@@ -6,7 +6,7 @@
 // Responsibility:   Fake server that answers `nurt-rpc/1` from the cases.
 // Dependencies:     serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Fake server that answers `nurt-rpc/1` from the cases.
@@ -55,9 +55,6 @@ pub const EFFECT_FILE: &str = ".nurt-conformance-effect";
 
 /// Directory of the binding cases below the case directory.
 pub const BINDINGS_DIR: &str = "bindings";
-
-/// Name of the server in the result of `info`.
-const SERVER_NAME: &str = "nurt-conformance fake server";
 
 /// Version of the language served.
 const LANGUAGE: &str = "1.0";
@@ -508,9 +505,14 @@ impl FakeServer {
 
     fn info(&self) -> Value {
         json!({
-            "name": SERVER_NAME,
             "version": env!("CARGO_PKG_VERSION"),
-            "language": LANGUAGE,
+            "formats": {
+                "ast": "1.1",
+                "bound": "1.1",
+                "report": LANGUAGE,
+                "envelope": LANGUAGE,
+                "config": "nurt-config/1",
+            },
             "features": self.features,
         })
     }
@@ -765,6 +767,8 @@ impl Bindings for Recorded {
 }
 
 /// Expected fields of the earlier steps of a binding case, for placeholders.
+/// A member that a step only requires to be present has the value that the
+/// answer of the step gives it, the text `present`.
 struct BindingFields<'a>(&'a BindingCase);
 
 impl Bindings for BindingFields<'_> {
@@ -774,7 +778,13 @@ impl Bindings for BindingFields<'_> {
 
     fn step(&self, number: usize, pointer: &str) -> Option<Value> {
         let step = self.0.steps.get(number.checked_sub(1)?)?;
-        step.expect.fields.get(pointer).cloned()
+        step.expect.fields.get(pointer).cloned().or_else(|| {
+            step.expect
+                .present
+                .iter()
+                .any(|required| required == pointer)
+                .then(|| json!("present"))
+        })
     }
 }
 
@@ -1263,10 +1273,10 @@ mod tests {
             protocol::initialize_params("t", "1", true),
         ));
         assert_eq!(result_of(&init)["protocol"], "nurt-rpc/1");
-        assert_eq!(
-            result_of(&fake.handle(&request(2, "info", json!({}))))["name"],
-            SERVER_NAME
-        );
+        let info = fake.handle(&request(2, "info", json!({})));
+        assert_eq!(result_of(&info)["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(result_of(&info)["formats"]["ast"], "1.1");
+        assert!(result_of(&info).get("language").is_none());
         let schema = fake.handle(&request(3, "schema", json!({"name": "report"})));
         assert_eq!(result_of(&schema)["title"], "nurt-report/1");
         let unknown = fake.handle(&request(4, "schema", json!({"name": "none"})));
@@ -1582,6 +1592,41 @@ mod tests {
         assert!(base.path().join("new.txt").exists());
         assert!(!base.path().join("old.txt").exists());
         assert!(!base.path().join("old").exists());
+    }
+
+    #[test]
+    fn binding_cases_answer_correct_like_the_engine_and_pass_required_members_on() {
+        let file: BindingFile = serde_json::from_value(json!({
+            "format": "nurt-binding-cases/1",
+            "cases": [{"id": "paged", "summary": "s", "steps": [
+                {"call": "run", "args": {"program": "list"}, "expect": {"outcome": "ok", "present": ["/next_cursor"]}},
+                {"call": "page", "args": {"cursor": "${step1/next_cursor}"}, "expect": {"outcome": "ok"}}
+            ]}, {"id": "corrected", "summary": "s", "steps": [
+                {"call": "correct", "args": {"program": "help 'find'"}, "expect": {"outcome": "ok",
+                    "fields": {"/value/ran": "help \"find\""}, "present": ["/value/ast"]}}
+            ]}]
+        }))
+        .unwrap();
+        let mut fake = FakeServer::new(&suite(Vec::new()), &[file], None, None).unwrap();
+        assert_eq!(fake.len(), 3);
+        let first = fake.handle(&request(
+            1,
+            "run",
+            json!({"nurt": "1.0", "program": "list"}),
+        ));
+        let cursor = result_of(&first)["report"]["next_cursor"].clone();
+        assert_eq!(cursor, "present");
+        let next = fake.handle(&request(2, "page", json!({"cursor": cursor})));
+        assert_eq!(result_of(&next)["report"]["status"], "ok");
+        let corrected = fake.handle(&request(
+            3,
+            "correct",
+            json!({"program": "help 'find'", "variant": "a"}),
+        ));
+        let result = result_of(&corrected);
+        assert_eq!(result["ran"], "help \"find\"");
+        assert_eq!(result["ast"]["nurt"], "1.1");
+        assert!(result.get("program").is_none());
     }
 
     #[test]

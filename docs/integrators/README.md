@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Integrator guide. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Integrator guide
@@ -29,7 +29,7 @@ Examples for model SDKs and agent frameworks: `integrations/examples/`.
 | Interface | Transport | Use | Events | Isolation |
 |---|---|---|---|---|
 | `nurt serve --stdio` | JSON-RPC 2.0 (`nurt-rpc/1`) over standard input and output of a child process | agent runtimes and services; one process per session or workspace | notifications `nurt/event` in the same stream | separate process; a crash of the console does not stop the host |
-| `nurt serve --socket <path>` | as above, over a Unix domain socket or a named pipe | a console shared by several host processes | as above | as above; reported as unavailable by builds that do not link the transport |
+| `nurt serve --socket <path>` | reserved for a transport over a Unix domain socket or a named pipe; the option is recognised and ends with exit code 3 in every build of release 0.1.2 | none; connect with `nurt serve --stdio` | none | none |
 | `libnurt` (`nurt.h`) | C ABI in the host process | short calls without effects: `nurt_check`, `nurt_describe`, `nurt_correct`; hosts without child processes | callback `nurt_event_cb` | none; a fault in the library stops the host |
 | `nurt mcp --stdio` | Model Context Protocol over standard input and output | MCP clients: desktop and editor assistants, frameworks with MCP support | MCP notifications | separate process |
 | `nurt mcp --http <address>` | Model Context Protocol, streamable HTTP | a server shared over the network | MCP notifications | separate process |

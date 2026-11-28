@@ -4,9 +4,9 @@
 //
 // Module:           nurt-fs::account
 // Responsibility:   File system of a process that runs with elevated rights and keeps the journal of an ordinary account (Unix systems).
-// Dependencies:     nurt_contracts
+// Dependencies:     account_secure, nurt_contracts, sha2
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! File system of a process that runs with elevated rights and keeps the
@@ -36,11 +36,25 @@
 //!   following links and checked to belong to the account; the new entry is
 //!   given to the account with `fchown` and `fchmod` (`fchownat` with
 //!   `AT_SYMLINK_NOFOLLOW` for a link) before anything is written. Calls that
-//!   only read, rename or remove check the chain of directories the same way
-//!   and then run by path; the account could swap a directory of its own
-//!   journal for a link between the check and the call, which can make the
-//!   administrator read, rename or remove inside a path that the account
-//!   chose; it cannot make the administrator create a file there.
+//!   read, rename, link or remove use the same descriptor: the entry is opened
+//!   (`openat` with `O_NOFOLLOW`), examined (`fstatat` with
+//!   `AT_SYMLINK_NOFOLLOW`), listed, renamed (`renameat`), linked (`linkat`) or
+//!   removed (`unlinkat`) relative to the descriptor of its checked directory,
+//!   so a directory of the journal that the account swaps for a link after the
+//!   check cannot redirect the call. A call that has no form of this kind
+//!   (`replace_with_backup`, `clone_file` between two paths of the account,
+//!   the alternate streams, a change of the metadata of a link or a special
+//!   file) is refused with [`FsErrorKind::Unsupported`] on a path of the
+//!   account; the call never falls back to a path. The journal copes with
+//!   every refusal: it copies the bytes when a clone is refused, and no
+//!   volume of Unix reports `replace_with_backup`, so the journal never asks
+//!   for it. `set_meta` and `restore_meta` of a file or a directory run on the
+//!   descriptor of the entry (`fchown`, `fchmod`, `futimens`, `fsetxattr`),
+//!   and `create_node` makes the node with `mknodat` relative to the
+//!   descriptor of its directory. A link in the last component is never followed, so
+//!   `metadata` reports the link itself whatever the [`Follow`] argument says.
+//!   The extended metadata of an entry carries its extended attributes and the
+//!   target of a link; flags and ACL are not read.
 //!
 //! In both modes a copy from a target into the journal reads the target with
 //! the rights of the process and writes the copy as the account, block by
@@ -50,21 +64,26 @@
 //! devices, as it would between two volumes, so that the journal copies the
 //! content instead of moving it.
 
+use std::ffi::OsStr;
+use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+use rustix::fs::FileType;
+use sha2::{Digest, Sha256};
 
 use nurt_contracts::fs::{
-    AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileLock, FileMeta, Follow, Fs,
-    FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialNode, TxScope, VolumeId,
-    VolumeInfo, WriteHandle,
+    AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileKind, FileLock, FileMeta, Follow,
+    Fs, FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialKind, SpecialNode, TxScope,
+    VolumeId, VolumeInfo, WriteHandle, Xattr,
 };
 
-use crate::account_secure::{self, Owner};
+use crate::account_secure::{self, NodeKind, Owner, RenameHow};
 
 /// Name that marks a journal directory.
 const JOURNAL_DIR: &str = ".nurt-journal";
@@ -228,14 +247,6 @@ impl AccountFs {
         account_secure::open_dir(&self.owner(), dir).map_err(|error| io_error(&error, op, dir))
     }
 
-    /// Checks the chain of directories above `path`.
-    fn guard(&self, op: &str, path: &AbsPath) -> FsResult<()> {
-        match path.as_path().parent() {
-            Some(parent) => self.secure_dir(op, parent).map(drop),
-            None => Ok(()),
-        }
-    }
-
     /// The directory of `path`, opened, and the name in it.
     fn parent_of(&self, op: &str, path: &AbsPath) -> FsResult<(OwnedFd, std::ffi::OsString)> {
         let (parent, name) = account_secure::split(path.as_path())
@@ -243,7 +254,10 @@ impl AccountFs {
         Ok((self.secure_dir(op, parent)?, name.to_owned()))
     }
 
-    /// Runs `f` as the account when `path` is the path of the account.
+    /// Runs `f` as the account when `path` is the path of the account. In the
+    /// descriptor mode a path of the account is never handed to a call by
+    /// path: a call that reaches this function for such a path has no
+    /// descriptor form and is refused.
     fn at<T>(&self, op: &str, path: &AbsPath, f: impl FnOnce() -> FsResult<T>) -> FsResult<T> {
         if !self.mine(path) {
             return f();
@@ -251,10 +265,7 @@ impl AccountFs {
         match self.mode {
             #[cfg(target_os = "linux")]
             Mode::FsIdentity => as_account(&self.identity, f),
-            Mode::Descriptors => {
-                self.guard(op, path)?;
-                f()
-            }
+            Mode::Descriptors => Err(Self::unsupported(op, path)),
         }
     }
 
@@ -274,10 +285,140 @@ impl AccountFs {
         FsError::new(FsErrorKind::Unsupported, op, Some(path.as_path()))
     }
 
+    /// Metadata of an entry of the account, the entry named in its checked
+    /// directory.
+    fn secure_metadata(&self, op: &str, path: &AbsPath) -> FsResult<FileMeta> {
+        let (dir, name) = self.parent_of(op, path)?;
+        entry_meta(&dir, &name, op, path.as_path())
+    }
+
+    /// Opens a file of the account for reading through its checked directory.
+    fn secure_open_read(&self, op: &str, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>> {
+        let (dir, name) = self.parent_of(op, path)?;
+        let file = account_secure::open_file_for_read(&dir, &name)
+            .map_err(|error| io_error(&error, op, path.as_path()))?;
+        match fd_meta(file.as_fd(), op, path.as_path())?.kind {
+            FileKind::Directory => Err(FsError::new(
+                FsErrorKind::IsADirectory,
+                op,
+                Some(path.as_path()),
+            )),
+            FileKind::Special => Err(Self::unsupported(op, path)),
+            _ => Ok(Box::new(FdReader {
+                file,
+                path: path.clone(),
+            })),
+        }
+    }
+
+    /// Opens a file or directory of the account to change its metadata
+    /// through the open descriptor. A link or a special file is refused: the
+    /// entry is examined before it is opened, so a device or a pipe is never
+    /// opened, and examined again through the descriptor, so an entry that
+    /// changed in between is not changed.
+    fn secure_meta_file(&self, op: &str, path: &AbsPath) -> FsResult<File> {
+        let (dir, name) = self.parent_of(op, path)?;
+        match entry_meta(&dir, &name, op, path.as_path())?.kind {
+            FileKind::File | FileKind::Directory => {}
+            _ => return Err(Self::unsupported(op, path)),
+        }
+        let file = account_secure::open_entry(&dir, &name, libc::O_RDONLY | libc::O_NONBLOCK)
+            .map(File::from)
+            .map_err(|error| io_error(&error, op, path.as_path()))?;
+        match fd_meta(file.as_fd(), op, path.as_path())?.kind {
+            FileKind::File | FileKind::Directory => Ok(file),
+            _ => Err(Self::unsupported(op, path)),
+        }
+    }
+
+    fn secure_extended_metadata(&self, op: &str, path: &AbsPath) -> FsResult<ExtendedMeta> {
+        let (dir, name) = self.parent_of(op, path)?;
+        let basic = entry_meta(&dir, &name, op, path.as_path())?;
+        let mut xattrs = Vec::new();
+        let mut link_target = None;
+        match basic.kind {
+            FileKind::Symlink => {
+                link_target = Some(
+                    account_secure::read_link_in(&dir, &name)
+                        .map_err(|error| io_error(&error, op, path.as_path()))?,
+                );
+            }
+            FileKind::File | FileKind::Directory => {
+                let mut flags = libc::O_RDONLY | libc::O_NONBLOCK;
+                if basic.kind == FileKind::Directory {
+                    flags |= libc::O_DIRECTORY;
+                }
+                let file = account_secure::open_entry(&dir, &name, flags)
+                    .map(File::from)
+                    .map_err(|error| io_error(&error, op, path.as_path()))?;
+                xattrs = account_secure::read_xattrs_of(&file)
+                    .map_err(|error| io_error(&error, op, path.as_path()))?
+                    .into_iter()
+                    .map(|(name, value)| Xattr { name, value })
+                    .collect();
+            }
+            _ => {}
+        }
+        Ok(ExtendedMeta {
+            basic,
+            xattrs,
+            acl: None,
+            account_sid: None,
+            flags: None,
+            streams: Vec::new(),
+            link_target,
+        })
+    }
+
+    /// Moves or exchanges two entries of the account, each named in its
+    /// checked directory.
+    fn secure_rename(
+        &self,
+        op: &str,
+        from: &AbsPath,
+        to: &AbsPath,
+        how: RenameHow,
+    ) -> FsResult<()> {
+        let (from_dir, from_name) = self.parent_of(op, from)?;
+        let (to_dir, to_name) = self.parent_of(op, to)?;
+        account_secure::rename_in(&from_dir, &from_name, &to_dir, &to_name, how)
+            .map_err(|error| rename_error(&error, op, from, to))
+    }
+
+    fn secure_lock(&self, path: &AbsPath, timeout: Duration) -> FsResult<Box<dyn FileLock>> {
+        const OP: &str = "lock_exclusive";
+        let (dir, name) = self.parent_of(OP, path)?;
+        let file = account_secure::open_lock_file(&self.owner(), &dir, &name)
+            .map_err(|error| io_error(&error, OP, path.as_path()))?;
+        let deadline = Instant::now().checked_add(timeout);
+        let mut pause = LOCK_FIRST_PAUSE;
+        loop {
+            match account_secure::try_lock_exclusive(&file) {
+                Ok(true) => {
+                    return Ok(Box::new(FdLock {
+                        _held: file,
+                        path: path.clone(),
+                    }));
+                }
+                Ok(false) => {
+                    let now = Instant::now();
+                    if deadline.is_some_and(|deadline| now >= deadline) {
+                        return Err(FsError::new(FsErrorKind::InUse, OP, Some(path.as_path())));
+                    }
+                    std::thread::sleep(
+                        deadline.map_or(pause, |deadline| pause.min(deadline - now)),
+                    );
+                    pause = (pause * 2).min(LOCK_MAX_PAUSE);
+                }
+                Err(error) => return Err(io_error(&error, OP, path.as_path())),
+            }
+        }
+    }
+
     /// Copies block by block: the source is read with the rights of the
     /// process, the destination is created and written as the account.
     fn stream_copy(&self, scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<u64> {
-        let mut from = self.at("copy_file", src, || self.inner.open_read(src))?;
+        let mut from = self.open_read(src)?;
         let mut to = self.create_new(scope, dst)?;
         let mut block = vec![0_u8; COPY_BLOCK];
         let mut total = 0_u64;
@@ -321,6 +462,123 @@ impl AccountFs {
             }
             _ => to.sync(Durability::Full),
         }
+    }
+}
+
+/// Pause before the first retry of a lock that another holder has.
+const LOCK_FIRST_PAUSE: Duration = Duration::from_millis(2);
+
+/// Longest pause between two attempts to take a lock.
+const LOCK_MAX_PAUSE: Duration = Duration::from_millis(100);
+
+/// Metadata of the entry `name` of `dir`, a link in the last component not
+/// followed.
+#[cfg(target_os = "linux")]
+fn entry_meta(dir: &OwnedFd, name: &OsStr, op: &str, report: &Path) -> FsResult<FileMeta> {
+    crate::linux::stat_at(dir.as_fd(), Path::new(name), Follow::NoFollow, op, report)
+}
+
+/// Metadata of the entry `name` of `dir`, a link in the last component not
+/// followed.
+#[cfg(target_os = "macos")]
+fn entry_meta(dir: &OwnedFd, name: &OsStr, op: &str, report: &Path) -> FsResult<FileMeta> {
+    crate::macos::entry_meta(dir.as_fd(), name, op, report)
+}
+
+/// Metadata of an open entry.
+#[cfg(target_os = "linux")]
+fn fd_meta(fd: std::os::fd::BorrowedFd<'_>, op: &str, report: &Path) -> FsResult<FileMeta> {
+    crate::linux::stat_fd(fd, op, report)
+}
+
+/// Metadata of an open entry.
+#[cfg(target_os = "macos")]
+fn fd_meta(fd: std::os::fd::BorrowedFd<'_>, op: &str, report: &Path) -> FsResult<FileMeta> {
+    crate::macos::fd_meta(fd, op, report)
+}
+
+/// Applies a metadata change to an open entry.
+#[cfg(target_os = "linux")]
+fn apply_change_to(file: &File, change: &MetaChange, report: &Path) -> FsResult<()> {
+    crate::linux::set_meta_fd(file.as_fd(), change, report)
+}
+
+/// Applies a metadata change to an open entry.
+#[cfg(target_os = "macos")]
+fn apply_change_to(file: &File, change: &MetaChange, report: &Path) -> FsResult<()> {
+    crate::macos::set_meta_file(file, change, report)
+}
+
+/// Applies complete metadata to an open entry.
+#[cfg(target_os = "linux")]
+fn apply_meta_to(file: &File, meta: &ExtendedMeta, report: &Path) -> FsResult<MetaTransferReport> {
+    crate::linux::restore_meta_fd(file.as_fd(), meta, report)
+}
+
+/// Applies complete metadata to an open entry.
+#[cfg(target_os = "macos")]
+fn apply_meta_to(file: &File, meta: &ExtendedMeta, report: &Path) -> FsResult<MetaTransferReport> {
+    crate::macos::restore_meta_file(file, meta, report)
+}
+
+/// Kind of a listed entry.
+fn listed_kind(kind: FileType) -> Option<FileKind> {
+    match kind {
+        FileType::RegularFile => Some(FileKind::File),
+        FileType::Directory => Some(FileKind::Directory),
+        FileType::Symlink => Some(FileKind::Symlink),
+        FileType::Unknown => None,
+        _ => Some(FileKind::Special),
+    }
+}
+
+/// Error of a rename: the destination is named when it is the cause.
+fn rename_error(error: &std::io::Error, op: &str, from: &AbsPath, to: &AbsPath) -> FsError {
+    let code = error.raw_os_error();
+    let inside = to != from && to.as_path().starts_with(from.as_path());
+    match code {
+        Some(libc::EINVAL | libc::EOPNOTSUPP) if inside => {
+            FsError::new(FsErrorKind::InvalidPath, op, Some(to.as_path()))
+        }
+        Some(libc::EOPNOTSUPP) => FsError::new(FsErrorKind::Unsupported, op, Some(to.as_path())),
+        Some(libc::EEXIST) => io_error(error, op, to.as_path()),
+        _ => io_error(error, op, from.as_path()),
+    }
+}
+
+/// Read handle of a file that was opened through a descriptor.
+struct FdReader {
+    file: File,
+    path: AbsPath,
+}
+
+impl Read for FdReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl Seek for FdReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.file.seek(pos)
+    }
+}
+
+impl ReadHandle for FdReader {
+    fn meta(&self) -> FsResult<FileMeta> {
+        fd_meta(self.file.as_fd(), "meta", self.path.as_path())
+    }
+}
+
+/// Exclusive lock held through the descriptor of a lock file.
+struct FdLock {
+    _held: File,
+    path: AbsPath,
+}
+
+impl FileLock for FdLock {
+    fn path(&self) -> &AbsPath {
+        &self.path
     }
 }
 
@@ -376,20 +634,35 @@ impl WriteHandle for FdWriter {
 
 impl Fs for AccountFs {
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
+        if self.secure(path) {
+            return self.secure_metadata("metadata", path);
+        }
         self.at("metadata", path, || self.inner.metadata(path, follow))
     }
 
     fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        if self.secure(path) {
+            return match self.secure_metadata("special_node", path)?.kind {
+                FileKind::Special => Err(Self::unsupported("special_node", path)),
+                _ => Ok(None),
+            };
+        }
         self.at("special_node", path, || self.inner.special_node(path))
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
+        if self.secure(path) {
+            return self.secure_extended_metadata("extended_metadata", path);
+        }
         self.at("extended_metadata", path, || {
             self.inner.extended_metadata(path, follow)
         })
     }
 
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>> {
+        if self.secure(path) {
+            return self.secure_open_read("open_read", path);
+        }
         self.at("open_read", path, || self.inner.open_read(path))
     }
 
@@ -403,18 +676,67 @@ impl Fs for AccountFs {
         &'a self,
         path: &AbsPath,
     ) -> FsResult<Box<dyn Iterator<Item = FsResult<DirEntry>> + Send + 'a>> {
+        if self.secure(path) {
+            let dir = self.secure_dir("read_dir", path.as_path())?;
+            let entries = account_secure::list_entries(&dir)
+                .map_err(|error| io_error(&error, "read_dir", path.as_path()))?;
+            let listed: Vec<FsResult<DirEntry>> = entries
+                .into_iter()
+                .map(|(name, kind)| {
+                    Ok(DirEntry {
+                        name,
+                        kind: listed_kind(kind),
+                    })
+                })
+                .collect();
+            return Ok(Box::new(listed.into_iter()));
+        }
         self.at("read_dir", path, || self.inner.read_dir(path))
     }
 
     fn read_link(&self, path: &AbsPath) -> FsResult<PathBuf> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("read_link", path)?;
+            return account_secure::read_link_in(&dir, &name).map_err(|error| {
+                if error.raw_os_error() == Some(libc::EINVAL) {
+                    FsError::new(FsErrorKind::InvalidPath, "read_link", Some(path.as_path()))
+                } else {
+                    io_error(&error, "read_link", path.as_path())
+                }
+            });
+        }
         self.at("read_link", path, || self.inner.read_link(path))
     }
 
     fn real_path(&self, path: &AbsPath) -> FsResult<AbsPath> {
+        if self.secure(path) {
+            return match self.secure_metadata("real_path", path)?.kind {
+                FileKind::Symlink => Err(FsError::new(
+                    FsErrorKind::Loop,
+                    "real_path",
+                    Some(path.as_path()),
+                )),
+                _ => Ok(path.clone()),
+            };
+        }
         self.at("real_path", path, || self.inner.real_path(path))
     }
 
     fn content_hash(&self, path: &AbsPath) -> FsResult<ContentHash> {
+        if self.secure(path) {
+            let mut handle = self.secure_open_read("content_hash", path)?;
+            let mut hasher = Sha256::new();
+            let mut buffer = vec![0_u8; COPY_BLOCK];
+            loop {
+                match handle.read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(read) => hasher.update(&buffer[..read]),
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(error) => return Err(io_error(&error, "content_hash", path.as_path())),
+                }
+            }
+            return Ok(ContentHash(hasher.finalize().into()));
+        }
         self.at("content_hash", path, || self.inner.content_hash(path))
     }
 
@@ -457,6 +779,9 @@ impl Fs for AccountFs {
 
 /// Error of a call made through the standard library.
 fn io_error(error: &std::io::Error, op: &str, path: &Path) -> FsError {
+    if let Some(code) = error.raw_os_error() {
+        return os_error(code, op, path);
+    }
     let kind = match error.kind() {
         std::io::ErrorKind::NotFound => FsErrorKind::NotFound,
         std::io::ErrorKind::PermissionDenied => FsErrorKind::PermissionDenied,
@@ -466,6 +791,20 @@ fn io_error(error: &std::io::Error, op: &str, path: &Path) -> FsError {
     let mut failure = FsError::new(kind, op, Some(path));
     failure.os_code = error.raw_os_error();
     failure
+}
+
+/// Error of a failed system call, classified with the `errno` values of the
+/// system.
+#[cfg(target_os = "macos")]
+fn os_error(code: i32, op: &str, path: &Path) -> FsError {
+    crate::macos::errno_error(code, crate::macos::ErrnoContext::Plain, op, Some(path))
+}
+
+/// Error of a failed system call, classified with the `errno` values of the
+/// system.
+#[cfg(not(target_os = "macos"))]
+fn os_error(code: i32, op: &str, path: &Path) -> FsError {
+    crate::linux::errno_error(code, crate::linux::ErrnoContext::Plain, op, Some(path))
 }
 
 /// Block size of a copy from a target into the journal.
@@ -503,6 +842,15 @@ impl FsWrite for AccountFs {
     }
 
     fn open_in_place(&self, scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("open_in_place", path)?;
+            let file = account_secure::open_file_for_write(&dir, &name)
+                .map_err(|error| io_error(&error, "open_in_place", path.as_path()))?;
+            return Ok(Box::new(FdWriter {
+                file,
+                path: path.clone(),
+            }));
+        }
         self.at("open_in_place", path, || {
             self.inner.open_in_place(scope, path)
         })
@@ -526,6 +874,13 @@ impl FsWrite for AccountFs {
         to: &AbsPath,
         mode: RenameMode,
     ) -> FsResult<()> {
+        if self.secure(from) && self.secure(to) {
+            let how = match mode {
+                RenameMode::Replace => RenameHow::Replace,
+                RenameMode::NoReplace => RenameHow::NoReplace,
+            };
+            return self.secure_rename("rename", from, to, how);
+        }
         match (self.mine(from), self.mine(to)) {
             (true, true) => self.at("rename", from, || {
                 self.at("rename", to, || self.inner.rename(scope, from, to, mode))
@@ -540,6 +895,9 @@ impl FsWrite for AccountFs {
     }
 
     fn exchange(&self, scope: &TxScope, a: &AbsPath, b: &AbsPath) -> FsResult<()> {
+        if self.secure(a) && self.secure(b) {
+            return self.secure_rename("exchange", a, b, RenameHow::Exchange);
+        }
         match (self.mine(a), self.mine(b)) {
             (true, true) => self.at("exchange", a, || {
                 self.at("exchange", b, || self.inner.exchange(scope, a, b))
@@ -576,6 +934,12 @@ impl FsWrite for AccountFs {
     }
 
     fn hard_link(&self, scope: &TxScope, existing: &AbsPath, new: &AbsPath) -> FsResult<()> {
+        if self.secure(existing) && self.secure(new) {
+            let (from_dir, from_name) = self.parent_of("hard_link", existing)?;
+            let (to_dir, to_name) = self.parent_of("hard_link", new)?;
+            return account_secure::link_in(&from_dir, &from_name, &to_dir, &to_name)
+                .map_err(|error| io_error(&error, "hard_link", new.as_path()));
+        }
         match (self.mine(existing), self.mine(new)) {
             (true, true) => self.at("hard_link", existing, || {
                 self.at("hard_link", new, || {
@@ -611,10 +975,20 @@ impl FsWrite for AccountFs {
     }
 
     fn remove_file(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("remove_file", path)?;
+            return account_secure::unlink_entry(&dir, &name, false)
+                .map_err(|error| io_error(&error, "remove_file", path.as_path()));
+        }
         self.at("remove_file", path, || self.inner.remove_file(scope, path))
     }
 
     fn remove_dir(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("remove_dir", path)?;
+            return account_secure::unlink_entry(&dir, &name, true)
+                .map_err(|error| io_error(&error, "remove_dir", path.as_path()));
+        }
         self.at("remove_dir", path, || self.inner.remove_dir(scope, path))
     }
 
@@ -624,6 +998,16 @@ impl FsWrite for AccountFs {
         path: &AbsPath,
         parallelism: usize,
     ) -> FsResult<RemoveStats> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("remove_tree", path)?;
+            let removed = account_secure::remove_tree_in(&dir, &name)
+                .map_err(|error| io_error(&error, "remove_tree", path.as_path()))?;
+            return Ok(RemoveStats {
+                files: removed.files,
+                directories: removed.directories,
+                bytes: removed.bytes,
+            });
+        }
         self.at("remove_tree", path, || {
             self.inner.remove_tree(scope, path, parallelism)
         })
@@ -648,7 +1032,18 @@ impl FsWrite for AccountFs {
         mode: Option<u32>,
     ) -> FsResult<()> {
         if self.secure(path) {
-            return Err(Self::unsupported("create_node", path));
+            let kind = match node.kind {
+                SpecialKind::Fifo => NodeKind::Fifo,
+                SpecialKind::Char => NodeKind::Char(node.major, node.minor),
+                SpecialKind::Block => NodeKind::Block(node.major, node.minor),
+                _ => return Err(Self::unsupported("create_node", path)),
+            };
+            let (dir, name) = self.parent_of("create_node", path)?;
+            return account_secure::create_node_in(&dir, &name, kind, mode.unwrap_or(0o666))
+                .map_err(|error| match error.raw_os_error() {
+                    Some(libc::EOPNOTSUPP) => Self::unsupported("create_node", path),
+                    _ => io_error(&error, "create_node", path.as_path()),
+                });
         }
         self.at("create_node", path, || {
             self.inner.create_node(scope, path, node, mode)
@@ -676,6 +1071,10 @@ impl FsWrite for AccountFs {
     }
 
     fn set_meta(&self, scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
+        if self.secure(path) {
+            let file = self.secure_meta_file("set_meta", path)?;
+            return apply_change_to(&file, change, path.as_path());
+        }
         self.at("set_meta", path, || {
             self.inner.set_meta(scope, path, change)
         })
@@ -687,28 +1086,40 @@ impl FsWrite for AccountFs {
         path: &AbsPath,
         meta: &ExtendedMeta,
     ) -> FsResult<MetaTransferReport> {
+        if self.secure(path) {
+            let file = self.secure_meta_file("restore_meta", path)?;
+            return apply_meta_to(&file, meta, path.as_path());
+        }
         self.at("restore_meta", path, || {
             self.inner.restore_meta(scope, path, meta)
         })
     }
 
     fn truncate(&self, scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()> {
+        if self.secure(path) {
+            let (dir, name) = self.parent_of("truncate", path)?;
+            return account_secure::open_file_for_write(&dir, &name)
+                .and_then(|file| file.set_len(length))
+                .map_err(|error| io_error(&error, "truncate", path.as_path()));
+        }
         self.at("truncate", path, || {
             self.inner.truncate(scope, path, length)
         })
     }
 
     fn sync_dir(&self, scope: &TxScope, dir: &AbsPath) -> FsResult<()> {
+        if self.secure(dir) {
+            let handle = File::from(self.secure_dir("sync_dir", dir.as_path())?);
+            return handle
+                .sync_all()
+                .map_err(|error| io_error(&error, "sync_dir", dir.as_path()));
+        }
         self.at("sync_dir", dir, || self.inner.sync_dir(scope, dir))
     }
 
     fn lock_exclusive(&self, path: &AbsPath, timeout: Duration) -> FsResult<Box<dyn FileLock>> {
         if self.secure(path) {
-            match self.create_secure("lock_exclusive", path) {
-                Ok(_) => {}
-                Err(error) if error.kind == FsErrorKind::Exists => {}
-                Err(error) => return Err(error),
-            }
+            return self.secure_lock(path, timeout);
         }
         self.at("lock_exclusive", path, || {
             self.inner.lock_exclusive(path, timeout)
@@ -716,6 +1127,9 @@ impl FsWrite for AccountFs {
     }
 
     fn mark_hidden(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+        if self.secure(path) {
+            return self.secure_metadata("mark_hidden", path).map(drop);
+        }
         self.at("mark_hidden", path, || self.inner.mark_hidden(scope, path))
     }
 }
@@ -969,6 +1383,259 @@ mod tests {
                 .unwrap();
             assert!(plain.as_path().exists());
         }
+    }
+
+    /// State directory whose `.nurt-journal/ops` is a link to a directory
+    /// outside it, as the account can leave it between the check of a chain
+    /// and a call: the file system, the planted path of a file, the directory
+    /// outside and the path of the journal directory.
+    fn planted_link(root: &Path) -> (AccountFs, AbsPath, PathBuf, PathBuf) {
+        let state = root.join("state");
+        let outside = root.join("outside");
+        std::fs::create_dir_all(state.join(".nurt-journal")).unwrap();
+        std::fs::create_dir_all(outside.join("tree")).unwrap();
+        for name in ["file", "other"] {
+            std::fs::write(outside.join(name), b"outside").unwrap();
+        }
+        std::fs::write(outside.join("tree/leaf"), b"outside").unwrap();
+        let ops = state.join(".nurt-journal/ops");
+        std::os::unix::fs::symlink(&outside, &ops).unwrap();
+        let file = AbsPath::new(ops.join("file")).unwrap();
+        (descriptor_fs(&state), file, outside, ops)
+    }
+
+    fn untouched(outside: &Path) {
+        for name in ["file", "other", "tree/leaf"] {
+            assert_eq!(std::fs::read(outside.join(name)).unwrap(), b"outside");
+        }
+        assert_eq!(std::fs::read_dir(outside).unwrap().count(), 3);
+    }
+
+    #[test]
+    fn descriptors_do_not_read_through_a_link_in_the_journal_chain() {
+        let root = tempfile::tempdir().unwrap();
+        let (fs, file, outside, ops) = planted_link(root.path());
+        let ops = AbsPath::new(ops).unwrap();
+        assert!(fs.open_read(&file).is_err());
+        assert!(fs.content_hash(&file).is_err());
+        assert!(fs.metadata(&file, Follow::NoFollow).is_err());
+        assert!(fs.metadata(&file, Follow::Follow).is_err());
+        assert!(fs.extended_metadata(&file, Follow::NoFollow).is_err());
+        assert!(fs.special_node(&file).is_err());
+        assert!(fs.read_link(&file).is_err());
+        assert!(fs.real_path(&file).is_err());
+        assert!(fs.read_dir(&ops).is_err());
+        untouched(&outside);
+    }
+
+    #[test]
+    fn descriptors_do_not_change_in_place_through_a_link_in_the_journal_chain() {
+        let root = tempfile::tempdir().unwrap();
+        let (fs, file, outside, ops) = planted_link(root.path());
+        let ops = AbsPath::new(ops).unwrap();
+        assert!(fs.sync_dir(&scope(), &ops).is_err());
+        assert!(fs.mark_hidden(&scope(), &file).is_err());
+        assert!(
+            fs.lock_exclusive(&file, Duration::from_millis(1)).is_err(),
+            "no lock file may be made or locked through the link"
+        );
+        assert!(fs.open_in_place(&scope(), &file).is_err());
+        assert!(fs.truncate(&scope(), &file, 0).is_err());
+        assert!(
+            fs.set_meta(&scope(), &file, &MetaChange::default())
+                .is_err()
+        );
+        let meta = crate::system_fs()
+            .extended_metadata(
+                &AbsPath::new(outside.join("other")).unwrap(),
+                Follow::NoFollow,
+            )
+            .unwrap();
+        assert!(fs.restore_meta(&scope(), &file, &meta).is_err());
+        assert!(
+            fs.create_node(&scope(), &file, SpecialNode::fifo(), Some(0o600))
+                .is_err()
+        );
+        untouched(&outside);
+    }
+
+    #[test]
+    fn descriptors_do_not_move_or_remove_through_a_link_in_the_journal_chain() {
+        let root = tempfile::tempdir().unwrap();
+        let (fs, file, outside, ops) = planted_link(root.path());
+        let state = root.path().join("state");
+        let other = AbsPath::new(ops.join("other")).unwrap();
+        let tree = AbsPath::new(ops.join("tree")).unwrap();
+        let inside = AbsPath::new(state.join("inside")).unwrap();
+        std::fs::write(inside.as_path(), b"inside").unwrap();
+        for mode in [RenameMode::Replace, RenameMode::NoReplace] {
+            assert!(fs.rename(&scope(), &file, &other, mode).is_err());
+            assert!(fs.rename(&scope(), &inside, &other, mode).is_err());
+            assert!(fs.rename(&scope(), &file, &inside, mode).is_err());
+        }
+        assert!(fs.exchange(&scope(), &file, &other).is_err());
+        assert!(fs.exchange(&scope(), &inside, &other).is_err());
+        assert!(fs.hard_link(&scope(), &file, &other).is_err());
+        assert!(fs.hard_link(&scope(), &inside, &other).is_err());
+        assert!(fs.remove_file(&scope(), &file).is_err());
+        assert!(fs.remove_dir(&scope(), &tree).is_err());
+        assert!(fs.remove_tree(&scope(), &tree, 2).is_err());
+        assert!(fs.copy_file(&scope(), &file, &inside).is_err());
+        assert!(
+            fs.replace_with_backup(&scope(), &file, &other, &inside)
+                .is_err()
+        );
+        assert_eq!(std::fs::read(inside.as_path()).unwrap(), b"inside");
+        untouched(&outside);
+    }
+
+    #[test]
+    fn descriptors_read_move_and_remove_inside_the_journal() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let ops = state.join(".nurt-journal/ops");
+        std::fs::create_dir_all(&ops).unwrap();
+        std::fs::write(ops.join("file"), b"inside").unwrap();
+        let fs = descriptor_fs(&state);
+        let path = |name: &str| AbsPath::new(ops.join(name)).unwrap();
+        assert_eq!(
+            fs.metadata(&path("file"), Follow::NoFollow).unwrap().size,
+            6
+        );
+        let mut text = String::new();
+        fs.open_read(&path("file"))
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        assert_eq!(text, "inside");
+        assert_eq!(
+            fs.content_hash(&path("file")).unwrap(),
+            fs.content_hash(&path("file")).unwrap()
+        );
+        assert!(
+            fs.extended_metadata(&path("file"), Follow::NoFollow)
+                .unwrap()
+                .link_target
+                .is_none()
+        );
+        fs.rename(
+            &scope(),
+            &path("file"),
+            &path("moved"),
+            RenameMode::NoReplace,
+        )
+        .unwrap();
+        fs.truncate(&scope(), &path("moved"), 2).unwrap();
+        assert_eq!(
+            fs.metadata(&path("moved"), Follow::NoFollow).unwrap().size,
+            2
+        );
+        fs.hard_link(&scope(), &path("moved"), &path("linked"))
+            .unwrap();
+        fs.exchange(&scope(), &path("moved"), &path("linked"))
+            .unwrap();
+        let names: Vec<_> = fs
+            .read_dir(&AbsPath::new(&ops).unwrap())
+            .unwrap()
+            .map(|entry| entry.unwrap().name)
+            .collect();
+        assert_eq!(names.len(), 2);
+        fs.remove_file(&scope(), &path("linked")).unwrap();
+        fs.remove_file(&scope(), &path("moved")).unwrap();
+        assert!(fs.metadata(&path("moved"), Follow::NoFollow).is_err());
+        fs.create_dir(&scope(), &path("tree"), 0o700).unwrap();
+        fs.create_new(&scope(), &path("tree/leaf")).unwrap();
+        let stats = fs.remove_tree(&scope(), &path("tree"), 2).unwrap();
+        assert_eq!((stats.files, stats.directories), (1, 1));
+        let lock = fs
+            .lock_exclusive(&path("lock"), Duration::from_secs(5))
+            .unwrap();
+        assert!(
+            fs.lock_exclusive(&path("lock"), Duration::from_millis(5))
+                .is_err()
+        );
+        drop(lock);
+        // A process started by another test between the open and the close of
+        // the descriptor can hold the lock until it executes its program.
+        fs.lock_exclusive(&path("lock"), Duration::from_secs(5))
+            .unwrap();
+    }
+
+    const ATTRIBUTE: &str = "user.nurt-account-test";
+
+    fn attribute_of(path: &Path) -> Option<Vec<u8>> {
+        xattr::get(path, ATTRIBUTE).ok().flatten()
+    }
+
+    #[test]
+    fn descriptors_change_metadata_and_restore_it_on_the_open_entry() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let ops = state.join(".nurt-journal/ops");
+        std::fs::create_dir_all(&ops).unwrap();
+        let file = ops.join("file");
+        std::fs::write(&file, b"inside").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o640)).unwrap();
+        if xattr::set(&file, ATTRIBUTE, b"before").is_err() {
+            return;
+        }
+        let fs = descriptor_fs(&state);
+        let target = AbsPath::new(&file).unwrap();
+        let kept = fs.extended_metadata(&target, Follow::NoFollow).unwrap();
+        assert_eq!(kept.xattrs.len(), 1);
+
+        let change = MetaChange {
+            mode: Some(0o600),
+            set_xattrs: vec![Xattr {
+                name: ATTRIBUTE.into(),
+                value: b"after".to_vec(),
+            }],
+            modified_ns: Some(1_000_000_000),
+            ..MetaChange::default()
+        };
+        fs.set_meta(&scope(), &target, &change).unwrap();
+        let now = std::fs::metadata(&file).unwrap();
+        assert_eq!(now.permissions().mode() & 0o777, 0o600);
+        assert_eq!(now.mtime(), 1);
+        assert_eq!(attribute_of(&file).as_deref(), Some(&b"after"[..]));
+
+        let report = fs.restore_meta(&scope(), &target, &kept).unwrap();
+        assert!(report.is_complete(), "{report:?}");
+        let back = std::fs::metadata(&file).unwrap();
+        assert_eq!(back.permissions().mode() & 0o777, 0o640);
+        assert_eq!(attribute_of(&file).as_deref(), Some(&b"before"[..]));
+        assert_eq!(std::fs::read(&file).unwrap(), b"inside");
+
+        let link = ops.join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        let through = AbsPath::new(&link).unwrap();
+        assert!(fs.set_meta(&scope(), &through, &change).is_err());
+        assert!(fs.restore_meta(&scope(), &through, &kept).is_err());
+        assert_eq!(
+            std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+    }
+
+    #[test]
+    fn descriptors_make_a_named_pipe_with_the_requested_mode() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let ops = state.join(".nurt-journal/ops");
+        std::fs::create_dir_all(&ops).unwrap();
+        let fs = descriptor_fs(&state);
+        let pipe = AbsPath::new(ops.join("pipe")).unwrap();
+        fs.create_node(&scope(), &pipe, SpecialNode::fifo(), Some(0o660))
+            .unwrap();
+        let made = std::fs::symlink_metadata(pipe.as_path()).unwrap();
+        assert!(std::os::unix::fs::FileTypeExt::is_fifo(&made.file_type()));
+        assert_eq!(made.permissions().mode() & 0o777, 0o660);
+        assert!(
+            fs.create_node(&scope(), &pipe, SpecialNode::fifo(), None)
+                .is_err(),
+            "an existing name is not replaced"
+        );
+        assert!(fs.metadata(&pipe, Follow::NoFollow).is_ok());
     }
 }
 

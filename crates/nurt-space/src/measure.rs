@@ -6,7 +6,7 @@
 // Responsibility:   Free space measurement.
 // Dependencies:     nurt_contracts, nurt_fs
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Free space measurement.
@@ -167,44 +167,6 @@ pub(crate) mod testing {
                 return Err(reason);
             }
             self.advance(duration);
-            Ok(())
-        }
-    }
-
-    /// Clock backed by the real monotonic clock, for timing measurements.
-    #[derive(Debug)]
-    pub(crate) struct RealClock {
-        origin: std::time::Instant,
-    }
-
-    impl RealClock {
-        pub(crate) fn new() -> Self {
-            Self {
-                origin: std::time::Instant::now(),
-            }
-        }
-    }
-
-    impl Clock for RealClock {
-        fn now(&self) -> WallTime {
-            WallTime(i128::try_from(self.origin.elapsed().as_nanos()).unwrap_or(i128::MAX))
-        }
-
-        fn monotonic(&self) -> Duration {
-            self.origin.elapsed()
-        }
-
-        fn stamp(&self) -> ClockStamp {
-            ClockStamp {
-                wall: self.now(),
-                boot: BootId("test".to_owned()),
-                since_boot_with_suspend: self.monotonic(),
-                since_boot_active: self.monotonic(),
-            }
-        }
-
-        fn sleep(&self, duration: Duration, _cancel: &CancelToken) -> Result<(), CancelReason> {
-            std::thread::sleep(duration);
             Ok(())
         }
     }

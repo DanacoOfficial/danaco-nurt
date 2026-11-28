@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Values and records. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Values and records
@@ -449,6 +449,7 @@ Change of one file within an effect.
 | `replacements` | int | no | Replacements made. |
 | `rows_changed` | int | no | Rows inserted, updated or deleted by SQL statements. |
 | `flags` | list<text> | no | Notes about the change, for example `crlf_preserved`. |
+| `similarity` | int | no | Similarity of a rename in percent. |
 | `encoding_before` | text | no | Encoding before. |
 | `encoding_after` | text | no | Encoding after. |
 | `line_ending_before` | enum(lf\|crlf\|cr\|mixed\|none) | no | Line endings before. |
@@ -932,6 +933,35 @@ Description of a program.
 | `tags` | list<text> | no | Tags. |
 | `platforms` | list<text> | no | Operating systems. |
 | `score` | number | no | Relevance in a search. |
+| `kind` | enum(program\|app\|guide) | no | Kind of the card. |
+| `category_source` | enum(catalog\|desktop\|package\|man\|inferred) | no | Origin of the category. |
+| `has_guide` | bool | no | The program has instructions of use. |
+| `guide_required` | bool | no | Instructions must be read before use. |
+| `guide_name` | text | no | Name of the instructions of use. |
+| `guide_shared_with` | list<text> | no | Programs that share the instructions of use. |
+| `overview` | text | no | Overview of the program. |
+| `alternatives` | list<text> | no | Other paths of the program in the search path. |
+| `catalog_path` | text | no | Path of the entry in the program catalog. |
+| `manager` | text | no | Package manager of the package. |
+| `app_id` | text | no | Identifier of the application. |
+| `language` | text | no | Language of the summary. |
+| `query` | text | no | Query of a search that found the card. |
+| `instead` | text | no | Program to use instead of the one asked for. |
+| `etag` | text | no | Entity tag of the description. |
+| `requested` | text | no | Name as requested, when it differs from the name of the card. |
+| `alias_kind` | enum(alias\|versioned\|companion\|symlink\|alternative\|shim\|app_alias) | no | How the requested name relates to the card. |
+| `unchanged` | bool | no | The description is unchanged since the entity tag that was given. |
+| `guide_sections` | list<text> | no | Headings of the sections of the instructions. |
+| `guide_files` | list<text> | no | Files of the instructions. |
+| `guide_etag` | text | no | Entity tag of the instructions. |
+| `when_to_use` | list<text> | no | Situations the program is meant for. |
+| `not_for` | list<map> | no | Tasks the program is not meant for, each with `task` and `use`. |
+| `example` | text | no | Example of use. |
+| `pitfalls` | text | no | Pitfalls of use. |
+| `man` | text | no | Line of the manual page. |
+| `help` | text | no | Help text of the program. |
+| `help_status` | enum(ok\|timeout\|refused\|failed\|empty) | no | Outcome of reading the help text. |
+| `executed` | list<text> | no | Command line that was run to read the help text. |
 
 ### archive_entry
 
@@ -981,6 +1011,10 @@ Test run.
 | `retry_of` | text | no | Run this one repeats. |
 | `op` | int | no | Journal operation of the run. |
 | `coverage` | object [`Coverage`](#coverage) | no | Code coverage. |
+| `baseline` | text | no | Earlier run the results were compared with. |
+| `regressions` | list<text> | no | Tests that passed in the baseline and fail now. |
+| `fixed` | list<text> | no | Tests that failed in the baseline and pass now. |
+| `slowest` | list<text> | no | The slowest tests, each as `id: <time>ms`. |
 
 ### test_result
 
@@ -1055,6 +1089,7 @@ The complete effect is described by the effect report; this record carries the p
 | `before` | any | no | State before. |
 | `after` | any | no | State after. |
 | `git` | record [`git_effect`](#git_effect) | no | Effect on a repository. |
+| `return_value` | int | no | Return value of a method called on a Windows management instance. |
 
 ### git_effect
 
@@ -1333,6 +1368,8 @@ Location of a program.
 | `version` | text | no | Version. |
 | `source` | enum(path\|package\|app\|catalog) | no | Source. |
 | `all_paths` | list<path> | no | Every match in the search path, in order of resolution. |
+| `version_source` | enum(path\|package\|app\|catalog) | no | Source that gave the version. |
+| `alias_of` | text | no | Program the name is an alias of. |
 
 ### program_category
 
@@ -1346,6 +1383,12 @@ Category of programs.
 | `title` | text | no | Title. |
 | `description` | text | no | Description. |
 | `subcategories` | list<text> | no | Subcategories. |
+| `level` | enum(category\|subcategory) | no | Level of the category. |
+| `parent` | text | no | Category a subcategory belongs to. |
+| `summary` | text | no | One sentence. |
+| `aliases` | list<text> | no | Other names that resolve to the category. |
+| `sources` | list<text> | no | Sources the category was declared in. |
+| `counts_by_source` | map | no | Number of programs by source. |
 
 ### schedule_run
 

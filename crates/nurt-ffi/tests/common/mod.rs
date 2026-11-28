@@ -6,12 +6,16 @@
 // Responsibility:   Helpers shared by the interface tests.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Helpers shared by the interface tests.
 
 #![allow(dead_code, reason = "each test target uses a subset of the helpers")]
+#![allow(
+    clippy::print_stderr,
+    reason = "a skipped test states on the error stream why it proves nothing"
+)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -60,6 +64,48 @@ pub(crate) fn find_program(name: &str) -> Option<PathBuf> {
     env::split_paths(&path)
         .map(|dir| dir.join(name))
         .find(|candidate| candidate.is_file())
+}
+
+/// Environment variable that makes a missing program a failure instead of a
+/// skip: the continuous integration sets it to `1` where `clang` is installed.
+pub(crate) const REQUIRE_TOOLCHAIN_VARIABLE: &str = "NURT_REQUIRE_C_TOOLCHAIN";
+
+/// Whether [`REQUIRE_TOOLCHAIN_VARIABLE`] is set to a value other than empty
+/// or `0`.
+pub(crate) fn toolchain_required() -> bool {
+    env::var(REQUIRE_TOOLCHAIN_VARIABLE).is_ok_and(|value| !value.is_empty() && value != "0")
+}
+
+/// The C compiler `clang`, found in `PATH`.
+///
+/// When it is missing, the test is skipped with a message on the standard
+/// error stream and `None` is returned; when [`REQUIRE_TOOLCHAIN_VARIABLE`] is
+/// set, the missing compiler fails the test.
+pub(crate) fn find_clang() -> Option<PathBuf> {
+    find_program_or_skip("clang", toolchain_required())
+}
+
+/// Program found in `PATH` for a test that needs it.
+///
+/// When the program is missing, the test is skipped with a message on the
+/// standard error stream and `None` is returned, or fails when `required`.
+pub(crate) fn find_program_or_skip(name: &str, required: bool) -> Option<PathBuf> {
+    let found = find_program(name);
+    if found.is_none() {
+        let test = std::thread::current()
+            .name()
+            .unwrap_or("unnamed test")
+            .to_owned();
+        assert!(
+            !required,
+            "{test}: `{name}` is not in PATH and {REQUIRE_TOOLCHAIN_VARIABLE} requires it"
+        );
+        eprintln!(
+            "SKIPPED {test}: `{name}` is not in PATH; the test proves nothing without it \
+             (set {REQUIRE_TOOLCHAIN_VARIABLE}=1 to fail instead)"
+        );
+    }
+    found
 }
 
 /// Runs a command and fails the test with its output when it does not

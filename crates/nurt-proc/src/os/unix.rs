@@ -6,7 +6,7 @@
 // Responsibility:   Process trees of Unix systems: a new session and process group per run.
 // Dependencies:     libc, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Process trees of Unix systems: a new session and process group per run.

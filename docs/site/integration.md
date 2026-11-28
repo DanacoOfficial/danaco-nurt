@@ -10,7 +10,7 @@ order: 9
 <!-- Responsibility:   Documents Integration. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Integration
 
@@ -19,7 +19,7 @@ A host program can call Danaco Nurt in four ways. The tool seen by a model is na
 | Interface | Use |
 |---|---|
 | MCP server | `nurt mcp --stdio` or `nurt mcp --http <address>` provides the tool `nurt` |
-| JSON-RPC | `nurt serve --stdio` or `nurt serve --socket <path>` speaks `nurt-rpc/1` |
+| JSON-RPC | `nurt serve --stdio` speaks `nurt-rpc/1`; the option `--socket <path>` is reserved and ends with exit code 3 |
 | C library | `libnurt` and `nurt.h`; the bindings for other languages use it |
 | Rust library | the crate `nurt-core` |
 

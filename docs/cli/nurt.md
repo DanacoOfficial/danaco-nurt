@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents nurt. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # nurt
@@ -25,6 +25,8 @@ nurt -V | --version | -h | --help
 The first argument selects a subcommand only when it equals the name of a subcommand exactly. Any other first argument starts a program of the language, and all arguments are joined with single spaces into the program text. `nurt exec` is always unambiguous. Names are case-sensitive; an argument in quotes or with surrounding white space is a program.
 
 Without arguments the executable starts the interactive session.
+
+The shell removes the quotes of its own before it starts the program, so a text of the language needs quotes that reach the program. In PowerShell write `nurt find '"C:/logs"'`. Windows PowerShell 5.1 also drops the inner quotes of an argument of a program; there write them escaped, `nurt find '\"C:/logs\"'`, or put the program in a file and run it with `nurt run` or `nurt script`. The texts of the language take `/` as the separator of paths on every system, without escapes.
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
@@ -147,7 +149,7 @@ Syntax:
 nurt repl
 ```
 
-On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the mark of the product, a silver chevron and a gold chevron, drawn with half blocks (with 7-bit ASCII characters on a terminal without UTF-8), with the name, the canonical sentence, the version, a hint and the copyright line beside it. On a terminal too narrow for both, the text stands below the drawing, and on a terminal narrower than the drawing the banner is the text alone. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
+On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the mark of the product, a silver chevron and a gold chevron, drawn with half blocks (with 7-bit ASCII characters on a terminal without UTF-8), with the name, the canonical sentence, the version, a hint and the copyright line beside it. The banner stands three columns from the left edge, with one empty line above and below it. On a terminal too narrow for both, the text stands below the drawing, and on a terminal narrower than the drawing the banner is the text alone. The cursor is a blinking underscore while a line is typed. The banner, the prompt and the highlighting of the line use the colours of the product: silver and gold of the mark and the cyan of its blue. A terminal that reports 24-bit colour (`COLORTERM=truecolor`, Windows Terminal) shows exactly these colours, any other terminal the nearest colours of the 256-colour palette; `NO_COLOR` and `output.color` turn them off. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
 
 | Word | Meaning |
 |---|---|
@@ -353,7 +355,7 @@ nurt serve --stdio | --socket <path> [--framing ndjson|content-length] [--stub <
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `--stdio` | flag | none | Serves one client on the standard input and output. |
-| `--socket <path>` | path | none | Serves a client on a local socket. Ends with exit code 3. |
+| `--socket <path>` | path | none | Reserved for a local socket transport. The option is recognised and ends with exit code 3 in release 0.1.2; connect with `--stdio`. |
 | `--framing` | `ndjson` or `content-length` | `ndjson` | Framing of the messages. |
 | `--stub <directory>` | path | none | Answers requests from recorded cases instead of the engine. Needs the `stub` feature; without it the command ends with exit code 3. |
 

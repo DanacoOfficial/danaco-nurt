@@ -56,6 +56,162 @@ program = 'accounts'
 corrections = [{ rule = 'L01', class = 'F', from = 'acocnuts', to = 'accounts' }]
 
 [[case]]
+id = 'correction/generated/command-typos/accounts-create/acocunts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acocunts.create is one edit from the changing command accounts.create; the correction is offered, not applied.'
+method = "correct"
+program = 'acocunts.create "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.create "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-create/accuonts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accuonts.create is one edit from the changing command accounts.create; the correction is offered, not applied.'
+method = "correct"
+program = 'accuonts.create "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.create "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-create/acconuts-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acconuts.create is one edit from the changing command accounts.create; the correction is offered, not applied.'
+method = "correct"
+program = 'acconuts.create "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.create "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-modify/acocunts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acocunts.modify is one edit from the changing command accounts.modify; the correction is offered, not applied.'
+method = "correct"
+program = 'acocunts.modify "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.modify "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-modify/accuonts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accuonts.modify is one edit from the changing command accounts.modify; the correction is offered, not applied.'
+method = "correct"
+program = 'accuonts.modify "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.modify "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-modify/acconuts-modify'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acconuts.modify is one edit from the changing command accounts.modify; the correction is offered, not applied.'
+method = "correct"
+program = 'acconuts.modify "deploy" shell: "/bin/sh"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.modify "deploy" shell: "/bin/sh"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-password/acocunts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acocunts.password is one edit from the changing command accounts.password; the correction is offered, not applied.'
+method = "correct"
+program = 'acocunts.password "deploy" "s3cret"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.password "deploy" "s3cret"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-password/accuonts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accuonts.password is one edit from the changing command accounts.password; the correction is offered, not applied.'
+method = "correct"
+program = 'accuonts.password "deploy" "s3cret"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.password "deploy" "s3cret"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-password/acconuts-password'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acconuts.password is one edit from the changing command accounts.password; the correction is offered, not applied.'
+method = "correct"
+program = 'acconuts.password "deploy" "s3cret"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.password "deploy" "s3cret"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-remove/acocunts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acocunts.remove is one edit from the changing command accounts.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'acocunts.remove "deploy" keep_home: true'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.remove "deploy" keep_home: true' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-remove/accuonts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accuonts.remove is one edit from the changing command accounts.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'accuonts.remove "deploy" keep_home: true'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.remove "deploy" keep_home: true' }]
+
+[[case]]
+id = 'correction/generated/command-typos/accounts-remove/acconuts-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name acconuts.remove is one edit from the changing command accounts.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'acconuts.remove "deploy" keep_home: true'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'accounts.remove "deploy" keep_home: true' }]
+
+[[case]]
 id = 'correction/generated/command-typos/analyze-check/aanlyze-check'
 kind = "correction"
 class = "mandatory"
@@ -444,6 +600,123 @@ program = 'attrbiutes "/home/user/app/run.sh" mode: "0755"'
 [case.expect.error]
 code = 'E_AMBIGUOUS'
 candidates = [{ program = 'attributes "/home/user/app/run.sh" mode: "0755"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-ntp/colck-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name colck.ntp is one edit from the changing command clock.ntp; the correction is offered, not applied.'
+method = "correct"
+program = 'colck.ntp on'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.ntp on' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-ntp/clcok-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clcok.ntp is one edit from the changing command clock.ntp; the correction is offered, not applied.'
+method = "correct"
+program = 'clcok.ntp on'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.ntp on' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-ntp/clokc-ntp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clokc.ntp is one edit from the changing command clock.ntp; the correction is offered, not applied.'
+method = "correct"
+program = 'clokc.ntp on'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.ntp on' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-set/colck-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name colck.set is one edit from the changing command clock.set; the correction is offered, not applied.'
+method = "correct"
+program = 'colck.set "2030-01-01T00:00:00Z"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.set "2030-01-01T00:00:00Z"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-set/clcok-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clcok.set is one edit from the changing command clock.set; the correction is offered, not applied.'
+method = "correct"
+program = 'clcok.set "2030-01-01T00:00:00Z"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.set "2030-01-01T00:00:00Z"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-set/clokc-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clokc.set is one edit from the changing command clock.set; the correction is offered, not applied.'
+method = "correct"
+program = 'clokc.set "2030-01-01T00:00:00Z"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.set "2030-01-01T00:00:00Z"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-timezone-set/colck-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name colck.timezone_set is one edit from the changing command clock.timezone_set; the correction is offered, not applied.'
+method = "correct"
+program = 'colck.timezone_set "Europe/Warsaw"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.timezone_set "Europe/Warsaw"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-timezone-set/clcok-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clcok.timezone_set is one edit from the changing command clock.timezone_set; the correction is offered, not applied.'
+method = "correct"
+program = 'clcok.timezone_set "Europe/Warsaw"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.timezone_set "Europe/Warsaw"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/clock-timezone-set/clokc-timezone-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clokc.timezone_set is one edit from the changing command clock.timezone_set; the correction is offered, not applied.'
+method = "correct"
+program = 'clokc.timezone_set "Europe/Warsaw"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'clock.timezone_set "Europe/Warsaw"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/code-actions/cdoe-actions'
@@ -1512,6 +1785,84 @@ program = 'disks'
 corrections = [{ rule = 'L01', class = 'F', from = 'dissk', to = 'disks' }]
 
 [[case]]
+id = 'correction/generated/command-typos/disks-format/dsiks-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dsiks.format is one edit from the changing command disks.format; the correction is offered, not applied.'
+method = "correct"
+program = 'dsiks.format "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.format "/dev/sdb1" fs: ext4 label: "data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/disks-format/dikss-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dikss.format is one edit from the changing command disks.format; the correction is offered, not applied.'
+method = "correct"
+program = 'dikss.format "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.format "/dev/sdb1" fs: ext4 label: "data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/disks-format/dissk-format'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dissk.format is one edit from the changing command disks.format; the correction is offered, not applied.'
+method = "correct"
+program = 'dissk.format "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.format "/dev/sdb1" fs: ext4 label: "data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/disks-partition/dsiks-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dsiks.partition is one edit from the changing command disks.partition; the correction is offered, not applied.'
+method = "correct"
+program = 'dsiks.partition "/dev/sdb" action: create size: 10gb'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.partition "/dev/sdb" action: create size: 10gb' }]
+
+[[case]]
+id = 'correction/generated/command-typos/disks-partition/dikss-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dikss.partition is one edit from the changing command disks.partition; the correction is offered, not applied.'
+method = "correct"
+program = 'dikss.partition "/dev/sdb" action: create size: 10gb'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.partition "/dev/sdb" action: create size: 10gb' }]
+
+[[case]]
+id = 'correction/generated/command-typos/disks-partition/dissk-partition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name dissk.partition is one edit from the changing command disks.partition; the correction is offered, not applied.'
+method = "correct"
+program = 'dissk.partition "/dev/sdb" action: create size: 10gb'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'disks.partition "/dev/sdb" action: create size: 10gb' }]
+
+[[case]]
 id = 'correction/generated/command-typos/distinct/dsitinct'
 kind = "correction"
 class = "mandatory"
@@ -1822,6 +2173,175 @@ program = 'fnd "/home/user/app" glob: "*.go"'
 [case.expect]
 program = 'find "/home/user/app" glob: "*.go"'
 corrections = [{ rule = 'L01', class = 'F', from = 'fnd', to = 'find' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-allow/friewall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name friewall.allow is one edit from the changing command firewall.allow; the correction is offered, not applied.'
+method = "correct"
+program = 'friewall.allow 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.allow 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-allow/fierwall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name fierwall.allow is one edit from the changing command firewall.allow; the correction is offered, not applied.'
+method = "correct"
+program = 'fierwall.allow 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.allow 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-allow/firweall-allow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firweall.allow is one edit from the changing command firewall.allow; the correction is offered, not applied.'
+method = "correct"
+program = 'firweall.allow 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.allow 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-deny/friewall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name friewall.deny is one edit from the changing command firewall.deny; the correction is offered, not applied.'
+method = "correct"
+program = 'friewall.deny 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.deny 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-deny/fierwall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name fierwall.deny is one edit from the changing command firewall.deny; the correction is offered, not applied.'
+method = "correct"
+program = 'fierwall.deny 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.deny 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-deny/firweall-deny'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firweall.deny is one edit from the changing command firewall.deny; the correction is offered, not applied.'
+method = "correct"
+program = 'firweall.deny 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.deny 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-remove/friewall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name friewall.remove is one edit from the changing command firewall.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'friewall.remove 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.remove 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-remove/fierwall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name fierwall.remove is one edit from the changing command firewall.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'fierwall.remove 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.remove 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-remove/firweall-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firweall.remove is one edit from the changing command firewall.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'firweall.remove 8080 protocol: tcp'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'firewall.remove 8080 protocol: tcp' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-rules/friewall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name friewall.rules is one edit from firewall.rules and from no other name.'
+method = "correct"
+program = 'friewall.rules'
+
+[case.expect]
+program = 'firewall.rules'
+corrections = [{ rule = 'L01', class = 'F', from = 'friewall.rules', to = 'firewall.rules' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-rules/fierwall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name fierwall.rules is one edit from firewall.rules and from no other name.'
+method = "correct"
+program = 'fierwall.rules'
+
+[case.expect]
+program = 'firewall.rules'
+corrections = [{ rule = 'L01', class = 'F', from = 'fierwall.rules', to = 'firewall.rules' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-rules/firweall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firweall.rules is one edit from firewall.rules and from no other name.'
+method = "correct"
+program = 'firweall.rules'
+
+[case.expect]
+program = 'firewall.rules'
+corrections = [{ rule = 'L01', class = 'F', from = 'firweall.rules', to = 'firewall.rules' }]
+
+[[case]]
+id = 'correction/generated/command-typos/firewall-rules/friweall-rules'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name friweall.rules is two edits from firewall.rules, a long name of a reading command.'
+method = "correct"
+program = 'friweall.rules'
+
+[case.expect]
+program = 'firewall.rules'
+corrections = [{ rule = 'L01', class = 'F', from = 'friweall.rules', to = 'firewall.rules' }]
 
 [[case]]
 id = 'correction/generated/command-typos/first/frist'
@@ -2825,6 +3345,162 @@ program = 'find "/home/user/app" |> group extension'
 corrections = [{ rule = 'L01', class = 'F', from = 'gropu', to = 'group' }]
 
 [[case]]
+id = 'correction/generated/command-typos/groups-add-member/gorups-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gorups.add_member is one edit from the changing command groups.add_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gorups.add_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.add_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-add-member/gruops-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gruops.add_member is one edit from the changing command groups.add_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gruops.add_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.add_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-add-member/gropus-add-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gropus.add_member is one edit from the changing command groups.add_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gropus.add_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.add_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-create/gorups-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gorups.create is one edit from the changing command groups.create; the correction is offered, not applied.'
+method = "correct"
+program = 'gorups.create "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.create "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-create/gruops-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gruops.create is one edit from the changing command groups.create; the correction is offered, not applied.'
+method = "correct"
+program = 'gruops.create "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.create "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-create/gropus-create'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gropus.create is one edit from the changing command groups.create; the correction is offered, not applied.'
+method = "correct"
+program = 'gropus.create "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.create "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove/gorups-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gorups.remove is one edit from the changing command groups.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'gorups.remove "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove/gruops-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gruops.remove is one edit from the changing command groups.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'gruops.remove "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove/gropus-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gropus.remove is one edit from the changing command groups.remove; the correction is offered, not applied.'
+method = "correct"
+program = 'gropus.remove "staff2"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove "staff2"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove-member/gorups-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gorups.remove_member is one edit from the changing command groups.remove_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gorups.remove_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove-member/gruops-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gruops.remove_member is one edit from the changing command groups.remove_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gruops.remove_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove_member "staff2" "deploy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/groups-remove-member/gropus-remove-member'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name gropus.remove_member is one edit from the changing command groups.remove_member; the correction is offered, not applied.'
+method = "correct"
+program = 'gropus.remove_member "staff2" "deploy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'groups.remove_member "staff2" "deploy"' }]
+
+[[case]]
 id = 'correction/generated/command-typos/hash/hsah'
 kind = "correction"
 class = "mandatory"
@@ -3553,6 +4229,129 @@ program = 'logs'
 corrections = [{ rule = 'L01', class = 'F', from = 'log', to = 'logs' }]
 
 [[case]]
+id = 'correction/generated/command-typos/modules-load/mdoules-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name mdoules.load is one edit from the changing command modules.load; the correction is offered, not applied.'
+method = "correct"
+program = 'mdoules.load "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.load "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/modules-load/moudles-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name moudles.load is one edit from the changing command modules.load; the correction is offered, not applied.'
+method = "correct"
+program = 'moudles.load "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.load "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/modules-load/modlues-load'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name modlues.load is one edit from the changing command modules.load; the correction is offered, not applied.'
+method = "correct"
+program = 'modlues.load "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.load "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/modules-unload/mdoules-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name mdoules.unload is one edit from the changing command modules.unload; the correction is offered, not applied.'
+method = "correct"
+program = 'mdoules.unload "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.unload "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/modules-unload/moudles-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name moudles.unload is one edit from the changing command modules.unload; the correction is offered, not applied.'
+method = "correct"
+program = 'moudles.unload "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.unload "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/modules-unload/modlues-unload'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name modlues.unload is one edit from the changing command modules.unload; the correction is offered, not applied.'
+method = "correct"
+program = 'modlues.unload "dummy"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'modules.unload "dummy"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/mount/muont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name muont is one edit from the changing command mount; the correction is offered, not applied.'
+method = "correct"
+program = 'muont "/dev/sdb1" "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'mount "/dev/sdb1" "/mnt/data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/mount/monut'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name monut is one edit from the changing command mount; the correction is offered, not applied.'
+method = "correct"
+program = 'monut "/dev/sdb1" "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'mount "/dev/sdb1" "/mnt/data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/mount/moutn'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name moutn is one edit from the changing command mount; the correction is offered, not applied.'
+method = "correct"
+program = 'moutn "/dev/sdb1" "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'mount "/dev/sdb1" "/mnt/data"' }]
+
+[[case]]
 id = 'correction/generated/command-typos/move/mvoe'
 kind = "correction"
 class = "mandatory"
@@ -3590,6 +4389,45 @@ program = 'moe "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 [case.expect.error]
 code = 'E_AMBIGUOUS'
 candidates = [{ program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-dns-set/ntework-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name ntework.dns_set is one edit from the changing command network.dns_set; the correction is offered, not applied.'
+method = "correct"
+program = 'ntework.dns_set ["1.1.1.1"]'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.dns_set ["1.1.1.1"]' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-dns-set/newtork-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name newtork.dns_set is one edit from the changing command network.dns_set; the correction is offered, not applied.'
+method = "correct"
+program = 'newtork.dns_set ["1.1.1.1"]'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.dns_set ["1.1.1.1"]' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-dns-set/netowrk-dns-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name netowrk.dns_set is one edit from the changing command network.dns_set; the correction is offered, not applied.'
+method = "correct"
+program = 'netowrk.dns_set ["1.1.1.1"]'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.dns_set ["1.1.1.1"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/network-interfaces/ntework-interfaces'
@@ -3746,6 +4584,123 @@ program = 'nteowrk.resolve "example.com"'
 [case.expect]
 program = 'network.resolve "example.com"'
 corrections = [{ rule = 'L01', class = 'F', from = 'nteowrk.resolve', to = 'network.resolve' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-add/ntework-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name ntework.route_add is one edit from the changing command network.route_add; the correction is offered, not applied.'
+method = "correct"
+program = 'ntework.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-add/newtork-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name newtork.route_add is one edit from the changing command network.route_add; the correction is offered, not applied.'
+method = "correct"
+program = 'newtork.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-add/netowrk-route-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name netowrk.route_add is one edit from the changing command network.route_add; the correction is offered, not applied.'
+method = "correct"
+program = 'netowrk.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-remove/ntework-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name ntework.route_remove is one edit from the changing command network.route_remove; the correction is offered, not applied.'
+method = "correct"
+program = 'ntework.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-remove/newtork-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name newtork.route_remove is one edit from the changing command network.route_remove; the correction is offered, not applied.'
+method = "correct"
+program = 'newtork.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/network-route-remove/netowrk-route-remove'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name netowrk.route_remove is one edit from the changing command network.route_remove; the correction is offered, not applied.'
+method = "correct"
+program = 'netowrk.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/next/nxet'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name nxet is one edit from next and from no other name.'
+method = "correct"
+program = 'nxet'
+
+[case.expect]
+program = 'next'
+corrections = [{ rule = 'L01', class = 'F', from = 'nxet', to = 'next' }]
+
+[[case]]
+id = 'correction/generated/command-typos/next/netx'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name netx is one edit from next and from no other name.'
+method = "correct"
+program = 'netx'
+
+[case.expect]
+program = 'next'
+corrections = [{ rule = 'L01', class = 'F', from = 'netx', to = 'next' }]
+
+[[case]]
+id = 'correction/generated/command-typos/next/nxt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name nxt is one edit from next and from no other name.'
+method = "correct"
+program = 'nxt'
+
+[case.expect]
+program = 'next'
+corrections = [{ rule = 'L01', class = 'F', from = 'nxt', to = 'next' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-cells/ntoebook-cells'
@@ -4539,6 +5494,123 @@ program = 'porst'
 [case.expect]
 program = 'ports'
 corrections = [{ rule = 'L01', class = 'F', from = 'porst', to = 'ports' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-cancel/pwoer-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name pwoer.cancel is one edit from the changing command power.cancel; the correction is offered, not applied.'
+method = "correct"
+program = 'pwoer.cancel'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.cancel' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-cancel/poewr-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name poewr.cancel is one edit from the changing command power.cancel; the correction is offered, not applied.'
+method = "correct"
+program = 'poewr.cancel'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.cancel' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-cancel/powre-cancel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name powre.cancel is one edit from the changing command power.cancel; the correction is offered, not applied.'
+method = "correct"
+program = 'powre.cancel'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.cancel' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-restart/pwoer-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name pwoer.restart is one edit from the changing command power.restart; the correction is offered, not applied.'
+method = "correct"
+program = 'pwoer.restart delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.restart delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-restart/poewr-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name poewr.restart is one edit from the changing command power.restart; the correction is offered, not applied.'
+method = "correct"
+program = 'poewr.restart delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.restart delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-restart/powre-restart'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name powre.restart is one edit from the changing command power.restart; the correction is offered, not applied.'
+method = "correct"
+program = 'powre.restart delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.restart delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-shutdown/pwoer-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name pwoer.shutdown is one edit from the changing command power.shutdown; the correction is offered, not applied.'
+method = "correct"
+program = 'pwoer.shutdown delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.shutdown delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-shutdown/poewr-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name poewr.shutdown is one edit from the changing command power.shutdown; the correction is offered, not applied.'
+method = "correct"
+program = 'poewr.shutdown delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.shutdown delay: 5m' }]
+
+[[case]]
+id = 'correction/generated/command-typos/power-shutdown/powre-shutdown'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name powre.shutdown is one edit from the changing command power.shutdown; the correction is offered, not applied.'
+method = "correct"
+program = 'powre.shutdown delay: 5m'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'power.shutdown delay: 5m' }]
 
 [[case]]
 id = 'correction/generated/command-typos/processes/porcesses'
@@ -5906,6 +6978,48 @@ code = 'E_AMBIGUOUS'
 candidates = [{ program = 'jobs "j1" |> suspend' }]
 
 [[case]]
+id = 'correction/generated/command-typos/sysctl-set/ssyctl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The command name ssyctl.set is one edit from the changing command sysctl.set; the correction is offered, not applied.'
+method = "correct"
+program = 'ssyctl.set "net.ipv4.ip_forward" 1'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sysctl.set "net.ipv4.ip_forward" 1' }]
+
+[[case]]
+id = 'correction/generated/command-typos/sysctl-set/sycstl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The command name sycstl.set is one edit from the changing command sysctl.set; the correction is offered, not applied.'
+method = "correct"
+program = 'sycstl.set "net.ipv4.ip_forward" 1'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sysctl.set "net.ipv4.ip_forward" 1' }]
+
+[[case]]
+id = 'correction/generated/command-typos/sysctl-set/systcl-set'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The command name systcl.set is one edit from the changing command sysctl.set; the correction is offered, not applied.'
+method = "correct"
+program = 'systcl.set "net.ipv4.ip_forward" 1'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sysctl.set "net.ipv4.ip_forward" 1' }]
+
+[[case]]
 id = 'correction/generated/command-typos/test-failed/tset-failed'
 kind = "correction"
 class = "mandatory"
@@ -6127,6 +7241,45 @@ code = 'E_AMBIGUOUS'
 candidates = [{ program = 'undo 3' }]
 
 [[case]]
+id = 'correction/generated/command-typos/unmount/umnount'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name umnount is one edit from the changing command unmount; the correction is offered, not applied.'
+method = "correct"
+program = 'umnount "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'unmount "/mnt/data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/unmount/unomunt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name unomunt is one edit from the changing command unmount; the correction is offered, not applied.'
+method = "correct"
+program = 'unomunt "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'unmount "/mnt/data"' }]
+
+[[case]]
+id = 'correction/generated/command-typos/unmount/unmuont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name unmuont is one edit from the changing command unmount; the correction is offered, not applied.'
+method = "correct"
+program = 'unmuont "/mnt/data"'
+
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'unmount "/mnt/data"' }]
+
+[[case]]
 id = 'correction/generated/command-typos/verify/vreify'
 kind = "correction"
 class = "mandatory"
@@ -6171,13 +7324,13 @@ kind = "correction"
 class = "mandatory"
 language = "1.0"
 requires = ['os:windows']
-summary = 'The command name wnidows.cim is one edit from windows.cim and from no other name.'
+summary = 'The command name wnidows.cim is one edit from the changing command windows.cim; the correction is offered, not applied.'
 method = "correct"
 program = 'wnidows.cim "Win32_OperatingSystem"'
 
-[case.expect]
-program = 'windows.cim "Win32_OperatingSystem"'
-corrections = [{ rule = 'L01', class = 'F', from = 'wnidows.cim', to = 'windows.cim' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'windows.cim "Win32_OperatingSystem"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/windows-cim/widnows-cim'
@@ -6185,13 +7338,13 @@ kind = "correction"
 class = "mandatory"
 language = "1.0"
 requires = ['os:windows']
-summary = 'The command name widnows.cim is one edit from windows.cim and from no other name.'
+summary = 'The command name widnows.cim is one edit from the changing command windows.cim; the correction is offered, not applied.'
 method = "correct"
 program = 'widnows.cim "Win32_OperatingSystem"'
 
-[case.expect]
-program = 'windows.cim "Win32_OperatingSystem"'
-corrections = [{ rule = 'L01', class = 'F', from = 'widnows.cim', to = 'windows.cim' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'windows.cim "Win32_OperatingSystem"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/windows-cim/winodws-cim'
@@ -6199,27 +7352,13 @@ kind = "correction"
 class = "mandatory"
 language = "1.0"
 requires = ['os:windows']
-summary = 'The command name winodws.cim is one edit from windows.cim and from no other name.'
+summary = 'The command name winodws.cim is one edit from the changing command windows.cim; the correction is offered, not applied.'
 method = "correct"
 program = 'winodws.cim "Win32_OperatingSystem"'
 
-[case.expect]
-program = 'windows.cim "Win32_OperatingSystem"'
-corrections = [{ rule = 'L01', class = 'F', from = 'winodws.cim', to = 'windows.cim' }]
-
-[[case]]
-id = 'correction/generated/command-typos/windows-cim/wniodws-cim'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-requires = ['os:windows']
-summary = 'The command name wniodws.cim is two edits from windows.cim, a long name of a reading command.'
-method = "correct"
-program = 'wniodws.cim "Win32_OperatingSystem"'
-
-[case.expect]
-program = 'windows.cim "Win32_OperatingSystem"'
-corrections = [{ rule = 'L01', class = 'F', from = 'wniodws.cim', to = 'windows.cim' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'windows.cim "Win32_OperatingSystem"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/write/wirte'

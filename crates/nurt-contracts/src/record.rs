@@ -6,7 +6,7 @@
 // Responsibility:   Typed records that flow through pipelines.
 // Dependencies:     indexmap, schemars, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Typed records that flow through pipelines.
@@ -1547,6 +1547,85 @@ text_enum! {
 }
 
 text_enum! {
+    /// Kind of a program card.
+    ProgramKind {
+        /// A command started by name.
+        #[default]
+        Program = "program",
+        /// An application without a command in the search path.
+        App = "app",
+        /// A usage guide not bound to a program.
+        Guide = "guide",
+    }
+}
+
+text_enum! {
+    /// Origin of the category of a program card.
+    ProgramCategorySource {
+        /// An external catalog.
+        #[default]
+        Catalog = "catalog",
+        /// A desktop entry or an application bundle.
+        Desktop = "desktop",
+        /// Package metadata.
+        Package = "package",
+        /// The section of the manual page.
+        Man = "man",
+        /// The keyword classifier.
+        Inferred = "inferred",
+    }
+}
+
+text_enum! {
+    /// How a requested name relates to the program that answered it.
+    ProgramAliasKind {
+        /// Another name of the same function.
+        #[default]
+        Alias = "alias",
+        /// The same program with a version in its name.
+        Versioned = "versioned",
+        /// A helper command of the same package.
+        Companion = "companion",
+        /// A symbolic link in the search path to another program there.
+        Symlink = "symlink",
+        /// A Debian alternative.
+        Alternative = "alternative",
+        /// A shim of Scoop or Chocolatey.
+        Shim = "shim",
+        /// A Windows application execution alias.
+        AppAlias = "app_alias",
+    }
+}
+
+text_enum! {
+    /// Outcome of reading the help text of a program.
+    ProgramHelpStatus {
+        /// The help text was read.
+        #[default]
+        Ok = "ok",
+        /// The program did not answer in time.
+        Timeout = "timeout",
+        /// The program is never started for its help.
+        Refused = "refused",
+        /// The program failed.
+        Failed = "failed",
+        /// The program printed no help text.
+        Empty = "empty",
+    }
+}
+
+text_enum! {
+    /// Level of a category of programs.
+    ProgramCategoryLevel {
+        /// A category.
+        #[default]
+        Category = "category",
+        /// A subcategory of a category.
+        Subcategory = "subcategory",
+    }
+}
+
+text_enum! {
     /// Test framework.
     TestFramework {
         /// Bun.
@@ -2678,6 +2757,8 @@ record_struct! {
         rows_changed: Option<u64>,
         /// Notes about the change, for example `crlf_preserved`.
         flags: Option<Vec<String>>,
+        /// Similarity of a rename in percent.
+        similarity: Option<u64>,
         /// Encoding before.
         encoding_before: Option<String>,
         /// Encoding after.
@@ -3528,6 +3609,74 @@ record_struct! {
         platforms: Option<Vec<String>>,
         /// Relevance in a search.
         score: Option<f64>,
+        /// Kind of the card.
+        kind: Option<ProgramKind>,
+        /// Origin of the category.
+        category_source: Option<ProgramCategorySource>,
+        /// The program has instructions of use.
+        has_guide: Option<bool>,
+        /// Instructions must be read before use.
+        guide_required: Option<bool>,
+        /// Name of the instructions of use.
+        guide_name: Option<String>,
+        /// Programs that share the instructions of use.
+        guide_shared_with: Option<Vec<String>>,
+        /// Overview of the program.
+        overview: Option<String>,
+        /// Other paths of the program in the search path.
+        alternatives: Option<Vec<String>>,
+        /// Path of the entry in the program catalog.
+        catalog_path: Option<String>,
+        /// Package manager of the package.
+        manager: Option<String>,
+        /// Identifier of the application.
+        app_id: Option<String>,
+        /// Language of the summary.
+        language: Option<String>,
+        /// Query of a search that found the card.
+        query: Option<String>,
+        /// Program to use instead of the one asked for.
+        instead: Option<String>,
+        /// Entity tag of the description.
+        etag: Option<String>,
+        /// Name as requested, when it differs from the name of the card.
+        requested: Option<String>,
+        /// How the requested name relates to the card.
+        alias_kind: Option<ProgramAliasKind>,
+        /// The description is unchanged since the entity tag that was given.
+        unchanged: Option<bool>,
+        /// Headings of the sections of the instructions.
+        guide_sections: Option<Vec<String>>,
+        /// Files of the instructions.
+        guide_files: Option<Vec<String>>,
+        /// Entity tag of the instructions.
+        guide_etag: Option<String>,
+        /// Situations the program is meant for.
+        when_to_use: Option<Vec<String>>,
+        /// Tasks the program is not meant for.
+        not_for: Option<Vec<ProgramNotFor>>,
+        /// Example of use.
+        example: Option<String>,
+        /// Pitfalls of use.
+        pitfalls: Option<String>,
+        /// Line of the manual page.
+        man: Option<String>,
+        /// Help text of the program.
+        help: Option<String>,
+        /// Outcome of reading the help text.
+        help_status: Option<ProgramHelpStatus>,
+        /// Command line that was run to read the help text.
+        executed: Option<Vec<String>>,
+    }
+}
+
+object_struct! {
+    /// Task a program is not meant for.
+    ProgramNotFor {
+        /// Task.
+        task: String,
+        /// Program to use instead.
+        instead as "use": Option<String>,
     }
 }
 
@@ -3610,6 +3759,14 @@ record_struct! {
         op: Option<u64>,
         /// Code coverage.
         coverage: Option<Coverage>,
+        /// Earlier run the results were compared with.
+        baseline: Option<String>,
+        /// Tests that passed in the baseline and fail now.
+        regressions: Option<Vec<String>>,
+        /// Tests that failed in the baseline and pass now.
+        fixed: Option<Vec<String>>,
+        /// The slowest tests, each as `id: <time>ms`.
+        slowest: Option<Vec<String>>,
     }
 }
 
@@ -3736,6 +3893,8 @@ record_struct! {
         after: Option<Value>,
         /// Effect on a repository.
         git: Option<GitEffect>,
+        /// Return value of a method called on a Windows management instance.
+        return_value: Option<i64>,
     }
 }
 
@@ -4151,6 +4310,10 @@ record_struct! {
         source: Option<ProgramSource>,
         /// Every match in the search path, in order of resolution.
         all_paths: Option<Vec<Path>>,
+        /// Source that gave the version.
+        version_source: Option<ProgramSource>,
+        /// Program the name is an alias of.
+        alias_of: Option<String>,
     }
 }
 
@@ -4169,6 +4332,18 @@ record_struct! {
         description: Option<String>,
         /// Subcategories.
         subcategories: Option<Vec<String>>,
+        /// Level of the category.
+        level: Option<ProgramCategoryLevel>,
+        /// Category a subcategory belongs to.
+        parent: Option<String>,
+        /// One sentence.
+        summary: Option<String>,
+        /// Other names that resolve to the category.
+        aliases: Option<Vec<String>>,
+        /// Sources the category was declared in.
+        sources: Option<Vec<String>>,
+        /// Number of programs by source.
+        counts_by_source: Option<IndexMap<String, u64>>,
     }
 }
 

@@ -6,7 +6,7 @@
 // Responsibility:   Library of the `nurt` command line interface.
 // Dependencies:     app
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Library of the `nurt` command line interface.
@@ -48,6 +48,9 @@ pub use app::{CliError, Context, EngineSource, Io, SystemEngine, Terminal, run};
 ///
 /// An argument that is not valid UTF-8 is a usage error.
 pub fn main_with_args<I: IntoIterator<Item = OsString>>(args: I) -> ExitCode {
+    // A drive without a medium must give an error, not a dialog of Windows
+    // that waits for a person.
+    nurt_core::system::return_device_errors();
     let mut words = Vec::new();
     for argument in args {
         match argument.into_string() {
@@ -64,6 +67,12 @@ pub fn main_with_args<I: IntoIterator<Item = OsString>>(args: I) -> ExitCode {
         stdout: io::stdout().is_terminal(),
         stderr: io::stderr().is_terminal(),
     };
+    // A console of Windows that is not Windows Terminal prints the escape
+    // sequences of the colours as text until the process turns them on. A
+    // console that refuses is left as it is.
+    if terminal.stdout || terminal.stderr {
+        let _ = nurt_core::system::enable_console_virtual_terminal();
+    }
     // The lock of the standard input is taken per read: the servers of `mcp`
     // and `lsp` read the same stream from their own threads and would block
     // for ever behind a lock held for the whole process.

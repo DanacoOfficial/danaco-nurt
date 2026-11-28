@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.diff. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.diff
@@ -117,7 +117,7 @@ no longer matches is rejected.
 Show the unstaged changes of one file.
 
 ```nurt example
-git.diff "/home/user/repo" path: ["src/main.rs"]
+git.diff "/home/user/repo" path: ["/home/user/repo/src/main.rs"]
 ```
 
 ```text expected
@@ -139,7 +139,7 @@ git.diff "/home/user/repo" staged: true function_context: true ignore_whitespace
 Show the changes of one function since the previous commit.
 
 ```nurt example
-git.diff "/home/user/repo" from: "HEAD~1" path: ["src/parser.rs"] symbol: "parse_expr"
+git.diff "/home/user/repo" from: "HEAD~1" path: ["/home/user/repo/src/parser.rs"] symbol: "parse_expr"
 ```
 
 A response that leaves records out ends with the hint "more: next" and carries the field

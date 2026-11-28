@@ -6,7 +6,7 @@
 // Responsibility:   The engine: one configured instance serving requests.
 // Dependencies:     nurt_catalog, nurt_contracts, nurt_exec, nurt_fs, nurt_help, nurt_lspclient, nurt_plan, nurt_proc, nurt_report, nurt_sys, nurt_testkit, schemars, serde, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The engine: one configured instance serving requests.
@@ -486,6 +486,8 @@ pub(crate) struct Inner {
     pub(crate) host: Arc<dyn Host>,
     pub(crate) fs: Option<Arc<dyn Fs>>,
     pub(crate) journal: Option<Arc<dyn JournalStore>>,
+    /// Error of the start of the journal of the process, when it failed.
+    pub(crate) journal_problem: Option<Error>,
     pub(crate) registry_access: Option<Arc<dyn RegistryAccess>>,
     pub(crate) frontend: Arc<dyn Frontend>,
     pub(crate) services: Arc<Services>,
@@ -660,6 +662,7 @@ impl Engine {
         };
         let state = root.map(StateDir::open).transpose()?;
         let windows_registry = config.registry.or_else(system_registry);
+        let mut journal_problem = None;
         let journal = match config.journal {
             Some(journal) => Some(journal),
             None if config.system_journal => {
@@ -668,18 +671,22 @@ impl Engine {
                     .as_ref()
                     .map(|account| account.state_dir.clone())
                     .or_else(|| state.as_ref().map(|state| state.root().to_path_buf()));
-                root.map(|root| {
-                    crate::journal_setup::open_journal(
-                        loader.layers(),
-                        &loaded,
-                        false,
-                        Arc::clone(&config.clock),
-                        &root,
-                        windows_registry.clone(),
-                        config.account.as_ref(),
-                    )
-                })
-                .transpose()?
+                match root {
+                    Some(root) => {
+                        let (journal, problem) = crate::journal_setup::open_journal(
+                            loader.layers(),
+                            &loaded,
+                            false,
+                            Arc::clone(&config.clock),
+                            &root,
+                            windows_registry.clone(),
+                            config.account.as_ref(),
+                        )?;
+                        journal_problem = problem;
+                        Some(journal)
+                    }
+                    None => None,
+                }
             }
             None => None,
         };
@@ -737,6 +744,7 @@ impl Engine {
             host: config.host,
             fs: config.fs,
             journal,
+            journal_problem,
             registry_access: windows_registry.map(|registry| registry as Arc<dyn RegistryAccess>),
             frontend: config.frontend,
             services: Arc::new(services),
@@ -775,6 +783,16 @@ impl Engine {
     #[must_use]
     pub fn state_dir(&self) -> Option<&StateDir> {
         self.inner.state.as_ref()
+    }
+
+    /// The error of the start of the journal of the process, when the start
+    /// failed: an entry that could not be recovered or a journal directory
+    /// that could not be read. The engine is open all the same; a change then
+    /// runs without preservation and its report names it irreversible, until
+    /// a later start of the program recovers the journal.
+    #[must_use]
+    pub fn journal_problem(&self) -> Option<&Error> {
+        self.inner.journal_problem.as_ref()
     }
 
     /// Services of other command groups.

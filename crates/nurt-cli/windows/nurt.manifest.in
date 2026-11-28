@@ -7,7 +7,7 @@
 <!-- Responsibility:   Template of the application manifest of nurt.exe. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
@@ -31,8 +31,7 @@
       <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
     </windowsSettings>
   </application>
+  <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+  <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+  <!-- Support: support@danaco-group.pl -->
 </assembly>
-
-<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
-<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
-<!-- Support: support@danaco-group.pl -->

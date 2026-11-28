@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::recovery
-// Responsibility:   Crash recovery.
+// Responsibility:   Recovery of the journal entries that a crash interrupted, so that each ends fully applied or fully reverted.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, sha2
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Crash recovery.
@@ -873,8 +873,10 @@ impl Entry<'_> {
     }
 
     /// Restores every target, in reverse order, after deciding all of them;
-    /// when the previous content of any target cannot be located, nothing is
-    /// changed and the entry becomes corrupt.
+    /// when the previous content of any target cannot be located, or the
+    /// directory that held a target no longer exists, nothing is changed and
+    /// the entry becomes corrupt. No later pass could restore such a target,
+    /// so the entry is not left to be retried at every start.
     fn roll_back(
         &self,
         manifest: &Manifest,
@@ -883,10 +885,15 @@ impl Entry<'_> {
     ) -> Step<EntryResult> {
         let mut plan: Vec<Action> = Vec::new();
         let mut vacated: Vec<AbsPath> = Vec::new();
+        let mut restored: Vec<AbsPath> = Vec::new();
         for record in manifest.targets.iter().rev() {
             match self.plan_target(record, &vacated)? {
                 Some(steps) => {
+                    if !self.places_exist(&steps, &restored)? {
+                        return self.mark_corrupt();
+                    }
                     vacated.extend(steps.iter().filter_map(Action::vacates).cloned());
+                    restored.extend(steps.iter().filter_map(Action::restores).cloned());
                     plan.extend(steps);
                 }
                 None if Self::superseded(manifest, record) => {}
@@ -911,6 +918,24 @@ impl Entry<'_> {
         } else {
             EntryResult::RolledBack
         })
+    }
+
+    /// Whether the directory of every target that `steps` restore exists, or
+    /// lies in a directory that an action planned before them restores
+    /// (`restored`).
+    fn places_exist(&self, steps: &[Action], restored: &[AbsPath]) -> Step<bool> {
+        for target in steps.iter().filter_map(Action::restores) {
+            let Some(directory) = target.parent() else {
+                continue;
+            };
+            let planned = restored
+                .iter()
+                .any(|made| directory.as_path().starts_with(made.as_path()));
+            if !planned && !exists(self.read(), &directory)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Whether `record` repeats the path of an earlier target. The facts it
@@ -1533,6 +1558,14 @@ impl Action {
                 ..
             } => Some(from),
             Self::Displace { target, .. } => Some(target),
+            _ => None,
+        }
+    }
+
+    /// Name to which the action brings previous content back, when it does.
+    fn restores(&self) -> Option<&AbsPath> {
+        match self {
+            Self::Restore { target, .. } => Some(target),
             _ => None,
         }
     }
@@ -2806,6 +2839,130 @@ mod pass_tests {
         let counters = world.fs.counters();
         assert_eq!(counters.bytes_copied, 0);
         assert!(counters.renames <= 6, "{counters:?}");
+    }
+
+    /// Prepared entry 1 that removed the file `/a/d/f` and then the directory
+    /// `/a/d`, both moved into the entry.
+    fn removed_file_and_directory(world: &World) {
+        world.fs.seed_file(&abs("/a/d/f"), OLD).unwrap();
+        let targets = vec![
+            target(
+                0,
+                "/a/d/f",
+                TargetAction::Delete,
+                world.before("/a/d/f", PreserveMode::Moved, 0),
+            ),
+            target(
+                1,
+                "/a/d",
+                TargetAction::Delete,
+                world.before("/a/d", PreserveMode::Moved, 1),
+            ),
+        ];
+        world.write_entry(
+            0,
+            entry_of(1, targets, vec![world.part(0)]),
+            prepared(),
+            true,
+        );
+        let scope = World::scope(1);
+        for (path, index) in [("/a/d/f", 0), ("/a/d", 1)] {
+            world
+                .fs
+                .rename(
+                    &scope,
+                    &abs(path),
+                    &world.blob(0, 1, index),
+                    RenameMode::NoReplace,
+                )
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn a_file_is_moved_back_into_the_directory_that_the_same_rollback_restores() {
+        let world = World::new();
+        removed_file_and_directory(&world);
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.rolled_back, vec![OpId(1)]);
+        assert_eq!(world.read("/a/d/f").as_deref(), Some(OLD));
+        assert_eq!(world.state(0, 1), StateRecord::undone(UndoneCause::Crash));
+        assert!(!world.marked(0, 1));
+    }
+
+    #[test]
+    fn a_rollback_into_a_directory_that_is_gone_ends_as_corrupt_with_the_content_kept() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/d/f"), OLD).unwrap();
+        let before = world.before("/a/d/f", PreserveMode::Moved, 0);
+        world.write_entry(
+            0,
+            entry_of(
+                1,
+                vec![target(0, "/a/d/f", TargetAction::Delete, before)],
+                vec![world.part(0)],
+            ),
+            prepared(),
+            true,
+        );
+        let scope = World::scope(1);
+        world
+            .fs
+            .rename(
+                &scope,
+                &abs("/a/d/f"),
+                &world.blob(0, 1, 0),
+                RenameMode::NoReplace,
+            )
+            .unwrap();
+        world.fs.remove_tree(&scope, &abs("/a/d"), 1).unwrap();
+
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert_eq!(world.state(0, 1).state, EntryState::Corrupt);
+        assert!(!world.marked(0, 1));
+        assert!(!world.exists(&abs("/a/d")));
+        assert_eq!(
+            manifest::read_bytes(&*world.fs, &world.blob(0, 1, 0))
+                .ok()
+                .as_deref(),
+            Some(OLD)
+        );
+        let again = recover(&world.ctx).unwrap();
+        assert!(again.corrupt.is_empty() && again.rolled_back.is_empty());
+    }
+
+    #[test]
+    fn a_started_rollback_into_a_directory_that_is_gone_ends_as_corrupt() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/d/f"), OLD).unwrap();
+        let before = world.before("/a/d/f", PreserveMode::Moved, 0);
+        world.write_entry(
+            0,
+            entry_of(
+                1,
+                vec![target(0, "/a/d/f", TargetAction::Delete, before)],
+                vec![world.part(0)],
+            ),
+            StateRecord::rolling_back(UndoneCause::Crash),
+            true,
+        );
+        let scope = World::scope(1);
+        world
+            .fs
+            .rename(
+                &scope,
+                &abs("/a/d/f"),
+                &world.blob(0, 1, 0),
+                RenameMode::NoReplace,
+            )
+            .unwrap();
+        world.fs.remove_tree(&scope, &abs("/a/d"), 1).unwrap();
+
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert!(report.completed_rollbacks.is_empty());
+        assert!(!world.marked(0, 1));
     }
 
     #[test]

@@ -6,7 +6,7 @@
 // Responsibility:   Language front end assembled from the language crates.
 // Dependencies:     nurt_bind, nurt_catalog, nurt_contracts, nurt_correct, nurt_help, nurt_syntax, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Language front end assembled from the language crates.
@@ -29,9 +29,10 @@ use nurt_correct::tables::{Tables, load_embedded};
 use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
 use nurt_help::help::{HelpQuery, TopicKind, render};
+use nurt_help::variant::CatalogNames;
 use nurt_syntax::fmt::convert;
 use nurt_syntax::parse::{ParseOptions, parse};
-use nurt_syntax::print::{PositionalNames, PrintError, name_positional, try_print};
+use nurt_syntax::print::{PrintError, name_positional, try_print};
 use serde_json::json;
 
 use crate::frontend::{Compiled, Corrected, Frontend, ast_hash};
@@ -85,20 +86,6 @@ impl LanguageFrontend {
             config,
             &bind_context(config),
         )
-    }
-}
-
-/// Names of the positional parameters of the commands, from the catalog of
-/// the help; variant C writes every argument with its name.
-struct CatalogNames<'a>(&'a HelpCatalog);
-
-impl PositionalNames for CatalogNames<'_> {
-    fn name(&self, command: &str, index: usize) -> Option<String> {
-        self.0
-            .command(command)?
-            .positional()
-            .get(index)
-            .map(|param| param.name.clone())
     }
 }
 
@@ -277,6 +264,29 @@ mod tests {
         assert_eq!(unquoted("commands"), "commands");
         assert_eq!(unquoted("\""), "\"");
         assert_eq!(unquoted("\"\""), "");
+    }
+
+    #[test]
+    fn format_to_variant_c_names_bare_flags_and_the_arguments_of_conditions() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let config = Config::default();
+        let to_c = |text: &str| {
+            frontend
+                .format(
+                    text,
+                    Some(SyntaxVariant::A),
+                    Some(SyntaxVariant::C),
+                    &config,
+                )
+                .unwrap()
+        };
+        let flag = to_c("sysctl.set \"net.ipv4.ip_forward\" \"1\" persistent\n");
+        assert!(flag.contains("persistent=true"), "{flag}");
+        let preview = to_c("remove \"/srv/a\" preview\n");
+        assert!(preview.contains("preview=true"), "{preview}");
+        let condition = to_c("when (find \"/srv\" |> first 1).count > 0 {\n    info \"/srv\"\n}\n");
+        assert!(condition.contains("first count=1"), "{condition}");
+        assert!(condition.contains("find path=\"/srv\""), "{condition}");
     }
 
     #[test]

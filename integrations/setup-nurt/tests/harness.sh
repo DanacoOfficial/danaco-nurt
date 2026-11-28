@@ -7,13 +7,38 @@
 # Responsibility:   Minimal assertion harness shared by the setup-nurt tests.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # Minimal assertion harness shared by the setup-nurt tests.
 
 TESTS_RUN=0
 TESTS_FAILED=0
+
+# Prints the file:// URL of path $1. On Windows the path is converted to the
+# form with a drive letter, because curl is a native program there and cannot
+# resolve a POSIX path such as /tmp/... inside a file:// URL.
+file_url() {
+  local path=$1
+  if command -v cygpath >/dev/null 2>&1; then
+    path=$(cygpath -m "$path")
+  fi
+  case $path in
+    /*) printf 'file://%s\n' "$path" ;;
+    *) printf 'file:///%s\n' "$path" ;;
+  esac
+}
+
+# Prints path $1 in the form the action writes to its outputs and to
+# GITHUB_PATH: with a drive letter and backslashes on Windows, unchanged
+# elsewhere.
+native_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
 
 pass_test() {
   TESTS_RUN=$((TESTS_RUN + 1))

@@ -6,7 +6,7 @@
 // Responsibility:   Execution of a plan through one mutation transaction.
 // Dependencies:     bstr, gix_index, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Execution of a plan through one mutation transaction.
@@ -39,7 +39,9 @@ use super::plan::{
     ApplyPlan, ApplyReport, Content, EntryAction, EntryKind, PlanEntry, RefPlan, StateFilePlan,
 };
 use super::refs::{log_path, ref_content, ref_path, reflog_bytes};
-use super::worktree::{Node, native_path, observe_native, stat_of, verify_expect};
+use super::worktree::{
+    Node, native_path, observe_native, smudge_racily_clean, stat_of, verify_expect,
+};
 
 /// Permission bits requested for new directories; the process umask applies.
 const DIRECTORY_MODE: u32 = 0o777;
@@ -92,6 +94,19 @@ pub fn apply_plan(
     if let (Some(index), Some(file)) = (plan.index, declared.index) {
         let mut state = index.state;
         run.refresh_stats(&plan.entries, &mut state)?;
+        let written: BTreeSet<&BStr> = plan
+            .entries
+            .iter()
+            .map(|entry| entry.path.as_bstr())
+            .collect();
+        let read_at = ctx.index.timestamp();
+        smudge_racily_clean(
+            ctx.repo,
+            &ctx.root,
+            (read_at.unix_seconds(), read_at.nanoseconds()),
+            &mut state,
+            &|path| written.contains(path),
+        )?;
         let resolved = if index.record_resolve_undo {
             super::resolve_undo::payload(&ctx.index, &state)
         } else {

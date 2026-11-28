@@ -6,7 +6,7 @@
 // Responsibility:   System inspection and administration for Danaco Nurt.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! System inspection and administration for Danaco Nurt.
@@ -27,6 +27,7 @@ mod common;
 pub mod console;
 pub mod disks;
 pub mod environment;
+pub mod error_mode;
 pub mod host;
 pub mod open_files;
 pub mod package;

@@ -6,7 +6,7 @@
 // Responsibility:   Journal store on the in-memory file system, driven through the journal interface and the entry catalog.
 // Dependencies:     nurt_contracts, nurt_fs, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Journal store on the in-memory file system, driven through the journal
@@ -907,14 +907,29 @@ fn first_transaction_recovers_without_expiring_overdue_entries() {
 #[test]
 fn recover_reports_the_recovery_when_the_expiry_pass_fails() {
     let env = Env::new(&json!({}));
+    let a = env.seed("/home/user/docs/a.txt", b"a");
+    write(&env.journal(), &a, b"A");
+    env.clock.advance(PAST_AGE_LIMIT);
+
+    let crashed = env.crashing_at(FailPoint::ReclaimMoved);
+    let error = crashed.recover().unwrap_err();
+    assert!(error.details.contains_key("recovered"), "{error:?}");
+    drop(crashed);
+    env.journal().recover().unwrap();
+    let b = env.seed("/home/user/docs/b.txt", b"b");
+    assert!(write(&env.journal(), &b, b"B").op.is_some());
+}
+
+#[test]
+fn recover_leaves_an_overdue_entry_to_a_later_pass_while_its_lock_is_held() {
+    let env = Env::new(&json!({}));
     let journal = env.journal();
     let a = env.seed("/home/user/docs/a.txt", b"a");
     write(&journal, &a, b"A");
     env.clock.advance(PAST_AGE_LIMIT);
 
     let lock = journal.lock_entry(&env.home(), OpId(1)).unwrap();
-    let error = journal.recover().unwrap_err();
-    assert!(error.details.contains_key("recovered"), "{error:?}");
+    assert!(journal.recover().unwrap().expired.is_empty());
     assert_eq!(env.state(1), EntryState::Committed);
     drop(lock);
     assert_eq!(ids(&journal.recover().unwrap().expired), [1]);

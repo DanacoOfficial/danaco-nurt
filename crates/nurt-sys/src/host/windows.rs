@@ -6,7 +6,7 @@
 // Responsibility:   Host facts and service checks on Windows.
 // Dependencies:     sysinfo, windows_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Host facts and service checks on Windows.
@@ -29,7 +29,7 @@ use crate::accounts::windows as accounts;
 pub(crate) fn read_facts(user: &str) -> HostFacts {
     let (memory_total, memory_free) = memory();
     HostFacts {
-        os_version: None,
+        os_version: System::os_version().ok(),
         kernel: System::kernel_version().ok(),
         memory_total,
         memory_free,

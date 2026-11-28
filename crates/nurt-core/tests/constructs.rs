@@ -6,7 +6,7 @@
 // Responsibility:   Control constructs run end to end: the language front end, the planner, the executor, the journal and `undo`, over a real directory.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Control constructs run end to end: the language front end, the planner,
@@ -637,10 +637,18 @@ fn atomic_false_keeps_the_completed_iterations_and_names_the_failed_one() {
         0,
         "the kept iterations are in the one entry of the loop"
     );
+    // The journal of the volume is shared with other runs. An expired entry
+    // that records no account is listed for every account, so the entries
+    // that are not expired are counted.
+    let history = world.engine.history(&Default::default()).unwrap();
+    let written: Vec<_> = history
+        .iter()
+        .filter(|record| record.state != nurt_contracts::record::OperationState::Expired)
+        .collect();
     assert_eq!(
-        world.engine.history(&Default::default()).unwrap().len(),
+        written.len(),
         1,
-        "the whole loop is one journal entry"
+        "the whole loop is one journal entry: {written:?}"
     );
     assert_ok(&world.run("undo"));
     assert!(world.read("dst/a.log").is_none() && world.read("dst/b.log").is_none());

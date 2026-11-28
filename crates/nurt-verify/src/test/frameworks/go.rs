@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::test::frameworks::go
-// Responsibility:   Go tests.
+// Responsibility:   The command plan of a test run of go and the parsing of the event stream of go test -json.
 // Dependencies:     nurt_contracts, regex, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Go tests.

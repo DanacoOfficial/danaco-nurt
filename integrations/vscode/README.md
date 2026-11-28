@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Danaco Nurt for Visual Studio Code. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Danaco Nurt for Visual Studio Code
@@ -65,12 +65,12 @@ npm run package
 | Command | Requirement | Check |
 |---|---|---|
 | `bash scripts/test-copy-grammar.sh` | `bash` | Grammar copy script. |
-| `npm run test:unit` | Node.js 20 | Executable resolution, command arguments, manifest contents, absence of telemetry. |
-| `node ./out/test/runTest.js` | Node.js 20, display | Extension host tests with `@vscode/test-electron`: activation, commands, settings, formatting through a stand-in executable. |
+| `npm run test:unit` | Node.js 22 | Executable resolution, command arguments, manifest contents, absence of telemetry. |
+| `node ./out/test/runTest.js` | Node.js 22, display | Extension host tests with `@vscode/test-electron`: activation, commands, settings, formatting through a stand-in executable. |
 
 ## Publication
 
-`ci/vscode.yml` packages the extension and publishes it to the Visual Studio Marketplace (secret `VSCE_PAT`, publisher `danaco`) and to Open VSX (secret `OVSX_PAT`, namespace `danaco`).
+The workflow `.github/workflows/integrations-vscode.yml` (its copy in this directory is `ci/vscode.yml`) packages the extension and publishes it to the Visual Studio Marketplace (secret `VSCE_PAT`, publisher `danaco`) and to Open VSX (secret `OVSX_PAT`, namespace `danaco`).
 
 ## License
 

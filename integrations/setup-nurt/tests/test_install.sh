@@ -7,7 +7,7 @@
 # Responsibility:   End-to-end tests of setup-nurt.sh against a release tree in a temporary directory, addressed through file:// URLs.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # End-to-end tests of setup-nurt.sh against a release tree in a temporary
@@ -49,7 +49,7 @@ run_setup() {
   : >"$work/github_path"
   env RUNNER_OS=Linux RUNNER_ARCH=X64 RUNNER_TOOL_CACHE="$3" \
     GITHUB_OUTPUT="$work/github_output" GITHUB_PATH="$work/github_path" \
-    NURT_DOWNLOAD_BASE="file://$release" NURT_RELEASES_URL="file://$work/releases.json" \
+    NURT_DOWNLOAD_BASE="$(file_url "$release")" NURT_RELEASES_URL="$(file_url "$work/releases.json")" \
     INPUT_VERSION="$1" INPUT_VERIFY="$2" \
     bash "$setup" >"$work/stdout" 2>"$work/stderr"
 }
@@ -67,9 +67,9 @@ assert_file 'places the executable in the tool cache' "$cache/nurt/1.2.3/x64/nur
 assert_file 'writes the completion marker' "$cache/nurt/1.2.3/x64.complete"
 assert_file 'keeps the notice file from the archive' "$cache/nurt/1.2.3/x64/NOTICE"
 assert_contains 'reports verification' 'verified SHA-256' "$(cat "$work/stdout")"
-assert_contains 'outputs the executable path' "path=$cache/nurt/1.2.3/x64/nurt" "$(cat "$work/github_output")"
+assert_contains 'outputs the executable path' "path=$(native_path "$cache/nurt/1.2.3/x64/nurt")" "$(cat "$work/github_output")"
 assert_contains 'outputs the resolved version' 'version=1.2.3' "$(cat "$work/github_output")"
-assert_eq 'adds the install directory to the path' "$cache/nurt/1.2.3/x64" "$(cat "$work/github_path")"
+assert_eq 'adds the install directory to the path' "$(native_path "$cache/nurt/1.2.3/x64")" "$(cat "$work/github_path")"
 assert_eq 'installed executable runs' 'Danaco Nurt 1.2.3' "$("$cache/nurt/1.2.3/x64/nurt")"
 
 rm -rf "$release/v1.2.3"

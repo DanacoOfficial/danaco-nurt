@@ -6,7 +6,7 @@
 // Responsibility:   Documents open in a language server and their agreement with the disk.
 // Dependencies:     serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Documents open in a language server and their agreement with the disk.

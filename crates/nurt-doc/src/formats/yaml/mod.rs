@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::yaml
-// Responsibility:   YAML documents.
+// Responsibility:   Reading and editing of YAML documents through a lossless model of the byte ranges of the unchanged text.
 // Dependencies:     comment, indexmap, model, nurt_contracts, style
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! YAML documents.

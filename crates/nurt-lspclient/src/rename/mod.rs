@@ -6,7 +6,7 @@
 // Responsibility:   Rename plans built from workspace edits.
 // Dependencies:     lsp_types, nurt_code, nurt_contracts, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Rename plans built from workspace edits.

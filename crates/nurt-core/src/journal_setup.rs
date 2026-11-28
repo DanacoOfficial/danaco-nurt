@@ -6,7 +6,7 @@
 // Responsibility:   Assembly of the journal of the running process.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_journal, nurt_space, nurt_sys
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Assembly of the journal of the running process.
@@ -210,6 +210,10 @@ impl EntryCatalog for LateCatalog {
 
 /// Builds the journal over the state directory `state_root`.
 ///
+/// The second value is the error of the start of the space module, when the
+/// start failed: the journal is then open, and changes run without
+/// preservation until a later start succeeds.
+///
 /// # Errors
 ///
 /// Returns the error of the journal when the state directory is not usable or
@@ -222,7 +226,7 @@ pub(crate) fn open_journal(
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
     account: Option<&crate::elevation::AccountJournal>,
-) -> std::result::Result<Arc<dyn JournalStore>, EngineError> {
+) -> std::result::Result<(Arc<dyn JournalStore>, Option<Error>), EngineError> {
     build(
         layers,
         loaded,
@@ -232,7 +236,7 @@ pub(crate) fn open_journal(
         registry,
         account,
     )
-    .map(|journal| journal as Arc<dyn JournalStore>)
+    .map(|(journal, problem)| (journal as Arc<dyn JournalStore>, problem))
     .map_err(|error| EngineError::journal(&error))
 }
 
@@ -278,7 +282,7 @@ fn build(
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
     account: Option<&crate::elevation::AccountJournal>,
-) -> Result<Arc<Journal>> {
+) -> Result<(Arc<Journal>, Option<Error>)> {
     let state_dir = AbsPath::new(state_root.to_path_buf()).map_err(Error::from)?;
     let fs: Arc<dyn FsWrite> = journal_fs(account, state_root);
     let reader: Arc<dyn Fs> = fs.clone();
@@ -335,8 +339,14 @@ fn build(
     let journal = Arc::new(with_providers(builder, registry).build()?);
     catalog.bind(&journal);
     let _ = worker.admission.set(Arc::downgrade(&admission_handle));
-    locked(&module).start()?;
-    Ok(journal)
+    // A failed start leaves the module stopped, as the journal documents for a
+    // failed recovery: admission then finds the service down and every change
+    // runs without preservation, reported as irreversible, while the entries
+    // that could not be recovered are retried at the next start. The failure
+    // must not end the process, so a program that only reads still runs. The
+    // error is handed to the caller, which tells the person at the terminal.
+    let problem = locked(&module).start().err();
+    Ok((journal, problem))
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.

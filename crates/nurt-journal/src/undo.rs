@@ -6,7 +6,7 @@
 // Responsibility:   Undo, redo and the rollback of committed entries.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, sha2
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Undo, redo and the rollback of committed entries.
@@ -1420,6 +1420,16 @@ impl<'a> RestoreTx for CtxRestore<'a> {
         ));
         let specs: Vec<TargetSpec> = steps.iter().map(|step| step.spec.clone()).collect();
         match tx.preserve(&specs) {
+            // Without an entry the restoration would be applied and the sources
+            // would keep their state, so a later undo would restore them again.
+            Ok(_) if tx.op().is_none() => {
+                self.failed = true;
+                let unrecorded = conflict::unrecorded_error();
+                match tx.rollback(RollbackReason::TargetFailed) {
+                    Ok(_) => Err(unrecorded),
+                    Err(failure) => Err(failure.with_cause(unrecorded)),
+                }
+            }
             Ok(preserved) => {
                 self.preserved = preserved;
                 self.steps = steps;
@@ -5173,6 +5183,39 @@ mod journal_ctx_tests {
             Some(&b"edited elsewhere"[..])
         );
         assert_eq!(world.read("/a/dst").as_deref(), Some(&b"displaced"[..]));
+    }
+
+    /// Marks the journal of `world` as one whose start failed.
+    fn fail_start(world: &World) {
+        let failure = nurt_contracts::error::Error::new(ErrorCode::Io, "recovery failed");
+        assert!(world.ctx.startup.set(Err(failure)).is_ok());
+    }
+
+    #[test]
+    fn undo_without_a_started_journal_changes_nothing() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/f"), b"old").unwrap();
+        let op = world.run(vec![FileOp::write(abs("/a/f"), b"new".to_vec())]);
+        fail_start(&world);
+        let error = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Io);
+        assert_eq!(error.problem.as_deref(), Some("journal_unavailable"));
+        assert_eq!(world.read("/a/f").as_deref(), Some(&b"new"[..]));
+        assert_eq!(world.state(op).state, EntryState::Committed);
+    }
+
+    #[test]
+    fn redo_without_a_started_journal_changes_nothing() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/f"), b"old").unwrap();
+        let op = world.run(vec![FileOp::write(abs("/a/f"), b"new".to_vec())]);
+        let undone = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        fail_start(&world);
+        let error = redo(&world.ctx, &redo_latest()).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Io);
+        assert_eq!(error.problem.as_deref(), Some("journal_unavailable"));
+        assert_eq!(world.read("/a/f").as_deref(), Some(&b"old"[..]));
+        assert_eq!(world.state(undone.entry).state, EntryState::Committed);
     }
 
     #[test]

@@ -11,7 +11,7 @@ commands: [info, read, write, convert, find, filter, select]
 <!-- Responsibility:   Documents encodings. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # encodings
@@ -30,7 +30,7 @@ A change to a text file keeps its encoding, its line endings and its byte order 
 
 ```nurt
 read "/srv/legacy/readme.txt" encoding: "windows-1250"
-write "/srv/app/notes.txt" "first\nsecond\n" line_ending: crlf bom: true
+write "/srv/app/notes.txt" "first\nsecond\n" mode: create line_ending: crlf bom: true
 ```
 
 ## Conversion

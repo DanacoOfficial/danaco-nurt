@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or workflow definition of .github/workflows/integrations-examples.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: integration-examples
@@ -53,8 +53,8 @@ jobs:
           node-version: "24"
       - name: Install the dependencies without the console package
         run: |
-          mapfile -t dependencies < <(node -p "Object.keys(require('./package.json').dependencies).filter((name) => name !== 'nurt').join('\n')")
-          npm install --no-save --omit=optional "${dependencies[@]}"
+          npm pkg delete dependencies.nurt
+          npm install --no-save --omit=optional
       - name: Test
         run: npm test
 

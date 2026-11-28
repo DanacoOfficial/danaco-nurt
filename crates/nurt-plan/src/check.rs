@@ -6,7 +6,7 @@
 // Responsibility:   Check without effect: what a plan would touch, known before any step runs.
 // Dependencies:     indexmap, nurt_catalog, nurt_contracts, schemars, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Check without effect: what a plan would touch, known before any step
@@ -32,7 +32,7 @@ use nurt_contracts::spec::{ScalarType, StageSpec};
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CheckCtx, ExecStep, InputKinds, NetworkTarget, StageImpl, StaticInfo,
 };
-use nurt_contracts::value::{Range, RecordKind, Value};
+use nurt_contracts::value::{Duration, Fields, Instant, Range, RecordKind, Regex, Size, Value};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -207,7 +207,8 @@ fn collect_paths(value: &BoundExpr, paths: &mut Vec<String>) {
 }
 
 /// Value of a literal argument for the static check; expressions are left
-/// for the evaluator of the executor.
+/// for the evaluator of the executor. An instant without a zone depends on
+/// the time zone of the run and stays an expression.
 fn static_value(value: &BoundExpr) -> Option<Value> {
     match value {
         BoundExpr::Bool { v } => Some(Value::Bool(*v)),
@@ -218,12 +219,23 @@ fn static_value(value: &BoundExpr) -> Option<Value> {
         BoundExpr::Glob { v } => Some(Value::Glob(v.clone())),
         BoundExpr::Key { v } => Some(Value::Key(v.clone())),
         BoundExpr::Enum { v } => Some(Value::Enum(v.clone())),
+        BoundExpr::Instant { v } => v.parse::<Instant>().ok().map(Value::Instant),
+        BoundExpr::Size { v } => Some(Value::Size(Size::from_bytes(*v))),
+        BoundExpr::Dur { v } => i64::try_from(*v)
+            .ok()
+            .map(|millis| Value::Duration(Duration::from_millis(millis))),
+        BoundExpr::Regex { v, flags } => Regex::new(v, flags).ok().map(Value::Regex),
         BoundExpr::Range { lo, hi } => Range::new(*lo, *hi).ok().map(Value::Range),
         BoundExpr::List { items } => items
             .iter()
             .map(static_value)
             .collect::<Option<Vec<_>>>()
             .map(Value::List),
+        BoundExpr::Map { entries } => entries
+            .iter()
+            .map(|entry| static_value(&entry.v).map(|value| (entry.k.clone(), value)))
+            .collect::<Option<Fields>>()
+            .map(Value::Map),
         _ => None,
     }
 }
@@ -234,6 +246,31 @@ fn static_arg(value: &BoundExpr) -> ArgValue {
         BoundExpr::Sub { p } => ArgValue::Pipeline(p.clone()),
         other => static_value(other).map_or_else(|| ArgValue::Expr(other.clone()), ArgValue::Value),
     }
+}
+
+/// Returns `true` when `value` reads a field of the current record.
+fn reads_record(value: &BoundExpr) -> bool {
+    match value {
+        BoundExpr::Field { of: None, .. } => true,
+        BoundExpr::Field { of: Some(base), .. } => reads_record(base),
+        BoundExpr::Call { args, .. } => args.iter().any(reads_record),
+        BoundExpr::Un { x, .. } | BoundExpr::Spread { x } => reads_record(x),
+        BoundExpr::Bin { l, r, .. } => reads_record(l) || reads_record(r),
+        BoundExpr::List { items } => items.iter().any(reads_record),
+        BoundExpr::Map { entries } => entries.iter().any(|entry| reads_record(&entry.v)),
+        _ => false,
+    }
+}
+
+/// Returns `true` when an argument of `stage` is an expression that the
+/// executor evaluates once before the stage runs: a reference to a named
+/// result or to a parameter of a function, or a call such as `ago(1h)`. The
+/// static check receives such an argument without its value.
+fn awaits_the_run(stage: &BoundStage) -> bool {
+    stage.args.iter().any(|arg| match &arg.value {
+        BoundExpr::Null | BoundExpr::Sub { .. } => false,
+        value => static_value(value).is_none() && !reads_record(value),
+    })
 }
 
 /// Bound arguments of a stage as seen by its static check.
@@ -397,9 +434,13 @@ impl Collector<'_> {
             return Ok(());
         };
         let ctx = CheckCtx::new(spec, self.host, self.config);
-        let info = implementation
-            .check(&static_args(&planned.stage), &ctx)
-            .map_err(with_bind_stage)?;
+        let info = match implementation.check(&static_args(&planned.stage), &ctx) {
+            Ok(info) => info,
+            // The value of an argument is known only in the run, so the
+            // verdict on the arguments belongs to the run.
+            Err(_) if awaits_the_run(&planned.stage) => StaticInfo::default(),
+            Err(error) => return Err(with_bind_stage(error)),
+        };
         self.merge(planned, info);
         Ok(())
     }
@@ -512,6 +553,8 @@ mod tests {
         reason = "tests fail by panicking"
     )]
 
+    use nurt_contracts::bound::{BoundArg, BoundMapEntry, BoundRef, Phase};
+
     use super::*;
 
     fn text(v: &str) -> BoundExpr {
@@ -574,11 +617,12 @@ mod tests {
                 Value::Number(1.5)
             ]))
         );
-        let size = BoundExpr::Size { v: 10 };
-        assert_eq!(static_arg(&size), ArgValue::Expr(size.clone()));
-        let mixed = BoundExpr::List {
-            items: vec![BoundExpr::Size { v: 1 }],
+        let field = BoundExpr::Field {
+            name: "size".to_owned(),
+            of: None,
         };
+        assert_eq!(static_arg(&field), ArgValue::Expr(field.clone()));
+        let mixed = BoundExpr::List { items: vec![field] };
         assert_eq!(static_arg(&mixed), ArgValue::Expr(mixed.clone()));
         for literal in [
             BoundExpr::Path { v: "/a".to_owned() },
@@ -592,6 +636,85 @@ mod tests {
         ] {
             assert!(matches!(static_arg(&literal), ArgValue::Value(_)));
         }
+    }
+
+    #[test]
+    fn measure_time_pattern_and_map_literals_become_values() {
+        assert_eq!(
+            static_arg(&BoundExpr::Size { v: 10 }),
+            ArgValue::Value(Value::Size(Size::from_bytes(10)))
+        );
+        assert_eq!(
+            static_arg(&BoundExpr::Dur { v: 500 }),
+            ArgValue::Value(Value::Duration(Duration::from_millis(500)))
+        );
+        assert!(matches!(
+            static_arg(&BoundExpr::Regex {
+                v: "a+".to_owned(),
+                flags: String::new()
+            }),
+            ArgValue::Value(Value::Regex(_))
+        ));
+        assert!(matches!(
+            static_arg(&BoundExpr::Instant {
+                v: "2026-11-21T09:12:00Z".to_owned()
+            }),
+            ArgValue::Value(Value::Instant(_))
+        ));
+        let local = BoundExpr::Instant {
+            v: "2026-11-21T09:12:00".to_owned(),
+        };
+        assert_eq!(static_arg(&local), ArgValue::Expr(local.clone()));
+        let map = BoundExpr::Map {
+            entries: vec![BoundMapEntry {
+                k: "action".to_owned(),
+                v: text("remove"),
+            }],
+        };
+        let ArgValue::Value(Value::Map(fields)) = static_arg(&map) else {
+            panic!("a map of literals is a value");
+        };
+        assert_eq!(
+            fields.get("action"),
+            Some(&Value::Text("remove".to_owned()))
+        );
+    }
+
+    fn stage_with(value: BoundExpr) -> BoundStage {
+        BoundStage {
+            name: "skip".to_owned(),
+            effect: EffectKind::Read,
+            phase: Phase::Transform,
+            waits: false,
+            args: vec![BoundArg::given("count", value)],
+            span: None,
+        }
+    }
+
+    #[test]
+    fn an_argument_evaluated_before_the_stage_awaits_the_run() {
+        let parameter = BoundExpr::Ref(BoundRef {
+            name: "keep".to_owned(),
+            fields: Vec::new(),
+        });
+        assert!(awaits_the_run(&stage_with(parameter)));
+        let call = BoundExpr::Call {
+            function: "ago".to_owned(),
+            args: vec![BoundExpr::Dur { v: 3_600_000 }],
+        };
+        assert!(awaits_the_run(&stage_with(call)));
+        let field = BoundExpr::Field {
+            name: "size".to_owned(),
+            of: None,
+        };
+        assert!(!awaits_the_run(&stage_with(field.clone())));
+        let of_the_record = BoundExpr::Call {
+            function: "lower".to_owned(),
+            args: vec![field],
+        };
+        assert!(!awaits_the_run(&stage_with(of_the_record)));
+        assert!(!awaits_the_run(&stage_with(BoundExpr::Int { v: 7 })));
+        assert!(!awaits_the_run(&stage_with(BoundExpr::Null)));
     }
 
     #[test]

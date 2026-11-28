@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or catalog data of tables/journal-coverage.toml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # Journal coverage table. Every command and every catalog action of the
@@ -1490,7 +1490,7 @@ changes = "State of a service."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["service_changed"]
-exception = "Service state is outside the file system."
+exception = "Service state is outside the file system; the state before is recorded as the states of the report and undone by the opposite command."
 
 [[row]]
 command = "restart"
@@ -1508,7 +1508,7 @@ changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["service_changed"]
-exception = "The service manager changes its configuration itself."
+exception = "The service manager changes its configuration itself; the start type before is recorded as the states of the report and undone by the opposite command."
 
 [[row]]
 command = "disable"
@@ -1517,7 +1517,7 @@ changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["service_changed"]
-exception = "The service manager changes its configuration itself."
+exception = "The service manager changes its configuration itself; the start type before is recorded as the states of the report and undone by the opposite command."
 
 [[row]]
 command = "windows.cim"
@@ -1551,7 +1551,7 @@ changes = "Packages of the system package manager."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["package_changed"]
-exception = "The package manager changes the system itself."
+exception = "The package manager changes the system itself; the versions before are recorded as the states of the report and undone by the inverse operation while the repository still offers them."
 
 [[row]]
 command = "package.remove"
@@ -1560,7 +1560,7 @@ changes = "Packages of the system package manager."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["package_changed"]
-exception = "The package manager changes the system itself."
+exception = "The package manager changes the system itself; the versions before are recorded as the states of the report and undone by the inverse operation while the repository still offers them."
 
 [[row]]
 command = "package.upgrade"
@@ -1569,7 +1569,7 @@ changes = "Packages of the system package manager."
 preserve = ["external"]
 coverage = "none"
 irreversible = ["package_changed"]
-exception = "The package manager changes the system itself."
+exception = "The package manager changes the system itself; the versions before are recorded as the states of the report and undone by the inverse operation while the repository still offers them."
 
 # Group network.
 

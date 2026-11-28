@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or catalog data of deny.toml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 # Dependency policy checked by cargo-deny (`cargo deny --locked check`).
@@ -105,7 +105,7 @@ deny = [
   { crate = "git2", reason = "binds libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
   { crate = "libgit2-sys", reason = "bundles libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
   { crate = "curl-sys", reason = "binds the system libcurl library; HTTP uses ureq with rustls" },
-  { crate = "serde_yaml", reason = "deprecated and unmaintained; YAML support uses yaml-edit and saphyr" },
+  { crate = "serde_yaml", reason = "deprecated and unmaintained; YAML support uses saphyr and saphyr-parser" },
   { crate = "ini", reason = "dual licensed with LGPL-3.0-or-later; INI support uses rust-ini and an own parser" },
   { crate = "libsystemd-sys", reason = "binds libsystemd (LGPL-2.1); D-Bus uses zbus and journal files are read natively" },
   { crate = "unrar", reason = "the UnRAR license forbids creating a RAR compressor" },

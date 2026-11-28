@@ -6,7 +6,7 @@
 // Responsibility:   Stages of the `program` command group.
 // Dependencies:     nurt_contracts, sha2
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Stages of the `program` command group.
@@ -21,8 +21,9 @@
 //! The commands work without configuration on the programs of the
 //! computer; external catalogs add entries. Warnings of providers are
 //! emitted as log events of level `warn`; they never fail a command.
-//! Fields beyond the `program_card`, `program_category` and
-//! `program_location` contracts are added to the dynamic records.
+//! Fields the stages add to the typed records one by one are declared, as
+//! optional fields, in the `program_card`, `program_category` and
+//! `program_location` contracts, so that the binder knows them.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -376,6 +377,7 @@ fn find(setup: &ProgramsSetup, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Re
                     .map(|path| ValuePath::from(path.to_string_lossy().into_owned()))
                     .collect()
             }),
+            ..ProgramLocation::default()
         };
         let mut record = Record::from(location);
         if let Some((_, source)) = located {
@@ -1107,6 +1109,7 @@ fn category_record(
             .and_then(|category| category.description.as_ref().or(category.summary.as_ref()))
             .map(|text| pick(text, languages)),
         subcategories: (!subcategories.is_empty()).then(|| subcategories.clone()),
+        ..ProgramCategory::default()
     };
     let mut record = Record::from(typed);
     record.set(

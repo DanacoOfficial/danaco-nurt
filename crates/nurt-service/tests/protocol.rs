@@ -6,7 +6,7 @@
 // Responsibility:   Service host over its control channel.
 // Dependencies:     nurt_contracts, nurt_sched, serde_json, support
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Service host over its control channel: protocol, heartbeat, instance
@@ -32,7 +32,7 @@ use std::fs;
 use std::os::unix::net::UnixListener;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use nurt_contracts::config::{Config, ServiceMode};
 use nurt_contracts::env::WallTime;
@@ -345,9 +345,22 @@ fn client_compat_d2_journal_inactive_rules() {
     // The reference client waits 50 ms for the answer to its ping, so a busy
     // runner can miss it; the attempts are spaced like those of a console that
     // asks again.
-    eventually("the reference client to see a running service", || {
-        d2_client::journal_active(&state_dir, jiff::Timestamp::now()) == Verdict::Active
-    });
+    let deadline = Instant::now() + support::PATIENCE;
+    loop {
+        let verdict = d2_client::journal_active(&state_dir, jiff::Timestamp::now());
+        if verdict == Verdict::Active {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the reference client did not see a running service; last verdict {verdict:?}; \
+             ping with 50 ms: {}; ping with 1 s: {}; control client: {:?}",
+            d2_client::diagnose(&state_dir, Duration::from_millis(50)),
+            d2_client::diagnose(&state_dir, Duration::from_secs(1)),
+            client::ping(&paths, Duration::from_secs(1)),
+        );
+        thread::sleep(Duration::from_millis(5));
+    }
     let liveness = status::liveness(
         &paths,
         status::wall_now(),

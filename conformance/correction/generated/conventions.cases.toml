@@ -17,6 +17,110 @@ program = 'accounts'
 corrections = [{ rule = 'L03', class = 'C', from = 'ACCOUNTS', to = 'accounts' }]
 
 [[case]]
+id = 'correction/generated/conventions/accounts-create/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accounts.create in upper case.'
+method = "correct"
+program = 'ACCOUNTS.CREATE "deploy" shell: "/bin/sh"'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh"'
+corrections = [{ rule = 'L03', class = 'C', from = 'ACCOUNTS.CREATE', to = 'accounts.create' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-create/param-system-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter system of accounts.create with a capital letter.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" System: false'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" system: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'System', to = 'system' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-create/param-create-home-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter create_home of accounts.create in camel case.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" createHome: true'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" create_home: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'createHome', to = 'create_home' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-create/param-create-home-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter create_home of accounts.create in kebab case.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" create-home: true'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" create_home: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'create-home', to = 'create_home' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-create/param-create-home-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter create_home of accounts.create in pascal case.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" CreateHome: true'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" create_home: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'CreateHome', to = 'create_home' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-modify/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accounts.modify in upper case.'
+method = "correct"
+program = 'ACCOUNTS.MODIFY "deploy" shell: "/bin/sh"'
+
+[case.expect]
+program = 'accounts.modify "deploy" shell: "/bin/sh"'
+corrections = [{ rule = 'L03', class = 'C', from = 'ACCOUNTS.MODIFY', to = 'accounts.modify' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-password/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accounts.password in upper case.'
+method = "correct"
+program = 'ACCOUNTS.PASSWORD "deploy" "s3cret"'
+
+[case.expect]
+program = 'accounts.password "deploy" "s3cret"'
+corrections = [{ rule = 'L03', class = 'C', from = 'ACCOUNTS.PASSWORD', to = 'accounts.password' }]
+
+[[case]]
+id = 'correction/generated/conventions/accounts-remove/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name accounts.remove in upper case.'
+method = "correct"
+program = 'ACCOUNTS.REMOVE "deploy" keep_home: true'
+
+[case.expect]
+program = 'accounts.remove "deploy" keep_home: true'
+corrections = [{ rule = 'L03', class = 'C', from = 'ACCOUNTS.REMOVE', to = 'accounts.remove' }]
+
+[[case]]
 id = 'correction/generated/conventions/analyze-check/upper'
 kind = "correction"
 class = "mandatory"
@@ -834,6 +938,71 @@ program = 'attributes "/home/user/app/run.sh" mode: "0755" Recursive: false'
 [case.expect]
 program = 'attributes "/home/user/app/run.sh" mode: "0755" recursive: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Recursive', to = 'recursive' }]
+
+[[case]]
+id = 'correction/generated/conventions/clock-ntp/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clock.ntp in upper case.'
+method = "correct"
+program = 'CLOCK.NTP on'
+
+[case.expect]
+program = 'clock.ntp on'
+corrections = [{ rule = 'L03', class = 'C', from = 'CLOCK.NTP', to = 'clock.ntp' }]
+
+[[case]]
+id = 'correction/generated/conventions/clock-set/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clock.set in upper case.'
+method = "correct"
+program = 'CLOCK.SET "2030-01-01T00:00:00Z"'
+
+[case.expect]
+program = 'clock.set "2030-01-01T00:00:00Z"'
+corrections = [{ rule = 'L03', class = 'C', from = 'CLOCK.SET', to = 'clock.set' }]
+
+[[case]]
+id = 'correction/generated/conventions/clock-timezone-set/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clock.timezone_set in upper case.'
+method = "correct"
+program = 'CLOCK.TIMEZONE_SET "Europe/Warsaw"'
+
+[case.expect]
+program = 'clock.timezone_set "Europe/Warsaw"'
+corrections = [{ rule = 'L03', class = 'C', from = 'CLOCK.TIMEZONE_SET', to = 'clock.timezone_set' }]
+
+[[case]]
+id = 'correction/generated/conventions/clock-timezone-set/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clock.timezone_set in kebab case.'
+method = "correct"
+program = 'clock.timezone-set "Europe/Warsaw"'
+
+[case.expect]
+program = 'clock.timezone_set "Europe/Warsaw"'
+corrections = [{ rule = 'L04', class = 'C', from = 'clock.timezone-set', to = 'clock.timezone_set' }]
+
+[[case]]
+id = 'correction/generated/conventions/clock-timezone-set/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name clock.timezone_set in camel case.'
+method = "correct"
+program = 'clock.timezoneSet "Europe/Warsaw"'
+
+[case.expect]
+program = 'clock.timezone_set "Europe/Warsaw"'
+corrections = [{ rule = 'L04', class = 'C', from = 'clock.timezoneSet', to = 'clock.timezone_set' }]
 
 [[case]]
 id = 'correction/generated/conventions/code-actions/upper'
@@ -2045,6 +2214,32 @@ program = 'disks'
 corrections = [{ rule = 'L03', class = 'C', from = 'DISKS', to = 'disks' }]
 
 [[case]]
+id = 'correction/generated/conventions/disks-format/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name disks.format in upper case.'
+method = "correct"
+program = 'DISKS.FORMAT "/dev/sdb1" fs: ext4 label: "data"'
+
+[case.expect]
+program = 'disks.format "/dev/sdb1" fs: ext4 label: "data"'
+corrections = [{ rule = 'L03', class = 'C', from = 'DISKS.FORMAT', to = 'disks.format' }]
+
+[[case]]
+id = 'correction/generated/conventions/disks-partition/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name disks.partition in upper case.'
+method = "correct"
+program = 'DISKS.PARTITION "/dev/sdb" action: create size: 10gb'
+
+[case.expect]
+program = 'disks.partition "/dev/sdb" action: create size: 10gb'
+corrections = [{ rule = 'L03', class = 'C', from = 'DISKS.PARTITION', to = 'disks.partition' }]
+
+[[case]]
 id = 'correction/generated/conventions/distinct/upper'
 kind = "correction"
 class = "mandatory"
@@ -2461,6 +2656,214 @@ program = 'find "/home/user/app" glob: "*.go" view: flat'
 corrections = [{ rule = 'L03', class = 'C', from = 'View', to = 'view' }]
 
 [[case]]
+id = 'correction/generated/conventions/firewall-allow/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firewall.allow in upper case.'
+method = "correct"
+program = 'FIREWALL.ALLOW 8080 protocol: tcp'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp'
+corrections = [{ rule = 'L03', class = 'C', from = 'FIREWALL.ALLOW', to = 'firewall.allow' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-allow/param-direction-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter direction of firewall.allow with a capital letter.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp Direction: inbound'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L03', class = 'C', from = 'Direction', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-allow/param-backend-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter backend of firewall.allow with a capital letter.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp Backend: auto'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L03', class = 'C', from = 'Backend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-allow/param-table-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter table of firewall.allow with a capital letter.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp Table: "nurt"'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L03', class = 'C', from = 'Table', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-deny/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firewall.deny in upper case.'
+method = "correct"
+program = 'FIREWALL.DENY 8080 protocol: tcp'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp'
+corrections = [{ rule = 'L03', class = 'C', from = 'FIREWALL.DENY', to = 'firewall.deny' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-deny/param-direction-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter direction of firewall.deny with a capital letter.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp Direction: inbound'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L03', class = 'C', from = 'Direction', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-deny/param-backend-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter backend of firewall.deny with a capital letter.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp Backend: auto'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L03', class = 'C', from = 'Backend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-deny/param-table-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter table of firewall.deny with a capital letter.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp Table: "nurt"'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L03', class = 'C', from = 'Table', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-remove/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firewall.remove in upper case.'
+method = "correct"
+program = 'FIREWALL.REMOVE 8080 protocol: tcp'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp'
+corrections = [{ rule = 'L03', class = 'C', from = 'FIREWALL.REMOVE', to = 'firewall.remove' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-remove/param-direction-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter direction of firewall.remove with a capital letter.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp Direction: inbound'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L03', class = 'C', from = 'Direction', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-remove/param-backend-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter backend of firewall.remove with a capital letter.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp Backend: auto'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L03', class = 'C', from = 'Backend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-remove/param-table-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter table of firewall.remove with a capital letter.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp Table: "nurt"'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L03', class = 'C', from = 'Table', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-remove/param-action-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter action of firewall.remove with a capital letter.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp Action: any'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp action: any'
+corrections = [{ rule = 'L03', class = 'C', from = 'Action', to = 'action' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-rules/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name firewall.rules in upper case.'
+method = "correct"
+program = 'FIREWALL.RULES'
+
+[case.expect]
+program = 'firewall.rules'
+corrections = [{ rule = 'L03', class = 'C', from = 'FIREWALL.RULES', to = 'firewall.rules' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-rules/param-backend-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter backend of firewall.rules with a capital letter.'
+method = "correct"
+program = 'firewall.rules Backend: auto'
+
+[case.expect]
+program = 'firewall.rules backend: auto'
+corrections = [{ rule = 'L03', class = 'C', from = 'Backend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/conventions/firewall-rules/param-table-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter table of firewall.rules with a capital letter.'
+method = "correct"
+program = 'firewall.rules Table: "nurt"'
+
+[case.expect]
+program = 'firewall.rules table: "nurt"'
+corrections = [{ rule = 'L03', class = 'C', from = 'Table', to = 'table' }]
+
+[[case]]
 id = 'correction/generated/conventions/first/upper'
 kind = "correction"
 class = "mandatory"
@@ -2498,6 +2901,84 @@ program = 'git.blame "/home/user/app/a.txt" Revision: "HEAD"'
 [case.expect]
 program = 'git.blame "/home/user/app/a.txt" revision: "HEAD"'
 corrections = [{ rule = 'L03', class = 'C', from = 'Revision', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-moves-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_moves of git.blame in camel case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" findMoves: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_moves: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'findMoves', to = 'find_moves' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-moves-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_moves of git.blame in kebab case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" find-moves: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_moves: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'find-moves', to = 'find_moves' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-moves-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_moves of git.blame in pascal case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" FindMoves: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_moves: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'FindMoves', to = 'find_moves' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-copies-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.blame in camel case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" findCopies: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'findCopies', to = 'find_copies' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-copies-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.blame in kebab case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" find-copies: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'find-copies', to = 'find_copies' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-blame/param-find-copies-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.blame in pascal case.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" FindCopies: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'FindCopies', to = 'find_copies' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-branch/upper'
@@ -3449,6 +3930,84 @@ program = 'git.log "/home/user/app" exclude: []'
 corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-log/param-find-renames-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_renames of git.log in camel case.'
+method = "correct"
+program = 'git.log "/home/user/app" findRenames: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_renames: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'findRenames', to = 'find_renames' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-find-renames-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_renames of git.log in kebab case.'
+method = "correct"
+program = 'git.log "/home/user/app" find-renames: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_renames: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'find-renames', to = 'find_renames' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-find-renames-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_renames of git.log in pascal case.'
+method = "correct"
+program = 'git.log "/home/user/app" FindRenames: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_renames: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'FindRenames', to = 'find_renames' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-find-copies-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.log in camel case.'
+method = "correct"
+program = 'git.log "/home/user/app" findCopies: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'findCopies', to = 'find_copies' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-find-copies-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.log in kebab case.'
+method = "correct"
+program = 'git.log "/home/user/app" find-copies: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'find-copies', to = 'find_copies' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-find-copies-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter find_copies of git.log in pascal case.'
+method = "correct"
+program = 'git.log "/home/user/app" FindCopies: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" find_copies: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'FindCopies', to = 'find_copies' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-merge/upper'
 kind = "correction"
 class = "mandatory"
@@ -3761,19 +4320,6 @@ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] staged: 
 corrections = [{ rule = 'L03', class = 'C', from = 'Staged', to = 'staged' }]
 
 [[case]]
-id = 'correction/generated/conventions/git-restore/param-worktree-capital'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The parameter worktree of git.restore with a capital letter.'
-method = "correct"
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] Worktree: true'
-
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree: true'
-corrections = [{ rule = 'L03', class = 'C', from = 'Worktree', to = 'worktree' }]
-
-[[case]]
 id = 'correction/generated/conventions/git-restore/param-checkpoint-capital'
 kind = "correction"
 class = "mandatory"
@@ -3941,6 +4487,45 @@ program = 'git.stage "/home/user/app" action: list Exclude: []'
 [case.expect]
 program = 'git.stage "/home/user/app" action: list exclude: []'
 corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-stage/param-intent-to-add-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter intent_to_add of git.stage in camel case.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list intentToAdd: false'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list intent_to_add: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'intentToAdd', to = 'intent_to_add' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-stage/param-intent-to-add-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter intent_to_add of git.stage in kebab case.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list intent-to-add: false'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list intent_to_add: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'intent-to-add', to = 'intent_to_add' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-stage/param-intent-to-add-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter intent_to_add of git.stage in pascal case.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list IntentToAdd: false'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list intent_to_add: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'IntentToAdd', to = 'intent_to_add' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-stash/upper'
@@ -4138,6 +4723,58 @@ program = 'git.switch "/home/user/app" branch: "main" guess: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Guess', to = 'guess' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-switch/param-detach-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter detach of git.switch with a capital letter.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" Detach: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" detach: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Detach', to = 'detach' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-switch/param-discard-changes-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter discard_changes of git.switch in camel case.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" discardChanges: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" discard_changes: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'discardChanges', to = 'discard_changes' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-switch/param-discard-changes-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter discard_changes of git.switch in kebab case.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" discard-changes: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" discard_changes: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'discard-changes', to = 'discard_changes' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-switch/param-discard-changes-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter discard_changes of git.switch in pascal case.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" DiscardChanges: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" discard_changes: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'DiscardChanges', to = 'discard_changes' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-tag/upper'
 kind = "correction"
 class = "mandatory"
@@ -4253,6 +4890,123 @@ program = 'find "/home/user/app" |> group extension KeepItems: false'
 [case.expect]
 program = 'find "/home/user/app" |> group extension keep_items: false'
 corrections = [{ rule = 'L04', class = 'C', from = 'KeepItems', to = 'keep_items' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-add-member/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.add_member in upper case.'
+method = "correct"
+program = 'GROUPS.ADD_MEMBER "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.add_member "staff2" "deploy"'
+corrections = [{ rule = 'L03', class = 'C', from = 'GROUPS.ADD_MEMBER', to = 'groups.add_member' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-add-member/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.add_member in kebab case.'
+method = "correct"
+program = 'groups.add-member "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.add_member "staff2" "deploy"'
+corrections = [{ rule = 'L04', class = 'C', from = 'groups.add-member', to = 'groups.add_member' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-add-member/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.add_member in camel case.'
+method = "correct"
+program = 'groups.addMember "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.add_member "staff2" "deploy"'
+corrections = [{ rule = 'L04', class = 'C', from = 'groups.addMember', to = 'groups.add_member' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-create/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.create in upper case.'
+method = "correct"
+program = 'GROUPS.CREATE "staff2"'
+
+[case.expect]
+program = 'groups.create "staff2"'
+corrections = [{ rule = 'L03', class = 'C', from = 'GROUPS.CREATE', to = 'groups.create' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-create/param-system-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter system of groups.create with a capital letter.'
+method = "correct"
+program = 'groups.create "staff2" System: false'
+
+[case.expect]
+program = 'groups.create "staff2" system: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'System', to = 'system' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-remove/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.remove in upper case.'
+method = "correct"
+program = 'GROUPS.REMOVE "staff2"'
+
+[case.expect]
+program = 'groups.remove "staff2"'
+corrections = [{ rule = 'L03', class = 'C', from = 'GROUPS.REMOVE', to = 'groups.remove' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-remove-member/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.remove_member in upper case.'
+method = "correct"
+program = 'GROUPS.REMOVE_MEMBER "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.remove_member "staff2" "deploy"'
+corrections = [{ rule = 'L03', class = 'C', from = 'GROUPS.REMOVE_MEMBER', to = 'groups.remove_member' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-remove-member/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.remove_member in kebab case.'
+method = "correct"
+program = 'groups.remove-member "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.remove_member "staff2" "deploy"'
+corrections = [{ rule = 'L04', class = 'C', from = 'groups.remove-member', to = 'groups.remove_member' }]
+
+[[case]]
+id = 'correction/generated/conventions/groups-remove-member/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name groups.remove_member in camel case.'
+method = "correct"
+program = 'groups.removeMember "staff2" "deploy"'
+
+[case.expect]
+program = 'groups.remove_member "staff2" "deploy"'
+corrections = [{ rule = 'L04', class = 'C', from = 'groups.removeMember', to = 'groups.remove_member' }]
 
 [[case]]
 id = 'correction/generated/conventions/hash/upper'
@@ -5347,6 +6101,60 @@ program = 'logs limit: 100'
 corrections = [{ rule = 'L03', class = 'C', from = 'Limit', to = 'limit' }]
 
 [[case]]
+id = 'correction/generated/conventions/modules-load/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name modules.load in upper case.'
+method = "correct"
+program = 'MODULES.LOAD "dummy"'
+
+[case.expect]
+program = 'modules.load "dummy"'
+corrections = [{ rule = 'L03', class = 'C', from = 'MODULES.LOAD', to = 'modules.load' }]
+
+[[case]]
+id = 'correction/generated/conventions/modules-unload/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux']
+summary = 'The command name modules.unload in upper case.'
+method = "correct"
+program = 'MODULES.UNLOAD "dummy"'
+
+[case.expect]
+program = 'modules.unload "dummy"'
+corrections = [{ rule = 'L03', class = 'C', from = 'MODULES.UNLOAD', to = 'modules.unload' }]
+
+[[case]]
+id = 'correction/generated/conventions/mount/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name mount in upper case.'
+method = "correct"
+program = 'MOUNT "/dev/sdb1" "/mnt/data"'
+
+[case.expect]
+program = 'mount "/dev/sdb1" "/mnt/data"'
+corrections = [{ rule = 'L03', class = 'C', from = 'MOUNT', to = 'mount' }]
+
+[[case]]
+id = 'correction/generated/conventions/mount/param-persistent-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter persistent of mount with a capital letter.'
+method = "correct"
+program = 'mount "/dev/sdb1" "/mnt/data" Persistent: false'
+
+[case.expect]
+program = 'mount "/dev/sdb1" "/mnt/data" persistent: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Persistent', to = 'persistent' }]
+
+[[case]]
 id = 'correction/generated/conventions/move/upper'
 kind = "correction"
 class = "mandatory"
@@ -5397,6 +6205,45 @@ program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" OnConflict: ov
 [case.expect]
 program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
 corrections = [{ rule = 'L04', class = 'C', from = 'OnConflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-dns-set/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.dns_set in upper case.'
+method = "correct"
+program = 'NETWORK.DNS_SET ["1.1.1.1"]'
+
+[case.expect]
+program = 'network.dns_set ["1.1.1.1"]'
+corrections = [{ rule = 'L03', class = 'C', from = 'NETWORK.DNS_SET', to = 'network.dns_set' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-dns-set/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.dns_set in kebab case.'
+method = "correct"
+program = 'network.dns-set ["1.1.1.1"]'
+
+[case.expect]
+program = 'network.dns_set ["1.1.1.1"]'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.dns-set', to = 'network.dns_set' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-dns-set/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.dns_set in camel case.'
+method = "correct"
+program = 'network.dnsSet ["1.1.1.1"]'
+
+[case.expect]
+program = 'network.dns_set ["1.1.1.1"]'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.dnsSet', to = 'network.dns_set' }]
 
 [[case]]
 id = 'correction/generated/conventions/network-interfaces/upper'
@@ -5475,6 +6322,149 @@ program = 'network.resolve "example.com" Type: a'
 [case.expect]
 program = 'network.resolve "example.com" type: a'
 corrections = [{ rule = 'L03', class = 'C', from = 'Type', to = 'type' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-add/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_add in upper case.'
+method = "correct"
+program = 'NETWORK.ROUTE_ADD "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L03', class = 'C', from = 'NETWORK.ROUTE_ADD', to = 'network.route_add' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-add/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_add in kebab case.'
+method = "correct"
+program = 'network.route-add "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.route-add', to = 'network.route_add' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-add/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_add in camel case.'
+method = "correct"
+program = 'network.routeAdd "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_add "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.routeAdd', to = 'network.route_add' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-remove/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_remove in upper case.'
+method = "correct"
+program = 'NETWORK.ROUTE_REMOVE "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L03', class = 'C', from = 'NETWORK.ROUTE_REMOVE', to = 'network.route_remove' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-remove/kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_remove in kebab case.'
+method = "correct"
+program = 'network.route-remove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.route-remove', to = 'network.route_remove' }]
+
+[[case]]
+id = 'correction/generated/conventions/network-route-remove/camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name network.route_remove in camel case.'
+method = "correct"
+program = 'network.routeRemove "198.51.100.0/24" gateway: "192.0.2.1"'
+
+[case.expect]
+program = 'network.route_remove "198.51.100.0/24" gateway: "192.0.2.1"'
+corrections = [{ rule = 'L04', class = 'C', from = 'network.routeRemove', to = 'network.route_remove' }]
+
+[[case]]
+id = 'correction/generated/conventions/next/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name next in upper case.'
+method = "correct"
+program = 'NEXT'
+
+[case.expect]
+program = 'next'
+corrections = [{ rule = 'L03', class = 'C', from = 'NEXT', to = 'next' }]
+
+[[case]]
+id = 'correction/generated/conventions/next/param-all-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter all of next with a capital letter.'
+method = "correct"
+program = 'next All: false'
+
+[case.expect]
+program = 'next all: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'All', to = 'all' }]
+
+[[case]]
+id = 'correction/generated/conventions/next/param-full-lines-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter full_lines of next in camel case.'
+method = "correct"
+program = 'next fullLines: false'
+
+[case.expect]
+program = 'next full_lines: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'fullLines', to = 'full_lines' }]
+
+[[case]]
+id = 'correction/generated/conventions/next/param-full-lines-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter full_lines of next in kebab case.'
+method = "correct"
+program = 'next full-lines: false'
+
+[case.expect]
+program = 'next full_lines: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'full-lines', to = 'full_lines' }]
+
+[[case]]
+id = 'correction/generated/conventions/next/param-full-lines-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter full_lines of next in pascal case.'
+method = "correct"
+program = 'next FullLines: false'
+
+[case.expect]
+program = 'next full_lines: false'
+corrections = [{ rule = 'L04', class = 'C', from = 'FullLines', to = 'full_lines' }]
 
 [[case]]
 id = 'correction/generated/conventions/notebook-cells/upper'
@@ -6049,6 +7039,45 @@ program = 'ports protocol: any'
 corrections = [{ rule = 'L03', class = 'C', from = 'Protocol', to = 'protocol' }]
 
 [[case]]
+id = 'correction/generated/conventions/power-cancel/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name power.cancel in upper case.'
+method = "correct"
+program = 'POWER.CANCEL'
+
+[case.expect]
+program = 'power.cancel'
+corrections = [{ rule = 'L03', class = 'C', from = 'POWER.CANCEL', to = 'power.cancel' }]
+
+[[case]]
+id = 'correction/generated/conventions/power-restart/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name power.restart in upper case.'
+method = "correct"
+program = 'POWER.RESTART delay: 5m'
+
+[case.expect]
+program = 'power.restart delay: 5m'
+corrections = [{ rule = 'L03', class = 'C', from = 'POWER.RESTART', to = 'power.restart' }]
+
+[[case]]
+id = 'correction/generated/conventions/power-shutdown/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name power.shutdown in upper case.'
+method = "correct"
+program = 'POWER.SHUTDOWN delay: 5m'
+
+[case.expect]
+program = 'power.shutdown delay: 5m'
+corrections = [{ rule = 'L03', class = 'C', from = 'POWER.SHUTDOWN', to = 'power.shutdown' }]
+
+[[case]]
 id = 'correction/generated/conventions/processes/upper'
 kind = "correction"
 class = "mandatory"
@@ -6153,6 +7182,19 @@ program = 'program.describe "git" include_guide: true'
 corrections = [{ rule = 'L04', class = 'C', from = 'IncludeGuide', to = 'include_guide' }]
 
 [[case]]
+id = 'correction/generated/conventions/program-describe/param-help-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter help of program.describe with a capital letter.'
+method = "correct"
+program = 'program.describe "git" Help: false'
+
+[case.expect]
+program = 'program.describe "git" help: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Help', to = 'help' }]
+
+[[case]]
 id = 'correction/generated/conventions/program-find/upper'
 kind = "correction"
 class = "mandatory"
@@ -6177,6 +7219,19 @@ program = 'program.find "git" Versions: false'
 [case.expect]
 program = 'program.find "git" versions: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Versions', to = 'versions' }]
+
+[[case]]
+id = 'correction/generated/conventions/program-find/param-all-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter all of program.find with a capital letter.'
+method = "correct"
+program = 'program.find "git" All: false'
+
+[case.expect]
+program = 'program.find "git" all: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'All', to = 'all' }]
 
 [[case]]
 id = 'correction/generated/conventions/program-search/upper'
@@ -7089,6 +8144,45 @@ program = 'run ["make", "test"] cwd: "/home/user/app" tail: 40'
 corrections = [{ rule = 'L03', class = 'C', from = 'Tail', to = 'tail' }]
 
 [[case]]
+id = 'correction/generated/conventions/run/param-max-bytes-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter max_bytes of run in camel case.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" maxBytes: 4096'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" max_bytes: 4096'
+corrections = [{ rule = 'L04', class = 'C', from = 'maxBytes', to = 'max_bytes' }]
+
+[[case]]
+id = 'correction/generated/conventions/run/param-max-bytes-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter max_bytes of run in kebab case.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" max-bytes: 4096'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" max_bytes: 4096'
+corrections = [{ rule = 'L04', class = 'C', from = 'max-bytes', to = 'max_bytes' }]
+
+[[case]]
+id = 'correction/generated/conventions/run/param-max-bytes-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter max_bytes of run in pascal case.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" MaxBytes: 4096'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" max_bytes: 4096'
+corrections = [{ rule = 'L04', class = 'C', from = 'MaxBytes', to = 'max_bytes' }]
+
+[[case]]
 id = 'correction/generated/conventions/run/param-context-capital'
 kind = "correction"
 class = "mandatory"
@@ -7108,10 +8202,10 @@ class = "mandatory"
 language = "1.0"
 summary = 'The parameter dedupe of run with a capital letter.'
 method = "correct"
-program = 'run ["make", "test"] cwd: "/home/user/app" Dedupe: false'
+program = 'run ["make", "test"] cwd: "/home/user/app" Dedupe: true'
 
 [case.expect]
-program = 'run ["make", "test"] cwd: "/home/user/app" dedupe: false'
+program = 'run ["make", "test"] cwd: "/home/user/app" dedupe: true'
 corrections = [{ rule = 'L03', class = 'C', from = 'Dedupe', to = 'dedupe' }]
 
 [[case]]
@@ -8246,19 +9340,6 @@ program = 'sql "/home/user/app/app.db" "select 1" params: []'
 corrections = [{ rule = 'L03', class = 'C', from = 'Params', to = 'params' }]
 
 [[case]]
-id = 'correction/generated/conventions/sql/param-write-capital'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The parameter write of sql with a capital letter.'
-method = "correct"
-program = 'sql "/home/user/app/app.db" "select 1" Write: false'
-
-[case.expect]
-program = 'sql "/home/user/app/app.db" "select 1" write: false'
-corrections = [{ rule = 'L03', class = 'C', from = 'Write', to = 'write' }]
-
-[[case]]
 id = 'correction/generated/conventions/start/upper'
 kind = "correction"
 class = "mandatory"
@@ -8348,6 +9429,34 @@ program = 'jobs "j1" |> SUSPEND'
 [case.expect]
 program = 'jobs "j1" |> suspend'
 corrections = [{ rule = 'L03', class = 'C', from = 'SUSPEND', to = 'suspend' }]
+
+[[case]]
+id = 'correction/generated/conventions/sysctl-set/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The command name sysctl.set in upper case.'
+method = "correct"
+program = 'SYSCTL.SET "net.ipv4.ip_forward" 1'
+
+[case.expect]
+program = 'sysctl.set "net.ipv4.ip_forward" 1'
+corrections = [{ rule = 'L03', class = 'C', from = 'SYSCTL.SET', to = 'sysctl.set' }]
+
+[[case]]
+id = 'correction/generated/conventions/sysctl-set/param-persistent-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The parameter persistent of sysctl.set with a capital letter.'
+method = "correct"
+program = 'sysctl.set "net.ipv4.ip_forward" 1 Persistent: false'
+
+[case.expect]
+program = 'sysctl.set "net.ipv4.ip_forward" 1 persistent: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Persistent', to = 'persistent' }]
 
 [[case]]
 id = 'correction/generated/conventions/test-failed/upper'
@@ -8764,6 +9873,32 @@ program = 'undo 3 OnConflict: report'
 [case.expect]
 program = 'undo 3 on_conflict: report'
 corrections = [{ rule = 'L04', class = 'C', from = 'OnConflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/conventions/unmount/upper'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The command name unmount in upper case.'
+method = "correct"
+program = 'UNMOUNT "/mnt/data"'
+
+[case.expect]
+program = 'unmount "/mnt/data"'
+corrections = [{ rule = 'L03', class = 'C', from = 'UNMOUNT', to = 'unmount' }]
+
+[[case]]
+id = 'correction/generated/conventions/unmount/param-persistent-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter persistent of unmount with a capital letter.'
+method = "correct"
+program = 'unmount "/mnt/data" Persistent: false'
+
+[case.expect]
+program = 'unmount "/mnt/data" persistent: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Persistent', to = 'persistent' }]
 
 [[case]]
 id = 'correction/generated/conventions/verify/upper'

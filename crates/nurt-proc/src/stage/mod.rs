@@ -3,10 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage
-// Responsibility:   Command stages.
+// Responsibility:   Declaration of the modules of the stages of the program commands run and jobs.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Command stages.

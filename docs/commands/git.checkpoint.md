@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents git.checkpoint. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git.checkpoint
@@ -131,7 +131,7 @@ change path: src/main.rs action: modify added: 4 removed: 1
 Restore one directory from a checkpoint.
 
 ```nurt example
-git.checkpoint "/home/user/repo" action: restore checkpoint_id: "cp-3" paths: ["src"]
+git.checkpoint "/home/user/repo" action: restore checkpoint_id: "cp-3" paths: ["/home/user/repo/src"]
 ```
 
 Keep the ten newest checkpoints and delete the others.

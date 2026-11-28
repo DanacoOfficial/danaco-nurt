@@ -6,7 +6,7 @@
 // Responsibility:   Tests of the package stages with a directory root and recording mocks.
 // Dependencies:     nurt_contracts, nurt_programs
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests of the package stages with a directory root and recording mocks.
@@ -640,6 +640,27 @@ fn failed_manager_run_reports_stage_failed_with_stderr_tail() {
     assert_eq!(error.code(), ErrorCode::StageFailed);
     assert!(error.data().message.contains("Unable to locate package"));
     assert_eq!(tx.markers.len(), 1);
+}
+
+#[test]
+fn failed_manager_run_reports_the_standard_output_when_the_standard_error_is_empty() {
+    let call = Invocation {
+        program: "winget".to_owned(),
+        args: Vec::new(),
+        env: Vec::new(),
+    };
+    let outcome = ProgramOutcome {
+        exit_code: Some(1),
+        stdout: b"No package found matching input criteria.\r\n".to_vec(),
+        stderr: b"\r\n".to_vec(),
+        ..ProgramOutcome::default()
+    };
+    let error = call_failure(&call, &outcome);
+    assert_eq!(error.code(), ErrorCode::StageFailed);
+    assert_eq!(
+        error.data().message,
+        "winget exited with code 1: No package found matching input criteria."
+    );
 }
 
 #[test]

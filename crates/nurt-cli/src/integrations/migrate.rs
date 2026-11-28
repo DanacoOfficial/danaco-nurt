@@ -6,7 +6,7 @@
 // Responsibility:   The `migrate` subcommand: translation of a shell script into a program.
 // Dependencies:     nurt_bind, nurt_catalog, nurt_migrate
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The `migrate` subcommand: translation of a shell script into a program.
@@ -165,8 +165,12 @@ fn script_path(arguments: &Arguments) -> Result<String, CliError> {
 }
 
 fn read_script(path: &Path) -> Result<String, CliError> {
-    std::fs::read_to_string(path)
-        .map_err(|error| CliError::Failure(format!("cannot read `{}`: {error}", path.display())))
+    let bytes = std::fs::read(path).map_err(|error| unreadable(path, &error.to_string()))?;
+    crate::text::decode_file(&bytes).map_err(|reason| unreadable(path, &reason))
+}
+
+fn unreadable(path: &Path, reason: &str) -> CliError {
+    CliError::Failure(format!("cannot read `{}`: {reason}", path.display()))
 }
 
 fn render(report: &MigrationReport, format: ReportFormat) -> String {
@@ -317,6 +321,20 @@ mod tests {
         ] {
             assert!(usage(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_script_in_utf16_is_read() {
+        let bytes: Vec<u8> = [0xFF, 0xFE]
+            .into_iter()
+            .chain("echo \u{105}".encode_utf16().flat_map(u16::to_le_bytes))
+            .collect();
+        let dir = std::env::temp_dir().join(format!("nurt-migrate-utf16-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.ps1");
+        std::fs::write(&file, bytes).unwrap();
+        assert_eq!(read_script(&file).unwrap(), "echo \u{105}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

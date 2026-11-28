@@ -6,14 +6,16 @@
 // Responsibility:   Interface tests in Node: a Node-API module is compiled with `clang` against the installed Node headers and loaded by a test script.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Interface tests in Node: `tests/abi/node/addon.c` is compiled with `clang`
 //! into a Node-API module against the headers of the installed Node and
 //! loaded by `tests/abi/node/abi_test.js` (feature `stub`) or
 //! `tests/abi/node/engine_test.js` (engine of `nurt-core`). The tests are
-//! skipped when `node`, its headers or `clang` are missing.
+//! skipped with a message when `node` or its headers are missing, and when
+//! `clang` is missing, unless the environment variable
+//! `NURT_REQUIRE_C_TOOLCHAIN` is set: then the missing `clang` fails the test.
 
 #![cfg(unix)]
 #![allow(
@@ -21,6 +23,10 @@
     clippy::expect_used,
     clippy::panic,
     reason = "a test fails at the first unexpected result"
+)]
+#![allow(
+    clippy::print_stderr,
+    reason = "a skipped test states on the error stream why it proves nothing"
 )]
 
 mod common;
@@ -43,9 +49,13 @@ fn node_headers(node: &Path) -> Option<PathBuf> {
 /// Compiles the Node-API module into `work`; `None` when `node`, its
 /// headers or `clang` are missing.
 fn build_module(work: &Path) -> Option<(PathBuf, PathBuf)> {
-    let node = common::find_program("node")?;
-    let clang = common::find_program("clang")?;
-    let headers = node_headers(&node)?;
+    let node = common::find_program_or_skip("node", false)?;
+    let clang = common::find_clang()?;
+    let headers = node_headers(&node);
+    if headers.is_none() {
+        eprintln!("SKIPPED: the headers of the Node in PATH are missing");
+    }
+    let headers = headers?;
     let module = work.join("nurt_abi.node");
     let dir = common::manifest_dir().join("tests/abi/node");
     let mut flags = vec![

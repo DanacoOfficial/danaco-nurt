@@ -874,11 +874,11 @@ program = 'run ["sh", "-c", "echo done"] background: true'
 expect = { report = { status = "running" } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" wait: 10s'
+program = 'jobs "${step1/report/job/fields/id/v}" wait: 10s'
 expect = { report = { status = "ok" } }
 
 [[case.step]]
-program = 'jobs "${step1/report/job/id}" |> remove'
+program = 'jobs "${step1/report/job/fields/id/v}" |> remove'
 expect = { report = { status = "ok", irreversible = [{ reason = "job_output_removed" }] } }
 
 [[case]]

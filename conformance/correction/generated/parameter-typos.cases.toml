@@ -4,6 +4,45 @@
 format = "nurt-conformance-cases/1"
 
 [[case]]
+id = 'correction/generated/parameter-typos/accounts-create/system-ssytem'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ssytem is within the distance threshold of system only.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" ssytem: false'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" system: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'ssytem', to = 'system' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/accounts-create/create-home-cerate-home'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cerate_home is within the distance threshold of create_home only.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" cerate_home: true'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" create_home: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'cerate_home', to = 'create_home' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/accounts-create/create-home-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cre names only the parameter create_home.'
+method = "correct"
+program = 'accounts.create "deploy" shell: "/bin/sh" cre: true'
+
+[case.expect]
+program = 'accounts.create "deploy" shell: "/bin/sh" create_home: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'cre', to = 'create_home' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/analyze-check/changed-only-cahnged-only'
 kind = "correction"
 class = "mandatory"
@@ -1356,6 +1395,253 @@ program = 'find "/home/user/app" glob: "*.go" gitignore: false'
 corrections = [{ rule = 'L05', class = 'F', from = 'git', to = 'gitignore' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/firewall-allow/direction-driection'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name driection is within the distance threshold of direction only.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp driection: inbound'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L02', class = 'F', from = 'driection', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-allow/direction-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix dir names only the parameter direction.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp dir: inbound'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L05', class = 'F', from = 'dir', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-allow/backend-bcakend'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bcakend is within the distance threshold of backend only.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp bcakend: auto'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'bcakend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-allow/backend-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix bac names only the parameter backend.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp bac: auto'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'bac', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-allow/table-tbale'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tbale is within the distance threshold of table only.'
+method = "correct"
+program = 'firewall.allow 8080 protocol: tcp tbale: "nurt"'
+
+[case.expect]
+program = 'firewall.allow 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L02', class = 'F', from = 'tbale', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-deny/direction-driection'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name driection is within the distance threshold of direction only.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp driection: inbound'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L02', class = 'F', from = 'driection', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-deny/direction-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix dir names only the parameter direction.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp dir: inbound'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L05', class = 'F', from = 'dir', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-deny/backend-bcakend'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bcakend is within the distance threshold of backend only.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp bcakend: auto'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'bcakend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-deny/backend-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix bac names only the parameter backend.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp bac: auto'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'bac', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-deny/table-tbale'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tbale is within the distance threshold of table only.'
+method = "correct"
+program = 'firewall.deny 8080 protocol: tcp tbale: "nurt"'
+
+[case.expect]
+program = 'firewall.deny 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L02', class = 'F', from = 'tbale', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/direction-driection'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name driection is within the distance threshold of direction only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp driection: inbound'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L02', class = 'F', from = 'driection', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/direction-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix dir names only the parameter direction.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp dir: inbound'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp direction: inbound'
+corrections = [{ rule = 'L05', class = 'F', from = 'dir', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/backend-bcakend'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bcakend is within the distance threshold of backend only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp bcakend: auto'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'bcakend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/backend-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix bac names only the parameter backend.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp bac: auto'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp backend: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'bac', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/table-tbale'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tbale is within the distance threshold of table only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp tbale: "nurt"'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp table: "nurt"'
+corrections = [{ rule = 'L02', class = 'F', from = 'tbale', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-remove/action-atcion'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name atcion is within the distance threshold of action only.'
+method = "correct"
+program = 'firewall.remove 8080 protocol: tcp atcion: any'
+
+[case.expect]
+program = 'firewall.remove 8080 protocol: tcp action: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'atcion', to = 'action' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-rules/backend-bcakend'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bcakend is within the distance threshold of backend only.'
+method = "correct"
+program = 'firewall.rules bcakend: auto'
+
+[case.expect]
+program = 'firewall.rules backend: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'bcakend', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-rules/backend-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix bac names only the parameter backend.'
+method = "correct"
+program = 'firewall.rules bac: auto'
+
+[case.expect]
+program = 'firewall.rules backend: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'bac', to = 'backend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/firewall-rules/table-tbale'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tbale is within the distance threshold of table only.'
+method = "correct"
+program = 'firewall.rules tbale: "nurt"'
+
+[case.expect]
+program = 'firewall.rules table: "nurt"'
+corrections = [{ rule = 'L02', class = 'F', from = 'tbale', to = 'table' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-blame/revision-rveision'
 kind = "correction"
 class = "mandatory"
@@ -1380,6 +1666,58 @@ program = 'git.blame "/home/user/app/a.txt" rev: "HEAD"'
 [case.expect]
 program = 'git.blame "/home/user/app/a.txt" revision: "HEAD"'
 corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/find-moves-fnid-moves'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fnid_moves is within the distance threshold of find_moves only.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" fnid_moves: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_moves: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'fnid_moves', to = 'find_moves' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/find-moves-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix find_m names only the parameter find_moves.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" find_m: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_moves: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'find_m', to = 'find_moves' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/find-copies-fnid-copies'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fnid_copies is within the distance threshold of find_copies only.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" fnid_copies: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_copies: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'fnid_copies', to = 'find_copies' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/find-copies-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix find_c names only the parameter find_copies.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" find_c: false'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" find_copies: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'find_c', to = 'find_copies' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/git-branch/remote-rmeote'
@@ -1980,32 +2318,6 @@ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] staged: 
 corrections = [{ rule = 'L02', class = 'F', from = 'satged', to = 'staged' }]
 
 [[case]]
-id = 'correction/generated/parameter-typos/git-restore/worktree-wroktree'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The parameter name wroktree is within the distance threshold of worktree only.'
-method = "correct"
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] wroktree: true'
-
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree: true'
-corrections = [{ rule = 'L02', class = 'F', from = 'wroktree', to = 'worktree' }]
-
-[[case]]
-id = 'correction/generated/parameter-typos/git-restore/worktree-prefix'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The prefix wor names only the parameter worktree.'
-method = "correct"
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] wor: true'
-
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree: true'
-corrections = [{ rule = 'L05', class = 'F', from = 'wor', to = 'worktree' }]
-
-[[case]]
 id = 'correction/generated/parameter-typos/git-restore/checkpoint-cehckpoint'
 kind = "correction"
 class = "mandatory"
@@ -2201,6 +2513,32 @@ program = 'git.stage "/home/user/app" action: list exclude: []'
 corrections = [{ rule = 'L05', class = 'F', from = 'exc', to = 'exclude' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/git-stage/intent-to-add-itnent-to-add'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name itnent_to_add is within the distance threshold of intent_to_add only.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list itnent_to_add: false'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list intent_to_add: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'itnent_to_add', to = 'intent_to_add' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stage/intent-to-add-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix int names only the parameter intent_to_add.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list int: false'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list intent_to_add: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'int', to = 'intent_to_add' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-stash/include-untracked-icnlude-untracked'
 kind = "correction"
 class = "mandatory"
@@ -2383,6 +2721,19 @@ program = 'git.switch "/home/user/app" branch: "main" guess: false'
 corrections = [{ rule = 'L02', class = 'F', from = 'geuss', to = 'guess' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/git-switch/detach-dteach'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dteach is within the distance threshold of detach only.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" dteach: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" detach: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'dteach', to = 'detach' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-tag/revision-rveision'
 kind = "correction"
 class = "mandatory"
@@ -2472,6 +2823,19 @@ program = 'find "/home/user/app" |> group extension kee: false'
 [case.expect]
 program = 'find "/home/user/app" |> group extension keep_items: false'
 corrections = [{ rule = 'L05', class = 'F', from = 'kee', to = 'keep_items' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/groups-create/system-ssytem'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ssytem is within the distance threshold of system only.'
+method = "correct"
+program = 'groups.create "staff2" ssytem: false'
+
+[case.expect]
+program = 'groups.create "staff2" system: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'ssytem', to = 'system' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/hash/algorithm-aglorithm'
@@ -3059,6 +3423,32 @@ program = 'logs limit: 100'
 corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/mount/persistent-presistent'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name presistent is within the distance threshold of persistent only.'
+method = "correct"
+program = 'mount "/dev/sdb1" "/mnt/data" presistent: false'
+
+[case.expect]
+program = 'mount "/dev/sdb1" "/mnt/data" persistent: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'presistent', to = 'persistent' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/mount/persistent-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix per names only the parameter persistent.'
+method = "correct"
+program = 'mount "/dev/sdb1" "/mnt/data" per: false'
+
+[case.expect]
+program = 'mount "/dev/sdb1" "/mnt/data" persistent: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'per', to = 'persistent' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/move/on-conflict-on-ocnflict'
 kind = "correction"
 class = "mandatory"
@@ -3135,6 +3525,32 @@ program = 'network.resolve "example.com" tpye: a'
 [case.expect]
 program = 'network.resolve "example.com" type: a'
 corrections = [{ rule = 'L02', class = 'F', from = 'tpye', to = 'type' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/next/full-lines-flul-lines'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name flul_lines is within the distance threshold of full_lines only.'
+method = "correct"
+program = 'next flul_lines: false'
+
+[case.expect]
+program = 'next full_lines: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'flul_lines', to = 'full_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/next/full-lines-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ful names only the parameter full_lines.'
+method = "correct"
+program = 'next ful: false'
+
+[case.expect]
+program = 'next full_lines: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ful', to = 'full_lines' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/notebook-cells/outputs-otuputs'
@@ -3551,6 +3967,19 @@ program = 'program.describe "git" inc: true'
 [case.expect]
 program = 'program.describe "git" include_guide: true'
 corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_guide' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-describe/help-hlep'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name hlep is within the distance threshold of help only.'
+method = "correct"
+program = 'program.describe "git" hlep: false'
+
+[case.expect]
+program = 'program.describe "git" help: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'hlep', to = 'help' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/program-find/versions-vresions'
@@ -4229,19 +4658,6 @@ program = 'sql "/home/user/app/app.db" "select 1" params: []'
 corrections = [{ rule = 'L02', class = 'F', from = 'praams', to = 'params' }]
 
 [[case]]
-id = 'correction/generated/parameter-typos/sql/write-wirte'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The parameter name wirte is within the distance threshold of write only.'
-method = "correct"
-program = 'sql "/home/user/app/app.db" "select 1" wirte: false'
-
-[case.expect]
-program = 'sql "/home/user/app/app.db" "select 1" write: false'
-corrections = [{ rule = 'L02', class = 'F', from = 'wirte', to = 'write' }]
-
-[[case]]
 id = 'correction/generated/parameter-typos/start/wait-wiat'
 kind = "correction"
 class = "mandatory"
@@ -4279,6 +4695,34 @@ program = 'jobs "j1" |> stop garce: 5s'
 [case.expect]
 program = 'jobs "j1" |> stop grace: 5s'
 corrections = [{ rule = 'L02', class = 'F', from = 'garce', to = 'grace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/sysctl-set/persistent-presistent'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The parameter name presistent is within the distance threshold of persistent only.'
+method = "correct"
+program = 'sysctl.set "net.ipv4.ip_forward" 1 presistent: false'
+
+[case.expect]
+program = 'sysctl.set "net.ipv4.ip_forward" 1 persistent: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'presistent', to = 'persistent' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/sysctl-set/persistent-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:linux', 'os:macos']
+summary = 'The prefix per names only the parameter persistent.'
+method = "correct"
+program = 'sysctl.set "net.ipv4.ip_forward" 1 per: false'
+
+[case.expect]
+program = 'sysctl.set "net.ipv4.ip_forward" 1 persistent: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'per', to = 'persistent' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/test-failed/timeout-tmieout'
@@ -4565,6 +5009,32 @@ program = 'undo 3 on_c: report'
 [case.expect]
 program = 'undo 3 on_conflict: report'
 corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/unmount/persistent-presistent'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name presistent is within the distance threshold of persistent only.'
+method = "correct"
+program = 'unmount "/mnt/data" presistent: false'
+
+[case.expect]
+program = 'unmount "/mnt/data" persistent: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'presistent', to = 'persistent' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/unmount/persistent-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix per names only the parameter persistent.'
+method = "correct"
+program = 'unmount "/mnt/data" per: false'
+
+[case.expect]
+program = 'unmount "/mnt/data" persistent: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'per', to = 'persistent' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/windows-cim/namespace-nmaespace'

@@ -6,7 +6,7 @@
 // Responsibility:   `groups.create`, `groups.remove`, `groups.add_member` and `groups.remove_member`.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! `groups.create`, `groups.remove`, `groups.add_member` and
@@ -247,20 +247,19 @@ pub(crate) fn parse_dscl_group(output: &str) -> GroupState {
 }
 
 /// Output of `net localgroup NAME`: the members are listed between the line
-/// of dashes and the line `The command completed successfully.`.
+/// of dashes and the closing line, which reports the success of the command
+/// in the display language of the system and is therefore told by its place,
+/// not by its text.
 pub(crate) fn parse_net_localgroup(output: &str) -> GroupState {
-    let mut members = Vec::new();
-    let mut listing = false;
-    for line in output.lines() {
-        if line.starts_with("---") {
-            listing = true;
-        } else if listing {
-            if line.starts_with("The command") || line.trim().is_empty() {
-                break;
-            }
-            members.push(line.trim().to_owned());
-        }
-    }
+    let mut members: Vec<String> = output
+        .lines()
+        .skip_while(|line| !line.starts_with("---"))
+        .skip(1)
+        .map(str::trim)
+        .take_while(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect();
+    members.truncate(members.len().saturating_sub(1));
     members.sort();
     GroupState { gid: None, members }
 }

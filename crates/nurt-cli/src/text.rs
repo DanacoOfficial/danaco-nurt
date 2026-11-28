@@ -6,7 +6,7 @@
 // Responsibility:   Fixed texts of the program: version lines, banner and help introduction.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Fixed texts of the program: version lines, banner and help introduction.
@@ -205,6 +205,40 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
     ),
 ];
 
+const NOT_UTF16: &str = "the file is not valid UTF-16";
+const NOT_TEXT: &str = "the file is neither UTF-8 nor UTF-16 with a byte order mark";
+
+/// The text of a file: UTF-8, or UTF-16 with a byte order mark, which is how
+/// Windows PowerShell and the redirection of its output write a file.
+///
+/// # Errors
+///
+/// Returns the reason when the bytes are neither of the two.
+pub fn decode_file(bytes: &[u8]) -> Result<String, String> {
+    let utf16 = |pairs: &[u8], big_endian: bool| {
+        let units: Vec<u16> = pairs
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| {
+                if big_endian {
+                    u16::from_be_bytes(*pair)
+                } else {
+                    u16::from_le_bytes(*pair)
+                }
+            })
+            .collect();
+        String::from_utf16(&units).map_err(|_| NOT_UTF16.to_owned())
+    };
+    match bytes {
+        [0xFF, 0xFE, rest @ ..] => utf16(rest, false),
+        [0xFE, 0xFF, rest @ ..] => utf16(rest, true),
+        _ => std::str::from_utf8(bytes)
+            .map(str::to_owned)
+            .map_err(|_| NOT_TEXT.to_owned()),
+    }
+}
+
 /// Output of `nurt <subcommand> --help`; `None` for a name that is not a
 /// subcommand.
 #[must_use]
@@ -288,6 +322,26 @@ mod tests {
         let lines: Vec<String> = full_version().lines().map(str::to_owned).collect();
         assert!(lines[1].starts_with("Copyright (c) 2026"));
         assert_eq!(lines[2], "License: Apache-2.0");
+    }
+
+    #[test]
+    fn a_file_is_read_as_utf8_or_as_utf16_with_a_byte_order_mark() {
+        assert_eq!(decode_file(b"echo 1\n").unwrap(), "echo 1\n");
+        let little: Vec<u8> = [0xFF, 0xFE]
+            .into_iter()
+            .chain("a\u{105}".encode_utf16().flat_map(u16::to_le_bytes))
+            .collect();
+        assert_eq!(decode_file(&little).unwrap(), "a\u{105}");
+        let big: Vec<u8> = [0xFE, 0xFF]
+            .into_iter()
+            .chain("a\u{105}".encode_utf16().flat_map(u16::to_be_bytes))
+            .collect();
+        assert_eq!(decode_file(&big).unwrap(), "a\u{105}");
+        assert_eq!(decode_file(&[0x61, 0x00, 0xFF]), Err(NOT_TEXT.to_owned()));
+        assert_eq!(
+            decode_file(&[0xFF, 0xFE, 0x00, 0xD8]),
+            Err(NOT_UTF16.to_owned())
+        );
     }
 
     #[test]

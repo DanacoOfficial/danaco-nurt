@@ -6,7 +6,7 @@
 // Responsibility:   Programs of examples in the three syntax variants.
 // Dependencies:     nurt_contracts, nurt_syntax
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Programs of examples in the three syntax variants.
@@ -21,6 +21,7 @@
 
 use nurt_contracts::ast::{Arg, AstDocument, Expr, Head, Pipeline, Stage, Statement};
 use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::spec::{ParamType, ScalarType};
 use nurt_syntax::parse::{ParseOptions, parse};
 use nurt_syntax::print::{self, PositionalNames};
 
@@ -34,8 +35,13 @@ const PROGRAM_FENCE: &str = "```nurt";
 /// Marker of a fenced block.
 const FENCE: &str = "```";
 
-/// Names of the positional parameters taken from the catalog.
-struct CatalogNames<'a>(&'a Catalog);
+/// Name of the parameter every stage accepts as a bare word, besides its own.
+const PREVIEW: &str = "preview";
+
+/// Names of the positional parameters and the boolean shorthand of the
+/// commands of the catalog; variant C writes every argument with its name.
+#[derive(Debug, Clone, Copy)]
+pub struct CatalogNames<'a>(pub &'a Catalog);
 
 impl PositionalNames for CatalogNames<'_> {
     fn name(&self, command: &str, index: usize) -> Option<String> {
@@ -44,6 +50,21 @@ impl PositionalNames for CatalogNames<'_> {
             .positional()
             .get(index)
             .map(|param| param.name.clone())
+    }
+
+    fn flag(&self, command: &str, word: &str) -> bool {
+        let Some(spec) = self.0.command(command) else {
+            return false;
+        };
+        let is_flag = match spec.param(word) {
+            Some(param) => matches!(param.ty, ParamType::Scalar(ScalarType::Bool)),
+            None => word == PREVIEW,
+        };
+        let is_value = spec.params.iter().any(|param| match &param.ty {
+            ParamType::Enum(values) => values.iter().any(|value| value == word),
+            _ => false,
+        });
+        is_flag && !is_value
     }
 }
 

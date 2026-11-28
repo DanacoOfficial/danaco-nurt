@@ -11,7 +11,7 @@ commands: [git.status, git.diff, git.log, git.stage, git.commit, git.review, git
 <!-- Responsibility:   Documents git-workflow. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git-workflow
@@ -31,7 +31,7 @@ git.log "/srv/app" count: 5 path: ["/srv/app/a.go"]
 
 ```nurt
 git.diff "/srv/app" staged: true stat: true
-git.review "/srv/app" scope: staged checks: ["conflict_markers", "secrets"]
+git.review "/srv/app" scope: staged checks: [conflict_markers, secrets]
 ```
 
 ## Committing
