@@ -116,8 +116,8 @@
   }
 }
 
-/* Without a pointer the button is always shown; on a narrow screen the code starts below it, so no character lies under the button. */
-@media (hover: none) and (max-width: 46rem) {
+/* Without a pointer the button is always shown, so the code starts below it and no character lies under the button. */
+@media (hover: none) {
   .prose pre.has-copy,
   .code-block pre.has-copy,
   .terminal pre.has-copy {

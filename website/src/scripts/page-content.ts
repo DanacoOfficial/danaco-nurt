@@ -33,20 +33,31 @@ export function labelTableCells(root: ParentNode = document): void {
 /** The marks of a table from the strictest breaking to the loosest: code on one line, whole words, whole words in text only. A table with no mark breaks anywhere. */
 const tableMarks = ['table--whole-code', 'table--whole-words', 'table--whole-text'] as const;
 
-/** Sets the breaking of one table: the strictest step with which the table still fits its container. */
+/** Sets the breaking of one table: the strictest step with which the table still fits its container. Code on one line is kept only when it does not make the table taller, because a long piece of code would otherwise take the width from the text beside it. */
 function fitTable(table: HTMLTableElement): void {
   const container = table.parentElement;
   if (!container) {
     return;
   }
-  table.classList.remove(...tableMarks);
-  for (const mark of tableMarks) {
+  const [wholeCode, ...others] = tableMarks;
+  const measure = (mark: string): { fits: boolean; height: number } => {
+    table.classList.remove(...tableMarks);
     table.classList.add(mark);
-    if (table.getBoundingClientRect().width <= container.clientWidth + 1) {
-      return;
+    const box = table.getBoundingClientRect();
+    return { fits: box.width <= container.clientWidth + 1, height: box.height };
+  };
+  const strict = measure(wholeCode);
+  for (const mark of others) {
+    const loose = measure(mark);
+    if (!loose.fits) {
+      continue;
     }
-    table.classList.remove(mark);
+    if (strict.fits && strict.height <= loose.height) {
+      measure(wholeCode);
+    }
+    return;
   }
+  table.classList.remove(...tableMarks);
 }
 
 /** Keeps words whole in the cells of every table that has room for them, and repeats the choice when the window changes its width. */
