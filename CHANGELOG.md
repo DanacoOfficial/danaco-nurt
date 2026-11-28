@@ -79,8 +79,11 @@ their own version numbers, described in the specification.
   others of the command pages) are declared as optional fields by the record
   kinds `program_card`, `program_location` and `program_category`, so `select`,
   `filter`, `sort` and `evaluate` accept them; the examples of the command
-  pages no longer fail with `E_UNKNOWN_FIELD`. The values and the order of the
-  fields in the result are unchanged.
+  pages no longer fail with `E_UNKNOWN_FIELD`. The same holds for the fields
+  `baseline`, `regressions`, `fixed` and `slowest` of `test_run`, `similarity`
+  of `change` and `return_value` of `effect`, which `test.run`, `git.diff` and
+  `windows.cim` set on their records. The values and the order of the fields in
+  the result are unchanged.
 - A start of `nurt` no longer ends with `E_IN_USE` ("cannot assemble the
   journal") while another process keeps the lock of a journal entry that is
   due to expire, for example while it reclaims the same entry. The expiry pass

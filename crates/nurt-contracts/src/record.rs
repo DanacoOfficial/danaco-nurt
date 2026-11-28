@@ -2757,6 +2757,8 @@ record_struct! {
         rows_changed: Option<u64>,
         /// Notes about the change, for example `crlf_preserved`.
         flags: Option<Vec<String>>,
+        /// Similarity of a rename in percent.
+        similarity: Option<u64>,
         /// Encoding before.
         encoding_before: Option<String>,
         /// Encoding after.
@@ -3757,6 +3759,14 @@ record_struct! {
         op: Option<u64>,
         /// Code coverage.
         coverage: Option<Coverage>,
+        /// Earlier run the results were compared with.
+        baseline: Option<String>,
+        /// Tests that passed in the baseline and fail now.
+        regressions: Option<Vec<String>>,
+        /// Tests that failed in the baseline and pass now.
+        fixed: Option<Vec<String>>,
+        /// The slowest tests, each as `id: <time>ms`.
+        slowest: Option<Vec<String>>,
     }
 }
 
@@ -3883,6 +3893,8 @@ record_struct! {
         after: Option<Value>,
         /// Effect on a repository.
         git: Option<GitEffect>,
+        /// Return value of a method called on a Windows management instance.
+        return_value: Option<i64>,
     }
 }
 

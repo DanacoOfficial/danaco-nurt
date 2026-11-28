@@ -449,6 +449,7 @@ Change of one file within an effect.
 | `replacements` | int | no | Replacements made. |
 | `rows_changed` | int | no | Rows inserted, updated or deleted by SQL statements. |
 | `flags` | list<text> | no | Notes about the change, for example `crlf_preserved`. |
+| `similarity` | int | no | Similarity of a rename in percent. |
 | `encoding_before` | text | no | Encoding before. |
 | `encoding_after` | text | no | Encoding after. |
 | `line_ending_before` | enum(lf\|crlf\|cr\|mixed\|none) | no | Line endings before. |
@@ -1010,6 +1011,10 @@ Test run.
 | `retry_of` | text | no | Run this one repeats. |
 | `op` | int | no | Journal operation of the run. |
 | `coverage` | object [`Coverage`](#coverage) | no | Code coverage. |
+| `baseline` | text | no | Earlier run the results were compared with. |
+| `regressions` | list<text> | no | Tests that passed in the baseline and fail now. |
+| `fixed` | list<text> | no | Tests that failed in the baseline and pass now. |
+| `slowest` | list<text> | no | The slowest tests, each as `id: <time>ms`. |
 
 ### test_result
 
@@ -1084,6 +1089,7 @@ The complete effect is described by the effect report; this record carries the p
 | `before` | any | no | State before. |
 | `after` | any | no | State after. |
 | `git` | record [`git_effect`](#git_effect) | no | Effect on a repository. |
+| `return_value` | int | no | Return value of a method called on a Windows management instance. |
 
 ### git_effect
 

@@ -4403,6 +4403,15 @@
           },
           "description": "Notes about the change, for example `crlf_preserved`."
         },
+        "similarity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Similarity of a rename in percent."
+        },
         "encoding_before": {
           "type": [
             "string",
@@ -9404,6 +9413,43 @@
             }
           ],
           "description": "Code coverage."
+        },
+        "baseline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Earlier run the results were compared with."
+        },
+        "regressions": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Tests that passed in the baseline and fail now."
+        },
+        "fixed": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Tests that failed in the baseline and pass now."
+        },
+        "slowest": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "The slowest tests, each as `id: <time>ms`."
         }
       },
       "required": [
@@ -10190,6 +10236,14 @@
             }
           ],
           "description": "Effect on a repository."
+        },
+        "return_value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "Return value of a method called on a Windows management instance."
         }
       },
       "required": [
