@@ -51,6 +51,10 @@ function fitHeader(): void {
   }
   const measure = (): void => {
     header.classList.remove('is-compact');
+    // On a narrow window the style sheet hides the navigation and shows the menu button; there is nothing to measure, and the open menu must stay open.
+    if (getComputedStyle(navigation).display === 'none') {
+      return;
+    }
     if (navigation.scrollWidth > navigation.clientWidth + 1) {
       header.classList.add('is-compact');
     } else {

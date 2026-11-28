@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.scripts.reviewScreens
-// Responsibility:   Saves a page screen by screen at one window size (width or width x height), so that every part of a long page can be reviewed at full size.
+// Responsibility:   Saves a page screen by screen at one window size (width or width x height), so that every part of a long page can be reviewed at full size. REVIEW_CLICK names an element to click before the screens are saved, for a state that opens on a click (the menu of a narrow window).
 // Dependencies:     puppeteer-core supplied by the environment (not a dependency of the package)
 
 const puppeteer = require('puppeteer-core');
@@ -22,8 +22,12 @@ const [width, fixedHeight] = size.split('x');
     if (theme) localStorage.setItem('nurt-theme', theme);
   }, process.env.REVIEW_THEME || '');
   await page.goto(base + address, { waitUntil: 'networkidle2' });
+  if (process.env.REVIEW_CLICK) {
+    await page.click(process.env.REVIEW_CLICK);
+    await new Promise((r) => setTimeout(r, 600));
+  }
   const total = await page.evaluate(() => document.documentElement.scrollHeight);
-  const name = `${address.replace(/\//g, '_') || 'home'}${process.env.REVIEW_THEME ? `-${process.env.REVIEW_THEME}` : ''}`;
+  const name = `${address.replace(/\//g, '_') || 'home'}${process.env.REVIEW_THEME ? `-${process.env.REVIEW_THEME}` : ''}${process.env.REVIEW_CLICK ? '-clicked' : ''}`;
   for (let i = 0; i < Number(screens) && i * h < total; i += 1) {
     await page.evaluate((y) => window.scrollTo(0, y), i * h);
     await new Promise((r) => setTimeout(r, 1400));

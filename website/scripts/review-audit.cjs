@@ -130,6 +130,21 @@ function inspect() {
     return { compact: header.classList.contains('is-compact'), overlap, button: getComputedStyle(document.querySelector('.site-header__menu-button')).display };
   });
   if (!translated.compact || translated.overlap || translated.button === 'none') report.push(`1280 /: header with long labels: ${JSON.stringify(translated)}`);
+  // The menu button must open the menu and the menu must stay open: in the compact header of a wide window and on a narrow window.
+  const menuStaysOpen = async () => {
+    await page.click('[data-menu-toggle]');
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return page.evaluate(() => {
+      const panel = document.getElementById('site-menu');
+      return document.querySelector('[data-menu-toggle]').getAttribute('aria-expanded') === 'true' && panel.getBoundingClientRect().height > 100;
+    });
+  };
+  if (translated.button !== 'none' && !(await menuStaysOpen())) report.push('1280 /: the menu of the compact header does not stay open');
+  for (const narrow of [390, 768]) {
+    await page.setViewport({ width: narrow, height: 900 });
+    await page.goto(`${base}/`, { waitUntil: 'load' });
+    if (!(await menuStaysOpen())) report.push(`${narrow} /: the menu does not stay open`);
+  }
   // A browser set to Polish that opens the English home page for the first time must land on the Polish home page, and must stay on the English page when it returns to it.
   const context = await browser.createBrowserContext();
   const visitor = await context.newPage();
