@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Command catalog `nurt-catalog/1`. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Command catalog `nurt-catalog/1`
@@ -453,10 +453,10 @@ name `administration`.
 | Command | Category | Effect | Reversibility |
 |---|---|---|---|
 | `services` | source | read | read |
-| `start` | run | external | irreversible |
+| `start` | run | external | reversible_if_preserved |
 | `restart` | run | external | irreversible |
-| `enable` | change | external | irreversible |
-| `disable` | change | external | irreversible |
+| `enable` | change | external | reversible_if_preserved |
+| `disable` | change | external | reversible_if_preserved |
 | `windows.cim` | change | read | read |
 | `firewall.rules` | source | read | read |
 | `firewall.allow` | change | external | reversible |

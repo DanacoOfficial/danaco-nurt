@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or catalog data of catalog/administration.toml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog/1"
@@ -45,12 +45,13 @@ summary = "System services or services of the current account."
 [[command]]
 name = "start"
 category = "run"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "builtin"
 input = ["service"]
 output = ["effect"]
 summary = "Start the input services."
+reversibility_note = "Undo runs the inverse operation: stop for a service that was stopped before; a service whose state before no command restores stays irreversible."
 external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are started through the launchctl component of the operating system." }
 
 [[command.param]]
@@ -81,23 +82,25 @@ summary = "Time to wait for each service to reach the running state."
 [[command]]
 name = "enable"
 category = "change"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "builtin"
 input = ["service"]
 output = ["effect"]
 summary = "Make the input services start automatically at boot or login."
+reversibility_note = "Undo runs the inverse operation: disable for a service whose start type before was disabled; any other start type before stays irreversible."
 external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are enabled through the launchctl component of the operating system." }
 
 [[command]]
 name = "disable"
 category = "change"
-reversibility = "irreversible"
+reversibility = "reversible_if_preserved"
 effect = "external"
 implementation = "builtin"
 input = ["service"]
 output = ["effect"]
 summary = "Stop the input services from starting automatically."
+reversibility_note = "Undo runs the inverse operation: enable for a service whose start type before was automatic; any other start type before stays irreversible."
 external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are disabled through the launchctl component of the operating system." }
 
 [[command]]

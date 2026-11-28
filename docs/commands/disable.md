@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents disable. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # disable
@@ -34,7 +34,9 @@ Each input service is read before the action. A service whose start type is
 already `disabled` is not passed to the manager; its effect record has
 `before` equal to `after` and the notable code `unchanged`. For every other
 service the operation is marked irreversible with `service_changed` before
-the manager is asked to act. Services are processed in input order; an error
+the manager is asked to act. When the change completes, the engine keeps the
+inverse operation and drops the marker from the report. Services are
+processed in input order; an error
 stops the processing of the remaining services.
 
 **Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry enables the services again, when their start type before was `automatic`.
@@ -63,8 +65,9 @@ Each `effect` record holds `kind: "disable"`, `target` (`service:<name>`),
 |---|---|
 | Category | `change` |
 | Effect | `external` |
-| Reversibility | `irreversible` |
+| Reversibility | `reversible_if_preserved` |
 | Implementation | `builtin` |
+| Reversibility conditions | Undo runs the inverse operation: enable for a service whose start type before was automatic; any other start type before stays irreversible. |
 | External use | `system_program`: `launchctl`; On macOS services are disabled through the launchctl component of the operating system. |
 
 ## Examples
