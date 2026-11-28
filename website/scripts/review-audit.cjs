@@ -156,7 +156,11 @@ function inspect() {
   const themeBefore = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
   await page.click('[data-theme-toggle]');
   await pause();
-  if ((await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) === themeBefore) report.push('1440 /: the theme toggle does not change the theme');
+  const themeAfter = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  if (themeAfter === themeBefore) report.push('1440 /: the theme toggle does not change the theme');
+  await page.goto(`${base}/product/overview/`, { waitUntil: 'load' });
+  if ((await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) !== themeAfter) report.push('1440 /product/overview/: the chosen theme is not kept on the next page');
+  await page.goto(`${base}/`, { waitUntil: 'load' });
   await page.click('.install-tabs__labels label:nth-of-type(2)');
   await pause();
   if (!(await page.evaluate(() => getComputedStyle(document.querySelector('.install-tabs__panel--windows')).display !== 'none' && getComputedStyle(document.querySelector('.install-tabs__panel--unix')).display === 'none'))) report.push('1440 /: the install tabs do not switch');
