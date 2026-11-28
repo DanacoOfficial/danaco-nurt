@@ -6,7 +6,7 @@
 // Responsibility:   Operation journal of Danaco Nurt.
 // Dependencies:     commands, retention, store
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Operation journal of Danaco Nurt.
@@ -21,6 +21,9 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+#[cfg(unix)]
+mod account_tests;
 pub(crate) mod blob;
 pub(crate) mod catalog;
 mod commands;

@@ -128,6 +128,26 @@ pub(crate) fn fd_meta(
     metadata::stat_fd(fd, op, report).map(|stat| metadata::file_meta(&stat))
 }
 
+/// Applies a metadata change to an open file or directory; the first refused
+/// element fails the call.
+pub(crate) fn set_meta_file(
+    file: &std::fs::File,
+    change: &nurt_contracts::fs::MetaChange,
+    report: &Path,
+) -> FsResult<()> {
+    metadata::apply_change(file, change, report)
+}
+
+/// Applies complete metadata to an open file or directory and reports every
+/// element that could not be applied.
+pub(crate) fn restore_meta_file(
+    file: &std::fs::File,
+    meta: &nurt_contracts::fs::ExtendedMeta,
+    report: &Path,
+) -> FsResult<nurt_contracts::fs::MetaTransferReport> {
+    metadata::apply_extended(file, meta, report)
+}
+
 fn sys_error(errno: Errno, context: ErrnoContext, op: &str, path: &Path) -> FsError {
     errno_error(errno.raw_os_error(), context, op, Some(path))
 }

@@ -42,10 +42,16 @@
 //!   removed (`unlinkat`) relative to the descriptor of its checked directory,
 //!   so a directory of the journal that the account swaps for a link after the
 //!   check cannot redirect the call. A call that has no form of this kind
-//!   (`set_meta`, `restore_meta`, `create_node`, `replace_with_backup`,
-//!   `clone_file`, the alternate streams) is refused with
-//!   [`FsErrorKind::Unsupported`] on a path of the account; the call never
-//!   falls back to a path. A link in the last component is never followed, so
+//!   (`replace_with_backup`, `clone_file` between two paths of the account,
+//!   the alternate streams, a change of the metadata of a link or a special
+//!   file) is refused with [`FsErrorKind::Unsupported`] on a path of the
+//!   account; the call never falls back to a path. The journal copes with
+//!   every refusal: it copies the bytes when a clone is refused, and no
+//!   volume of Unix reports `replace_with_backup`, so the journal never asks
+//!   for it. `set_meta` and `restore_meta` of a file or a directory run on the
+//!   descriptor of the entry (`fchown`, `fchmod`, `futimens`, `fsetxattr`),
+//!   and `create_node` makes the node with `mknodat` relative to the
+//!   descriptor of its directory. A link in the last component is never followed, so
 //!   `metadata` reports the link itself whatever the [`Follow`] argument says.
 //!   The extended metadata of an entry carries its extended attributes and the
 //!   target of a link; flags and ACL are not read.
@@ -73,11 +79,11 @@ use sha2::{Digest, Sha256};
 use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileKind, FileLock, FileMeta, Follow,
     Fs, FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialNode, TxScope, VolumeId,
-    VolumeInfo, WriteHandle, Xattr,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialKind, SpecialNode, TxScope,
+    VolumeId, VolumeInfo, WriteHandle, Xattr,
 };
 
-use crate::account_secure::{self, Owner, RenameHow};
+use crate::account_secure::{self, NodeKind, Owner, RenameHow};
 
 /// Name that marks a journal directory.
 const JOURNAL_DIR: &str = ".nurt-journal";
@@ -305,6 +311,26 @@ impl AccountFs {
         }
     }
 
+    /// Opens a file or directory of the account to change its metadata
+    /// through the open descriptor. A link or a special file is refused: the
+    /// entry is examined before it is opened, so a device or a pipe is never
+    /// opened, and examined again through the descriptor, so an entry that
+    /// changed in between is not changed.
+    fn secure_meta_file(&self, op: &str, path: &AbsPath) -> FsResult<File> {
+        let (dir, name) = self.parent_of(op, path)?;
+        match entry_meta(&dir, &name, op, path.as_path())?.kind {
+            FileKind::File | FileKind::Directory => {}
+            _ => return Err(Self::unsupported(op, path)),
+        }
+        let file = account_secure::open_entry(&dir, &name, libc::O_RDONLY | libc::O_NONBLOCK)
+            .map(File::from)
+            .map_err(|error| io_error(&error, op, path.as_path()))?;
+        match fd_meta(file.as_fd(), op, path.as_path())?.kind {
+            FileKind::File | FileKind::Directory => Ok(file),
+            _ => Err(Self::unsupported(op, path)),
+        }
+    }
+
     fn secure_extended_metadata(&self, op: &str, path: &AbsPath) -> FsResult<ExtendedMeta> {
         let (dir, name) = self.parent_of(op, path)?;
         let basic = entry_meta(&dir, &name, op, path.as_path())?;
@@ -469,6 +495,30 @@ fn fd_meta(fd: std::os::fd::BorrowedFd<'_>, op: &str, report: &Path) -> FsResult
 #[cfg(target_os = "macos")]
 fn fd_meta(fd: std::os::fd::BorrowedFd<'_>, op: &str, report: &Path) -> FsResult<FileMeta> {
     crate::macos::fd_meta(fd, op, report)
+}
+
+/// Applies a metadata change to an open entry.
+#[cfg(target_os = "linux")]
+fn apply_change_to(file: &File, change: &MetaChange, report: &Path) -> FsResult<()> {
+    crate::linux::set_meta_fd(file.as_fd(), change, report)
+}
+
+/// Applies a metadata change to an open entry.
+#[cfg(target_os = "macos")]
+fn apply_change_to(file: &File, change: &MetaChange, report: &Path) -> FsResult<()> {
+    crate::macos::set_meta_file(file, change, report)
+}
+
+/// Applies complete metadata to an open entry.
+#[cfg(target_os = "linux")]
+fn apply_meta_to(file: &File, meta: &ExtendedMeta, report: &Path) -> FsResult<MetaTransferReport> {
+    crate::linux::restore_meta_fd(file.as_fd(), meta, report)
+}
+
+/// Applies complete metadata to an open entry.
+#[cfg(target_os = "macos")]
+fn apply_meta_to(file: &File, meta: &ExtendedMeta, report: &Path) -> FsResult<MetaTransferReport> {
+    crate::macos::restore_meta_file(file, meta, report)
 }
 
 /// Kind of a listed entry.
@@ -982,7 +1032,18 @@ impl FsWrite for AccountFs {
         mode: Option<u32>,
     ) -> FsResult<()> {
         if self.secure(path) {
-            return Err(Self::unsupported("create_node", path));
+            let kind = match node.kind {
+                SpecialKind::Fifo => NodeKind::Fifo,
+                SpecialKind::Char => NodeKind::Char(node.major, node.minor),
+                SpecialKind::Block => NodeKind::Block(node.major, node.minor),
+                _ => return Err(Self::unsupported("create_node", path)),
+            };
+            let (dir, name) = self.parent_of("create_node", path)?;
+            return account_secure::create_node_in(&dir, &name, kind, mode.unwrap_or(0o666))
+                .map_err(|error| match error.raw_os_error() {
+                    Some(libc::EOPNOTSUPP) => Self::unsupported("create_node", path),
+                    _ => io_error(&error, "create_node", path.as_path()),
+                });
         }
         self.at("create_node", path, || {
             self.inner.create_node(scope, path, node, mode)
@@ -1010,6 +1071,10 @@ impl FsWrite for AccountFs {
     }
 
     fn set_meta(&self, scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
+        if self.secure(path) {
+            let file = self.secure_meta_file("set_meta", path)?;
+            return apply_change_to(&file, change, path.as_path());
+        }
         self.at("set_meta", path, || {
             self.inner.set_meta(scope, path, change)
         })
@@ -1021,6 +1086,10 @@ impl FsWrite for AccountFs {
         path: &AbsPath,
         meta: &ExtendedMeta,
     ) -> FsResult<MetaTransferReport> {
+        if self.secure(path) {
+            let file = self.secure_meta_file("restore_meta", path)?;
+            return apply_meta_to(&file, meta, path.as_path());
+        }
         self.at("restore_meta", path, || {
             self.inner.restore_meta(scope, path, meta)
         })
@@ -1376,6 +1445,17 @@ mod tests {
             fs.set_meta(&scope(), &file, &MetaChange::default())
                 .is_err()
         );
+        let meta = crate::system_fs()
+            .extended_metadata(
+                &AbsPath::new(outside.join("other")).unwrap(),
+                Follow::NoFollow,
+            )
+            .unwrap();
+        assert!(fs.restore_meta(&scope(), &file, &meta).is_err());
+        assert!(
+            fs.create_node(&scope(), &file, SpecialNode::fifo(), Some(0o600))
+                .is_err()
+        );
         untouched(&outside);
     }
 
@@ -1479,6 +1559,83 @@ mod tests {
         // the descriptor can hold the lock until it executes its program.
         fs.lock_exclusive(&path("lock"), Duration::from_secs(5))
             .unwrap();
+    }
+
+    const ATTRIBUTE: &str = "user.nurt-account-test";
+
+    fn attribute_of(path: &Path) -> Option<Vec<u8>> {
+        xattr::get(path, ATTRIBUTE).ok().flatten()
+    }
+
+    #[test]
+    fn descriptors_change_metadata_and_restore_it_on_the_open_entry() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let ops = state.join(".nurt-journal/ops");
+        std::fs::create_dir_all(&ops).unwrap();
+        let file = ops.join("file");
+        std::fs::write(&file, b"inside").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o640)).unwrap();
+        if xattr::set(&file, ATTRIBUTE, b"before").is_err() {
+            return;
+        }
+        let fs = descriptor_fs(&state);
+        let target = AbsPath::new(&file).unwrap();
+        let kept = fs.extended_metadata(&target, Follow::NoFollow).unwrap();
+        assert_eq!(kept.xattrs.len(), 1);
+
+        let change = MetaChange {
+            mode: Some(0o600),
+            set_xattrs: vec![Xattr {
+                name: ATTRIBUTE.into(),
+                value: b"after".to_vec(),
+            }],
+            modified_ns: Some(1_000_000_000),
+            ..MetaChange::default()
+        };
+        fs.set_meta(&scope(), &target, &change).unwrap();
+        let now = std::fs::metadata(&file).unwrap();
+        assert_eq!(now.permissions().mode() & 0o777, 0o600);
+        assert_eq!(now.mtime(), 1);
+        assert_eq!(attribute_of(&file).as_deref(), Some(&b"after"[..]));
+
+        let report = fs.restore_meta(&scope(), &target, &kept).unwrap();
+        assert!(report.is_complete(), "{report:?}");
+        let back = std::fs::metadata(&file).unwrap();
+        assert_eq!(back.permissions().mode() & 0o777, 0o640);
+        assert_eq!(attribute_of(&file).as_deref(), Some(&b"before"[..]));
+        assert_eq!(std::fs::read(&file).unwrap(), b"inside");
+
+        let link = ops.join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        let through = AbsPath::new(&link).unwrap();
+        assert!(fs.set_meta(&scope(), &through, &change).is_err());
+        assert!(fs.restore_meta(&scope(), &through, &kept).is_err());
+        assert_eq!(
+            std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+    }
+
+    #[test]
+    fn descriptors_make_a_named_pipe_with_the_requested_mode() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("state");
+        let ops = state.join(".nurt-journal/ops");
+        std::fs::create_dir_all(&ops).unwrap();
+        let fs = descriptor_fs(&state);
+        let pipe = AbsPath::new(ops.join("pipe")).unwrap();
+        fs.create_node(&scope(), &pipe, SpecialNode::fifo(), Some(0o660))
+            .unwrap();
+        let made = std::fs::symlink_metadata(pipe.as_path()).unwrap();
+        assert!(std::os::unix::fs::FileTypeExt::is_fifo(&made.file_type()));
+        assert_eq!(made.permissions().mode() & 0o777, 0o660);
+        assert!(
+            fs.create_node(&scope(), &pipe, SpecialNode::fifo(), None)
+                .is_err(),
+            "an existing name is not replaced"
+        );
+        assert!(fs.metadata(&pipe, Follow::NoFollow).is_ok());
     }
 }
 

@@ -102,8 +102,15 @@ their own version numbers, described in the specification.
   Reading, listing, moving, linking, locking and removing now name the entry
   relative to the descriptor of its checked directory (`openat` with
   `O_NOFOLLOW`, `fstatat`, `renameat`, `linkat`, `unlinkat`) instead of
-  walking the path again after the check, as creating files already did, and a
-  call without such a form is refused instead of falling back to a path.
+  walking the path again after the check, as creating files already did. The
+  change of metadata (`set_meta`, `restore_meta`: owner, mode, times, extended
+  attributes), `truncate`, `create_node` and in-place writes use the same
+  descriptor, so an elevated write, `undo` and `redo` of a file below the state
+  directory of the account keep its mode and extended attributes. A call
+  without such a form (`replace_with_backup`, `clone_file` between two paths of
+  the account, alternate streams) is refused instead of falling back to a path;
+  the journal copies the bytes when a clone is refused and never asks for
+  `replace_with_backup` on Unix.
 
 ### Known issues
 

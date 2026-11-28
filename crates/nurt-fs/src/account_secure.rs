@@ -160,6 +160,83 @@ fn unlink_at(dir: libc::c_int, name: &OsStr, flags: libc::c_int) {
     }
 }
 
+/// Kind of a node made by [`create_node_in`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodeKind {
+    /// Named pipe.
+    Fifo,
+    /// Character device with its major and minor number.
+    Char(u32, u32),
+    /// Block device with its major and minor number.
+    Block(u32, u32),
+}
+
+/// Creates the node `name` in the directory `dir` with the permission bits
+/// `mode`, failing when the name exists.
+///
+/// The node is made with `mknodat` relative to the descriptor. A named pipe
+/// whose bits the umask changed is opened without following links, checked
+/// to be the pipe that was made, and given its bits with `fchmod`. A device
+/// node is never opened: when the umask changed its bits, it is removed again
+/// (only while the name still holds the node that was made) and the call
+/// fails with `EOPNOTSUPP`.
+///
+/// # Errors
+///
+/// Fails with the error of the system call.
+pub(crate) fn create_node_in(
+    dir: &OwnedFd,
+    name: &OsStr,
+    kind: NodeKind,
+    mode: u32,
+) -> io::Result<()> {
+    let (file_type, device) = match kind {
+        NodeKind::Fifo => (libc::S_IFIFO, 0),
+        NodeKind::Char(major, minor) => (libc::S_IFCHR, rustix::fs::makedev(major, minor)),
+        NodeKind::Block(major, minor) => (libc::S_IFBLK, rustix::fs::makedev(major, minor)),
+    };
+    let bits = libc::mode_t::try_from(mode & 0o7777).unwrap_or(0o600);
+    let text = cstring(name)?;
+    // SAFETY: `text` is a valid C string and `dir` is an open descriptor.
+    check(unsafe { libc::mknodat(dir.as_raw_fd(), text.as_ptr(), file_type | bits, device) })?;
+    let made = stat_entry(dir, name)?;
+    let finished = if made.st_mode & 0o7777 == bits {
+        Ok(())
+    } else if kind == NodeKind::Fifo {
+        give_bits_to_pipe(dir, name, &made, bits)
+    } else {
+        Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP))
+    };
+    if finished.is_err()
+        && stat_entry(dir, name)
+            .is_ok_and(|now| (now.st_dev, now.st_ino) == (made.st_dev, made.st_ino))
+    {
+        unlink_at(dir.as_raw_fd(), name, 0);
+    }
+    finished
+}
+
+fn give_bits_to_pipe(
+    dir: &OwnedFd,
+    name: &OsStr,
+    made: &libc::stat,
+    bits: libc::mode_t,
+) -> io::Result<()> {
+    let pipe = open_entry(dir, name, libc::O_RDONLY | libc::O_NONBLOCK)?;
+    // SAFETY: an all-zero `stat` is a valid buffer for `fstat` to fill.
+    let mut opened: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: `pipe` is open and `opened` is a valid buffer.
+    check(unsafe { libc::fstat(pipe.as_raw_fd(), &raw mut opened) })?;
+    if opened.st_mode & libc::S_IFMT != libc::S_IFIFO
+        || (opened.st_dev, opened.st_ino) != (made.st_dev, made.st_ino)
+    {
+        return Err(io::Error::from_raw_os_error(libc::EBUSY));
+    }
+    // SAFETY: `pipe` is an open descriptor; the argument is a plain number.
+    check(unsafe { libc::fchmod(pipe.as_raw_fd(), bits) })?;
+    Ok(())
+}
+
 /// Creates the file `name` in the directory `dir`, owned by the account and
 /// with `mode`, failing when the name exists.
 ///

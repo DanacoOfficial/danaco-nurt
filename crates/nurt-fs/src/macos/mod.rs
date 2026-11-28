@@ -39,7 +39,7 @@ mod volume;
 #[cfg(target_os = "macos")]
 pub use sys::MacosFs;
 #[cfg(target_os = "macos")]
-pub(crate) use sys::{entry_meta, fd_meta};
+pub(crate) use sys::{entry_meta, fd_meta, restore_meta_file, set_meta_file};
 
 pub use acl::{ACL_TEXT_HEADER, AclTextError, acl_from_system_text, acl_text_for_system};
 pub use attrlist::{

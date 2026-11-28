@@ -509,6 +509,32 @@ impl Transfer<'_> {
 
 /// Applies a metadata change requested by a command; the first refused
 /// element fails the call.
+pub(crate) fn set_meta_fd(
+    fd: BorrowedFd<'_>,
+    change: &nurt_contracts::fs::MetaChange,
+    report: &Path,
+) -> FsResult<()> {
+    set_meta(Target::Fd(fd), change, report)
+}
+
+/// Transfers complete metadata to an open file or directory and lists the
+/// elements that could not be transferred.
+pub(crate) fn restore_meta_fd(
+    fd: BorrowedFd<'_>,
+    meta: &ExtendedMeta,
+    report: &Path,
+) -> FsResult<MetaTransferReport> {
+    Transfer {
+        target: Target::Fd(fd),
+        flags_fd: Some(fd),
+        symlink: false,
+        report,
+    }
+    .apply(meta)
+}
+
+/// Applies a metadata change requested by a command; the first refused
+/// element fails the call.
 pub(super) fn set_meta(
     target: Target<'_>,
     change: &nurt_contracts::fs::MetaChange,

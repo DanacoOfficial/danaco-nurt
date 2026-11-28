@@ -40,7 +40,7 @@ mod holders;
 #[cfg(target_os = "linux")]
 mod meta;
 #[cfg(target_os = "linux")]
-pub(crate) use meta::{stat_at, stat_fd};
+pub(crate) use meta::{restore_meta_fd, set_meta_fd, stat_at, stat_fd};
 #[cfg(target_os = "linux")]
 mod remove;
 #[cfg(target_os = "linux")]
