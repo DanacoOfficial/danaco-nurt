@@ -161,10 +161,16 @@ fn members(mut list: *mut *mut c_char) -> Vec<String> {
         return names;
     }
     // SAFETY: `gr_mem` is a null-terminated array of null-terminated strings
-    // owned by the library entry, valid until the next enumeration call.
+    // owned by the library entry, valid until the next enumeration call. The
+    // library of macOS does not align the array to the size of a pointer, so
+    // the elements are read without an alignment requirement.
     unsafe {
-        while !(*list).is_null() {
-            names.push(text(*list));
+        loop {
+            let item = list.read_unaligned();
+            if item.is_null() {
+                break;
+            }
+            names.push(text(item));
             list = list.add(1);
         }
     }
