@@ -1,6 +1,6 @@
 {
   "name": "nurt-win32-arm64",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Command shell and language where every change can be undone",
   "homepage": "https://nurt.danaco-group.pl",
   "repository": {

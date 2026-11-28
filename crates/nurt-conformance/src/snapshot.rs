@@ -6,7 +6,7 @@
 // Responsibility:   File system snapshot `nurt-fs-snapshot/1`.
 // Dependencies:     base64, serde, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! File system snapshot `nurt-fs-snapshot/1`.

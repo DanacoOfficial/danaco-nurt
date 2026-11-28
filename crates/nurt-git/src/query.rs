@@ -6,7 +6,7 @@
 // Responsibility:   Repository information service used by other command groups.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Repository information service used by other command groups.

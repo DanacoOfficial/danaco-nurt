@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Changelog. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Changelog
@@ -19,6 +19,43 @@ The language, the syntax tree, the command catalog and the C interface carry
 their own version numbers, described in the specification.
 
 ## [Unreleased]
+
+## [0.1.2] - 2026-11-28
+
+### Fixed
+
+- Search and replace with a regular expression no longer take time quadratic in
+  the number of matches on one line: the bounds of the line of a match are
+  derived from the match instead of being searched again from the start of the
+  line. 20 000 matches on a line of 60 000 bytes are replaced in about 0.1 s
+  instead of 2.5 s.
+- macOS: the journal is active for the paths of the data volume. The mount point
+  of the data volume (`/System/Volumes/Data`) does not prefix the paths of the
+  firmlinked directories, so no directory of the volume qualified as a journal
+  anchor and every operation ran without a journal; the volume now reports the
+  mount point that holds its paths.
+- macOS: `max_memory` no longer makes every start of a program fail with
+  `EINVAL`. The limit of the address space (`RLIMIT_AS`) is applied on Linux
+  only; on macOS the resident memory is measured, as documented.
+- macOS: the member list of a group is read without assuming the alignment of
+  `gr_mem`, which removes undefined behavior when the groups of an account are
+  listed.
+- macOS: suspending, resuming and stopping a program whose process group has
+  ended no longer fail with `EPERM` ("cannot signal the program"); macOS
+  answers `EPERM` instead of `ESRCH` for such a group.
+- Windows targets can be built with a clang outside `/usr/bin`:
+  `NURT_MSVC_CLANG` names the clang of the MSVC wrappers of the release build.
+
+### Known issues
+
+- macOS: tests of the change tracking of `nurt-proc` (`track::tests`, for
+  example `events::changes_below_ignored_names_are_counted` and
+  `bounds::a_scope_within_the_cap_is_tracked_and_the_note_names_the_directories`)
+  and the protocol test `client_compat_d2_journal_inactive_rules` of
+  `nurt-service` fail intermittently on the macOS runners of the continuous
+  integration: FSEvents reports fewer changes than were made, and the service
+  test exceeds its time limit. The cause is not yet established. No macOS
+  archive is published for this release.
 
 ## [0.1.1] - 2026-11-27
 
@@ -403,7 +440,8 @@ First release.
   the publisher as unverified until a certificate of a public authority replaces
   it.
 
-[Unreleased]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.1...main
+[Unreleased]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.2...main
+[0.1.2]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v0.1.0
 

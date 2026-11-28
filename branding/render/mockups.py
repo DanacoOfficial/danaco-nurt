@@ -6,7 +6,7 @@
 # Responsibility:   Renders the paper, phone and case mockup scenes of the mark in Blender from the images that prepare.py writes.
 # Dependencies:     argparse, math, sys, pathlib, bpy, mathutils
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Render the mockup scenes of the mark with Blender (Cycles, on the processor).

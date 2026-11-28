@@ -6,7 +6,7 @@
 // Responsibility:   Source file bindings/go/nurt.go.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 package nurt
@@ -19,7 +19,7 @@ import (
 
 // Version is the version of this module. It equals the version of the nurt
 // release the module is published with.
-const Version = "0.1.1"
+const Version = "0.1.2"
 
 // Backend selects how the client reaches Danaco Nurt.
 type Backend string

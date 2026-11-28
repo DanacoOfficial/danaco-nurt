@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents `nurt serve` protocol reference (`nurt-rpc/1`). -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # `nurt serve` protocol reference (`nurt-rpc/1`)
@@ -235,7 +235,7 @@ Newline-delimited session (`>` sent by the client, `<` sent by the server):
 
 ```
 > {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol":"nurt-rpc/1","capabilities":{"events":true}}}
-< {"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","version":"0.1.1","abi":null,"language":null,"ast":"1.1","report":"1.0","catalog_rev":null,"features":[],"groups":[],"limits":{"max_inflight":16,"max_message_bytes":16777216}}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","version":"0.1.2","abi":null,"language":null,"ast":"1.1","report":"1.0","catalog_rev":null,"features":[],"groups":[],"limits":{"max_inflight":16,"max_message_bytes":16777216}}}
 > {"jsonrpc":"2.0","id":2,"method":"run","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}}
 < {"jsonrpc":"2.0","method":"nurt/event","params":{"seq":1,"time":"2026-11-21T09:12:00Z","request":"2","t":"exec.started"}}
 < {"jsonrpc":"2.0","method":"nurt/event","params":{"seq":2,"time":"2026-11-21T09:12:00Z","request":"2","t":"exec.finished","status":"ok","error":null}}

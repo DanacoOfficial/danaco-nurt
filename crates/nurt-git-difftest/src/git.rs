@@ -6,7 +6,7 @@
 // Responsibility:   The `git` program and the controlled environment of its runs.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The `git` program and the controlled environment of its runs.

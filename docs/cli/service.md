@@ -12,7 +12,7 @@ since: 0.1.0
 <!-- Responsibility:   Documents service. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # service
@@ -28,7 +28,7 @@ nurt service status
 
 ## Description
 
-The privileged elevation service (`nurt service install --elevation`, `uninstall --elevation`, and its line in `nurt service status`) is not part of release 0.1.1; until it is released the elevation backend `broker` is reported as `not_installed` and elevated calls use `sudo`, `doas` or `run0`.
+The privileged elevation service (`nurt service install --elevation`, `uninstall --elevation`, and its line in `nurt service status`) is not part of release 0.1.2; until it is released the elevation backend `broker` is reported as `not_installed` and elevated calls use `sudo`, `doas` or `run0`.
 
 `service` is a subcommand of the `nurt` program, not a command of the
 pipeline language. The background service hosts the free space module of the

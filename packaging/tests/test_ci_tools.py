@@ -6,7 +6,7 @@
 # Responsibility:   Script test_ci_tools.py.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 """Tests of tools/ci/check-commits.sh and tools/ci/repo-hygiene.sh."""

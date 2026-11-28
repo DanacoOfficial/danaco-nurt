@@ -6,7 +6,7 @@
 // Responsibility:   Files and links of the fixture, without the object store, which keeps written objects after undo.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 use std::collections::BTreeMap;

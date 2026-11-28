@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Release scripts. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Release scripts
@@ -42,8 +42,8 @@ Exit code: 0 without a `FAIL`, 1 with at least one `FAIL`, 2 for a usage error. 
 ## build-release.sh
 
 ```sh
-tools/release/build-release.sh 0.1.1 /tmp/release-0.1.1
-tools/release/build-release.sh 0.1.1 /tmp/release-0.1.1 --sign /path/to/gnupg-home KEYID
+tools/release/build-release.sh 0.1.2 /tmp/release-0.1.2
+tools/release/build-release.sh 0.1.2 /tmp/release-0.1.2 --sign /path/to/gnupg-home KEYID
 ```
 
 Steps: build of `nurt-cli` and `nurt-ffi` for the targets of the table below; `nurt-docgen man`, `completions` and `site`; `packaging/release/pack.py` for each target; `checksums.txt`; with `--sign` a detached armored signature `checksums.txt.asc` and `gpg --verify`; then, for the target of the host only, `nurt version` and `nurt doctor` from the unpacked archive of the program and `examples/c/hello.c` built (flags from `pkg-config`) and run against the unpacked archive of the library. On an x86_64 Linux host with a glibc target the static musl library `libnurt.a` of `x86_64-unknown-linux-musl` is checked as well (`pkg-config --static`, `-static`, C compiler `$CC_x86_64_unknown_linux_musl` or `packaging/release/zig-cc-musl.sh`).
@@ -65,7 +65,7 @@ The environment of the build (`CARGO_TARGET_DIR`, `RUSTUP_TOOLCHAIN`, `RUSTC_WRA
 ## clean-linux-check.sh
 
 ```sh
-tools/release/clean-linux-check.sh /tmp/release-0.1.1/nurt-0.1.1-x86_64-unknown-linux-gnu.tar.gz
+tools/release/clean-linux-check.sh /tmp/release-0.1.2/nurt-0.1.2-x86_64-unknown-linux-gnu.tar.gz
 ```
 
 The archive is mounted read-only into a container of `debian:stable-slim` (glibc archive) or `alpine:latest` (musl archive; checked as well when it lies next to the glibc archive). The container has no network. It unpacks the archive, runs `nurt version` and `nurt doctor`, overwrites a file, runs `undo` and compares the file with its original content. `NURT_CONTAINER_ENGINE` selects `docker` or `podman`; without it the first engine that answers `info` is used (rootless `podman` without subordinate user identifiers cannot unpack the images). The images must be present or pullable by the engine.

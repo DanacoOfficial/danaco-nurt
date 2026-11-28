@@ -6,7 +6,7 @@
 // Responsibility:   Services of the journal under test and their assembly.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_journal, nurt_space, serde_json
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Services of the journal under test and their assembly.

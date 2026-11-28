@@ -6,7 +6,7 @@
 # Responsibility:   Configuration or workflow definition of bindings/go/ci/workflow.yml.
 # Dependencies:     none
 # Author:           Danaco Official
-# Version:          0.1.1, 2026-11-27
+# Version:          0.1.2, 2026-11-28
 # License:          see the LICENSE file or https://www.danaco-group.pl
 
 name: go-binding
@@ -149,7 +149,7 @@ jobs:
           cat > "$RUNNER_TEMP/pkgconfig/nurt.pc" <<PC
           Name: nurt
           Description: C interface of the Danaco Nurt library
-          Version: 0.1.1
+          Version: 0.1.2
           Cflags: -I$GITHUB_WORKSPACE/crates/nurt-ffi/include
           Libs: -L$GITHUB_WORKSPACE/target/release -lnurt_ffi
           PC

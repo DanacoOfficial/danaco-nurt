@@ -6,7 +6,7 @@
 // Responsibility:   Source file bindings/java/nurt/src/main/java/pl/danacogroup/nurt/internal/ProcessBackend.java.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 package pl.danacogroup.nurt.internal;
@@ -72,7 +72,7 @@ public final class ProcessBackend implements Backend {
     static final Duration SHUTDOWN_GRACE = Duration.ofSeconds(5);
 
     private static final String CLIENT_NAME = "pl.danaco-group:nurt";
-    private static final String CLIENT_VERSION = "0.1.1";
+    private static final String CLIENT_VERSION = "0.1.2";
 
     private final List<String> command;
     private final Map<String, String> environment;
