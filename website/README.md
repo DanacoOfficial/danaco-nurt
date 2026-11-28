@@ -27,7 +27,7 @@ All commands run in the directory `website/`. Node.js 22.12 or later is required
 | `npm run check:i18n` | every English page has a Polish page with the same structure |
 | `npm run check:content` | every page of `config/sections.ts` exists in both languages and keeps the page contract |
 | `npm run check:links` | every internal link and resource of `dist/` resolves, including fragments |
-| `npm run check:markup` | no page of `dist/` has an element that is not an element of HTML or SVG (text in angle brackets read as a tag) or content after the end of the document |
+| `npm run check:markup` | no page of `dist/` has an element that is not an element of HTML or SVG (text in angle brackets read as a tag) , content after the end of the document or a backtick left in its text (Markdown that was not read) |
 
 The build must run in `website/`: the import of the documentation and the counted numbers read the parent directory as the repository.
 
