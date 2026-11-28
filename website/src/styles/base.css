@@ -86,6 +86,34 @@ kbd {
   line-height: 1.5;
 }
 
+/* Scrolling areas inside a page (the navigation of a section, the table of contents, code) carry a thin scroll bar in the line colour without arrows, visible more strongly under the pointer. The scroll bar of the page itself keeps the form of the system. */
+body * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+body *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body *::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--line-strong);
+}
+
+body *::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+body *::-webkit-scrollbar-button {
+  display: none;
+}
+
 .stream-trace {
   position: relative;
   isolation: isolate;
