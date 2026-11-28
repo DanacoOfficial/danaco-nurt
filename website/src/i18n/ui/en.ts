@@ -122,7 +122,7 @@ export const en = {
     },
     legal: {
       title: 'Legal',
-      lead: 'Privacy and accessibility of this site.',
+      lead: 'The privacy rules and the accessibility statement of this site.',
     },
   },
   docs: {

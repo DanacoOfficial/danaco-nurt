@@ -104,7 +104,7 @@ export const pl: UiStrings = {
     },
     ai: {
       title: 'AI',
-      lead: 'Co twórcy modeli i silników agentowych zyskują dzięki Danaco Nurt: jedno narzędzie z opublikowaną definicją, programy sprawdzane przed uruchomieniem, ustrukturyzowane raporty, dziennik cofania, dane treningowe i benchmark zadań.',
+      lead: 'Co twórcy modeli i silników agentowych zyskują dzięki Danaco Nurt: jedno narzędzie z opublikowaną definicją, programy sprawdzane przed uruchomieniem, raporty skutków, dziennik cofania, dane treningowe i benchmark zadań.',
     },
     quality: {
       title: 'Jakość',
@@ -124,7 +124,7 @@ export const pl: UiStrings = {
     },
     legal: {
       title: 'Informacje prawne',
-      lead: 'Prywatność i dostępność tej strony.',
+      lead: 'Zasady prywatności i deklaracja dostępności tej witryny.',
     },
   },
   docs: {
