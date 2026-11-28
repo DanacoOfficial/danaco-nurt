@@ -6,7 +6,7 @@
 // Responsibility:   Check without effect: what a plan would touch, known before any step runs.
 // Dependencies:     indexmap, nurt_catalog, nurt_contracts, schemars, serde
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Check without effect: what a plan would touch, known before any step
@@ -32,7 +32,7 @@ use nurt_contracts::spec::{ScalarType, StageSpec};
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CheckCtx, ExecStep, InputKinds, NetworkTarget, StageImpl, StaticInfo,
 };
-use nurt_contracts::value::{Range, RecordKind, Value};
+use nurt_contracts::value::{Duration, Fields, Instant, Range, RecordKind, Regex, Size, Value};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -207,7 +207,8 @@ fn collect_paths(value: &BoundExpr, paths: &mut Vec<String>) {
 }
 
 /// Value of a literal argument for the static check; expressions are left
-/// for the evaluator of the executor.
+/// for the evaluator of the executor. An instant without a zone depends on
+/// the time zone of the run and stays an expression.
 fn static_value(value: &BoundExpr) -> Option<Value> {
     match value {
         BoundExpr::Bool { v } => Some(Value::Bool(*v)),
@@ -218,12 +219,23 @@ fn static_value(value: &BoundExpr) -> Option<Value> {
         BoundExpr::Glob { v } => Some(Value::Glob(v.clone())),
         BoundExpr::Key { v } => Some(Value::Key(v.clone())),
         BoundExpr::Enum { v } => Some(Value::Enum(v.clone())),
+        BoundExpr::Instant { v } => v.parse::<Instant>().ok().map(Value::Instant),
+        BoundExpr::Size { v } => Some(Value::Size(Size::from_bytes(*v))),
+        BoundExpr::Dur { v } => i64::try_from(*v)
+            .ok()
+            .map(|millis| Value::Duration(Duration::from_millis(millis))),
+        BoundExpr::Regex { v, flags } => Regex::new(v, flags).ok().map(Value::Regex),
         BoundExpr::Range { lo, hi } => Range::new(*lo, *hi).ok().map(Value::Range),
         BoundExpr::List { items } => items
             .iter()
             .map(static_value)
             .collect::<Option<Vec<_>>>()
             .map(Value::List),
+        BoundExpr::Map { entries } => entries
+            .iter()
+            .map(|entry| static_value(&entry.v).map(|value| (entry.k.clone(), value)))
+            .collect::<Option<Fields>>()
+            .map(Value::Map),
         _ => None,
     }
 }
@@ -512,6 +524,8 @@ mod tests {
         reason = "tests fail by panicking"
     )]
 
+    use nurt_contracts::bound::BoundMapEntry;
+
     use super::*;
 
     fn text(v: &str) -> BoundExpr {
@@ -574,11 +588,12 @@ mod tests {
                 Value::Number(1.5)
             ]))
         );
-        let size = BoundExpr::Size { v: 10 };
-        assert_eq!(static_arg(&size), ArgValue::Expr(size.clone()));
-        let mixed = BoundExpr::List {
-            items: vec![BoundExpr::Size { v: 1 }],
+        let field = BoundExpr::Field {
+            name: "size".to_owned(),
+            of: None,
         };
+        assert_eq!(static_arg(&field), ArgValue::Expr(field.clone()));
+        let mixed = BoundExpr::List { items: vec![field] };
         assert_eq!(static_arg(&mixed), ArgValue::Expr(mixed.clone()));
         for literal in [
             BoundExpr::Path { v: "/a".to_owned() },
@@ -592,6 +607,48 @@ mod tests {
         ] {
             assert!(matches!(static_arg(&literal), ArgValue::Value(_)));
         }
+    }
+
+    #[test]
+    fn measure_time_pattern_and_map_literals_become_values() {
+        assert_eq!(
+            static_arg(&BoundExpr::Size { v: 10 }),
+            ArgValue::Value(Value::Size(Size::from_bytes(10)))
+        );
+        assert_eq!(
+            static_arg(&BoundExpr::Dur { v: 500 }),
+            ArgValue::Value(Value::Duration(Duration::from_millis(500)))
+        );
+        assert!(matches!(
+            static_arg(&BoundExpr::Regex {
+                v: "a+".to_owned(),
+                flags: String::new()
+            }),
+            ArgValue::Value(Value::Regex(_))
+        ));
+        assert!(matches!(
+            static_arg(&BoundExpr::Instant {
+                v: "2026-11-21T09:12:00Z".to_owned()
+            }),
+            ArgValue::Value(Value::Instant(_))
+        ));
+        let local = BoundExpr::Instant {
+            v: "2026-11-21T09:12:00".to_owned(),
+        };
+        assert_eq!(static_arg(&local), ArgValue::Expr(local.clone()));
+        let map = BoundExpr::Map {
+            entries: vec![BoundMapEntry {
+                k: "action".to_owned(),
+                v: text("remove"),
+            }],
+        };
+        let ArgValue::Value(Value::Map(fields)) = static_arg(&map) else {
+            panic!("a map of literals is a value");
+        };
+        assert_eq!(
+            fields.get("action"),
+            Some(&Value::Text("remove".to_owned()))
+        );
     }
 
     #[test]
