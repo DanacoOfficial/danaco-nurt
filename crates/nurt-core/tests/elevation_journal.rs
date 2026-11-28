@@ -6,7 +6,7 @@
 // Responsibility:   One journal for the entries of the account and of the elevated operations.
 // Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, serde_json, support
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! One journal for the entries of the account and of the elevated operations:
@@ -92,9 +92,9 @@ fn find_at(path: &Path) -> serde_json::Value {
     })
 }
 
-fn undo_stage(id: i64) -> serde_json::Value {
+fn numbered_stage(name: &str, id: i64) -> serde_json::Value {
     json!({
-        "t": "stage", "name": "undo", "effect": "local", "phase": "mutate",
+        "t": "stage", "name": name, "effect": "local", "phase": "mutate",
         "args": [
             {"name": "id", "value": {"t": "int", "v": id}},
             {"name": "to", "value": {"t": "null"}, "default": true},
@@ -150,13 +150,22 @@ impl World {
 
     /// Runs `undo ID`; the number is known only after the operations ran.
     fn undo(&self, id: u64) -> Response {
-        let text = format!("undo {id}");
+        self.numbered("undo", id)
+    }
+
+    /// Runs `redo ID` for the entry of an undo.
+    fn redo(&self, id: u64) -> Response {
+        self.numbered("redo", id)
+    }
+
+    fn numbered(&self, name: &str, id: u64) -> Response {
+        let text = format!("{name} {id}");
         {
             let mut programs = self.programs.lock().unwrap();
             let known = std::mem::take(&mut *programs);
             *programs = known.with(
                 &text,
-                program(undo_stage(i64::try_from(id).unwrap()), Vec::new()),
+                program(numbered_stage(name, i64::try_from(id).unwrap()), Vec::new()),
             );
         }
         self.run(&text, None)
@@ -429,6 +438,35 @@ fn bare_redo_of_the_undo_of_an_elevated_entry_is_refused() {
         [format!("redo {undo_entry} privilege: elevated")]
     );
     assert!(world.file("y").exists(), "nothing was redone");
+}
+
+#[test]
+fn redo_by_number_of_the_undo_of_an_elevated_entry_runs_through_the_engine() {
+    let world = world();
+    let y = world
+        .run("rm y", Some(Privilege::Elevated))
+        .report
+        .op
+        .unwrap();
+    let undone = world.undo(y);
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(world.file("y").exists(), "the undo restored the file");
+    let undo_entry = history(&world)
+        .iter()
+        .find(|record| record.kind == "undo" && record.undo_of == [y])
+        .map(|record| record.id)
+        .unwrap();
+    let redone = world.redo(undo_entry);
+    assert_eq!(redone.report.status, ReportStatus::Ok, "{redone:?}");
+    assert_eq!(redone.report.elevated, undone.report.elevated);
+    assert!(!world.file("y").exists(), "the redo removed the file again");
+    assert!(
+        history(&world)
+            .iter()
+            .any(|record| record.id == undo_entry && record.state == OperationState::Undone),
+        "{:?}",
+        history(&world)
+    );
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
