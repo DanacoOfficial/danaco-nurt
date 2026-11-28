@@ -8,6 +8,8 @@
  */
 
 html {
+  /* Above 1920 px the root size grows with the window, so the text keeps its proportion to the wider container. */
+  font-size: max(100%, min(calc(0.35vw + 9.3px), 26px));
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-height) + var(--space-5));
   background: var(--bg);

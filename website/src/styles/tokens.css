@@ -55,8 +55,8 @@
   --leading-snug: 1.3;
   --leading-body: 1.62;
 
-  --container: 1200px;
-  --prose: 720px;
+  --container: clamp(1200px, 68vw, 2400px);
+  --prose: 45rem;
   --header-height: 4.25rem;
 
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
