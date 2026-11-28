@@ -202,3 +202,119 @@
     padding-top: var(--space-4);
   }
 }
+
+/* The head of the documentation as in the page mockup of the design pack: the sentence of the product on the left, a terminal with a change and its undo on the right, three cards below. */
+.docs-hero {
+  display: grid;
+  gap: var(--space-7);
+  padding-block: var(--space-7) var(--space-8);
+  border-bottom: 1px solid var(--line);
+}
+
+.docs-hero__inner {
+  display: grid;
+  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+.docs-hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.docs-hero__copy h1 {
+  font-size: var(--text-4xl);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  max-width: 14ch;
+}
+
+.docs-hero__copy .lead {
+  max-width: 52ch;
+}
+
+.docs-hero__action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docs-hero__action:hover {
+  color: var(--accent-strong);
+}
+
+.docs-hero__action .icon {
+  color: var(--accent);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.docs-hero__action:hover .icon {
+  transform: translateX(4px);
+}
+
+.docs-hero__terminal {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--bg-code);
+  overflow: hidden;
+}
+
+.docs-hero__terminal figcaption {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.docs-hero__terminal pre {
+  margin: 0;
+  padding: var(--space-5);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.docs-hero__terminal .t-prompt,
+.docs-hero__terminal .t-out,
+.docs-hero__terminal .t-comment {
+  color: var(--text-faint);
+}
+
+.docs-hero__terminal .t-string {
+  color: var(--accent);
+}
+
+.docs-hero__terminal .t-pipe {
+  color: var(--pipe);
+}
+
+.docs-hero .card-grid {
+  margin-block: 0;
+}
+
+@media (min-width: 64rem) {
+  .docs-hero__inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-9);
+  }
+}
+
+@media (max-width: 40rem) {
+  .docs-hero__terminal pre {
+    padding: var(--space-4);
+    font-size: var(--text-xs);
+  }
+}

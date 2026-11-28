@@ -157,6 +157,15 @@ export const pl: UiStrings = {
       specification: 'Specyfikacja',
     },
     hub: {
+      heroEyebrow: 'Dokumentacja',
+      heroTitle: 'Każdą zmianę można cofnąć.',
+      heroAction: 'Zacznij',
+      terminalComment: '# ta sama zmiana jako potok',
+      cards: [
+        { title: 'Dziennik', text: 'Każda zmiana plików jest zapisywana razem z poprzednim stanem, więc można ją cofnąć.', path: '/docs/guide/journal/' },
+        { title: 'Podgląd', text: 'Sprawdź program przed uruchomieniem: preview: true najpierw raportuje skutki.', path: '/docs/guide/effect-report/' },
+        { title: 'Agenci', text: 'Cofnięcie wycofuje tylko operacje bieżącej sesji agenta.', path: '/docs/guide/integration/' },
+      ],
       startEyebrow: 'Start',
       startTitle: 'Zainstaluj Nurta i uruchom pierwszy program',
       startLead: 'Jedno polecenie instaluje jeden plik wykonywalny. Pierwsze kroki prowadzą od pierwszego polecenia do raportu skutków i dziennika.',

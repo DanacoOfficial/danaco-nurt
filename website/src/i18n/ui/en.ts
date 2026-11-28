@@ -155,6 +155,15 @@ export const en = {
       specification: 'Specification',
     },
     hub: {
+      heroEyebrow: 'Documentation',
+      heroTitle: 'Every change can be undone.',
+      heroAction: 'Get started',
+      terminalComment: '# the same change as a pipeline',
+      cards: [
+        { title: 'Journal', text: 'Every change to files is recorded with the previous state, so it can be undone.', path: '/docs/guide/journal/' },
+        { title: 'Preview', text: 'Check a program before it runs: preview: true reports the effects first.', path: '/docs/guide/effect-report/' },
+        { title: 'Agents', text: 'Undo reverts only the operations of the current session of an agent.', path: '/docs/guide/integration/' },
+      ],
       startEyebrow: 'Start',
       startTitle: 'Install Nurt and run the first program',
       startLead: 'One command installs a single executable. The first steps lead from the first command to the effect report and the journal.',

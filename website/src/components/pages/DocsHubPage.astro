@@ -4,14 +4,16 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.src.components.pages.DocsHubPage
-// Responsibility:   The documentation hub in one language: the start panel with the first steps and the installation, then four bands (learn, reference, build on Nurt, the project), each a list of rows for the documentation sections with their page counts.
+// Responsibility:   The documentation hub in one language: the head of the page mockup of the design pack (the sentence of the product, a terminal with a change and its undo, three cards), the start panel with the installation and the first steps, and four bands of rows for the documentation sections with their page counts.
 // Dependencies:     website.src.layouts.BaseLayout, website.src.components.sections.PageHeader, website.src.components.sections.InstallTabs, website.src.lib.docs.model, website.src.styles.components.docs-hub
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import PageHeader from '../sections/PageHeader.astro';
+import Breadcrumbs from '../layout/Breadcrumbs.astro';
+import Card from '../content/Card.astro';
+import CardGrid from '../content/CardGrid.astro';
+import { product } from '../../../config/site';
 import InstallTabs from '../sections/InstallTabs.astro';
 import Icon from '../base/Icon.astro';
-import Button from '../base/Button.astro';
 import type { Locale } from '../../../config/i18n';
 import { getDocs, groupDocs, entryUrl } from '../../lib/docs/model';
 import { href } from '../../lib/urls';
@@ -65,13 +67,34 @@ const hub = ui.docs.hub;
 ---
 
 <BaseLayout title={ui.docs.title} description={ui.docs.lead} locale={locale} path="/docs/" breadcrumbs={[{ label: ui.docs.title, path: '/docs/' }]}>
-  <PageHeader locale={locale} title={ui.docs.title} lead={ui.docs.lead} eyebrow="Danaco Nurt" crumbs={[{ label: ui.docs.title }]}>
-    <div class="cluster">
-      <Button href={href('/docs/guide/installation/', 'en')} variant="primary" iconAfter="arrow-right">{ui.docs.sectionLabels.guide}</Button>
-      <Button href={href('/search/', locale)} variant="secondary" icon="search">{ui.nav.search}</Button>
+  <section class="docs-hero" aria-labelledby="docs-hero-title">
+    <div class="container docs-hero__inner">
+      <div class="docs-hero__copy">
+        <Breadcrumbs locale={locale} items={[{ label: ui.docs.title }]} />
+        <p class="eyebrow">{hub.heroEyebrow}</p>
+        <h1 id="docs-hero-title">{hub.heroTitle}</h1>
+        <p class="lead">{ui.docs.lead}</p>
+        <a class="docs-hero__action" href={href('/docs/guide/installation/', 'en')}>{hub.heroAction}<Icon name="arrow-right" size={18} /></a>
+        {locale === 'pl' && <p class="docs-hub__note">{ui.docs.englishOnlyBody}</p>}
+      </div>
+      <figure class="docs-hero__terminal" aria-label="terminal">
+        <figcaption><span>terminal</span><span>nurt {product.version}</span></figcaption>
+        <pre><code><span class="t-prompt">nurt</span> remove <span class="t-string">"build/"</span>
+<span class="t-out">removed 214 files, journal entry 42</span>
+
+<span class="t-prompt">nurt</span> undo
+<span class="t-out">restored 214 files</span>
+
+<span class="t-comment">{hub.terminalComment}</span>
+<span class="t-prompt">nurt</span> find <span class="t-string">"build/"</span> <span class="t-pipe">|&gt;</span> remove</code></pre>
+      </figure>
     </div>
-    {locale === 'pl' && <p class="docs-hub__note">{ui.docs.englishOnlyBody}</p>}
-  </PageHeader>
+    <div class="container">
+      <CardGrid columns={3}>
+        {hub.cards.map((card) => <Card title={card.title} href={href(card.path, 'en')}>{card.text}</Card>)}
+      </CardGrid>
+    </div>
+  </section>
   <div class="container docs-hub">
     <section class="docs-hub__start" aria-labelledby="docs-start">
       <div class="docs-hub__start-copy">
