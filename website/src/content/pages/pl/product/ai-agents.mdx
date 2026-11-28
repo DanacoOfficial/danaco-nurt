@@ -24,7 +24,7 @@ Model widzi jedno narzędzie o nazwie `nurt`. Jego wejściem jest program w post
 | Serwer JSON-RPC | `nurt serve --stdio` | host, który prowadzi własną pętlę agenta; jeden proces na sesję lub przestrzeń roboczą |
 | Biblioteka C | `libnurt`, `nurt.h` | krótkie wywołania bez skutków w procesie hosta (`nurt_check`, `nurt_describe`, `nurt_correct`) |
 
-`nurt mcp` jest obecny w kompilacjach, które łączą funkcję `mcp`, a jego transport HTTP korzysta z funkcji `mcp-http`; `nurt serve` jest obecny w każdej kompilacji. [Powiązania z językami](/pl/product/integrations/) opakowują `nurt serve` i `libnurt`. Pełnym opisem jest [przewodnik integratora](/docs/integrators/).
+`nurt mcp` jest obecny w kompilacjach, które łączą funkcję `mcp`, a jego transport HTTP korzysta z funkcji `mcp-http`; `nurt serve` jest obecny w każdej kompilacji. [Powiązania z językami](/pl/product/integrations/) opakowują `nurt serve` i `libnurt`. Pełnym opisem jest [przewodnik integratora](/pl/docs/integrators/).
 
 ## Definicja narzędzia
 
@@ -35,15 +35,15 @@ nurt schema tool --format anthropic
 nurt schema tool --format openai-responses-strict --groups core,git
 ```
 
-Dostępne formaty to `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` i `json-schema`. Opis obejmuje grupę rdzenia; `--groups core` rozpoczyna sesję, a ponowne wygenerowanie definicji dodaje kolejną grupę poleceń, gdy model jej potrzebuje. Host, który przechowuje definicje w pamięci podręcznej, kluczuje je formatem, językiem, grupami i wersją katalogu. Zobacz [definicję narzędzia](/docs/integrators/tool-definition/).
+Dostępne formaty to `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` i `json-schema`. Opis obejmuje grupę rdzenia; `--groups core` rozpoczyna sesję, a ponowne wygenerowanie definicji dodaje kolejną grupę poleceń, gdy model jej potrzebuje. Host, który przechowuje definicje w pamięci podręcznej, kluczuje je formatem, językiem, grupami i wersją katalogu. Zobacz [definicję narzędzia](/pl/docs/integrators/tool-definition/).
 
 ## Wywołania narzędzia
 
 Wywołanie zawiera dokładnie jedno z pól `program`, `ast`, `cursor` i `accept` oraz opcje wywołania, takie jak `preview`, `base`, `limit`, `fields` i `session`. Raport z polem `error` host zwraca jako błąd narzędzia, aby model odczytał `fix` i poprawił wywołanie.
 
-Poprawka, która dotyka celu zmiany, czeka na wybór wywołującego: `remvoe "/home/user/app/build"` zwraca `E_AMBIGUOUS` z uszeregowanymi kandydatami, a wywołanie `{"accept": "c1"}` uruchamia wybranego kandydata dokładnie w wymienionej postaci. Program, w którym kilka potoków coś zmienia, kończy się błędem `E_ONE_EFFECT`, a jego pierwszy kandydat ujmuje te potoki w `steps { … }`: jeden wpis dziennika, wszystko albo nic ([wywołania narzędzia](/docs/integrators/tool-calls/), [język](/docs/guide/language/)).
+Poprawka, która dotyka celu zmiany, czeka na wybór wywołującego: `remvoe "/home/user/app/build"` zwraca `E_AMBIGUOUS` z uszeregowanymi kandydatami, a wywołanie `{"accept": "c1"}` uruchamia wybranego kandydata dokładnie w wymienionej postaci. Program, w którym kilka potoków coś zmienia, kończy się błędem `E_ONE_EFFECT`, a jego pierwszy kandydat ujmuje te potoki w `steps { … }`: jeden wpis dziennika, wszystko albo nic ([wywołania narzędzia](/pl/docs/integrators/tool-calls/), [język](/pl/docs/guide/language/)).
 
-Wynik dłuższy niż `limit` kończy się polem `report.next_cursor`; odczyt strony nigdy nie uruchamia ponownie programu, który coś zmienia. Odpowiedź skrócona przez konsolę zawiera `continuation` i kończy się tekstem `more: next`; wywołanie `next` zwraca kolejną część bez ponownego uruchamiania programu. Zachowane części wygasają domyślnie po godzinie, a wygasła kończy się błędem `E_CONTINUATION_EXPIRED` ([duże wyniki](/docs/guides/large-results/)).
+Wynik dłuższy niż `limit` kończy się polem `report.next_cursor`; odczyt strony nigdy nie uruchamia ponownie programu, który coś zmienia. Odpowiedź skrócona przez konsolę zawiera `continuation` i kończy się tekstem `more: next`; wywołanie `next` zwraca kolejną część bez ponownego uruchamiania programu. Zachowane części wygasają domyślnie po godzinie, a wygasła kończy się błędem `E_CONTINUATION_EXPIRED` ([duże wyniki](/pl/docs/guides/large-results/)).
 
 ## Serwer Model Context Protocol
 
@@ -60,11 +60,11 @@ Serwer negocjuje cztery wersje protokołu, od `2024-11-05` do `2025-11-25`. Post
 
 ## Serwer JSON-RPC
 
-`nurt serve --stdio` mówi protokołem `nurt-rpc/1`, czyli JSON-RPC 2.0 z ramkowaniem rozdzielanym wierszami albo nagłówkiem `Content-Length`. Pierwszym żądaniem jest `initialize`; jego wynik wymienia protokół, wersje formatów, funkcje i limity. Metody obejmują m.in. `run`, `check`, `parse`, `page`, `catalog`, `history`, `cancel` i `shutdown`. Błędy języka są częścią wyniku. Opis znajduje się w [protokole serve](/docs/reference/serve-protocol/).
+`nurt serve --stdio` mówi protokołem `nurt-rpc/1`, czyli JSON-RPC 2.0 z ramkowaniem rozdzielanym wierszami albo nagłówkiem `Content-Length`. Pierwszym żądaniem jest `initialize`; jego wynik wymienia protokół, wersje formatów, funkcje i limity. Metody obejmują m.in. `run`, `check`, `parse`, `page`, `catalog`, `history`, `cancel` i `shutdown`. Błędy języka są częścią wyniku. Opis znajduje się w [protokole serve](/pl/docs/reference/serve-protocol/).
 
 ## Podniesienie uprawnień
 
-Praca wymagająca praw administratora przyjmuje parametr wywołania `privilege` (`account` — domyślnie, `elevated` albo `auto`) oraz, w systemach Linux i macOS, `as_user`. Konsola uruchamia `sudo`, `doas` lub `run0` albo działa w tym samym procesie, gdy już jest administratorem; wysyła drzewo składni, nigdy tekst powłoki, i nigdy nie pyta o hasło. Gdy żaden mechanizm nie może wykonać operacji, wywołanie kończy się błędem `E_PRIVILEGE`, a jego szczegóły wymieniają mechanizmy i kolejne kroki. Silnik osadzony wyłącza podnoszenie uprawnień ustawieniem `privilege.allowed = false` ([przewodnik administracji](/docs/guides/administration/)).
+Praca wymagająca praw administratora przyjmuje parametr wywołania `privilege` (`account` — domyślnie, `elevated` albo `auto`) oraz, w systemach Linux i macOS, `as_user`. Konsola uruchamia `sudo`, `doas` lub `run0` albo działa w tym samym procesie, gdy już jest administratorem; wysyła drzewo składni, nigdy tekst powłoki, i nigdy nie pyta o hasło. Gdy żaden mechanizm nie może wykonać operacji, wywołanie kończy się błędem `E_PRIVILEGE`, a jego szczegóły wymieniają mechanizmy i kolejne kroki. Silnik osadzony wyłącza podnoszenie uprawnień ustawieniem `privilege.allowed = false` ([przewodnik administracji](/pl/docs/guides/administration/)).
 
 ## Polityka przed uruchomieniem
 
@@ -79,15 +79,15 @@ if "git.push" in commands:
 response = nurt.run(program)
 ```
 
-Przykład pochodzi z [polityki](/docs/integrators/policy/). Host, który przed zmianą pyta użytkownika, uruchamia `preview: true`, pokazuje wynik, a następnie uruchamia ten sam program bez tej opcji.
+Przykład pochodzi z [polityki](/pl/docs/integrators/policy/). Host, który przed zmianą pyta użytkownika, uruchamia `preview: true`, pokazuje wynik, a następnie uruchamia ten sam program bez tej opcji.
 
 ## Użycie zdalne i zdarzenia
 
-Host, który uruchamia programy na innej maszynie, stosuje politykę przez `check` lokalnie i wysyła drzewo składni do tamtejszego `nurt serve`; zdalna instancja uruchamia otrzymane drzewo. Gdy w `initialize` ustawiono `capabilities.events`, uruchomienie wysyła powiadomienia `nurt/event`, takie jak `exec.started`, `progress`, `job.output` i `exec.finished`. Połączenie i uwierzytelnienie należą do hosta ([użycie zdalne i zdarzenia](/docs/integrators/remote-and-events/)).
+Host, który uruchamia programy na innej maszynie, stosuje politykę przez `check` lokalnie i wysyła drzewo składni do tamtejszego `nurt serve`; zdalna instancja uruchamia otrzymane drzewo. Gdy w `initialize` ustawiono `capabilities.events`, uruchomienie wysyła powiadomienia `nurt/event`, takie jak `exec.started`, `progress`, `job.output` i `exec.finished`. Połączenie i uwierzytelnienie należą do hosta ([użycie zdalne i zdarzenia](/pl/docs/integrators/remote-and-events/)).
 
 ## Wersje interfejsu
 
-Żądania, odpowiedzi, raporty i drzewa składni niosą `nurt: "MAJOR.MINOR"`; wersja podrzędna dodaje pola opcjonalne, a czytelnik pomija nieznane pola opcjonalne. Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji, a zmiana między wersjami 0.x jest zapisywana w dzienniku zmian. Drzewo składni `nurt-ast/1` ma od 0.1.1 wersję 1.1, a dokumenty w wersji 1.0 są odczytywane bez zmian. Host sprawdza główną wersję `nurt-rpc/1` i odczytuje listę funkcji z `initialize`. Hosty przypinają wersję główną i testują zestawem `nurt-conformance` ([wersje](/docs/integrators/versioning/)).
+Żądania, odpowiedzi, raporty i drzewa składni niosą `nurt: "MAJOR.MINOR"`; wersja podrzędna dodaje pola opcjonalne, a czytelnik pomija nieznane pola opcjonalne. Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają własne numery wersji, a zmiana między wersjami 0.x jest zapisywana w dzienniku zmian. Drzewo składni `nurt-ast/1` ma od 0.1.1 wersję 1.1, a dokumenty w wersji 1.0 są odczytywane bez zmian. Host sprawdza główną wersję `nurt-rpc/1` i odczytuje listę funkcji z `initialize`. Hosty przypinają wersję główną i testują zestawem `nurt-conformance` ([wersje](/pl/docs/integrators/versioning/)).
 
 ## Raport i dziennik
 
@@ -101,10 +101,10 @@ Każdy odczyt zwraca `etag`. Zmiana jest stosowana, gdy plik nadal ma zawartoś�
 write "/srv/app/config.toml" "mode = 1\n" if_match: "a41f9c"
 ```
 
-Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian; agent czyta ponownie i podejmuje decyzję. Parametr wywołania `session` nazywa sesję, a `undo` cofa bieżącą sesję albo wszystkie sesje z `all_sessions: true` ([wielu agentów](/docs/guides/multi-agent/)).
+Zmiana pliku, który zmodyfikowała inna sesja, kończy się błędem `E_STALE` i pozostawia plik bez zmian; agent czyta ponownie i podejmuje decyzję. Parametr wywołania `session` nazywa sesję, a `undo` cofa bieżącą sesję albo wszystkie sesje z `all_sessions: true` ([wielu agentów](/pl/docs/guides/multi-agent/)).
 
 ## Dla laboratoriów AI i silników agentów
 
 Sekcja [Dla laboratoriów AI i silników agentów](/pl/ai/) opisuje użycie Danaco Nurt przez laboratoria modeli i silniki agentów. [Paczki treningowe](/pl/ai/training-packages/) zawierają pary danych wejściowych i programu Danaco Nurt, który silnik powiązał z katalogiem poleceń, rozmowy w formie czatu i wywołań narzędzia zbudowane z tych par, definicję narzędzia w każdym formacie oraz dokumentację jako korpus. [Benchmark](/pl/ai/benchmark/) zawiera 720 zadań w 12 dziedzinach i porównuje Danaco Nurt z bashem i PowerShellem 7 jako narzędzie agenta AI.
 
-Dalej: [integracje](/pl/product/integrations/) — powiązania, edytory i CI — oraz [przewodnik integratora](/docs/integrators/).
+Dalej: [integracje](/pl/product/integrations/) — powiązania, edytory i CI — oraz [przewodnik integratora](/pl/docs/integrators/).

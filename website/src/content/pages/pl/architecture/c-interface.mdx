@@ -58,7 +58,7 @@ Język, drzewo składni, katalog poleceń, format raportu i interfejs C mają w�
 | Protokół serve | `nurt-rpc/1` | Zobacz [protokoły](/pl/architecture/protocols/). |
 | Interfejs rozszerzeń | `nurt:ext@1.0` | Manifest jest przyjmowany, gdy jego główna wersja równa się wersji hosta, a wersja podrzędna nie jest nowsza. |
 
-Odniesieniem jest [opis interfejsu C](/docs/reference/c-abi/), a krótką postacią [interfejs C w dokumentach architektury](/docs/architecture/c-interface/).
+Odniesieniem jest [opis interfejsu C](/pl/docs/reference/c-abi/), a krótką postacią [interfejs C w dokumentach architektury](/pl/docs/architecture/c-interface/).
 
 ## Rozszerzenia
 
@@ -69,7 +69,7 @@ Rozszerzenia dodają polecenia, formaty dokumentów i gramatyki bez zmiany progr
 | Komponent WebAssembly | hostowany przez `wasmtime`; świat `extension` pakietu `nurt:ext@1.0.0` z wywołaniami hosta `read-file`, `list-dir`, `write-file` i `log` oraz funkcją `stage.run` | paliwo wykonania 10 000 000 000 jednostek na wywołanie; pamięć liniowa 512 MiB; każde wywołanie działa w nowej instancji; pliki tylko w granicach `permissions.read` i `permissions.write`, sprawdzanych gdy rozszerzenie prosi o ścieżkę i ponownie przy zastosowaniu jego zapisów |
 | Biblioteka natywna | eksportuje `nurt_ext_api`, `nurt_ext_run` i `nurt_ext_free`; ładowana przy `ext.native = true` i w kompilacji z cechą `native` | działa w procesie silnika |
 
-Zobacz [opis rozszerzeń](/docs/reference/extensions/).
+Zobacz [opis rozszerzeń](/pl/docs/reference/extensions/).
 
 ## Wiązania
 
@@ -87,4 +87,4 @@ Skrzynka `nurt-bind` należy do silnika: wiąże drzewa składni z katalogiem po
 
 ## Dalej
 
-[Protokoły](/pl/architecture/protocols/) opisują mechanizm procesu, serwer Model Context Protocol i serwer języka. Wskazówki integracyjne zawiera [przewodnik integratora](/docs/integrators/).
+[Protokoły](/pl/architecture/protocols/) opisują mechanizm procesu, serwer Model Context Protocol i serwer języka. Wskazówki integracyjne zawiera [przewodnik integratora](/pl/docs/integrators/).

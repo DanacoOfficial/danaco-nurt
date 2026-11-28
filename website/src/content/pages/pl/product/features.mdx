@@ -24,7 +24,7 @@ Każda możliwość Danaco Nurt jest poleceniem jednego katalogu. Polecenia rdze
   <Fact id="optionalGroups" />
 </Stats>
 
-Poniższe sekcje idą za obiektem, na którym pracuje polecenie. Programy dla każdego obszaru zawiera [książka kucharska](/docs/cookbook/), która ma dwanaście kategorii przepisów.
+Poniższe sekcje idą za obiektem, na którym pracuje polecenie. Programy dla każdego obszaru zawiera [książka kucharska](/pl/docs/cookbook/), która ma dwanaście kategorii przepisów.
 
 ## Na czym pracują polecenia
 
@@ -34,7 +34,7 @@ Poniższe sekcje idą za obiektem, na którym pracuje polecenie. Programy dla ka
 
 ### Tekst
 
-`search` szuka tekstu dosłownego, wyrażeń regularnych lub wzorców składni. `replace`, `insert` i `edit` zmieniają tekst; `edit` stosuje listę zmian do jednego pliku w trybie „wszystko albo nic”. Grupę uzupełniają `diff`, `patch`, `hash` i `convert` (kodowania i znaki końca wiersza). Przewodnik po [edycji tekstu](/docs/guides/text-editing/) pokazuje poszczególne formy. Wydanie 0.1.2 zamienia 20 000 trafień wyrażenia regularnego w wierszu o długości 60 000 bajtów w około 0,1 s zamiast w 2,5 s.
+`search` szuka tekstu dosłownego, wyrażeń regularnych lub wzorców składni. `replace`, `insert` i `edit` zmieniają tekst; `edit` stosuje listę zmian do jednego pliku w trybie „wszystko albo nic”. Grupę uzupełniają `diff`, `patch`, `hash` i `convert` (kodowania i znaki końca wiersza). Przewodnik po [edycji tekstu](/pl/docs/guides/text-editing/) pokazuje poszczególne formy. Wydanie 0.1.2 zamienia 20 000 trafień wyrażenia regularnego w wierszu o długości 60 000 bajtów w około 0,1 s zamiast w 2,5 s.
 
 ```nurt
 search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
@@ -52,7 +52,7 @@ find "/home/user/app" |> group by: extension |> summarize
 
 ### Dokumenty strukturalne
 
-`set`, `query` i `sql` pracują na dokumentach według ścieżek kluczy: JSON, JSONC, YAML, TOML, XML, INI, CSV, TSV, pliki właściwości Javy, pliki środowiska i listy właściwości. `set` zachowuje układ dokumentu, `query` przyjmuje filtr jq, a `sql` wykonuje instrukcje na pliku SQLite. Od wersji 0.1.1 `sql` przyjmuje instrukcje zmieniające bazę bez `write: true`, najpierw zapisuje w dzienniku plik bazy oraz pliki `-wal`, `-shm` i `-journal`, a wywołanie pozostaje tylko do odczytu przy `write: false`. Dziesięć poleceń `notebook.*` pracuje na komórkach notatników Jupyter. Zobacz przewodniki o [dokumentach](/docs/guides/documents/) i [notatnikach](/docs/guides/notebooks/).
+`set`, `query` i `sql` pracują na dokumentach według ścieżek kluczy: JSON, JSONC, YAML, TOML, XML, INI, CSV, TSV, pliki właściwości Javy, pliki środowiska i listy właściwości. `set` zachowuje układ dokumentu, `query` przyjmuje filtr jq, a `sql` wykonuje instrukcje na pliku SQLite. Od wersji 0.1.1 `sql` przyjmuje instrukcje zmieniające bazę bez `write: true`, najpierw zapisuje w dzienniku plik bazy oraz pliki `-wal`, `-shm` i `-journal`, a wywołanie pozostaje tylko do odczytu przy `write: false`. Dziesięć poleceń `notebook.*` pracuje na komórkach notatników Jupyter. Zobacz przewodniki o [dokumentach](/pl/docs/guides/documents/) i [notatnikach](/pl/docs/guides/notebooks/).
 
 ```nurt
 set "deploy.yaml" key: "#1:spec.replicas" value: 3
@@ -60,7 +60,7 @@ set "deploy.yaml" key: "#1:spec.replicas" value: 3
 
 ### Kod źródłowy
 
-Trzynaście poleceń `code.*` wypisuje symbole i konspekty, znajduje definicje i odwołania, zgłasza diagnostykę i zmienia nazwy symboli na podstawie składni. Implementacją takiego polecenia jest serwer języka albo wbudowana analiza składni; przejście z serwera na analizę jest zgłaszane jako `semantic_fallback`. Osiem poleceń grupy `verify` opakowuje szkielety testowe i analizatory (`test.run`, `analyze.check` i inne). Zobacz [refaktoryzację](/docs/guides/refactoring/).
+Trzynaście poleceń `code.*` wypisuje symbole i konspekty, znajduje definicje i odwołania, zgłasza diagnostykę i zmienia nazwy symboli na podstawie składni. Implementacją takiego polecenia jest serwer języka albo wbudowana analiza składni; przejście z serwera na analizę jest zgłaszane jako `semantic_fallback`. Osiem poleceń grupy `verify` opakowuje szkielety testowe i analizatory (`test.run`, `analyze.check` i inne). Zobacz [refaktoryzację](/pl/docs/guides/refactoring/).
 
 ```nurt
 code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
@@ -68,7 +68,7 @@ code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "new
 
 ### Kontrola wersji
 
-[Grupa git](/docs/groups/git/) ma 22 polecenia, które odczytują i zmieniają repozytoria wewnątrz programu: `git.status`, `git.diff`, `git.commit`, `git.rebase`, `git.push` i inne. Program sam obsługuje dostęp do repozytorium, poświadczenia i SSH; hooki repozytorium i sterowniki filtrów działają na zasadach polecenia `run`. Zmiana drzewa roboczego jest jedną operacją dziennika. Wypchnięcie lub pobranie, które aktualizuje odwołania zdalne, jest oznaczane jako nieodwracalne. Od wersji 0.1.1 podpisy OpenPGP commitów i tagów wykonuje GnuPG, a podpisy SSH są wykonywane w procesie programu.
+[Grupa git](/pl/docs/groups/git/) ma 22 polecenia, które odczytują i zmieniają repozytoria wewnątrz programu: `git.status`, `git.diff`, `git.commit`, `git.rebase`, `git.push` i inne. Program sam obsługuje dostęp do repozytorium, poświadczenia i SSH; hooki repozytorium i sterowniki filtrów działają na zasadach polecenia `run`. Zmiana drzewa roboczego jest jedną operacją dziennika. Wypchnięcie lub pobranie, które aktualizuje odwołania zdalne, jest oznaczane jako nieodwracalne. Od wersji 0.1.1 podpisy OpenPGP commitów i tagów wykonuje GnuPG, a podpisy SSH są wykonywane w procesie programu.
 
 ### Archiwa
 
@@ -76,19 +76,19 @@ code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "new
 
 ### Sieć
 
-[Grupa network](/docs/groups/network/) ma `http.request`, `http.download`, `network.ping`, `network.resolve` i `network.interfaces`. Pobranie zapisuje plik i można je cofnąć; żądanie z `post`, `put`, `patch` lub `delete` jest w raporcie wymienione jako nieodwracalne.
+[Grupa network](/pl/docs/groups/network/) ma `http.request`, `http.download`, `network.ping`, `network.resolve` i `network.interfaces`. Pobranie zapisuje plik i można je cofnąć; żądanie z `post`, `put`, `patch` lub `delete` jest w raporcie wymienione jako nieodwracalne.
 
 ### Procesy
 
-`run` uruchamia program bez powłoki i po `wait` kontynuuje go jako zadanie w tle. `jobs`, `retry` i `stop` zarządzają zadaniami; `processes`, `ports`, `open_files`, `suspend` i `resume` badają system i sterują nim. Od wersji 0.1.1 odpowiedź `run` jest domyślnie krótka, a `next` zwraca resztę z zachowanego wyjścia. Zobacz [uruchamianie programów](/docs/guides/running-programs/) i [grupę system](/docs/groups/system/).
+`run` uruchamia program bez powłoki i po `wait` kontynuuje go jako zadanie w tle. `jobs`, `retry` i `stop` zarządzają zadaniami; `processes`, `ports`, `open_files`, `suspend` i `resume` badają system i sterują nim. Od wersji 0.1.1 odpowiedź `run` jest domyślnie krótka, a `next` zwraca resztę z zachowanego wyjścia. Zobacz [uruchamianie programów](/pl/docs/guides/running-programs/) i [grupę system](/pl/docs/groups/system/).
 
 ### Administracja systemem
 
-[Grupa administration](/docs/groups/administration/) ma 34 polecenia. Do usług (`services`, `start`, `restart`, `enable`, `disable`) i obiektów CIM systemu Windows (`windows.cim`, z wywołaniami metod przez `invoke`) od wersji 0.1.1 dołączają konta, grupy, montowania, parametry i moduły jądra, zasilanie, dyski, zapora, trasy, DNS i zegar. Dostawca rejestru i `windows.cim` działają w systemie Windows. Każde polecenie zmieniające system odczytuje stan, który zmienia, zgłasza `unchanged`, gdy nie ma nic do zrobienia, zapisuje stan przed zmianą i po niej oraz przyjmuje `privilege` (`account`, `elevated` lub `auto`) z backendami `sudo`, `doas` i `run0`. [Grupa package](/docs/groups/package/) wypisuje, wyszukuje, instaluje, usuwa i aktualizuje pakiety przez `apt`, `dnf`, `pacman`, `zypper`, `brew`, `winget`, `choco` lub `scoop`. `host`, `disks`, `environment`, `accounts` i `logs` zgłaszają stan komputera. Strona [dziennik i cofanie](/pl/product/journal-and-undo/) wymienia zmiany, które cofa `undo`; pozostałe skutki trafiają do `irreversible` w [raporcie skutków](/pl/product/effect-reports/).
+[Grupa administration](/pl/docs/groups/administration/) ma 34 polecenia. Do usług (`services`, `start`, `restart`, `enable`, `disable`) i obiektów CIM systemu Windows (`windows.cim`, z wywołaniami metod przez `invoke`) od wersji 0.1.1 dołączają konta, grupy, montowania, parametry i moduły jądra, zasilanie, dyski, zapora, trasy, DNS i zegar. Dostawca rejestru i `windows.cim` działają w systemie Windows. Każde polecenie zmieniające system odczytuje stan, który zmienia, zgłasza `unchanged`, gdy nie ma nic do zrobienia, zapisuje stan przed zmianą i po niej oraz przyjmuje `privilege` (`account`, `elevated` lub `auto`) z backendami `sudo`, `doas` i `run0`. [Grupa package](/pl/docs/groups/package/) wypisuje, wyszukuje, instaluje, usuwa i aktualizuje pakiety przez `apt`, `dnf`, `pacman`, `zypper`, `brew`, `winget`, `choco` lub `scoop`. `host`, `disks`, `environment`, `accounts` i `logs` zgłaszają stan komputera. Strona [dziennik i cofanie](/pl/product/journal-and-undo/) wymienia zmiany, które cofa `undo`; pozostałe skutki trafiają do `irreversible` w [raporcie skutków](/pl/product/effect-reports/).
 
 ### Harmonogramy
 
-[Grupa schedule](/docs/groups/schedule/) ma siedem poleceń. Jedna składnia zastępuje cron, timery systemd, zadania launchd i Harmonogram zadań systemu Windows; akcją harmonogramu jest program języka, wykonywany przez usługę w tle `nurt-service`. Każde uruchomienie jest zwykłą operacją z wpisem w dzienniku.
+[Grupa schedule](/pl/docs/groups/schedule/) ma siedem poleceń. Jedna składnia zastępuje cron, timery systemd, zadania launchd i Harmonogram zadań systemu Windows; akcją harmonogramu jest program języka, wykonywany przez usługę w tle `nurt-service`. Każde uruchomienie jest zwykłą operacją z wpisem w dzienniku.
 
 ## Wokół poleceń
 
@@ -109,7 +109,7 @@ Wydanie 0.1.2 działa w Linuksie, Windows i macOS. W macOS dziennik jest aktywny
   <Card title="Katalog poleceń" icon="list-checks" href="/pl/product/commands/">
     Grupy, strony poleceń i kontrole katalogu.
   </Card>
-  <Card title="Książka kucharska" icon="book-open" href="/docs/cookbook/">
+  <Card title="Książka kucharska" icon="book-open" href="/pl/docs/cookbook/">
     Programy do typowych zadań w dwunastu kategoriach.
   </Card>
   <Card title="Dziennik i cofanie" icon="undo-2" href="/pl/product/journal-and-undo/">

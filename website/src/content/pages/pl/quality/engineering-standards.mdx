@@ -16,7 +16,7 @@ keywords: [clippy, rustfmt, conventional commits, DCO, higiena, nagłówki, CI, 
 
 ## Styl kodu
 
-Zasady zawierają konwencje [styl kodu](/docs/conventions/code-style/) i [nazewnictwo](/docs/conventions/naming/), podsumowane w `CONTRIBUTING.md`. Ich rdzeń:
+Zasady zawierają konwencje [styl kodu](/pl/docs/conventions/code-style/) i [nazewnictwo](/pl/docs/conventions/naming/), podsumowane w `CONTRIBUTING.md`. Ich rdzeń:
 
 - Rust edycja 2024 na łańcuchu narzędzi przypiętym w `rust-toolchain.toml` (kanał 1.98.1, z `rustfmt` i `clippy`). Formatowanie używa `rustfmt.toml`: maksymalna szerokość 100, zakończenia wierszy Unix.
 - Lint jest ustawiony raz w `[workspace.lints]` i dziedziczony przez każdą skrzynkę: `unsafe_code = "deny"`, `missing_docs`, `unreachable_pub` oraz ostrzeżenia clippy dla `unwrap_used`, `expect_used`, `panic`, `dbg_macro`, `print_stdout`, `print_stderr`, `todo`, `unimplemented` i `cognitive_complexity`. Próg `clippy.toml` to złożoność kognitywna 15 na funkcję. Testy używają `unwrap`, `expect`, `panic!`, `print!` i `dbg!`.
@@ -29,7 +29,7 @@ Nazewnictwo jest również ustalone: produkt to „Danaco Nurt”, plik wykonywa
 
 ## Konwencja commitów
 
-Komunikaty commitów stosują Conventional Commits 1.0.0: `<typ>(<zakres>)[!]: <streszczenie>` ([konwencje commitów](/docs/conventions/commits/)).
+Komunikaty commitów stosują Conventional Commits 1.0.0: `<typ>(<zakres>)[!]: <streszczenie>` ([konwencje commitów](/pl/docs/conventions/commits/)).
 
 | Część | Reguła |
 |---|---|

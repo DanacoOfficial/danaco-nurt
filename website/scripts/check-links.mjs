@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.scripts.check-links
-// Responsibility:   Checks every internal link and resource of the built site: each href and src that points into the site must name a file of dist, and each fragment must name an id of the target page. External addresses are not fetched. The exit code is 1 when a link is broken.
+// Responsibility:   Checks every internal link and resource of the built site: each href and src that points into the site must name a file of dist, and each fragment must name an id of the target page, and a link of a Polish page must lead to the Polish version of a page that has one. External addresses are not fetched. The exit code is 1 when a link is broken.
 // Dependencies:     node:fs, node:path, website.config.site (through the environment SITE_BASE)
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -78,6 +78,25 @@ for (const file of htmlFiles(dist)) {
     }
     if (url.hash && target.endsWith('.html') && !idsOf(target).has(decodeURIComponent(url.hash.slice(1)))) {
       broken.push(`${page}: ${value} (missing fragment)`);
+    }
+  }
+}
+
+// A Polish page must link to the Polish version of a page that has one; the language switch and the alternates carry hreflang and are left out.
+const polish = `${base}pl/`;
+for (const file of htmlFiles(path.join(dist, 'pl'))) {
+  const html = readFileSync(file, 'utf8');
+  const page = `/${path.relative(dist, file).replace(/index\.html$/, '')}`;
+  for (const tag of html.matchAll(/<a\b[^>]*>/g)) {
+    if (/\shreflang=/.test(tag[0])) {
+      continue;
+    }
+    const target = /\shref="([^"#?]*\/)(?:[#?][^"]*)?"/.exec(tag[0])?.[1];
+    if (!target || !target.startsWith(base) || target.startsWith(polish)) {
+      continue;
+    }
+    if (existsSync(path.join(dist, 'pl', target.slice(base.length), 'index.html'))) {
+      broken.push(`${page}: ${target} has a Polish version that the link does not use`);
     }
   }
 }

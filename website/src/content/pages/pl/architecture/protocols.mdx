@@ -33,13 +33,13 @@ Pierwszym żądaniem jest `initialize`; przed nim każda metoda poza `initialize
 
 Metody to `run`, `check` (parsowanie, korekta, wiązanie i planowanie bez skutku; zwraca `nurt-check/1`), `parse`, `print`, `correct`, `page`, `describe`, `help`, `schema`, `catalog`, `history`, `space`, `info`, `cancel` i `shutdown`. Koperta żądania ma składową `params`, która przekazuje parametry programu deklarującego `params`. Anulowany `run` otrzymuje odpowiedź `-32002` z odpowiedzią programu z błędem `E_CANCELLED` w `data.response`.
 
-Błędy protokołu używają kodów JSON-RPC (od `-32700` do `-32603`), a błąd aplikacji to `-32000` minus status interfejsu C, z `data.status` podającym jego nazwę; na przykład `-32002` to `NURT_E_CANCELLED`, a `-32004` to `NURT_E_ABI`. Pełne odniesienie to [protokół serve](/docs/reference/serve-protocol/).
+Błędy protokołu używają kodów JSON-RPC (od `-32700` do `-32603`), a błąd aplikacji to `-32000` minus status interfejsu C, z `data.status` podającym jego nazwę; na przykład `-32002` to `NURT_E_CANCELLED`, a `-32004` to `NURT_E_ABI`. Pełne odniesienie to [protokół serve](/pl/docs/reference/serve-protocol/).
 
 ```json
 {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocol": "nurt-rpc/1", "client": {"name": "example-host", "version": "1.0.0"}, "capabilities": {"events": true}}}
 ```
 
-Pierwsze żądanie sesji, jak w [wersjach i zgodności](/docs/integrators/versioning/).
+Pierwsze żądanie sesji, jak w [wersjach i zgodności](/pl/docs/integrators/versioning/).
 
 ## Zdarzenia i zdalne użycie
 
@@ -47,7 +47,7 @@ Gdy w `initialize` ustawiono `capabilities.events`, każde wykonanie `run` wysy�
 
 Typy to `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log` i `exec.finished`. Zdarzenie `progress` niesie polecenie, fazę i liczby wykonanych elementów oraz bajtów; zdarzenia `job.*` śledzą zadanie w tle od startu, przez jego wiersze wyjścia i wartości procentowe, do końca.
 
-Przy użyciu na innym urządzeniu host parsuje program lokalnie przez `parse`, stosuje swoją politykę przez `check` i wysyła drzewo składni jako składową `ast` żądania do `nurt serve` działającego tam. Zdalna instancja nie koryguje drzewa ponownie, więc uruchamiany program jest tym, który sprawdziła polityka. Drzewo o nowszej wersji, niż instancja obsługuje, jest odrzucane z błędem `E_AST_VERSION`, a transport, uwierzytelnianie i wybór urządzenia należą do hosta. Zobacz [instancje zdalne i zdarzenia](/docs/integrators/remote-and-events/) oraz [politykę](/docs/integrators/policy/).
+Przy użyciu na innym urządzeniu host parsuje program lokalnie przez `parse`, stosuje swoją politykę przez `check` i wysyła drzewo składni jako składową `ast` żądania do `nurt serve` działającego tam. Zdalna instancja nie koryguje drzewa ponownie, więc uruchamiany program jest tym, który sprawdziła polityka. Drzewo o nowszej wersji, niż instancja obsługuje, jest odrzucane z błędem `E_AST_VERSION`, a transport, uwierzytelnianie i wybór urządzenia należą do hosta. Zobacz [instancje zdalne i zdarzenia](/pl/docs/integrators/remote-and-events/) oraz [politykę](/pl/docs/integrators/policy/).
 
 ## Serwer Model Context Protocol
 
@@ -86,7 +86,7 @@ nurt schema tool --format anthropic
 nurt schema tool --format mcp --language pl --groups all
 ```
 
-Opis zawiera grupę podstawową, a potem wybrane grupy opcjonalne, dzięki czemu host ładuje grupy poleceń na żądanie. `catalog_version` zapisuje wersję katalogu poleceń, z którego pochodzi opis. Zobacz [definicję narzędzia](/docs/integrators/tool-definition/) i [wywołania narzędzia](/docs/integrators/tool-calls/).
+Opis zawiera grupę podstawową, a potem wybrane grupy opcjonalne, dzięki czemu host ładuje grupy poleceń na żądanie. `catalog_version` zapisuje wersję katalogu poleceń, z którego pochodzi opis. Zobacz [definicję narzędzia](/pl/docs/integrators/tool-definition/) i [wywołania narzędzia](/pl/docs/integrators/tool-calls/).
 
 ## Wersjonowanie każdego interfejsu
 
@@ -103,4 +103,4 @@ Zestaw zgodności `nurt-conformance` rozmawia z implementacją wyłącznie przez
 
 ## Dalej
 
-[Interfejs C i wiązania](/pl/architecture/c-interface/) opisują bibliotekę. [Przewodnik integratora](/docs/integrators/) zawiera wskazówki dla hostów, które dają modelowi narzędzie `nurt`.
+[Interfejs C i wiązania](/pl/architecture/c-interface/) opisują bibliotekę. [Przewodnik integratora](/pl/docs/integrators/) zawiera wskazówki dla hostów, które dają modelowi narzędzie `nurt`.

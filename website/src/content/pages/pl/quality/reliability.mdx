@@ -16,7 +16,7 @@ keywords: [dziennik, awaria, odtwarzanie, nieodwracalne, miejsce na dysku, tmpfs
 
 ## Co jest gwarantowane po awarii
 
-Kontraktem dziennika jest specyfikacja [Dziennik i kontrakt systemu plików](/docs/specification/journal/). Jej druga zasada to kolejność: poprzednia zawartość każdego celu jest zachowywana, zanim cokolwiek zostanie zmienione, więc w każdej chwili awarii poprzednia zawartość istnieje w co najmniej jednym miejscu. Odtwarzanie działa przed pierwszą transakcją procesu i przed pierwszą operacją po ponownym uruchomieniu systemu.
+Kontraktem dziennika jest specyfikacja [Dziennik i kontrakt systemu plików](/pl/docs/specification/journal/). Jej druga zasada to kolejność: poprzednia zawartość każdego celu jest zachowywana, zanim cokolwiek zostanie zmienione, więc w każdej chwili awarii poprzednia zawartość istnieje w co najmniej jednym miejscu. Odtwarzanie działa przed pierwszą transakcją procesu i przed pierwszą operacją po ponownym uruchomieniu systemu.
 
 | Moment awarii | Stan po odtworzeniu (specyfikacja, sekcja 4) |
 |---|---|
@@ -58,7 +58,7 @@ Dziennik jest domyślnie nieaktywny na woluminach sieciowych, wymiennych i opart
 
 ## Co jest nieodwracalne i jak jest oznaczane
 
-Cel bez zachowanej zawartości nosi znacznik nieodwracalności z przyczyną, a raport wymienia takie skutki osobno. Przykłady: żądanie sieciowe, `accounts.password`, natychmiastowe `power.restart`, `clock.set`, `disks.partition`, `disks.format` oraz pliki zmienione przez program uruchomiony przez `run` z `privilege: elevated`. Raporty nie podają, do kiedy operację można cofnąć ([specyfikacja raportu](/docs/specification/report/)). Polecenia opisuje [Dziennik i cofanie](/docs/guides/journal-undo/).
+Cel bez zachowanej zawartości nosi znacznik nieodwracalności z przyczyną, a raport wymienia takie skutki osobno. Przykłady: żądanie sieciowe, `accounts.password`, natychmiastowe `power.restart`, `clock.set`, `disks.partition`, `disks.format` oraz pliki zmienione przez program uruchomiony przez `run` z `privilege: elevated`. Raporty nie podają, do kiedy operację można cofnąć ([specyfikacja raportu](/pl/docs/specification/report/)). Polecenia opisuje [Dziennik i cofanie](/pl/docs/guides/journal-undo/).
 
 ## Limity uruchomienia i nietypowe ścieżki
 
@@ -81,4 +81,4 @@ Na macOS punkt montowania woluminu danych, `/System/Volumes/Data`, nie jest pref
   <Fact id="tests" />
 </Stats>
 
-Dalej: [testowanie](/pl/quality/testing/), strona [dziennik i cofanie](/pl/product/journal-and-undo/) lub [przewodnik po dzienniku](/docs/guide/journal/).
+Dalej: [testowanie](/pl/quality/testing/), strona [dziennik i cofanie](/pl/product/journal-and-undo/) lub [przewodnik po dzienniku](/pl/docs/guide/journal/).

@@ -16,7 +16,7 @@ keywords: [bezpieczeństwo, podatność, uprawnienia, podniesienie uprawnień, z
 
 ## Zgłaszanie podatności
 
-Podejrzenia podatności zgłasza się e-mailem na adres `support@danaco-group.pl` z tematem zaczynającym się od `[security] nurt`, a nie w publicznym zgłoszeniu, pull requeście ani dyskusji. Zgłoszenia przyjmowane są po angielsku lub po polsku. Polityką jest plik [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); strona dokumentacji to [Bezpieczeństwo](/docs/guide/security/).
+Podejrzenia podatności zgłasza się e-mailem na adres `support@danaco-group.pl` z tematem zaczynającym się od `[security] nurt`, a nie w publicznym zgłoszeniu, pull requeście ani dyskusji. Zgłoszenia przyjmowane są po angielsku lub po polsku. Polityką jest plik [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md); strona dokumentacji to [Bezpieczeństwo](/pl/docs/guide/security/).
 
 Zgłoszenie podaje dotkniętą wersję, commit lub artefakt wydania, system operacyjny i architekturę, problem i jego skutki oraz kroki odtworzenia. Polityka ustala te docelowe terminy:
 
@@ -37,7 +37,7 @@ Wersja 0.1.0 jest pierwszym wydaniem; bieżące wydanie to 0.1.2. Do pierwszego 
 
 ## Właściwości powłoki
 
-Dokumentacja wymienia właściwości, które ograniczają skutki programu ([Bezpieczeństwo](/docs/guide/security/)):
+Dokumentacja wymienia właściwości, które ograniczają skutki programu ([Bezpieczeństwo](/pl/docs/guide/security/)):
 
 - **Kontrola przed skutkiem.** Nazwy, parametry i typy są sprawdzane względem katalogu poleceń, zanim nastąpi jakikolwiek skutek.
 - **Brak powłoki.** Programy nie przechodzą przez powłokę; ścieżka jest jedną wartością i nie jest dzielona ani rozwijana.
@@ -61,7 +61,7 @@ Kontrola dostępu jest kontrolą systemu operacyjnego: konto, które ma prawo ur
 
 ## Polityka integratorów
 
-Konsola uruchamia otrzymane programy; to host decyduje, które programy uruchamia agent. Host egzekwuje swoją politykę przed `run`, na danych obliczonych bez żadnego skutku: `nurt check` i `run` z `preview: true` ([polityka integratorów](/docs/integrators/policy/)). Dokument `nurt-check/1` zwraca najsilniejszy skutek, najsłabszą odwracalność, ścieżki wskazane przez program, cele sieciowe, programy do uruchomienia i grupy poleceń. Decyzje zapadają na programie poprawionym i związanym, nigdy na tekście programu.
+Konsola uruchamia otrzymane programy; to host decyduje, które programy uruchamia agent. Host egzekwuje swoją politykę przed `run`, na danych obliczonych bez żadnego skutku: `nurt check` i `run` z `preview: true` ([polityka integratorów](/pl/docs/integrators/policy/)). Dokument `nurt-check/1` zwraca najsilniejszy skutek, najsłabszą odwracalność, ścieżki wskazane przez program, cele sieciowe, programy do uruchomienia i grupy poleceń. Decyzje zapadają na programie poprawionym i związanym, nigdy na tekście programu.
 
 ## Kontrole w CI
 

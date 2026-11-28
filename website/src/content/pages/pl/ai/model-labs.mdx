@@ -24,7 +24,7 @@ nurt schema tool --format openai-responses-strict --language pl --groups core,gi
 nurt schema tool --format gemini --groups all
 ```
 
-Formaty to `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` i `json-schema`. Opcja `--language` przyjmuje `en` lub `pl`, a `--groups` przyjmuje `core`, `all` albo listę grup poleceń. Wynik jest deterministyczny dla tych samych danych wejściowych, więc definicja, która trafia do zbioru treningowego, jest odtwarzana dokładnie przez tę samą wersję programu. Nazwa narzędzia to `nurt` w każdym formacie, a argumenty są takie same w każdym formacie: dokładnie jedno z pól `program`, `ast`, `cursor` i `accept` oraz opcje wywołania. [Opis definicji narzędzia](/docs/integrators/tool-definition/) wymienia reguły, które dostosowują schemat do każdej platformy.
+Formaty to `anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` i `json-schema`. Opcja `--language` przyjmuje `en` lub `pl`, a `--groups` przyjmuje `core`, `all` albo listę grup poleceń. Wynik jest deterministyczny dla tych samych danych wejściowych, więc definicja, która trafia do zbioru treningowego, jest odtwarzana dokładnie przez tę samą wersję programu. Nazwa narzędzia to `nurt` w każdym formacie, a argumenty są takie same w każdym formacie: dokładnie jedno z pól `program`, `ast`, `cursor` i `accept` oraz opcje wywołania. [Opis definicji narzędzia](/pl/docs/integrators/tool-definition/) wymienia reguły, które dostosowują schemat do każdej platformy.
 
 ## Opis języka w definicji
 
@@ -32,7 +32,7 @@ Opis narzędzia zawiera opis języka: notację programu, potok typowanych rekord
 
 ## Kody błędów jako sygnał do nauki
 
-Każdy błąd języka ma stabilny kod z przedrostkiem `E_`, komunikat, etap, położenie w programie (`line`, `column`, `length`) i gotowe zamienniki tekstu programu w `fix`, w uszeregowanej kolejności. `E_UNKNOWN_COMMAND` wymienia do ośmiu najbliższych nazw, `E_UNKNOWN_VALUE` wymienia dopuszczalne wartości, a `E_AMBIGUOUS` wymienia uszeregowanych kandydatów, których kolejne wywołanie przyjmuje po identyfikatorze. Kody są tylko dodawane w obrębie wersji głównej, a znaczenie kodu nigdy się nie zmienia. [Specyfikacja błędów](/docs/specification/errors/) jest ich listą.
+Każdy błąd języka ma stabilny kod z przedrostkiem `E_`, komunikat, etap, położenie w programie (`line`, `column`, `length`) i gotowe zamienniki tekstu programu w `fix`, w uszeregowanej kolejności. `E_UNKNOWN_COMMAND` wymienia do ośmiu najbliższych nazw, `E_UNKNOWN_VALUE` wymienia dopuszczalne wartości, a `E_AMBIGUOUS` wymienia uszeregowanych kandydatów, których kolejne wywołanie przyjmuje po identyfikatorze. Kody są tylko dodawane w obrębie wersji głównej, a znaczenie kodu nigdy się nie zmienia. [Specyfikacja błędów](/pl/docs/specification/errors/) jest ich listą.
 
 Błąd etapów `parse` i `bind` nie ma skutku w świecie. Opisuje pomyłkę w programie i sposób jej poprawienia, więc para „błędny program, obiekt błędu, poprawiony program” jest przykładem treningowym, a kolejne wywołanie modelu, który czyta `fix`, jest oceną wykorzystania informacji zwrotnej. Plik `rejected.jsonl` paczki `pairs` zawiera programy odrzucone przez silnik, każdy z kodem i komunikatem.
 
@@ -59,4 +59,4 @@ Każdy interfejs ma własny numer wersji, więc laboratorium podaje wersję, na 
 | Katalog poleceń | `catalog_version` | nowe polecenia i parametry opcjonalne są dodawane w obrębie wersji głównej |
 | Raport i żądanie | `nurt: "MAJOR.MINOR"` | wersja podrzędna dodaje pola opcjonalne; czytnik ignoruje nieznane pola opcjonalne |
 
-Manifest paczek treningowych zapisuje wydanie (0.1.2) i rewizję katalogu silnika, który sprawdził programy (`ad74233c7b6b`), a definicja narzędzia niesie wersję katalogu jako `catalog_version` (format `json-schema`) lub `_meta["pl.danaco-group/nurt-catalog"]` (format `mcp`). Strony [wersjonowanie](/docs/guide/versioning/) i [wersje i zgodność](/docs/integrators/versioning/) zawierają reguły, a dziennik zmian zapisuje każdą zmianę między wersjami 0.x.
+Manifest paczek treningowych zapisuje wydanie (0.1.2) i rewizję katalogu silnika, który sprawdził programy (`ad74233c7b6b`), a definicja narzędzia niesie wersję katalogu jako `catalog_version` (format `json-schema`) lub `_meta["pl.danaco-group/nurt-catalog"]` (format `mcp`). Strony [wersjonowanie](/pl/docs/guide/versioning/) i [wersje i zgodność](/pl/docs/integrators/versioning/) zawierają reguły, a dziennik zmian zapisuje każdą zmianę między wersjami 0.x.

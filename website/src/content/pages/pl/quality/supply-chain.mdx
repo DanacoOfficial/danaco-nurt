@@ -16,7 +16,7 @@ keywords: [cargo-deny, licencje, podpis, sumy kontrolne, powtarzalne, wydanie, D
 
 ## Polityka zależności
 
-Polityką jest plik `deny.toml`, sprawdzany przez `cargo deny --locked check`. Wszystkie zależności są zadeklarowane w `[workspace.dependencies]` głównego `Cargo.toml`, pochodzą wyłącznie z crates.io i są uzasadniane w pull requeście, który je dodaje ([konwencje licencyjne](/docs/conventions/licensing/)).
+Polityką jest plik `deny.toml`, sprawdzany przez `cargo deny --locked check`. Wszystkie zależności są zadeklarowane w `[workspace.dependencies]` głównego `Cargo.toml`, pochodzą wyłącznie z crates.io i są uzasadniane w pull requeście, który je dodaje ([konwencje licencyjne](/pl/docs/conventions/licensing/)).
 
 | Sekcja | Reguła w `deny.toml` |
 |---|---|
@@ -69,6 +69,6 @@ Kluczem publicznym jest `packaging/release/danaco-nurt.asc`. Znacznik każdego w
 
 ## Podpisane commity i podpis Signed-off-by
 
-Każdy commit gałęzi `main` jest podpisany osobnym kluczem OpenPGP używanym tylko do commitów, poświadczonym kluczem wydań (`packaging/release/danaco-nurt-commit-signing.asc`, odcisk `62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62`). Historię weryfikuje się przez `git log --show-signature` lub `git verify-commit`. Wkłady są przyjmowane na podstawie Developer Certificate of Origin 1.1; każdy commit ma wiersz `Signed-off-by` zgodny z autorem, a `tools/ci/check-commits.sh` sprawdza go w zadaniu `commits` przepływu higieny przy każdym pull requeście ([standardy inżynierskie](/pl/quality/engineering-standards/)). Skrypt pomija commity wymienione w `tools/ci/commits-allow.txt`, opublikowane, zanim objęły je kontrole ([konwencje commitów](/docs/conventions/commits/)). Przeniesienie do publicznego repozytorium odtworzyło 145 commitów z podpisami i poprawionymi tematami (wersja 0.1.1, 27 listopada 2026).
+Każdy commit gałęzi `main` jest podpisany osobnym kluczem OpenPGP używanym tylko do commitów, poświadczonym kluczem wydań (`packaging/release/danaco-nurt-commit-signing.asc`, odcisk `62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62`). Historię weryfikuje się przez `git log --show-signature` lub `git verify-commit`. Wkłady są przyjmowane na podstawie Developer Certificate of Origin 1.1; każdy commit ma wiersz `Signed-off-by` zgodny z autorem, a `tools/ci/check-commits.sh` sprawdza go w zadaniu `commits` przepływu higieny przy każdym pull requeście ([standardy inżynierskie](/pl/quality/engineering-standards/)). Skrypt pomija commity wymienione w `tools/ci/commits-allow.txt`, opublikowane, zanim objęły je kontrole ([konwencje commitów](/pl/docs/conventions/commits/)). Przeniesienie do publicznego repozytorium odtworzyło 145 commitów z podpisami i poprawionymi tematami (wersja 0.1.1, 27 listopada 2026).
 
 Zobacz też [bezpieczeństwo](/pl/quality/security/) i [zależności](/pl/architecture/dependencies/).

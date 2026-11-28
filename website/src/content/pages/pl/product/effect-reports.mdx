@@ -18,7 +18,7 @@ keywords: [raport, skutek, json, markdown, schemat, uruchomienie, wyjście, kont
 
 Format to `nurt-report/1`. Raport pokazuje skutek, a nie tylko fakt, że coś się wykonało. Wymienia cele, zmienione i usunięte pliki z ich liczbą i łącznym rozmiarem, rozmiary i skróty przed zmianą i po niej, próbkę różnic, podsumowanie operacji masowych oraz niezwykłe skutki. Puste listy są pomijane, podobnie jak pola opcjonalne, gdy ich nie ma, więc raport zwykłego skutku pozostaje krótki.
 
-Raport zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem w dzienniku (zobacz niżej). [Specyfikacja raportu](/docs/specification/report/) wymienia każde pole.
+Raport zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem w dzienniku (zobacz niżej). [Specyfikacja raportu](/pl/docs/specification/report/) wymienia każde pole.
 
 ## Postacie raportu
 
@@ -31,7 +31,7 @@ Parametr wywołania `format` wybiera postać renderowanego wyniku.
 | `markdown` | nagłówki, tabele z kreskami pionowymi i bloki kodu dla różnic |
 | `compact` | jeden rekord w wierszu, bez nagłówków |
 
-Tekst, JSON i Markdown to postacie dla czytelników i programów. Tekstowa postać zamiany wygląda następująco; [dokumentacja referencyjna wyjścia raportu](/docs/reference/report-output/) opisuje każdą postać:
+Tekst, JSON i Markdown to postacie dla czytelników i programów. Tekstowa postać zamiany wygląda następująco; [dokumentacja referencyjna wyjścia raportu](/pl/docs/reference/report-output/) opisuje każdą postać:
 
 ```text
 op 18  replace  ok
@@ -79,7 +79,7 @@ Raport wskazuje operację przez `op`. Stan wpisu, `available`, `partial`, `expir
 
 ## Wyjście `run` i jego kontynuacja
 
-Od wersji 0.1.1 odpowiedź [`run`](/docs/commands/run/) jest domyślnie krótka. Pełne wyjście jest przechowywane w pliku kolejki, a odpowiedź je kształtuje:
+Od wersji 0.1.1 odpowiedź [`run`](/pl/docs/commands/run/) jest domyślnie krótka. Pełne wyjście jest przechowywane w pliku kolejki, a odpowiedź je kształtuje:
 
 | Reguła | Wartość domyślna |
 |---|---|
@@ -100,4 +100,4 @@ Od wersji 0.1.1 polecenie `next` i pole `continuation` zastępują dawne `read_h
 
 ## Dokąd dalej
 
-Strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany, zanim powstanie raport. Dokumentacja referencyjna [wyjścia raportu](/docs/reference/report-output/) wymienia każdą opcję, a [Nurt dla agentów AI](/pl/product/ai-agents/) opisuje, jak program-gospodarz czyta raporty.
+Strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany, zanim powstanie raport. Dokumentacja referencyjna [wyjścia raportu](/pl/docs/reference/report-output/) wymienia każdą opcję, a [Nurt dla agentów AI](/pl/product/ai-agents/) opisuje, jak program-gospodarz czyta raporty.

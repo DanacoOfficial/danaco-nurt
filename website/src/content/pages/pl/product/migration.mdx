@@ -16,7 +16,7 @@ keywords: [bash, PowerShell, migracja, ściągawka, poprawianie]
 
 ## Co konsola robi z nawykiem
 
-Wiersz zaczynający się od polecenia basha jest odczytywany według reguł powłoki POSIX, a wiersz zaczynający się od cmdletu w postaci `Verb-Noun` — jako PowerShell. Wiersz jest odczytywany jako polecenie basha, gdy ma zapis właściwy wyłącznie powłoce, taki jak flaga, operator lub `$NAME`. Konsola tłumaczy wiersz na program Nurt i pokazuje zarówno `corrected`, jak i `ran`, czyli program, który wykonano ([migracja z basha](/docs/guides/bash-migration/), [migracja z PowerShella](/docs/guides/powershell-migration/)).
+Wiersz zaczynający się od polecenia basha jest odczytywany według reguł powłoki POSIX, a wiersz zaczynający się od cmdletu w postaci `Verb-Noun` — jako PowerShell. Wiersz jest odczytywany jako polecenie basha, gdy ma zapis właściwy wyłącznie powłoce, taki jak flaga, operator lub `$NAME`. Konsola tłumaczy wiersz na program Nurt i pokazuje zarówno `corrected`, jak i `ran`, czyli program, który wykonano ([migracja z basha](/pl/docs/guides/bash-migration/), [migracja z PowerShella](/pl/docs/guides/powershell-migration/)).
 
 Tłumaczenie, które opiera się na założeniu i dotyka celu zmiany, czeka na wybór wywołującego. Odpowiedzią jest `E_AMBIGUOUS` z gotowymi programami, a wywołanie z `accept` uruchamia kandydata wybranego przez wywołującego. Flaga bez odpowiednika jest zgłaszana błędem, który wymienia parametry polecenia. Ściągawki podają wynik dla każdego nawyku: poprawiony automatycznie albo błąd niosący poprawkę.
 
@@ -87,21 +87,21 @@ run ["npm", "run", "build"] cwd: "/home/user/app" background: true
 
 ## Strony platform
 
-W systemach Linux i macOS `attributes`, `services` i `package.install` zajmują miejsce `chmod`, `systemctl` i menedżerów pakietów, a reguły wielkości liter w nazwach plików podążają za systemem ([przewodnik dla Uniksa](/docs/guides/unix/)). W systemie Windows rejestr jest adresowany jako ścieżka z przedrostkiem `registry:`, `windows.cim` zastępuje `Get-CimInstance` i `Invoke-CimMethod`, a pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` ([przewodnik dla Windows](/docs/guides/windows/)). Dostawca rejestru należy do systemu Windows.
+W systemach Linux i macOS `attributes`, `services` i `package.install` zajmują miejsce `chmod`, `systemctl` i menedżerów pakietów, a reguły wielkości liter w nazwach plików podążają za systemem ([przewodnik dla Uniksa](/pl/docs/guides/unix/)). W systemie Windows rejestr jest adresowany jako ścieżka z przedrostkiem `registry:`, `windows.cim` zastępuje `Get-CimInstance` i `Invoke-CimMethod`, a pliki w stronach kodowych takich jak 852 lub 1250 odczytuje się z parametrem `encoding` ([przewodnik dla Windows](/pl/docs/guides/windows/)). Dostawca rejestru należy do systemu Windows.
 
 ## Dokąd dalej
 
 <CardGrid columns={2}>
-  <Card title="Ściągawka: bash" icon="terminal" href="/docs/cheatsheets/nurt-for-bash-users/">
+  <Card title="Ściągawka: bash" icon="terminal" href="/pl/docs/cheatsheets/nurt-for-bash-users/">
     Każdy wiersz łączy polecenie basha z jego postacią w Nurcie.
   </Card>
-  <Card title="Ściągawka: PowerShell" icon="terminal" href="/docs/cheatsheets/nurt-for-powershell-users/">
+  <Card title="Ściągawka: PowerShell" icon="terminal" href="/pl/docs/cheatsheets/nurt-for-powershell-users/">
     Każdy wiersz łączy polecenie PowerShella z jego postacią w Nurcie.
   </Card>
-  <Card title="Przewodnik: migracja z basha" icon="book-open" href="/docs/guides/bash-migration/">
+  <Card title="Przewodnik: migracja z basha" icon="book-open" href="/pl/docs/guides/bash-migration/">
     Co jest poprawiane i jak obsługiwane są skrypty.
   </Card>
-  <Card title="Przewodnik: migracja z PowerShella" icon="book-open" href="/docs/guides/powershell-migration/">
+  <Card title="Przewodnik: migracja z PowerShella" icon="book-open" href="/pl/docs/guides/powershell-migration/">
     Tłumaczone cmdlety i ich parametry.
   </Card>
 </CardGrid>

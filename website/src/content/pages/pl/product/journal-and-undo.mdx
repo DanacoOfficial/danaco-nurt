@@ -16,7 +16,7 @@ keywords: [dziennik, cofanie, ponawianie, historia, odtwarzanie po awarii, reten
 
 ## Jak zapisywana jest zmiana
 
-Dziennik zapisuje każdą operację zmieniającą pliki, wartości dostawców lub stan repozytorium, razem z poprzednim stanem potrzebnym do cofnięcia. Jeden etap skutku jednego programu to jedna operacja z jednym numerem; odczyty i podglądy nie mają wpisu. Program z konstrukcją sterującą (`when`, `each`, `repeat`, `while`, `steps`) to jedna operacja i jeden wpis, w trybie „wszystko albo nic”. Kontraktem jest [specyfikacja dziennika](/docs/specification/journal/).
+Dziennik zapisuje każdą operację zmieniającą pliki, wartości dostawców lub stan repozytorium, razem z poprzednim stanem potrzebnym do cofnięcia. Jeden etap skutku jednego programu to jedna operacja z jednym numerem; odczyty i podglądy nie mają wpisu. Program z konstrukcją sterującą (`when`, `each`, `repeat`, `while`, `steps`) to jedna operacja i jeden wpis, w trybie „wszystko albo nic”. Kontraktem jest [specyfikacja dziennika](/pl/docs/specification/journal/).
 
 Kolejność kroków jest stała:
 
@@ -45,7 +45,7 @@ undo to: 30
 redo
 ```
 
-Strony poleceń [`history`](/docs/commands/history/), [`undo`](/docs/commands/undo/) i [`redo`](/docs/commands/redo/) opisują każdy parametr. `undo` bez argumentów odwraca najnowszą dostępną operację sesji, która sama nie jest cofnięciem.
+Strony poleceń [`history`](/pl/docs/commands/history/), [`undo`](/pl/docs/commands/undo/) i [`redo`](/pl/docs/commands/redo/) opisują każdy parametr. `undo` bez argumentów odwraca najnowszą dostępną operację sesji, która sama nie jest cofnięciem.
 
 Zanim cokolwiek zostanie zapisane, `undo` porównuje każdy element ze stanem, który dziennik zapisał po operacji. Jeśli plik zmienił się od tego czasu, nic nie jest zmieniane, chyba że `on_conflict` stanowi inaczej: `report` (domyślnie) kończy się błędem `E_JOURNAL_CONFLICT` i wypisuje różnice, `abort` kończy się błędem, `force` cofa mimo to, `include_later` cofa także późniejsze operacje na tych samych elementach, a `partial` przywraca elementy, które są jeszcze przechowywane.
 
@@ -57,18 +57,18 @@ Cofnięcie jest wpisem z własnym numerem i zachowuje bieżący stan tego, co pr
 
 ## Skutki poza systemem plików
 
-Skutek poza systemem plików jest cofany, gdy silnik potrafi wyprowadzić operację odwrotną ze stanu, który zapisał. Od wersji 0.1.1 silnik wyprowadza ją dla `start` i `stop` usługi (polecenie przeciwne), dla `enable` i `disable` przy typach uruchamiania `disabled` i `automatic` oraz dla zapory, tras, DNS, kont, grup, montowań, parametrów jądra i strefy czasowej (poprzednie wartości). [Przewodnik po administracji](/docs/guides/administration/) wymienia je wszystkie. Skutek bez operacji odwrotnej jest wymieniony w raporcie w polu `irreversible`, z przyczyną taką jak `service_changed`, `package_changed` lub `no_space_for_copy`.
+Skutek poza systemem plików jest cofany, gdy silnik potrafi wyprowadzić operację odwrotną ze stanu, który zapisał. Od wersji 0.1.1 silnik wyprowadza ją dla `start` i `stop` usługi (polecenie przeciwne), dla `enable` i `disable` przy typach uruchamiania `disabled` i `automatic` oraz dla zapory, tras, DNS, kont, grup, montowań, parametrów jądra i strefy czasowej (poprzednie wartości). [Przewodnik po administracji](/pl/docs/guides/administration/) wymienia je wszystkie. Skutek bez operacji odwrotnej jest wymieniony w raporcie w polu `irreversible`, z przyczyną taką jak `service_changed`, `package_changed` lub `no_space_for_copy`.
 
 Raport oznacza jako nieodwracalne między innymi:
 
 | Skutek | Dokumentacja |
 |---|---|
-| Restart usługi; zatrzymanie procesu albo zadania przez `stop` | [przewodnik po administracji](/docs/guides/administration/), polecenie `stop` |
-| `clock.set`, `accounts.password`, `power.cancel`, `disks.partition`, `disks.format`, natychmiastowy restart lub wyłączenie | [grupa administration](/docs/groups/administration/) |
-| Wywołanie `windows.cim`, którego metoda nie ma udokumentowanego przeciwieństwa | [`windows.cim`](/docs/commands/windows.cim/) |
-| Żądanie HTTP z `post`, `put`, `patch` lub `delete` | [grupa network](/docs/groups/network/) |
-| Program uruchomiony przez `run`, który pasuje do tabeli programów ze skutkami poza komputerem, na przykład `git push` | [`run`](/docs/commands/run/) |
-| `load_extension` oraz pragmy `temp_store_directory` i `data_store_directory` polecenia `sql` | podgląd [`sql`](/docs/commands/sql/) |
+| Restart usługi; zatrzymanie procesu albo zadania przez `stop` | [przewodnik po administracji](/pl/docs/guides/administration/), polecenie `stop` |
+| `clock.set`, `accounts.password`, `power.cancel`, `disks.partition`, `disks.format`, natychmiastowy restart lub wyłączenie | [grupa administration](/pl/docs/groups/administration/) |
+| Wywołanie `windows.cim`, którego metoda nie ma udokumentowanego przeciwieństwa | [`windows.cim`](/pl/docs/commands/windows.cim/) |
+| Żądanie HTTP z `post`, `put`, `patch` lub `delete` | [grupa network](/pl/docs/groups/network/) |
+| Program uruchomiony przez `run`, który pasuje do tabeli programów ze skutkami poza komputerem, na przykład `git push` | [`run`](/pl/docs/commands/run/) |
+| `load_extension` oraz pragmy `temp_store_directory` i `data_store_directory` polecenia `sql` | podgląd [`sql`](/pl/docs/commands/sql/) |
 
 Brak miejsca lub nieaktywny dziennik nigdy nie powoduje niepowodzenia operacji użytkownika: operacja jest wykonywana, a cel dostaje oznaczenie z przyczyną, na przykład `no_space_for_copy`, `journal_inactive` lub `too_large_for_journal`. Usunięcie nigdy nie kasuje danych po tym, jak dziennik nie zdołał ich zachować.
 
@@ -98,4 +98,4 @@ Wpis wygasa, gdy liczba późniejszych operacji, jego wiek lub bajty przechowywa
 
 ## Dokąd dalej
 
-[Raport skutków](/pl/product/effect-reports/) zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem. Książka kucharska ma 25 przepisów w kategorii [dziennik, cofanie i bezpieczeństwo](/docs/cookbook/journal-and-undo/), a [katalog poleceń](/pl/product/commands/) wymienia grupy.
+[Raport skutków](/pl/product/effect-reports/) zawiera numer operacji `op`, który łączy uruchomienie z jego wpisem. Książka kucharska ma 25 przepisów w kategorii [dziennik, cofanie i bezpieczeństwo](/pl/docs/cookbook/journal-and-undo/), a [katalog poleceń](/pl/product/commands/) wymienia grupy.

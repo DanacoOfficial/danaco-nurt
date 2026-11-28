@@ -47,7 +47,7 @@ Skrzynki wsparcia i narzędzi to `nurt-testkit`, `nurt-conformance`, `nurt-bench
 
 ## Reguły grafu zależności
 
-Dozwolone zależności między skrzynkami przestrzeni roboczej są danymi w `tables/crate-graph.toml`. Test `crates/nurt-contracts/tests/workspace_graph.rs` czyta każdy manifest i kończy się niepowodzeniem, gdy skrzynka deklaruje zależność, której tabela nie dopuszcza, więc nowa zależność między skrzynkami przestrzeni roboczej zaczyna się od zmiany tabeli. Reguły opisuje dokument [graf skrzynek i widoczność](/docs/architecture/crate-graph/):
+Dozwolone zależności między skrzynkami przestrzeni roboczej są danymi w `tables/crate-graph.toml`. Test `crates/nurt-contracts/tests/workspace_graph.rs` czyta każdy manifest i kończy się niepowodzeniem, gdy skrzynka deklaruje zależność, której tabela nie dopuszcza, więc nowa zależność między skrzynkami przestrzeni roboczej zaczyna się od zmiany tabeli. Reguły opisuje dokument [graf skrzynek i widoczność](/pl/docs/architecture/crate-graph/):
 
 - Każda skrzynka należy do jednej z ośmiu warstw budowania, od najniższej: kontrakt, fundament, baza, biblioteka, komponent, host, interfejs i narzędzie. Skrzynka zależy tylko od skrzynek tej samej lub niższej warstwy, a graf jest acykliczny.
 - Każda skrzynka należy też do obszaru: środowisko uruchomieniowe, język, przechowywanie, pliki, dane strukturalne, procesy, system, git lub integracja. Skrzynki różnych obszarów zależą od siebie tylko przez skrzynki wspólne, takie jak `nurt-contracts`, `nurt-types`, `nurt-catalog`, `nurt-fs` i `nurt-journal`. Warstwy hosta, interfejsu i narzędzi łączą skrzynki wszystkich obszarów.

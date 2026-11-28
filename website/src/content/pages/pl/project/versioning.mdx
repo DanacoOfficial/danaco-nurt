@@ -20,7 +20,7 @@ Program `nurt` jest wersjonowany według [Semantic Versioning 2.0.0](https://sem
 
 ## Co nosi jaką wersję
 
-Tabela łączy stronę dokumentacji [Versioning and support](/docs/guide/versioning/) ze stroną [Versions and compatibility](/docs/integrators/versioning/) przeznaczoną dla integratorów.
+Tabela łączy stronę dokumentacji [Versioning and support](/pl/docs/guide/versioning/) ze stroną [Versions and compatibility](/pl/docs/integrators/versioning/) przeznaczoną dla integratorów.
 
 | Element | Postać wersji | Zasada w obrębie wersji głównej |
 |---|---|---|
@@ -33,7 +33,7 @@ Tabela łączy stronę dokumentacji [Versioning and support](/docs/guide/version
 | Protokół | `nurt-rpc/1` | host sprawdza wersję główną i czyta listę funkcji zwracaną przez `initialize` |
 | Interfejs C | `NURT_ABI_MAJOR.MINOR`, nazwa biblioteki `libnurt.so.<MAJOR>` | funkcje, kody statusu i człony JSON są tylko dodawane, nigdy usuwane ani zmieniane |
 
-Format `nurt-ast/1` ma od wydania 0.1.1 wersję 1.1: wersja 1.1 dodaje konstrukcje sterujące (`when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`, `params`), a dokumenty w wersji 1.0 są odczytywane bez zmian. Strony specyfikacji to [drzewa składni](/docs/specification/syntax-tree/), [katalog](/docs/specification/catalog/) i [raport](/docs/specification/report/). Wartości interfejsu C to `NURT_ABI_MAJOR` = 1 i `NURT_ABI_MINOR` = 0, podane w [opisie interfejsu C](/docs/reference/c-abi/).
+Format `nurt-ast/1` ma od wydania 0.1.1 wersję 1.1: wersja 1.1 dodaje konstrukcje sterujące (`when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`, `params`), a dokumenty w wersji 1.0 są odczytywane bez zmian. Strony specyfikacji to [drzewa składni](/pl/docs/specification/syntax-tree/), [katalog](/pl/docs/specification/catalog/) i [raport](/pl/docs/specification/report/). Wartości interfejsu C to `NURT_ABI_MAJOR` = 1 i `NURT_ABI_MINOR` = 0, podane w [opisie interfejsu C](/pl/docs/reference/c-abi/).
 
 ## Jak czytnik traktuje nowszą wersję
 
@@ -54,9 +54,9 @@ Dla katalogu specyfikacja jest jednoznaczna: usunięcie lub zmiana nazwy polecen
 
 | Przedmiot | Zasada | Dokumentacja |
 |---|---|---|
-| Wycofanie elementu języka | oznaczone w `help`; usunięte najwcześniej po 24 miesiącach, w wersji głównej | [Versioning and support](/docs/guide/versioning/) |
-| Poprzednia wersja główna drzewa składni | przyjmowana przez co najmniej 24 miesiące | [Versioning and support](/docs/guide/versioning/) i [drzewa składni](/docs/specification/syntax-tree/) |
-| Wsparcie długoterminowe | jedno wydanie rocznie jest wydaniem wsparcia długoterminowego; przez 36 miesięcy dostaje poprawki błędów i podatności, bez nowych funkcji | [Versioning and support](/docs/guide/versioning/) |
+| Wycofanie elementu języka | oznaczone w `help`; usunięte najwcześniej po 24 miesiącach, w wersji głównej | [Versioning and support](/pl/docs/guide/versioning/) |
+| Poprzednia wersja główna drzewa składni | przyjmowana przez co najmniej 24 miesiące | [Versioning and support](/pl/docs/guide/versioning/) i [drzewa składni](/pl/docs/specification/syntax-tree/) |
+| Wsparcie długoterminowe | jedno wydanie rocznie jest wydaniem wsparcia długoterminowego; przez 36 miesięcy dostaje poprawki błędów i podatności, bez nowych funkcji | [Versioning and support](/pl/docs/guide/versioning/) |
 | Poprawki bezpieczeństwa | stosowane w gałęzi `main` i publikowane w nowym wydaniu | [SECURITY.md](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/SECURITY.md) |
 
 ## Nazwy używające wersji

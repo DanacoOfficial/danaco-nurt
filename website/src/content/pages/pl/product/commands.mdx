@@ -16,7 +16,7 @@ keywords: [katalog, polecenia, grupy, sygnatury, typy, walidacja]
 
 ## Czym jest katalog
 
-Katalog poleceń jest jedynym źródłem sygnatur poleceń. Czytają go wiązanie, wbudowana pomoc, opis dla modelu, dokumentacja referencyjna, definicje narzędzi i zestaw zgodności, tak jak definiuje to [specyfikacja katalogu](/docs/specification/catalog/). Składa się z plików TOML w formacie `nurt-catalog/1`: `core.toml` dla poleceń rdzenia, jednego pliku dla każdej opcjonalnej grupy oraz indeksu (`_index.toml`), który wymienia pliki i oczekiwaną liczbę poleceń.
+Katalog poleceń jest jedynym źródłem sygnatur poleceń. Czytają go wiązanie, wbudowana pomoc, opis dla modelu, dokumentacja referencyjna, definicje narzędzi i zestaw zgodności, tak jak definiuje to [specyfikacja katalogu](/pl/docs/specification/catalog/). Składa się z plików TOML w formacie `nurt-catalog/1`: `core.toml` dla poleceń rdzenia, jednego pliku dla każdej opcjonalnej grupy oraz indeksu (`_index.toml`), który wymienia pliki i oczekiwaną liczbę poleceń.
 
 <Stats>
   <Fact id="commands" />
@@ -46,27 +46,27 @@ Zmiany wykonane przez polecenie są zapisywane w [dzienniku](/pl/product/journal
 
 | Grupa | Polecenia | Obejmuje | Dokumentacja |
 |---|---|---|---|
-| core | 34 | pliki, tekst, rekordy, programy, dziennik i pomoc | [strony poleceń](/docs/commands/) |
-| documents | 3 | dokumenty strukturalne według klucza i bazy SQLite | [`set`](/docs/commands/set/) |
-| text | 11 | różnice, łatki, skróty, kodowania, wyrażenia i operacje na rekordach | [`diff`](/docs/commands/diff/) |
-| code | 13 | symbole, definicje, odwołania, diagnostyka, zmiana nazw, profil repozytorium | [`code.symbols`](/docs/commands/code.symbols/) |
-| notebook | 10 | komórki notatników Jupyter | [`notebook.cells`](/docs/commands/notebook.cells/) |
-| git | 22 | repozytoria Git | [grupa git](/docs/groups/git/) |
-| archive | 5 | archiwa i kompresja | [`archive.list`](/docs/commands/archive.list/) |
-| system | 11 | procesy, porty, dyski, host, środowisko, dzienniki systemowe, zawieszanie | [grupa system](/docs/groups/system/) |
-| administration | 34 | usługi, konta, grupy, montowania, parametry jądra, zasilanie, dyski, dostawca rejestru, CIM, zapora sieciowa, trasy, DNS i zegar | [grupa administration](/docs/groups/administration/) |
-| package | 5 | systemowe menedżery pakietów | [grupa package](/docs/groups/package/) |
-| network | 5 | żądania HTTP, pobieranie, rozpoznawanie nazw, ping, interfejsy | [grupa network](/docs/groups/network/) |
-| schedule | 7 | harmonogramy potoków | [grupa schedule](/docs/groups/schedule/) |
-| journal | 5 | dziennik: miejsce, limity, stan, przypięte wpisy, czyszczenie | [`journal.status`](/docs/commands/journal.status/) |
-| program | 4 | zainstalowane programy: wyszukiwanie, opisy | [grupa program](/docs/groups/program/) |
-| verify | 8 | testy i analiza kodu przez typowane opakowania | [`test.run`](/docs/commands/test.run/) |
+| core | 34 | pliki, tekst, rekordy, programy, dziennik i pomoc | [strony poleceń](/pl/docs/commands/) |
+| documents | 3 | dokumenty strukturalne według klucza i bazy SQLite | [`set`](/pl/docs/commands/set/) |
+| text | 11 | różnice, łatki, skróty, kodowania, wyrażenia i operacje na rekordach | [`diff`](/pl/docs/commands/diff/) |
+| code | 13 | symbole, definicje, odwołania, diagnostyka, zmiana nazw, profil repozytorium | [`code.symbols`](/pl/docs/commands/code.symbols/) |
+| notebook | 10 | komórki notatników Jupyter | [`notebook.cells`](/pl/docs/commands/notebook.cells/) |
+| git | 22 | repozytoria Git | [grupa git](/pl/docs/groups/git/) |
+| archive | 5 | archiwa i kompresja | [`archive.list`](/pl/docs/commands/archive.list/) |
+| system | 11 | procesy, porty, dyski, host, środowisko, dzienniki systemowe, zawieszanie | [grupa system](/pl/docs/groups/system/) |
+| administration | 34 | usługi, konta, grupy, montowania, parametry jądra, zasilanie, dyski, dostawca rejestru, CIM, zapora sieciowa, trasy, DNS i zegar | [grupa administration](/pl/docs/groups/administration/) |
+| package | 5 | systemowe menedżery pakietów | [grupa package](/pl/docs/groups/package/) |
+| network | 5 | żądania HTTP, pobieranie, rozpoznawanie nazw, ping, interfejsy | [grupa network](/pl/docs/groups/network/) |
+| schedule | 7 | harmonogramy potoków | [grupa schedule](/pl/docs/groups/schedule/) |
+| journal | 5 | dziennik: miejsce, limity, stan, przypięte wpisy, czyszczenie | [`journal.status`](/pl/docs/commands/journal.status/) |
+| program | 4 | zainstalowane programy: wyszukiwanie, opisy | [grupa program](/pl/docs/groups/program/) |
+| verify | 8 | testy i analiza kodu przez typowane opakowania | [`test.run`](/pl/docs/commands/test.run/) |
 
 Strony grup opisują zakres, rekordy, różnice między platformami i odwracalność; pozostałe grupy są opisane na stronach ich poleceń. Grupa administration ma od wersji 0.1.1 34 polecenia.
 
 ## Jak zbudowana jest strona polecenia
 
-Każde polecenie katalogu ma jedną stronę i każda strona należy do polecenia. Strona ma stałą kolejność sekcji, określoną w [konwencjach dokumentacji poleceń](/docs/commands/):
+Każde polecenie katalogu ma jedną stronę i każda strona należy do polecenia. Strona ma stałą kolejność sekcji, określoną w [konwencjach dokumentacji poleceń](/pl/docs/commands/):
 
 | Sekcja | Źródło |
 |---|---|
@@ -119,4 +119,4 @@ Poniższy indeks wymienia każde polecenie z jego streszczeniem. Każda nazwa pr
 
 ## Dokąd dalej
 
-Strona o [możliwościach](/pl/product/features/) grupuje polecenia według obiektu pracy, a strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany. [Książka kucharska](/docs/cookbook/) i [strony poleceń](/docs/commands/) zawierają programy.
+Strona o [możliwościach](/pl/product/features/) grupuje polecenia według obiektu pracy, a strona o [języku](/pl/product/language/) wyjaśnia, jak program jest sprawdzany. [Książka kucharska](/pl/docs/cookbook/) i [strony poleceń](/pl/docs/commands/) zawierają programy.
