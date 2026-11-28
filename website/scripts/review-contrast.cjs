@@ -3,12 +3,13 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           website.scripts.reviewContrast
-// Responsibility:   Measures the contrast of every visible text of the given pages against its ground, in the light and in the dark theme, and lists the texts below the level AA of WCAG (4.5 : 1, and 3 : 1 for large text). A ground that is an image or a gradient is not measured; the solid colours behind the text are.
+// Responsibility:   Measures the contrast of every visible text of the given pages against its ground, in the light and in the dark theme, and lists the texts below the level AA of WCAG (4.5 : 1, and 3 : 1 for large text). A ground that is an image or a gradient is not measured; the solid colours behind the text are. The variable REVIEW_WIDTH sets the width of the window (1440 by default); where the header shows the menu button, the menu is opened before the measurement.
 // Dependencies:     puppeteer-core supplied by the environment (not a dependency of the package)
 
 const puppeteer = require('puppeteer-core');
 
 const [base, ...addresses] = process.argv.slice(2);
+const width = Number(process.env.REVIEW_WIDTH) || 1440;
 
 /** Runs in the page: returns the kinds of text below the required contrast, each with its lowest ratio and a sample. */
 function measure() {
@@ -76,7 +77,7 @@ function measure() {
   let kinds = 0;
   for (const theme of ['light', 'dark']) {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1440, height: 900 });
+    await page.setViewport({ width, height: 900 });
     // Entrances fade the text in; with reduced motion the text has its final colour when it is measured.
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
     await page.evaluateOnNewDocument((chosen) => {
@@ -85,6 +86,13 @@ function measure() {
     }, theme);
     for (const address of addresses) {
       await page.goto(base + address, { waitUntil: 'networkidle2' });
+      const opened = await page.evaluate(() => {
+        const toggle = document.querySelector('[data-menu-toggle]');
+        if (!toggle || toggle.getClientRects().length === 0) return false;
+        toggle.click();
+        return true;
+      });
+      if (opened) await page.waitForFunction(() => document.querySelector('[data-menu-toggle]').getAttribute('aria-expanded') === 'true', { timeout: 3000 }).catch(() => {});
       const found = await page.evaluate(measure);
       for (const [name, entry] of Object.entries(found)) {
         kinds += 1;
@@ -94,5 +102,5 @@ function measure() {
     await page.close();
   }
   await browser.close();
-  console.log(`pages=${addresses.length} themes=2 kinds of text below the level=${kinds}`);
+  console.log(`pages=${addresses.length} width=${width} themes=2 kinds of text below the level=${kinds}`);
 })();

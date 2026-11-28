@@ -35,7 +35,7 @@ Three review scripts open a served site in a headless browser. They need `puppet
 | Script | Effect |
 |---|---|
 | `node scripts/review-audit.cjs <base address> <widths> [address pattern]` | opens every page found in `dist/` at each width and reports layout defects (horizontal scroll, elements outside the window, empty bands beside the text, cut words in tables, English documentation text on Polish pages), then clicks through the menu, the theme, the language switch, the install tabs, the feature tour, the search, the copy button and the pages for a missing address |
-| `node scripts/review-contrast.cjs <base address> <addresses…>` | measures every visible text of the given pages against its solid ground in the light and in the dark theme and lists the texts below 4.5 : 1 (3 : 1 for large text) |
+| `node scripts/review-contrast.cjs <base address> <addresses…>` | measures every visible text of the given pages against its solid ground in the light and in the dark theme and lists the texts below 4.5 : 1 (3 : 1 for large text); `REVIEW_WIDTH` sets the width of the window (1440 by default), and on a narrow window the menu is opened first |
 | `node scripts/review-screens.cjs <base address> <directory> <width or WxH> <address> [screens]` | writes screenshots of one page, one per screen of the window; `REVIEW_THEME` chooses the theme and `REVIEW_CLICK` clicks a selector first |
 
 ## 2. Deployment address
