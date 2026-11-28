@@ -26,7 +26,7 @@ Katalog `bindings/` zawiera klientów dla pięciu języków. Każdy oferuje to s
 | Java | `pl.danaco-group:nurt` oraz `nurt-ffm` dla zaplecza biblioteki | `PROCESS` w Javie 17 lub nowszej; `LIBRARY` przez Foreign Function and Memory API w Javie 22 lub nowszej |
 | .NET | `dotnet add package Danaco.Nurt` | `Library`, `Process`, `Auto`; .NET 8 i .NET Standard 2.0 |
 
-Koła Pythona, pakiety platformowe Node oraz pakiety Java i .NET zawierają plik wykonywalny `nurt` i `libnurt` dla systemów Linux, macOS i Windows na architekturach x86-64 i ARM64. Moduł Go odnajduje plik wykonywalny przez `ClientOptions.Executable`, `NURT_EXECUTABLE` lub `PATH`. Każde powiązanie ma testy, które działają względem silnika, gdy wskazuje go `NURT_TEST_EXECUTABLE`. W wydaniu 0.1.2 pakiet NuGet `Danaco.Nurt` i artefakt Maven `pl.danaco-group:nurt` są kanałami planowanymi: repozytorium nie ma dla nich kroku publikacji ([instalacja](/pl/docs/guide/installation/)).
+Koła Pythona, pakiety platformowe Node oraz pakiety Java i .NET zawierają plik wykonywalny `nurt` i `libnurt` dla systemów Linux, macOS i Windows na architekturach x86-64 i ARM64. Moduł Go odnajduje plik wykonywalny przez `ClientOptions.Executable`, `NURT_EXECUTABLE` lub `PATH`. Każde powiązanie ma testy, które działają względem silnika, gdy wskazuje go `NURT_TEST_EXECUTABLE`.
 
 Względem programu z archiwum glibc dla Linuksa powiązania przechodzą te kontrole: Go (`go vet`, `go test -race`), Node (120 z 120 testów), .NET (105 testów zaliczonych) i Java 21 (101 z 101 testów), wszystkie w wersji 0.1.1, Linux, 27 listopada 2026. Krótki przykład z README Pythona:
 

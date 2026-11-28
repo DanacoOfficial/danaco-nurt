@@ -39,7 +39,7 @@ Obsługiwane są systemy Linux, macOS i Windows, każdy na architekturach x86_64
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `.tar.gz` |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip` oraz kreator instalacji `nurt-<version>-<target>-setup.exe` |
 
-Wydanie 0.1.2 publikuje archiwa dla Linuksa i Windows. Nie ma archiwum dla macOS: w macOS program buduje się ze źródeł ([instalacja](/pl/docs/guide/installation/)).
+Wydanie 0.1.2 publikuje archiwa dla Linuksa i Windows; w macOS program buduje się ze źródeł ([instalacja](/pl/docs/guide/installation/)).
 
 Każde wydanie zawiera `checksums.txt` z sumami SHA-256 i podpis odłączony `checksums.txt.asc`. Archiwum programu dla Linuksa zawiera `nurt`, teksty licencji, strony podręcznika, skrypty uzupełniania dla Basha, Zsh, Fish, PowerShella i Elvisha oraz dokumentację jako witrynę działającą bez sieci; archiwum dla Windows zawiera `nurt.exe`, teksty licencji, skrypty uzupełniania i dokumentację.
 
@@ -57,7 +57,7 @@ Kandydat na wydanie 0.1.1 dał 12 archiwów dla sześciu celów; 12 z 12 sum si�
 
 `install.sh` w systemie Linux bierze statyczne archiwum musl, gdy wydanie je zawiera, a w przeciwnym razie archiwum glibc; maszyna z musl bierze archiwum musl. Z `--public-key` i `gpg` weryfikuje `checksums.txt.asc`. Oba skrypty czytają `NURT_VERSION` i `NURT_INSTALL_DIR`, a także `NURT_RELEASES_URL` dla innej lokalizacji wydań ([README pakietów](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/packaging/README.md)). `nurt.exe` nie żąda podniesienia uprawnień: jego manifest deklaruje poziom `asInvoker`, obsługę długich ścieżek i UTF-8 jako stronę kodową procesu. Polecenie `nurt version` wypisuje zainstalowaną wersję, a `nurt doctor` zgłasza właściwości systemu plików, uprawnienia, usługę i serwery języka.
 
-Od wersji 0.1.2 Windows ma też kreator instalacji, jeden plik zawierający archiwum programu. Kreator prowadzi przez wymagania, licencję, zakres (bieżący użytkownik albo wszyscy użytkownicy) i integrację: `PATH`, skróty, profil Windows Terminal, uzupełnianie w PowerShellu i pierwszy `nurt.toml`. Każda zmiana trafia do dziennika `setup-journal.jsonl` w folderze instalacji; naprawa, aktualizacja i cofnięcie ją odwracają, a `/S` instaluje bez okna. Wydanie podpisuje `nurt.exe` i pliki kreatora podpisem Authenticode; certyfikat jest samopodpisany, więc Windows zgłasza nieznanego wydawcę, dopóki certyfikat nie zostanie uznany za zaufany.
+Od wersji 0.1.2 Windows ma też kreator instalacji, jeden plik zawierający archiwum programu. Kreator prowadzi przez wymagania, licencję, zakres (bieżący użytkownik albo wszyscy użytkownicy) i integrację: `PATH`, skróty, profil Windows Terminal, uzupełnianie w PowerShellu i pierwszy `nurt.toml`. Każda zmiana trafia do dziennika `setup-journal.jsonl` w folderze instalacji; naprawa, aktualizacja i cofnięcie ją odwracają, a `/S` instaluje bez okna. Wydanie podpisuje `nurt.exe` i pliki kreatora podpisem Authenticode.
 
 ## Pakiety
 

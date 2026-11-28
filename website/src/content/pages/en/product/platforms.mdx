@@ -39,7 +39,7 @@ Linux, macOS and Windows are supported, each on x86_64 and aarch64 ([versioning 
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `.tar.gz` |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `.zip`, and the setup wizard `nurt-<version>-<target>-setup.exe` |
 
-Release 0.1.2 publishes archives for Linux and Windows. It has no macOS archive: on macOS the program is built from source ([installation](/docs/guide/installation/)).
+Release 0.1.2 publishes archives for Linux and Windows; on macOS the program is built from source ([installation](/docs/guide/installation/)).
 
 Each release carries `checksums.txt` with SHA-256 sums and a detached signature `checksums.txt.asc`. The program archive of Linux holds `nurt`, the license texts, manual pages, completion scripts for Bash, Zsh, Fish, PowerShell and Elvish, and the documentation as an offline site; the Windows archive holds `nurt.exe`, the license texts, the completion scripts and the documentation.
 
@@ -57,7 +57,7 @@ The release candidate of 0.1.1 produced 12 archives for six targets; 12 of 12 su
 
 `install.sh` takes the static musl archive on Linux when the release has one and the glibc archive otherwise; a machine with musl takes the musl archive. With `--public-key` and `gpg`, it verifies `checksums.txt.asc`. Both scripts read `NURT_VERSION` and `NURT_INSTALL_DIR`, and both read `NURT_RELEASES_URL` for another release location ([packaging README](https://github.com/DanacoOfficial/danaco-nurt/blob/release-0.1.2/packaging/README.md)). `nurt.exe` does not ask for elevation: its manifest declares the level `asInvoker`, long path support and UTF-8 as the code page of the process. The command `nurt version` prints the installed version, and `nurt doctor` reports the properties of the file system, the permissions, the service and the language servers.
 
-Since 0.1.2 Windows also has a setup wizard, one file that carries the program archive. It guides through the requirements, the license, the scope (current user or all users) and the integration: `PATH`, shortcuts, a Windows Terminal profile, PowerShell completion and a first `nurt.toml`. Every change is written to the journal `setup-journal.jsonl` in the installation folder; Repair, Update and Undo reverse it, and `/S` installs without a window. The release signs `nurt.exe` and the setup files with Authenticode; the certificate is self-signed, so Windows reports an unknown publisher until the certificate is trusted.
+Since 0.1.2 Windows also has a setup wizard, one file that carries the program archive. It guides through the requirements, the license, the scope (current user or all users) and the integration: `PATH`, shortcuts, a Windows Terminal profile, PowerShell completion and a first `nurt.toml`. Every change is written to the journal `setup-journal.jsonl` in the installation folder; Repair, Update and Undo reverse it, and `/S` installs without a window. The release signs `nurt.exe` and the setup files with Authenticode.
 
 ## Packages
 
