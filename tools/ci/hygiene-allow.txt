@@ -210,10 +210,9 @@ tool-mention website/src/i18n/ui/pl.ts
 # The drawing of the start banner on the website is the drawing of the program.
 emoji website/src/components/brand/banner-data.ts
 
-# The section of the website for AI labs and agent engines, the training
-# packages and their builder name AI, the roles of a conversation and the tool
-# definitions of the models; the training data repeats the documentation, which
-# contains the example addresses and paths of the command pages.
+# The website's training pages, packages and their builder name model
+# providers, conversation roles and tool definitions; the training data repeats
+# documentation containing the example addresses and paths of the command pages.
 tool-mention website/README.md
 tool-mention website/scripts/*
 tool-mention website/src/components/pages/HomePage.astro
