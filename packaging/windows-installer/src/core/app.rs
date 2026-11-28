@@ -140,6 +140,8 @@ pub(crate) fn runs_from_installation(existing: &Existing) -> bool {
 }
 
 /// Starts a copy of this program in the temporary directory, so that the original can be changed.
+/// The copy works in the temporary directory: a shortcut opens the original in the root of the
+/// installation, and a process whose working directory is that root keeps Windows from deleting it.
 pub(crate) fn relaunch_from_temp(arguments: &[String], wait: bool) -> SetupResult<Option<i32>> {
     let directory = paths::temp().join(format!("nurt-setup-copy-{}", std::process::id()));
     fs::create_dir_all(&directory).map_err(|error| SetupError::io(&directory, &error))?;
@@ -150,6 +152,7 @@ pub(crate) fn relaunch_from_temp(arguments: &[String], wait: bool) -> SetupResul
     full.push(directory.display().to_string());
     let mut child = Command::new(&copy)
         .args(&full)
+        .current_dir(paths::temp())
         .spawn()
         .map_err(|error| SetupError::io(&copy, &error))?;
     if wait {
@@ -163,11 +166,13 @@ pub(crate) fn relaunch_from_temp(arguments: &[String], wait: bool) -> SetupResul
 
 /// Runs a command line of `cmd.exe` in the background after a pause. The line is passed as it is: the
 /// quoting of the arguments of Rust would put a backslash before every quote and `cmd.exe` would not
-/// read the paths that follow.
+/// read the paths that follow. `cmd.exe` works in the temporary directory, outside the directories
+/// that it deletes.
 fn run_after_pause(seconds: u32, commands: &str) {
     let line = format!("/D /C \"ping -n {seconds} 127.0.0.1 >nul & {commands}\"");
     let _ = Command::new("cmd.exe")
         .raw_arg(line)
+        .current_dir(paths::temp())
         .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
         .spawn();
 }
