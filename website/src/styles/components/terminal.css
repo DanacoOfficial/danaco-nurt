@@ -73,6 +73,11 @@
   border: 0;
 }
 
+/* A code block in running text keeps the distance from the heading or the paragraph before it. */
+.prose > * + pre {
+  margin-top: var(--space-4);
+}
+
 .terminal pre code,
 .prose pre code {
   padding: 0;

@@ -1,10 +1,10 @@
 ---
 title: Prywatność
-description: "Co ta witryna zapisuje i wysyła oraz co program nurt przechowuje na Twoim komputerze: witryna jest statyczna, serwuje własne fonty i ikony i zapisuje w przeglądarce jedną wartość, motyw kolorystyczny."
+description: "Co ta witryna zapisuje i wysyła oraz co program nurt przechowuje na Twoim komputerze. Witryna jest statyczna, serwuje własne fonty i zapisuje w przeglądarce dwie wartości: motyw i znacznik wyboru języka."
 section: legal
 order: 1
 eyebrow: Informacje prawne
-lead: Ta witryna to zestaw plików statycznych, który zapisuje w przeglądarce jedną wartość, motyw kolorystyczny.
+lead: "Ta witryna to zestaw plików statycznych, który zapisuje w przeglądarce dwie wartości: motyw kolorystyczny i znacznik wyboru języka."
 updated: 2026-11-28
 related: [legal/accessibility, project/support, quality/security]
 keywords: [prywatność, pliki cookie, analityka, pamięć lokalna, telemetria]
@@ -23,12 +23,16 @@ Witryna Danaco Nurt jest witryną statyczną. Jej strony są generowane podczas 
 | Strony | serwowane jako pliki statyczne generowane podczas budowania |
 | Fonty, ikony i obrazy | serwowane przez samą witrynę jako część jej plików |
 | Skrypty | skrypty samej witryny: motyw, wyszukiwanie, przyciski kopiowania, menu i ruch |
-| Zapisywane w przeglądarce | jedna wartość, motyw kolorystyczny, pod kluczem `nurt-theme` |
+| Zapisywane w przeglądarce | dwie wartości: motyw kolorystyczny pod kluczem `nurt-theme` i znacznik wyboru języka pod kluczem `nurt-locale` |
 | Wysyłane do witryny | żądania przeglądarki o strony i pliki |
 
 ## Motyw kolorystyczny
 
 Witryna ma jasny i ciemny motyw kolorystyczny. Gdy wybierzesz motyw przełącznikiem w nagłówku, wybór jest zapisywany w pamięci lokalnej przeglądarki pod kluczem `nurt-theme`. Wartość pozostaje w przeglądarce. Przy następnej wizycie odczytuje ją mały skrypt witryny, aby strona otwierała się w wybranym motywie, a wartość nigdy nie jest wysyłana na serwer. Wyczyszczenie danych witryny w przeglądarce ją usuwa. Bez zapisanej wartości witryna stosuje preferencję systemu.
+
+## Język
+
+Witryna ma wersję angielską i polską. Przy pierwszej wizycie mały skrypt witryny odczytuje język przeglądarki: przeglądarka ustawiona na język polski otwiera polską wersję strony. Następnie skrypt zapisuje znacznik `chosen` w pamięci lokalnej przeglądarki pod kluczem `nurt-locale`, dlatego przy kolejnych wizytach o języku decyduje przełącznik w nagłówku. Znacznik pozostaje w przeglądarce i nigdy nie jest wysyłany na serwer. Wyczyszczenie danych witryny w przeglądarce go usuwa.
 
 ## Wyszukiwanie
 

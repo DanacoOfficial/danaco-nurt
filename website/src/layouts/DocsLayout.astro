@@ -109,5 +109,11 @@ const crumbs = [{ label: ui.docs.title, path: '/docs/' }, { label: sectionLabel,
         menu.toggleAttribute('data-open', open);
       });
     }
+    // The link of the open page is brought to the middle of the navigation column, which scrolls on its own.
+    const current = menu?.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (menu && current && menu.scrollHeight > menu.clientHeight) {
+      const offset = current.getBoundingClientRect().top - menu.getBoundingClientRect().top;
+      menu.scrollTop += offset - menu.clientHeight / 2;
+    }
   </script>
 </BaseLayout>

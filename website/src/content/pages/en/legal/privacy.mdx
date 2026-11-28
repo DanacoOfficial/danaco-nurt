@@ -1,10 +1,10 @@
 ---
 title: Privacy
-description: "What this website stores and sends, and what the program nurt keeps on your machine: the site is static, serves its own fonts and icons and stores one value, the colour theme, in your browser."
+description: "What this website stores and sends and what the program nurt keeps on your machine. The site is static, serves its own fonts and stores two values in your browser: the colour theme and the language mark."
 section: legal
 order: 1
 eyebrow: Legal
-lead: This website is a set of static files that stores one value in your browser, the colour theme.
+lead: "This website is a set of static files that stores two values in your browser: the colour theme and a mark that the language was chosen."
 updated: 2026-11-28
 related: [legal/accessibility, project/support, quality/security]
 keywords: [privacy, cookies, analytics, local storage, telemetry]
@@ -23,12 +23,16 @@ The website of Danaco Nurt is a static site. Its pages are generated when the si
 | Pages | served as static files generated at build time |
 | Fonts, icons and images | served by the site itself as part of its files |
 | Scripts | the scripts of the site itself: theme, search, copy buttons, menu and motion |
-| Stored in the browser | one value, the colour theme, under the key `nurt-theme` |
+| Stored in the browser | two values: the colour theme under the key `nurt-theme` and a mark that the language was chosen under the key `nurt-locale` |
 | Sent to the site | the requests of the browser for pages and files |
 
 ## The colour theme
 
 The site has a light and a dark colour theme. When you choose a theme with the toggle in the header, the choice is stored in the local storage of your browser under the key `nurt-theme`. The value stays in your browser. A small script of the site reads it on the next visit so that the page opens in the theme you chose, and the value is never sent to a server. Clearing the site data of your browser removes it. Without the stored value the site follows the preference of your system.
+
+## The language
+
+The site has an English and a Polish version. On the first visit a small script of the site reads the language of your browser: a browser set to Polish opens the Polish version of the page. The script then stores the mark `chosen` in the local storage of your browser under the key `nurt-locale`, so the language switch in the header decides on later visits. The mark stays in your browser and is never sent to a server. Clearing the site data of your browser removes it.
 
 ## Search
 
