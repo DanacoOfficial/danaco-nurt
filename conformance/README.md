@@ -6,7 +6,7 @@
 <!-- Responsibility:   Documents Danaco Nurt conformance suite. -->
 <!-- Dependencies:     none -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- Version:          0.1.2, 2026-11-28 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Danaco Nurt conformance suite
@@ -547,6 +547,13 @@ files that contain the identifier and answers only that case or the binding
 case with that identifier. Without it, the fake server loads the whole
 directory, and a request that matches calls of several cases is answered from
 the first of them in identifier order.
+
+The answers to the calls of the binding cases have the shape of the answers of
+the engine `nurt serve`. The result of `correct` holds the tree `ast` and, when
+the case states them, `ran` (the corrected program text) and `corrections`; it
+never holds a member `program`. The result of `info` holds `version`, `formats`
+and `features`. The result of `history` holds `operations`, and the result of
+`space` holds `volumes`.
 
 For a case that requires fixtures the runner also sets
 `NURT_CONFORMANCE_CASE_HTTP_BASE` to the address of the HTTP server and

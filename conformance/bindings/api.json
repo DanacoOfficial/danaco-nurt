@@ -38,7 +38,7 @@
       "steps": [
         {
           "call": "run",
-          "args": { "program": "find \"bindings\" glob: [\"*.go\"" },
+          "args": { "program": "find \"bindings\" glob: \"*.go\" |>" },
           "expect": {
             "outcome": "language_error",
             "code": "E_SYNTAX",
@@ -60,12 +60,12 @@
       ]
     },
     {
-      "id": "run.call-error-without-input",
-      "summary": "A request without program, tree, cursor or candidate is a call error with the status NURT_E_ARG.",
+      "id": "run.call-error-unknown-language",
+      "summary": "A request with a value of the option language that the envelope does not know does not match the request schema and is a call error with the status NURT_E_ARG.",
       "steps": [
         {
           "call": "run",
-          "args": { "options": { "limit": 1 } },
+          "args": { "program": "count", "options": { "language": "xx" } },
           "expect": { "outcome": "call_error", "status": "NURT_E_ARG" }
         }
       ]
@@ -73,13 +73,19 @@
     {
       "id": "run.page-with-cursor",
       "summary": "A cursor of a first page returns the next page through page.",
+      "fs": [
+        { "path": "src/a.go", "type": "file", "content_utf8": "package a\n" },
+        { "path": "src/b.go", "type": "file", "content_utf8": "package b\n" },
+        { "path": "src/c.go", "type": "file", "content_utf8": "package c\n" }
+      ],
       "steps": [
         {
           "call": "run",
-          "args": { "program": "list \"/home/user\" depth: 1", "options": { "limit": 1 } },
+          "args": { "program": "list \"src\" depth: 1", "options": { "base": "${base}", "limit": 1 } },
           "expect": {
             "outcome": "ok",
-            "fields": { "/ok": true, "/next_cursor": "c-bindings-1" }
+            "fields": { "/ok": true },
+            "present": ["/next_cursor"]
           }
         },
         {
@@ -105,8 +111,15 @@
     {
       "id": "start.events",
       "summary": "The events of an execution start with exec.started and end with exec.finished.",
+      "fs": [
+        { "path": "src/a.go", "type": "file", "content_utf8": "package a\n" }
+      ],
       "steps": [
-        { "call": "start", "args": { "program": "sleep 20ms" }, "expect": { "outcome": "ok" } },
+        {
+          "call": "start",
+          "args": { "program": "find \"src\" glob: \"*.go\"", "options": { "base": "${base}" } },
+          "expect": { "outcome": "ok" }
+        },
         {
           "call": "wait",
           "execution": 1,
@@ -145,13 +158,16 @@
     {
       "id": "check.bound-tree",
       "summary": "Check returns the bound tree without executing the program.",
+      "fs": [
+        { "path": "src/a.go", "type": "file", "content_utf8": "package a\n" }
+      ],
       "steps": [
         {
           "call": "check",
-          "args": { "program": "find \"bindings\" glob: \"*.go\"" },
+          "args": { "program": "find \"src\" glob: \"*.go\"", "options": { "base": "${base}" } },
           "expect": {
             "outcome": "ok",
-            "fields": { "/value/bound/bound": "1.0" },
+            "fields": { "/value/bound/bound": "1.1" },
             "present": ["/value/bound/program", "/value/ast_hash"]
           }
         }
@@ -166,7 +182,7 @@
           "args": { "program": "find \"bindings\"" },
           "expect": {
             "outcome": "ok",
-            "fields": { "/value/ast/nurt": "1.0", "/value/ast/program/statements/0/t": "pipeline" }
+            "fields": { "/value/ast/nurt": "1.1", "/value/ast/program/statements/0/t": "pipeline" }
           }
         }
       ]
@@ -178,7 +194,7 @@
         {
           "call": "parse",
           "args": { "program": "find(\"bindings\")", "variant": "b" },
-          "expect": { "outcome": "ok", "fields": { "/value/ast/nurt": "1.0" } }
+          "expect": { "outcome": "ok", "fields": { "/value/ast/nurt": "1.1" } }
         }
       ]
     },
@@ -213,18 +229,22 @@
               }
             }
           },
-          "expect": { "outcome": "ok", "fields": { "/value": "count" } }
+          "expect": { "outcome": "ok", "fields": { "/value": "count\n" } }
         }
       ]
     },
     {
       "id": "correct.quotes",
-      "summary": "Correct writes single quotes as double quotes.",
+      "summary": "Correct writes single quotes as double quotes and returns the corrected tree and the text that ran.",
       "steps": [
         {
           "call": "correct",
-          "args": { "program": "find 'bindings'" },
-          "expect": { "outcome": "ok", "fields": { "/value/program": "find \"bindings\"" } }
+          "args": { "program": "help 'find'" },
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/value/ran": "help \"find\"" },
+            "present": ["/value/ast"]
+          }
         }
       ]
     },
@@ -264,7 +284,7 @@
       "id": "history.entries",
       "summary": "History returns the journal entries.",
       "steps": [
-        { "call": "history", "args": { "query": "{\"limit\": 5}" }, "expect": { "outcome": "ok", "present": ["/value/entries"] } }
+        { "call": "history", "args": { "query": "{\"limit\": 5}" }, "expect": { "outcome": "ok", "present": ["/value/operations"] } }
       ]
     },
     {
@@ -276,11 +296,11 @@
     },
     {
       "id": "info.versions",
-      "summary": "Info names the version, the language and the features.",
+      "summary": "Info names the version, the formats and the features.",
       "steps": [
         {
           "call": "info",
-          "expect": { "outcome": "ok", "present": ["/value/version", "/value/language", "/value/features"] }
+          "expect": { "outcome": "ok", "present": ["/value/version", "/value/formats", "/value/features"] }
         }
       ]
     },

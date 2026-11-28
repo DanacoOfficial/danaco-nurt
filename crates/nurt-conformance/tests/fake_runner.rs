@@ -6,7 +6,7 @@
 // Responsibility:   The runner against the fake server.
 // Dependencies:     none
 // Author:           Danaco Official
-// Version:          0.1.1, 2026-11-27
+// Version:          0.1.2, 2026-11-28
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The runner against the fake server: every mandatory case passes on the
@@ -292,7 +292,7 @@ fn serve_reads_the_cases_from_the_environment() {
     let output = child.wait_with_output().unwrap();
     let line = String::from_utf8(output.stdout).unwrap();
     let message: serde_json::Value = serde_json::from_str(line.trim()).unwrap();
-    assert_eq!(message["result"]["ast"]["nurt"], "1.0");
+    assert_eq!(message["result"]["ast"]["nurt"], "1.1");
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
